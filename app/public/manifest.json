@@ -1,0 +1,21 @@
+{
+  "name": "SIGNAL",
+  "short_name": "SIGNAL",
+  "description": "Learn Go by keeping someone alive.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#040810",
+  "theme_color": "#040810",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
