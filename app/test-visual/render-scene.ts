@@ -103,6 +103,25 @@ try {
   console.error("Error painting guard:", e);
 }
 
+// Maya typing/hack animation (6 frames)
+try {
+  const hackFrames = paintMayaFrames("hack", 3);
+  console.log("Maya hack frames:", hackFrames.length, `size: ${hackFrames[0].width}x${hackFrames[0].height}`);
+  const hackCanvas = document.getElementById("maya-hack") as HTMLCanvasElement;
+  const hCtx = hackCanvas.getContext("2d")!;
+  hCtx.imageSmoothingEnabled = false;
+  hCtx.fillStyle = "#080e16";
+  hCtx.fillRect(0, 0, 720, 256);
+  hackFrames.forEach((f, i) => {
+    hCtx.drawImage(f, i * 120, 0);
+    hCtx.fillStyle = "#6effa0";
+    hCtx.font = "9px monospace";
+    hCtx.fillText(`F${i}`, i * 120 + 2, 250);
+  });
+} catch (e) {
+  console.error("Error painting maya hack:", e);
+}
+
 // Maya walk cycle strip (all 8 frames)
 try {
   const walkFrames = paintMayaFrames("walk-right", 3);

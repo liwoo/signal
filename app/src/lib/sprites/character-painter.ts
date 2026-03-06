@@ -22,7 +22,7 @@ const FRAME_COUNT: Record<CharAnimation, number> = {
   "walk-left": 8,
   "walk-down": 8,
   "walk-up": 8,
-  "hack": 4,
+  "hack": 6,
   "captured": 2,
 };
 
@@ -264,7 +264,18 @@ function drawMaya(ctx: CanvasRenderingContext2D, anim: CharAnimation, frame: num
 
   // ═══════════════ ARMS ═══════════════
   if (isHack) {
-    // Arms reaching forward (typing)
+    // Arms reaching forward, hands typing on keyboard
+    // 6 frames: alternating hand positions to simulate keystrokes
+    // Left hand moves on even frames, right hand on odd frames
+    const hf = frame % 6;
+    // Left hand vertical jitter (keystroke)
+    const lhY = (hf === 0 || hf === 2 || hf === 4) ? 1 : 0;
+    // Right hand vertical jitter
+    const rhY = (hf === 1 || hf === 3 || hf === 5) ? 1 : 0;
+    // Slight lateral shift — hands move across the keyboard
+    const lhX = hf < 2 ? 0 : hf < 4 ? 1 : -1;
+    const rhX = hf < 2 ? 0 : hf < 4 ? -1 : 1;
+
     // Left arm: hoodie sleeve → forearm skin → hand
     ctx.fillStyle = C.hoodieMid;
     ctx.fillRect(cx + 8, torsoTopY + 4, 5, 8);
@@ -277,12 +288,27 @@ function drawMaya(ctx: CanvasRenderingContext2D, anim: CharAnimation, frame: num
     ctx.fillRect(cx + 6, torsoTopY + 7, 5, 8);
     ctx.fillStyle = C.skinMid;
     ctx.fillRect(cx + 10, torsoTopY + 8, 5, 4);
-    // Hands
+    // Left hand — fingers down on keystroke frames
     ctx.fillStyle = C.skinMid;
-    ctx.fillRect(cx + 16, torsoTopY + 5, 4, 4);
-    ctx.fillRect(cx + 14, torsoTopY + 10, 4, 4);
+    ctx.fillRect(cx + 16 + lhX, torsoTopY + 5 + lhY, 4, 4);
     ctx.fillStyle = C.skinLight;
-    ctx.fillRect(cx + 16, torsoTopY + 5, 4, 1);
+    ctx.fillRect(cx + 16 + lhX, torsoTopY + 5 + lhY, 4, 1);
+    // Finger detail — individual finger tips pressing keys
+    if (lhY > 0) {
+      ctx.fillStyle = C.skinDark;
+      ctx.fillRect(cx + 16 + lhX, torsoTopY + 9 + lhY, 1, 1); // fingertip
+      ctx.fillRect(cx + 18 + lhX, torsoTopY + 9 + lhY, 1, 1);
+    }
+    // Right hand
+    ctx.fillStyle = C.skinMid;
+    ctx.fillRect(cx + 14 + rhX, torsoTopY + 10 + rhY, 4, 4);
+    ctx.fillStyle = C.skinLight;
+    ctx.fillRect(cx + 14 + rhX, torsoTopY + 10 + rhY, 4, 1);
+    if (rhY > 0) {
+      ctx.fillStyle = C.skinDark;
+      ctx.fillRect(cx + 14 + rhX, torsoTopY + 14 + rhY, 1, 1);
+      ctx.fillRect(cx + 16 + rhX, torsoTopY + 14 + rhY, 1, 1);
+    }
   } else {
     // Arms swing opposite to legs (counter-rotation)
     const leftArmSwing = pose ? pose.leftArm : 0;
