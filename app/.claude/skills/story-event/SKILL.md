@@ -38,9 +38,22 @@ BAD: "The correct answer is: fmt.Println(sum)"
 - **Act III** (Ch 7-9): Conflicted about Kira. Harder edge. Fewer pauses.
 - **Act IV+** (Ch 10-24): Hardened. Tactical. Still scared but channeling it.
 
+### The Amnesia Arc (Go Zen)
+
+Maya was gassed before being captured. Her CS knowledge is fragmented. When the player writes idiomatic Go, it "jolts" her memory — she suddenly becomes lucid and articulate about that specific Go concept, referencing her thesis, her professor, her encryption library.
+
+This is the **Go Zen** system. After each successful submission, deterministic code analysis checks for idiomatic patterns. If the player followed good patterns, Maya delivers a "memory jolt" — a moment of clarity where she explains the principle. If they didn't, she hints at something trying to come back but not quite making it.
+
+Over the course of the game, Maya recovers more of her CS knowledge. By Act III she's operating at full capacity — the zen jolts become more confident, more detailed, and start connecting her research to the escape plot.
+
 ## Event Timing
 
-Events fire at `triggerAtSeconds` after the challenge loads. The timing creates the *feel* of the game.
+Events are split into two scopes:
+
+1. **Level-wide events** (`challenge.events`) — fire once when the challenge loads. Use for scene-setting interrupts, power cuts, and ambient events that apply to the whole level.
+2. **Step-scoped events** (`step.events`) — fire when each step begins. Use for step-specific interrupts and rush triggers. Fresh timers start per step.
+
+Events fire at `triggerAtSeconds` after their scope starts. The timing creates the *feel* of the game.
 
 ### Pacing Rules
 
@@ -48,16 +61,29 @@ Events fire at `triggerAtSeconds` after the challenge loads. The timing creates 
 2. **2-5 second gap between interrupt and rush.** Build tension (interrupt), then apply pressure (rush timer). Never both at once.
 3. **5+ seconds between any two events.** Players need breathing room.
 4. **Power cuts come early** (8-12s) because they change the visual state for the rest of the challenge.
-5. **Rush mode triggers mid-challenge**, not at the start. Let them get oriented first.
+5. **Rush mode triggers mid-step**, not at the start of a step. Let them get oriented first.
+6. **Step-scoped rush can grant bonus time** — a step's `rushMode.bonusTimeSeconds` adds to the level timer when beaten.
 
-### Typical Event Sequence
+### Typical Event Sequence (Multi-Step)
 
 ```
-0s   — Challenge loads, player reads brief
+LEVEL START (level-wide events)
+0s   — Challenge loads, player reads step 1 brief
+
+STEP 1: SCAFFOLD (step-scoped events)
 12s  — Interrupt: Maya hears something ("...footsteps. two people.")
-15s  — Rush triggers: "GUARD APPROACHING" — 45 second timer starts
-45s+ — Either they solve it or the rush expires
+15s  — Step rush triggers: "SIGNAL DEGRADING" — 30s timer, +20s bonus on completion
+45s+ — Player completes step 1, advances to step 2
+
+STEP 2: TRANSMIT (step-scoped events)
+0s   — Step 2 brief shown, code carries forward
+20s  — Step rush triggers: "GUARD APPROACHING" — 45s timer
+65s+ — Player completes step 2, challenge complete
 ```
+
+### Jeopardy Events
+
+When `timer.gameOverOnExpiry` is false, timer expiry triggers jeopardy effects instead of game over. Jeopardy effects are pure functions in `src/lib/game/jeopardy.ts` — they modify game state (lock chat, narrow editor, scramble code, drain energy, burn hints) without ending the game.
 
 ## Twists
 

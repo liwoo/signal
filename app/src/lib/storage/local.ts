@@ -46,6 +46,7 @@ const DEFAULT_STATS: PlayerStats = {
   totalAttempts: 0,
   firstTryCount: 0,
   totalPlayTimeMs: 0,
+  hearts: 3,
 };
 
 const DEFAULT_UNLOCKS: PlayerUnlocks = {
@@ -66,6 +67,7 @@ const DEFAULT_SETTINGS: PlayerSettings = {
   vimModeEnabled: false,
   fontSize: 12,
   soundEnabled: true,
+  beginnerMode: true,
 };
 
 // ── Helpers ──

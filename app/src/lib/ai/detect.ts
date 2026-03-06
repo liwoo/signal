@@ -1,7 +1,7 @@
 import type { AIBackend } from "@/types/game";
 
 export async function detectMayaBackend(): Promise<AIBackend> {
-  // 1. Try Chrome Built-in AI (Gemini Nano)
+  // 1. Try Chrome Built-in AI (Gemini Nano) — free, on-device, instant
   if ("LanguageModel" in globalThis) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,15 +13,10 @@ export async function detectMayaBackend(): Promise<AIBackend> {
         return "gemini-nano";
       }
     } catch {
-      // Fall through to next backend
+      // Fall through to server-side
     }
   }
 
-  // 2. Try WebLLM (requires WebGPU)
-  if (typeof navigator !== "undefined" && "gpu" in navigator) {
-    return "webllm";
-  }
-
-  // 3. Fallback to Anthropic API
+  // 2. Server-side API (Ollama or Anthropic)
   return "anthropic-api";
 }

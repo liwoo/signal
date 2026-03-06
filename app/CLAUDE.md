@@ -21,6 +21,7 @@ A narrative coding game teaching Go through an escape thriller. Next.js 16 + Rea
 - **All game types live in `src/types/game.ts`.** Don't create parallel interfaces elsewhere.
 - **Named exports only.** `export function X()`, never `export default`.
 - **`"use client"` on any component with state, effects, or event handlers.**
+- **Code editor uses transparent-textarea overlay pattern.** Syntax highlighting via `src/lib/go/tokenizer.ts` renders into a `<pre>`, input captured by a transparent `<textarea>` on top. Vim mode lives in `src/hooks/useVim.ts` — never add vim logic to the editor component directly.
 
 ### Content
 
@@ -54,4 +55,4 @@ src/
 - **Level specs:** `../spec/levels/` — per-chapter/boss requirements
 - **Infrastructure specs:** `../spec/infrastructure/` — LSP, LLM, testing, persistence, auth, analytics
 - **Prototype:** `../inspo/inspo.jsx` — working single-file prototype (read for patterns, don't copy inline styles)
-- **Skills:** `.claude/skills/` — detailed how-to guides for content authoring, components, game logic, story, prompts
+- **Skills:** `.claude/skills/` — detailed how-to guides for content authoring, components, game logic, story, prompts, sprite art, visual testing

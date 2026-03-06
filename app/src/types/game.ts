@@ -16,6 +16,18 @@ export type KiraVerdict = "trusted" | "rejected" | null;
 
 // ── Challenge ──
 
+export interface ChallengeStep {
+  id: string;                        // e.g. "chapter-01:scaffold"
+  title: string;                     // e.g. "SCAFFOLD"
+  brief: string;                     // what the player needs to do
+  starterCode: string | null;        // null = carry forward from previous step
+  expectedBehavior: string;
+  hints: ChallengeHint[];
+  rushMode: RushConfig | null;       // step-scoped rush (optional)
+  xp: XPConfig;
+  events: TimedEvent[];              // step-scoped timed events
+}
+
 export interface Challenge {
   id: string;
   act: Act;
@@ -23,13 +35,9 @@ export interface Challenge {
   title: string;
   location: string;
   concepts: string[];
-  brief: string;
-  starterCode: string;
-  expectedBehavior: string;
-  hints: ChallengeHint[];
-  events: TimedEvent[];
-  rushMode: RushConfig | null;
-  xp: XPConfig;
+  steps: ChallengeStep[];
+  events: TimedEvent[];              // level-wide timed events (fire once at level start)
+  timer: LevelTimerConfig;
   isBoss: boolean;
   parTimeSeconds: number;
 }
@@ -51,6 +59,12 @@ export interface RushConfig {
   durationSeconds: number;
   label: string;
   onExpiry: JeopardyEvent;
+  bonusTimeSeconds: number; // time added to level timer on rush completion
+}
+
+export interface LevelTimerConfig {
+  timeLimitSeconds: number;  // total time to complete the level
+  gameOverOnExpiry: boolean; // true = Maya captured, false = jeopardy only
 }
 
 export interface XPConfig {
@@ -89,6 +103,7 @@ export interface PlayerStats {
   totalAttempts: number;
   firstTryCount: number;
   totalPlayTimeMs: number;
+  hearts: number;
 }
 
 export interface PlayerUnlocks {
@@ -109,6 +124,7 @@ export interface PlayerSettings {
   vimModeEnabled: boolean;
   fontSize: number;
   soundEnabled: boolean;
+  beginnerMode: boolean;
 }
 
 // ── Chat ──
@@ -159,7 +175,7 @@ export interface MarketItem {
 
 // ── AI Backend ──
 
-export type AIBackend = "gemini-nano" | "webllm" | "anthropic-api";
+export type AIBackend = "gemini-nano" | "anthropic-api";
 
 // ── Level Config ──
 

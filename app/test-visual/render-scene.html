@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Scene Visual Test</title>
+  <style>
+    body { margin: 0; background: #020406; display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; }
+    canvas { border: 1px solid #0a2030; }
+    .label { color: #6effa0; font-family: monospace; font-size: 11px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="label">CELL B-09 (640x420)</div>
+    <canvas id="cell" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">CORRIDOR (640x420)</div>
+    <canvas id="corridor" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">CHASE (640x420)</div>
+    <canvas id="chase" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">SERVER ROOM (640x420)</div>
+    <canvas id="server" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">MAYA IN CELL (640x420)</div>
+    <canvas id="composite" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">MAYA CHARACTER (160x256)</div>
+    <canvas id="maya" width="160" height="256"></canvas>
+  </div>
+  <div>
+    <div class="label">GUARD CHARACTER (160x256)</div>
+    <canvas id="guard" width="160" height="256"></canvas>
+  </div>
+  <div>
+    <div class="label">MAYA WALK CYCLE (8 frames)</div>
+    <canvas id="maya-walk" width="960" height="256"></canvas>
+  </div>
+  <div>
+    <div class="label">GUARD WALK CYCLE (8 frames)</div>
+    <canvas id="guard-walk" width="960" height="256"></canvas>
+  </div>
+  <script type="module" src="./render-scene.ts"></script>
+</body>
+</html>
