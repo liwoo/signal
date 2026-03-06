@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { PixiScene } from "./PixiScene";
 import { TypeText } from "./TypeText";
-import type { SceneDefinition } from "@/lib/sprites/scenes";
+import type { SceneDefinition, AudioCue } from "@/lib/sprites/scenes";
+import { useAudio } from "@/hooks/useAudio";
+import type { SfxName, AmbienceName, MusicName } from "@/hooks/useAudio";
 
 interface CinematicSceneProps {
   scenes: SceneDefinition[];
@@ -29,15 +31,21 @@ export function CinematicScene({
   const [captionKey, setCaptionKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedRef = useRef(false);
+  const cueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const audio = useAudio();
 
   const currentScene = scenes[sceneIndex] ?? scenes[0];
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
+    // Clear pending audio cues
+    for (const t of cueTimersRef.current) clearTimeout(t);
+    cueTimersRef.current = [];
+    audio.stopAllLoops(800);
     setFadePhase("out");
     setTimeout(onComplete, 600);
-  }, [onComplete]);
+  }, [onComplete, audio]);
 
   // Fade in on mount
   useEffect(() => {
@@ -62,6 +70,54 @@ export function CinematicScene({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [sceneIndex, fadePhase, currentScene.durationMs, scenes.length, finish]);
+
+  // Fire audio cues for current scene
+  useEffect(() => {
+    if (fadePhase !== "playing") return;
+    const cues = currentScene.audio;
+    if (!cues || cues.length === 0) return;
+
+    // Clear any cues from previous scene
+    for (const t of cueTimersRef.current) clearTimeout(t);
+    cueTimersRef.current = [];
+
+    const fireCue = (cue: AudioCue) => {
+      if (completedRef.current) return;
+      switch (cue.action) {
+        case "sfx":
+          if (cue.sound) audio.playSfx(cue.sound as SfxName, cue.volume ?? 0.4);
+          break;
+        case "loop-start":
+          if (cue.sound)
+            audio.startLoop(
+              cue.sound as AmbienceName | MusicName,
+              cue.volume ?? 0.2,
+              cue.fadeMs ?? 1500
+            );
+          break;
+        case "loop-stop":
+          if (cue.sound) audio.stopLoop(cue.sound as AmbienceName | MusicName, cue.fadeMs ?? 1500);
+          break;
+        case "footsteps":
+          audio.playFootsteps(cue.count ?? 4, cue.intervalMs ?? 480, cue.volume ?? 0.3, cue.variant ?? "metal");
+          break;
+      }
+    };
+
+    for (const cue of cues) {
+      if (cue.atMs <= 0) {
+        fireCue(cue);
+      } else {
+        const t = setTimeout(() => fireCue(cue), cue.atMs);
+        cueTimersRef.current.push(t);
+      }
+    }
+
+    return () => {
+      for (const t of cueTimersRef.current) clearTimeout(t);
+      cueTimersRef.current = [];
+    };
+  }, [sceneIndex, fadePhase, currentScene, audio]);
 
   // Skip on keypress
   useEffect(() => {

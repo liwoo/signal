@@ -62,6 +62,16 @@ body {
   animation: blink 1s step-end infinite;
 }
 
+/* Gentle pulse for pause indicator */
+@keyframes pulse-dim-kf {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.pulse-dim {
+  animation: pulse-dim-kf 2s ease-in-out infinite;
+}
+
 /* Screen flicker for power cut events */
 @keyframes flicker {
   0% { opacity: 1; }

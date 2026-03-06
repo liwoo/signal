@@ -15,22 +15,39 @@ import { TwistReveal } from "@/components/story/TwistReveal";
 import { XPBurst } from "@/components/story/XPBurst";
 import { StreakLabel } from "@/components/story/StreakLabel";
 import { GameOver } from "@/components/story/GameOver";
+import { WinModal } from "@/components/game/WinModal";
+import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { CinematicScene } from "@/components/story/CinematicScene";
 import { MayaAnimation } from "@/components/story/MayaAnimation";
 import { INTRO_SCENES, CHAPTER_01_COMPLETE_SCENES } from "@/lib/sprites/scenes";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
+import { MobileGate } from "@/components/game/MobileGate";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { loadSettings, saveSettings } from "@/lib/storage/local";
+import { useGameAudio } from "@/hooks/useGameAudio";
 
 export default function Home() {
+  return (
+    <MobileGate>
+      <GameScreen />
+    </MobileGate>
+  );
+}
+
+function GameScreen() {
   const [state, actions] = useGame(chapter01, chapter01Twist);
+  const audio = useGameAudio(state);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
   const beginnerNotes = getBeginnerNotes(chapter01.id);
 
   if (state.phase === "intro" && !showCinematic && !showBeginner) {
-    return <IntroScreen onStart={() => setShowCinematic(true)} />;
+    return <IntroScreen onStart={() => {
+      // Pre-warm audio on user gesture (browser requires interaction)
+      audio.startLoop("dark-drone-1", 0.08, 5000);
+      setShowCinematic(true);
+    }} />;
   }
 
   if (showCinematic) {
@@ -94,7 +111,20 @@ export default function Home() {
         />
       );
     }
-    return <WinScreen xp={state.xp} level={state.level} />;
+    return (
+      <WinModal
+        xp={state.xp}
+        level={state.level}
+        library={state.library}
+        onRetry={() => {
+          setShowWinCinematic(false);
+          actions.retryFromCheckpoint();
+        }}
+        onContinue={() => {
+          // TODO: navigate to next chapter when available
+        }}
+      />
+    );
   }
 
   return (
@@ -136,12 +166,6 @@ export default function Home() {
           onExpire={actions.dismissRush}
         />
       )}
-
-      {/* Maya pixel art freeze-frame */}
-      <MayaAnimation
-        animation={state.inRush ? "walk-right" : "hack"}
-        location={chapter01.location}
-      />
 
       {/* Scanline */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
@@ -204,6 +228,10 @@ export default function Home() {
               location={chapter01.location}
               onMayaTypingStart={actions.onMayaTypingStart}
               onMayaTypingEnd={actions.onMayaTypingEnd}
+              waitingForContinue={state.waitingForContinue}
+              explainUsed={state.explainUsed}
+              onContinue={actions.resumeFromPause}
+              onExplain={actions.requestExplain}
             />
           </div>
 
@@ -217,7 +245,7 @@ export default function Home() {
                 borderBottom: "1px solid #0a1820",
               }}
             >
-              {([["code", "< CODE />"], ["mission", "MISSION"]] as const).map(
+              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"]] as const).map(
                 ([t, label]) => (
                   <button
                     key={t}
@@ -308,6 +336,12 @@ export default function Home() {
                 inRush={state.inRush}
                 baseXP={state.currentStep.xp.base}
                 rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
+                camFeed={
+                  <MayaAnimation
+                    animation={state.inRush ? "walk-right" : "hack"}
+                    location={chapter01.location}
+                  />
+                }
               />
             )}
             {state.tab === "mission" && (
@@ -317,6 +351,9 @@ export default function Home() {
                 currentStepIndex={state.currentStepIndex}
                 totalSteps={state.totalSteps}
               />
+            )}
+            {state.tab === "library" && (
+              <LibraryPanel library={state.library} />
             )}
           </div>
         </div>
@@ -447,43 +484,3 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
   );
 }
 
-function WinScreen({ xp, level }: { xp: number; level: number }) {
-  return (
-    <div
-      className="min-h-dvh flex flex-col items-center justify-center p-8"
-      style={{ background: "var(--color-background)" }}
-    >
-      <div
-        className="font-[family-name:var(--font-display)] font-black text-[var(--color-signal)] tracking-[6px] text-center mb-1.5 glow-pulse"
-        style={{ fontSize: "clamp(28px, 6vw, 52px)" }}
-      >
-        CHAPTER 1 COMPLETE
-      </div>
-      <div className="text-[#1a8a4a] text-[9px] tracking-[5px] mb-8">
-        HANDSHAKE ESTABLISHED
-      </div>
-
-      <div className="border border-[#1a3a2a] p-4.5 px-8 text-center mb-1.5" style={{ background: "rgba(0,255,80,.02)" }}>
-        <div className="text-[#1a6a3a] text-[8px] tracking-[4px] mb-1">TOTAL XP</div>
-        <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[44px] font-black">
-          {xp}
-        </div>
-        <div className="text-[#1a5a3a] text-[9px] tracking-[3px]">
-          LEVEL {level} · PROGRAMMER
-        </div>
-      </div>
-
-      <div className="text-[var(--color-win)] text-[11px] text-center mt-5 max-w-[380px] leading-[1.8]">
-        guards were talking about an encryption thesis.
-        <br />
-        <span className="text-[#4a8a6a]">
-          maya wasn&apos;t taken at random — they want her research.
-        </span>
-        <br />
-        <span className="text-[#2a6a4a] text-[10px]">
-          chapter 2 awaits.
-        </span>
-      </div>
-    </div>
-  );
-}

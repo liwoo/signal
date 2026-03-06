@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { analyzeZen, buildZenMessage, ZEN_RULES } from "./zen";
+import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen";
 
 // ── Registry Tests ──
 
@@ -41,7 +41,7 @@ describe("zen rules registry", () => {
 
   test("max possible XP per step", () => {
     const maxXP: Record<string, number> = {
-      "chapter-01:scaffold": 15,   // 10 + 5
+      "chapter-01:scaffold": 15,   // 10 + 3 + 2
       "chapter-01:location": 35,   // 10 + 15 + 10
       "chapter-02:loop": 5,        // 5
       "chapter-02:classify": 25,   // 15 + 10
@@ -57,7 +57,7 @@ describe("zen rules registry", () => {
 
 // ── Chapter 01: Scaffold ──
 
-describe("chapter-01:scaffold — multiple submissions", () => {
+describe("chapter-01:scaffold — zen detection", () => {
   const STEP = "chapter-01:scaffold";
 
   const entries: Array<{
@@ -68,7 +68,7 @@ describe("chapter-01:scaffold — multiple submissions", () => {
     suggestionCount: number;
   }> = [
     {
-      name: "perfect: grouped import + blank lines",
+      name: "perfect: grouped import + blank after package + blank after import",
       code: `package main
 
 import (
@@ -79,7 +79,7 @@ func main() {
   fmt.Println("hello")
 }`,
       expectedXP: 15,
-      joltCount: 2,
+      joltCount: 3,
       suggestionCount: 0,
     },
     {
@@ -93,10 +93,10 @@ func main() {
 }`,
       expectedXP: 10,
       joltCount: 1,
-      suggestionCount: 1,
+      suggestionCount: 2,
     },
     {
-      name: "non-grouped import, with blank lines",
+      name: "non-grouped import, with all blank lines",
       code: `package main
 
 import "fmt"
@@ -105,7 +105,7 @@ func main() {
   fmt.Println("hello")
 }`,
       expectedXP: 5,
-      joltCount: 1,
+      joltCount: 2,
       suggestionCount: 1,
     },
     {
@@ -115,7 +115,7 @@ import "fmt"
 func main() {}`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 2,
+      suggestionCount: 3,
     },
     {
       name: "grouped with multiple imports + clean structure",
@@ -130,7 +130,7 @@ func main() {
   fmt.Println(strings.ToUpper("hello"))
 }`,
       expectedXP: 15,
-      joltCount: 2,
+      joltCount: 3,
       suggestionCount: 0,
     },
     {
@@ -145,8 +145,71 @@ func main() {
 \tfmt.Println("hello")
 }`,
       expectedXP: 15,
-      joltCount: 2,
+      joltCount: 3,
       suggestionCount: 0,
+    },
+    {
+      name: "grouped import + blank after package only (no blank after import)",
+      code: `package main
+
+import (
+  "fmt"
+)
+func main() {
+  fmt.Println("hello")
+}`,
+      expectedXP: 13,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+    {
+      name: "grouped import + blank after import only (no blank after package)",
+      code: `package main
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`,
+      expectedXP: 12,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+    {
+      name: "starter code comments then clean code",
+      code: `// write a valid Go program skeleton
+// every .go file needs three things:
+// 1. package declaration
+// 2. import statement (we need "fmt")
+// 3. func main() { }
+package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`,
+      expectedXP: 15,
+      joltCount: 3,
+      suggestionCount: 0,
+    },
+    {
+      name: "starter code comments, player skips blank after package",
+      code: `// 3. func main() { }
+package main
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`,
+      expectedXP: 12,
+      joltCount: 2,
+      suggestionCount: 1,
     },
   ];
 
@@ -158,11 +221,37 @@ func main() {
       expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
     });
   }
+
+  test("suggestion for package sep is specific, not generic", () => {
+    const code = `package main
+import (
+  "fmt"
+)
+
+func main() {}`;
+    const result = analyzeZen(STEP, code);
+    // Should suggest blank after package, NOT "add blank lines between everything"
+    const packageSugg = result.suggestions.find(s => s.includes("package"));
+    expect(packageSugg).toBeTruthy();
+    expect(packageSugg).toContain("blank line after");
+  });
+
+  test("suggestion for import sep is specific, not generic", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+func main() {}`;
+    const result = analyzeZen(STEP, code);
+    const importSugg = result.suggestions.find(s => s.includes("import") && s.includes("func"));
+    expect(importSugg).toBeTruthy();
+  });
 });
 
 // ── Chapter 01: Location ──
 
-describe("chapter-01:location — multiple submissions", () => {
+describe("chapter-01:location — zen detection", () => {
   const STEP = "chapter-01:location";
 
   const entries: Array<{
@@ -213,9 +302,9 @@ func main() {
   level := 3
   fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, level)
 }`,
-      expectedXP: 25,
-      joltCount: 2,
-      suggestionCount: 1,
+      expectedXP: 35,  // := counts as named values
+      joltCount: 3,
+      suggestionCount: 0,
     },
     {
       name: "single-letter vars + Println concatenation",
@@ -227,9 +316,9 @@ func main() {
   x := "B-09"
   fmt.Println("CELL " + x + " · SUBLEVEL 3")
 }`,
-      expectedXP: 0,
-      joltCount: 0,
-      suggestionCount: 3,
+      expectedXP: 10,  // := with literal triggers use_named_values
+      joltCount: 1,
+      suggestionCount: 2,  // misses printf + descriptive_names
     },
     {
       name: "hard-coded string, no variables at all",
@@ -303,7 +392,7 @@ func main() {
 
 // ── Chapter 02: Loop ──
 
-describe("chapter-02:loop — multiple submissions", () => {
+describe("chapter-02:loop — zen detection", () => {
   const STEP = "chapter-02:loop";
 
   const entries: Array<{
@@ -406,7 +495,7 @@ func main() {
 
 // ── Chapter 02: Classify ──
 
-describe("chapter-02:classify — multiple submissions", () => {
+describe("chapter-02:classify — zen detection", () => {
   const STEP = "chapter-02:classify";
 
   const entries: Array<{
@@ -536,7 +625,7 @@ describe("chapter-02:classify — multiple submissions", () => {
 
 // ── Chapter 03: Sum Function ──
 
-describe("chapter-03:sumfunc — multiple submissions", () => {
+describe("chapter-03:sumfunc — zen detection", () => {
   const STEP = "chapter-03:sumfunc";
 
   const entries: Array<{
@@ -683,7 +772,7 @@ describe("chapter-03:sumfunc — multiple submissions", () => {
 
 // ── Chapter 03: Validate ──
 
-describe("chapter-03:validate — multiple submissions", () => {
+describe("chapter-03:validate — zen detection", () => {
   const STEP = "chapter-03:validate";
 
   const entries: Array<{
@@ -806,7 +895,7 @@ import "fmt"
 func main() { fmt.Println("hello") }`;
     const result = analyzeZen("chapter-01:scaffold", code);
     expect(result.bonusXP).toBe(0);
-    expect(result.suggestions.length).toBe(2);
+    expect(result.suggestions.length).toBe(3);
   });
 
   test("ch01 scaffold: experienced dev writes clean go", () => {
@@ -822,6 +911,42 @@ func main() {
     const result = analyzeZen("chapter-01:scaffold", code);
     expect(result.bonusXP).toBe(15);
     expect(result.suggestions.length).toBe(0);
+  });
+
+  test("ch01 scaffold: player groups import but skips blank after package", () => {
+    const code = `package main
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`;
+    const result = analyzeZen("chapter-01:scaffold", code);
+    // Should get credit for grouped import + import/func sep
+    expect(result.bonusXP).toBe(12); // 10 + 0 + 2
+    expect(result.jolts.length).toBe(2);
+    expect(result.suggestions.length).toBe(1);
+    // Suggestion should be specific to package spacing
+    expect(result.suggestions[0]).toContain("package");
+  });
+
+  test("ch01 scaffold: player groups import but skips blank after import", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+func main() {
+  fmt.Println("hello")
+}`;
+    const result = analyzeZen("chapter-01:scaffold", code);
+    // Should get credit for grouped import + package sep
+    expect(result.bonusXP).toBe(13); // 10 + 3 + 0
+    expect(result.jolts.length).toBe(2);
+    expect(result.suggestions.length).toBe(1);
+    // Suggestion should be specific to import/func spacing
+    expect(result.suggestions[0]).toContain("import");
   });
 
   test("ch01 location: player uses string interpolation via Sprintf", () => {
@@ -1078,14 +1203,25 @@ describe("buildZenMessage", () => {
     expect(msg).toContain("[ZEN +15 XP]");
   });
 
-  test("picks first jolt only to avoid wall of text", () => {
+  test("includes ALL jolts, not just the first", () => {
     const msg = buildZenMessage({
       bonusXP: 20,
       jolts: ["first jolt about imports", "second jolt about structure"],
       suggestions: [],
     });
     expect(msg).toContain("first jolt about imports");
-    expect(msg).not.toContain("second jolt about structure");
+    expect(msg).toContain("second jolt about structure");
+  });
+
+  test("includes three jolts when all rules pass", () => {
+    const msg = buildZenMessage({
+      bonusXP: 15,
+      jolts: ["jolt one", "jolt two", "jolt three"],
+      suggestions: [],
+    });
+    expect(msg).toContain("jolt one");
+    expect(msg).toContain("jolt two");
+    expect(msg).toContain("jolt three");
   });
 
   test("frames suggestion as memory trying to return when no jolts", () => {
@@ -1120,7 +1256,7 @@ describe("buildZenMessage", () => {
     expect(msg).not.toContain("[ZEN");
   });
 
-  test("multiple suggestions only picks first", () => {
+  test("only one suggestion even when multiple exist", () => {
     const msg = buildZenMessage({
       bonusXP: 0,
       jolts: [],
@@ -1130,6 +1266,62 @@ describe("buildZenMessage", () => {
     expect(msg).not.toContain("second suggestion");
     expect(msg).not.toContain("third suggestion");
   });
+
+  test("includes missedXP when provided", () => {
+    const msg = buildZenMessage(
+      { bonusXP: 10, jolts: ["nice"], suggestions: [] },
+      5
+    );
+    expect(msg).toContain("+5 more XP");
+  });
+
+  test("excludes missedXP when 0", () => {
+    const msg = buildZenMessage(
+      { bonusXP: 15, jolts: ["nice"], suggestions: [] },
+      0
+    );
+    expect(msg).not.toContain("more XP");
+  });
+});
+
+// ── calculateMissedXP Tests ──
+
+describe("calculateMissedXP", () => {
+  test("returns 0 when all rules pass", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`;
+    const result = analyzeZen("chapter-01:scaffold", code);
+    expect(calculateMissedXP("chapter-01:scaffold", result)).toBe(0);
+  });
+
+  test("returns max XP when no rules pass", () => {
+    const result = analyzeZen("chapter-01:scaffold", "package main\nimport \"fmt\"\nfunc main() {}");
+    expect(calculateMissedXP("chapter-01:scaffold", result)).toBe(15);
+  });
+
+  test("returns difference for partial pass", () => {
+    const code = `package main
+import (
+  "fmt"
+)
+
+func main() {}`;
+    const result = analyzeZen("chapter-01:scaffold", code);
+    // grouped import (10) + import sep (2) = 12, missed package sep (3)
+    expect(calculateMissedXP("chapter-01:scaffold", result)).toBe(3);
+  });
+
+  test("returns 0 for unknown step", () => {
+    const result = analyzeZen("unknown:step", "any");
+    expect(calculateMissedXP("unknown:step", result)).toBe(0);
+  });
 });
 
 // ── Edge Cases ──
@@ -1138,7 +1330,7 @@ describe("edge cases", () => {
   test("empty code string", () => {
     const result = analyzeZen("chapter-01:scaffold", "");
     expect(result.bonusXP).toBe(0);
-    expect(result.suggestions.length).toBe(2);
+    expect(result.suggestions.length).toBe(3);
   });
 
   test("code with only comments", () => {
@@ -1161,7 +1353,7 @@ func main() {
 
 }`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // grouped import + clean structure still pass with extra whitespace
+    // grouped import + both seps still pass with extra whitespace
     expect(result.bonusXP).toBe(15);
   });
 
@@ -1191,5 +1383,64 @@ func main() {
     const result = analyzeZen("chapter-03:sumfunc", code);
     // short_var_loop and underscore_unused pass, but single_purpose checks sumCodes specifically
     expect(result.bonusXP).toBe(15); // 10 + 5, not 25 (single_purpose fails)
+  });
+
+  test("single-line grouped import still detects grouped import", () => {
+    const code = `package main
+
+import ("fmt")
+
+func main() {}`;
+    const result = analyzeZen("chapter-01:scaffold", code);
+    // groupedImport passes, but import sep depends on detection
+    expect(result.bonusXP).toBeGreaterThanOrEqual(10); // at minimum grouped import
+  });
+});
+
+// ── Jolt/Suggestion Content Quality ──
+
+describe("jolt and suggestion content", () => {
+  test("jolts affirm what the player did (not suggest)", () => {
+    for (const [stepId, rules] of Object.entries(ZEN_RULES)) {
+      for (const rule of rules) {
+        // Jolts should contain affirmative language
+        const lower = rule.jolt.toLowerCase();
+        const hasAffirmation =
+          lower.includes("you ") ||
+          lower.includes("good") ||
+          lower.includes("that's") ||
+          lower.includes("the ") ||
+          lower.includes("...") ||
+          lower.includes("no ");
+        expect(hasAffirmation, `${stepId}/${rule.id} jolt should affirm, got: "${rule.jolt.substring(0, 50)}..."`).toBe(true);
+      }
+    }
+  });
+
+  test("suggestions contain actionable advice (not vague)", () => {
+    for (const [stepId, rules] of Object.entries(ZEN_RULES)) {
+      for (const rule of rules) {
+        const lower = rule.suggestion.toLowerCase();
+        const hasAction =
+          lower.includes("try") ||
+          lower.includes("use") ||
+          lower.includes("add") ||
+          lower.includes("remove") ||
+          lower.includes("call") ||
+          lower.includes("keep") ||
+          lower.includes("but") ||
+          lower.includes("instead");
+        expect(hasAction, `${stepId}/${rule.id} suggestion should be actionable, got: "${rule.suggestion.substring(0, 50)}..."`).toBe(true);
+      }
+    }
+  });
+
+  test("suggestions contain code examples", () => {
+    for (const [stepId, rules] of Object.entries(ZEN_RULES)) {
+      for (const rule of rules) {
+        const hasCode = rule.suggestion.includes("`");
+        expect(hasCode, `${stepId}/${rule.id} suggestion should include code example`).toBe(true);
+      }
+    }
   });
 });

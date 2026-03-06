@@ -13,6 +13,7 @@ interface CodeEditorProps {
   inRush: boolean;
   baseXP: number;
   rushBonus: number;
+  camFeed?: React.ReactNode;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -75,6 +76,7 @@ export function CodeEditor({
   inRush,
   baseXP,
   rushBonus,
+  camFeed,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -250,6 +252,19 @@ export function CodeEditor({
           />
         </div>
       </div>
+
+      {/* Cam feed slot (above submit) */}
+      {camFeed && (
+        <div
+          className="shrink-0 flex justify-end px-2 py-1"
+          style={{
+            borderTop: "1px solid #0a1820",
+            background: "#04090f",
+          }}
+        >
+          {camFeed}
+        </div>
+      )}
 
       {/* Bottom bar */}
       <div

@@ -23,6 +23,10 @@ interface ChatPanelProps {
   location: string;
   onMayaTypingStart?: () => void;
   onMayaTypingEnd?: () => void;
+  waitingForContinue?: boolean;
+  explainUsed?: boolean;
+  onContinue?: () => void;
+  onExplain?: () => void;
 }
 
 const MSG_COLORS: Record<string, string> = {
@@ -47,6 +51,10 @@ export function ChatPanel({
   location,
   onMayaTypingStart,
   onMayaTypingEnd,
+  waitingForContinue,
+  explainUsed,
+  onContinue,
+  onExplain,
 }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const [typedIds, setTypedIds] = useState<Set<string>>(new Set());
@@ -54,7 +62,7 @@ export function ChatPanel({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, waitingForContinue, typedIds, busy]);
 
   // Stable refs for callbacks
   const onStartRef = useRef(onMayaTypingStart);
@@ -97,7 +105,7 @@ export function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-2.5 flex flex-col gap-2">
+      <div className="flex-1 overflow-y-auto px-3 py-2.5 pb-6 flex flex-col gap-2">
         {messages.length === 0 && (
           <div className="text-[#0a3a2a] text-[10px] text-center mt-7">
             routing<span className="cursor-blink">...</span>
@@ -105,7 +113,7 @@ export function ChatPanel({
         )}
         {messages.map((m, i) => {
           const distFromEnd = messages.length - 1 - i;
-          const opacity = distFromEnd < 5 ? 1 : Math.max(0.15, 1 - (distFromEnd - 4) * 0.15);
+          const opacity = distFromEnd < 2 ? 1 : Math.max(0.08, 1 - (distFromEnd - 1) * 0.25);
           const isMaya = MAYA_TYPES.has(m.type);
           const isLastMsg = m.id === lastMsgId;
           const hasFinishedTyping = typedIds.has(m.id);
@@ -153,6 +161,53 @@ export function ChatPanel({
             <span className="cursor-blink text-[var(--color-signal)]">▋</span>
           </div>
         )}
+
+        {/* Pause + continue/explain buttons */}
+        {waitingForContinue && !busy && messages.length > 0 && (
+          <div className="mt-1.5">
+            <div
+              className="flex items-center gap-2 px-2 py-1.5 mb-1.5"
+              style={{
+                border: "1px solid rgba(110,255,160,.1)",
+                background: "rgba(110,255,160,.02)",
+              }}
+            >
+              <span
+                className="text-[7px] tracking-[3px]"
+                style={{ color: "var(--color-dim)" }}
+              >
+                ▸ PAUSED · ABSORB
+              </span>
+            </div>
+            <div className="flex gap-1.5">
+              {onContinue && (
+                <ContinueButton onContinue={onContinue} />
+              )}
+              {onExplain && !explainUsed && (
+                <button
+                  onClick={onExplain}
+                  className="bg-transparent text-[9px] tracking-[1px] px-2.5 py-1
+                             cursor-pointer transition-colors"
+                  style={{
+                    border: "1px solid rgba(122,184,216,.15)",
+                    color: "var(--color-player)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--color-player)";
+                    e.currentTarget.style.background = "rgba(122,184,216,.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(122,184,216,.15)";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  explain again <span style={{ color: "var(--color-alert)", fontSize: "7px" }}>-10 XP</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 
@@ -184,6 +239,58 @@ export function ChatPanel({
         </button>
       </div>
     </div>
+  );
+}
+
+const AUTO_CONTINUE_SECONDS = 7;
+
+// Continue button with auto-countdown
+function ContinueButton({ onContinue }: { onContinue: () => void }) {
+  const [remaining, setRemaining] = useState(AUTO_CONTINUE_SECONDS);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          if (!firedRef.current) {
+            firedRef.current = true;
+            onContinue();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [onContinue]);
+
+  return (
+    <button
+      onClick={() => {
+        if (!firedRef.current) {
+          firedRef.current = true;
+          onContinue();
+        }
+      }}
+      className="bg-transparent text-[9px] tracking-[1px] px-2.5 py-1
+                 cursor-pointer transition-colors"
+      style={{
+        border: "1px solid rgba(110,255,160,.2)",
+        color: "var(--color-signal)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--color-signal)";
+        e.currentTarget.style.background = "rgba(110,255,160,.05)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "rgba(110,255,160,.2)";
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      continue <span style={{ opacity: 0.4, fontSize: "7px" }}>{remaining}s</span>
+    </button>
   );
 }
 

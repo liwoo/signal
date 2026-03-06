@@ -117,21 +117,42 @@ Every challenge has a `timer: LevelTimerConfig`. The timer system:
 - **Game over** — when `gameOverOnExpiry: true` and time expires, the player sees the CAPTURED screen
 - **Jeopardy** — when `gameOverOnExpiry: false`, timer expiry triggers jeopardy effects instead of game over
 
-### Maya Typing Pause
+### Maya Typing Pause (`src/lib/game/pause.ts`)
 
-The game pauses completely when Maya is typing an animated message. This gives the player time to absorb important information (zen jolts, story beats, step introductions):
+Pure state machine for pausing the game when Maya types. Player must click "continue" (or wait for 5s auto-timer) to resume.
 
-- **Timer paused** — `timerStopped` is set to `true` when Maya starts typing
-- **Events blocked** — `handleEvent` checks `pauseStartRef.current > 0` and drops rush/story/system events during the pause
-- **7-second grace** — after Maya finishes typing, the timer stays paused for 7 more seconds before resuming
-- **Time compensation** — total paused time is added as `timerBonusSeconds` so the player isn't penalized
-- **Cleanup** — resume timer is cleared on game over, chapter complete, retry, and unmount
+State: `PauseState { pauseStartMs, waitingForContinue, explainUsed }`
 
-Actions in `GameActions`:
-- `onMayaTypingStart()` — pauses timer, blocks events
-- `onMayaTypingEnd()` — schedules resume after 7s grace period
+Flow: `idle -> startPause -> paused -> markTypingDone -> waitingForContinue -> resume -> idle`
 
-These are wired through `ChatPanel` via `onMayaTypingStart` / `onMayaTypingEnd` props. Only the **last** Maya message in the chat triggers the callbacks (to avoid re-pausing for old messages).
+With explain: `waitingForContinue -> requestExplain -> paused (Maya re-types) -> markTypingDone -> waitingForContinue -> resume`
+
+Pure functions:
+- `createPauseState()` — initial idle state
+- `isPaused(state)` / `shouldQueueEvent(state)` — query helpers
+- `startPause(state, nowMs, timerAlreadyStopped)` — begins pause, returns null if can't
+- `markTypingDone(state)` — Maya finished typing, show continue button
+- `resume(state, nowMs)` — returns new state + `bonusSeconds` to compensate paused time
+- `requestExplain(state, currentXP)` — costs `EXPLAIN_COST_XP` (10), once per pause cycle
+- `resetExplainForNewStep(state)` — call on step advance so explain is available again
+
+- `splitMayaMessage(text)` — splits on `\n\n` for chunked delivery
+
+In `useGame.ts`, a `pauseRef` (mutable ref) mirrors to React state via `syncPauseState()`. Events during pause are queued in `queuedEventsRef` and flushed on resume. Messages are queued in `pendingMsgRef` for paced delivery.
+
+### Chunked Message Delivery
+
+Long Maya messages are split at `\n\n` paragraph boundaries and delivered one chunk at a time. Each chunk types out, pauses, and waits for "continue" before showing the next.
+
+- `addMayaChunked(from, text, type)` — splits text via `splitMayaMessage`, shows first chunk immediately, queues the rest in `pendingMsgRef`
+- `resumeFromPause` drains `pendingMsgRef` before actually resuming the timer — each animated chunk triggers a new pause→type→continue cycle
+- Queue entries can have `onShow` callbacks for state transitions (step advance, chapter complete)
+- Non-animated entries (SYS headers) are added inline without pausing
+- No `setTimeout` for sequencing — everything flows through the queue
+
+This replaces the old `setTimeout`-based delays for zen messages, step intros, and chapter transitions.
+
+UI in `ChatPanel`: `ContinueButton` (5s auto-countdown) and "explain again" button (hidden after use, shows `-10 XP` cost badge). Message opacity fades aggressively — last 2 messages at full opacity, then drops 0.25 per message to a 0.08 floor.
 
 ### Jeopardy Effects (`src/lib/game/jeopardy.ts`)
 
@@ -170,7 +191,7 @@ After each successful submission, the player's code is analyzed for idiomatic Go
 
 Key functions:
 - `analyzeZen(stepId, code)` — returns `{ bonusXP, jolts, suggestions }`
-- `buildZenMessage(result, missedXP?)` — constructs Maya's narrative message (picks 1 jolt + 1 suggestion max). When `missedXP > 0`, appends "next time you could earn +N more XP with cleaner go."
+- `buildZenMessage(result, missedXP?)` — constructs Maya's narrative message. Shows ALL jolts (every good practice acknowledged) but only ONE suggestion (focused improvement). When `missedXP > 0`, appends "next time you could earn +N more XP with cleaner go."
 - `calculateMissedXP(stepId, result)` — returns XP difference between max possible and what was earned
 - `ZEN_RULES` — registry keyed by step ID, each step has relevant `ZenRule[]`
 

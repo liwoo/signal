@@ -49,14 +49,14 @@ interface WalkPose {
 // Frame 6: Left Passing   (right leg swings past, body rising)
 // Frame 7: Left Up        (push off left, highest point)
 const WALK_POSES: WalkPose[] = [
-  { bob: -1,  leftLeg: -4, rightLeg:  5, leftArm:  4, rightArm: -4, leftKnee: 0, rightKnee: 0 },  // 0: R contact
-  { bob: -2,  leftLeg: -3, rightLeg:  4, leftArm:  3, rightArm: -3, leftKnee: 0, rightKnee: 1 },  // 1: R down
-  { bob:  0,  leftLeg:  0, rightLeg:  1, leftArm:  1, rightArm:  0, leftKnee: 2, rightKnee: 0 },  // 2: R passing
-  { bob:  1,  leftLeg:  3, rightLeg: -2, leftArm: -2, rightArm:  2, leftKnee: 0, rightKnee: 0 },  // 3: R up
-  { bob: -1,  leftLeg:  5, rightLeg: -4, leftArm: -4, rightArm:  4, leftKnee: 0, rightKnee: 0 },  // 4: L contact
-  { bob: -2,  leftLeg:  4, rightLeg: -3, leftArm: -3, rightArm:  3, leftKnee: 1, rightKnee: 0 },  // 5: L down
-  { bob:  0,  leftLeg:  1, rightLeg:  0, leftArm:  0, rightArm:  1, leftKnee: 0, rightKnee: 2 },  // 6: L passing
-  { bob:  1,  leftLeg: -2, rightLeg:  3, leftArm:  2, rightArm: -2, leftKnee: 0, rightKnee: 0 },  // 7: L up
+  { bob:  0,  leftLeg: -2, rightLeg:  3, leftArm:  2, rightArm: -2, leftKnee: 0, rightKnee: 0 },  // 0: R contact
+  { bob: -1,  leftLeg: -1, rightLeg:  2, leftArm:  1, rightArm: -1, leftKnee: 0, rightKnee: 0 },  // 1: R down
+  { bob:  0,  leftLeg:  0, rightLeg:  0, leftArm:  0, rightArm:  0, leftKnee: 1, rightKnee: 0 },  // 2: R passing
+  { bob:  1,  leftLeg:  1, rightLeg: -1, leftArm: -1, rightArm:  1, leftKnee: 0, rightKnee: 0 },  // 3: R up
+  { bob:  0,  leftLeg:  3, rightLeg: -2, leftArm: -2, rightArm:  2, leftKnee: 0, rightKnee: 0 },  // 4: L contact
+  { bob: -1,  leftLeg:  2, rightLeg: -1, leftArm: -1, rightArm:  1, leftKnee: 0, rightKnee: 0 },  // 5: L down
+  { bob:  0,  leftLeg:  0, rightLeg:  0, leftArm:  0, rightArm:  0, leftKnee: 0, rightKnee: 1 },  // 6: L passing
+  { bob:  1,  leftLeg: -1, rightLeg:  1, leftArm:  1, rightArm: -1, leftKnee: 0, rightKnee: 0 },  // 7: L up
 ];
 
 export function paintMayaFrames(animation: CharAnimation, scale: number = 3): HTMLCanvasElement[] {
@@ -140,8 +140,8 @@ function drawMaya(ctx: CanvasRenderingContext2D, anim: CharAnimation, frame: num
   const rightKnee = pose ? pose.rightKnee : 0;
 
   // During passing pose, the trailing leg lifts slightly (knee bend)
-  const leftBootLift = leftKnee > 0 ? leftKnee * 2 : 0;
-  const rightBootLift = rightKnee > 0 ? rightKnee * 2 : 0;
+  const leftBootLift = leftKnee > 0 ? leftKnee : 0;
+  const rightBootLift = rightKnee > 0 ? rightKnee : 0;
 
   // ═══════════════ BOOTS ═══════════════
   // Left boot
@@ -566,8 +566,8 @@ function drawGuard(ctx: CanvasRenderingContext2D, anim: CharAnimation, frame: nu
   const gRightLeg = gPose ? gPose.rightLeg * gDir : 0;
   const gLeftKnee = gPose ? gPose.leftKnee : 0;
   const gRightKnee = gPose ? gPose.rightKnee : 0;
-  const gLeftBootLift = gLeftKnee > 0 ? gLeftKnee * 2 : 0;
-  const gRightBootLift = gRightKnee > 0 ? gRightKnee * 2 : 0;
+  const gLeftBootLift = gLeftKnee > 0 ? gLeftKnee : 0;
+  const gRightBootLift = gRightKnee > 0 ? gRightKnee : 0;
 
   // ── Legs (bulky armored) ──
   const gllH = 17 - gLeftKnee;

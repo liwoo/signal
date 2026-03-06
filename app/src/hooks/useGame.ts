@@ -13,7 +13,26 @@ import {
   type JeopardyState,
 } from "@/lib/game/jeopardy";
 import { INITIAL_HEARTS, loseHeart, buyHeart, canBuyHeart, HEART_COST_XP } from "@/lib/game/hearts";
-import { analyzeZen, buildZenMessage, calculateMissedXP } from "@/lib/game/zen";
+import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "@/lib/game/zen";
+import {
+  createLibraryState,
+  recordZenResults,
+  getMissedTips,
+  type LibraryState,
+} from "@/lib/game/library";
+import {
+  EXPLAIN_COST_XP,
+  createPauseState,
+  isPaused,
+  shouldQueueEvent,
+  startPause as pureStartPause,
+  markTypingDone,
+  resume as pureResume,
+  requestExplain as pureRequestExplain,
+  resetExplainForNewStep,
+  splitMayaMessage,
+  type PauseState,
+} from "@/lib/game/pause";
 
 interface Particle {
   id: number;
@@ -47,7 +66,7 @@ export interface GameState {
   twist: TwistData | null;
   particles: Particle[];
   streaks: Streak[];
-  tab: "code" | "mission";
+  tab: "code" | "mission" | "library";
   // Timer
   timerStartMs: number;
   timerLimitSeconds: number;
@@ -64,6 +83,12 @@ export interface GameState {
   hearts: number;
   canBuyHeart: boolean;
   heartCostXP: number;
+  // Pause
+  gamePaused: boolean;
+  waitingForContinue: boolean;
+  explainUsed: boolean;
+  // Library
+  library: LibraryState;
 }
 
 export interface GameActions {
@@ -72,7 +97,7 @@ export interface GameActions {
   submitCode: () => void;
   setChatInput: (v: string) => void;
   setCode: (v: string) => void;
-  setTab: (t: "code" | "mission") => void;
+  setTab: (t: "code" | "mission" | "library") => void;
   dismissInterrupt: () => void;
   dismissRush: () => void;
   dismissTwist: () => void;
@@ -84,6 +109,8 @@ export interface GameActions {
   addXP: (amount: number) => void;
   onMayaTypingStart: () => void;
   onMayaTypingEnd: () => void;
+  resumeFromPause: () => void;
+  requestExplain: () => void;
 }
 
 export function useGame(
@@ -97,7 +124,10 @@ export function useGame(
   const [xp, setXp] = useState(0);
   const [level, setLevel] = useState(1);
   const [attempts, setAttempts] = useState(0);
-  const [tab, setTab] = useState<"code" | "mission">("code");
+  const [tab, setTab] = useState<"code" | "mission" | "library">("code");
+  const [library, setLibrary] = useState<LibraryState>(createLibraryState);
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
 
   // Step tracking
   const [stepIndex, setStepIndex] = useState(0);
@@ -121,9 +151,22 @@ export function useGame(
   const [timerBonusSeconds, setTimerBonusSeconds] = useState(0);
   const [timerStopped, setTimerStopped] = useState(true);
 
-  // Maya typing → timer pause
-  const pauseStartRef = useRef<number>(0);
-  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Maya typing → timer pause (mutable ref for synchronous reads)
+  const pauseRef = useRef<PauseState>(createPauseState());
+  const queuedEventsRef = useRef<TimedEvent[]>([]);
+
+  // Pending message chunks for paced delivery (continue between each)
+  const pendingMsgRef = useRef<Array<{
+    from: string;
+    text: string | null;
+    type: ChatMsg["type"];
+    animated: boolean;
+    onShow?: () => void;
+  }>>([]);
+
+  // React state mirrors for rendering
+  const [waitingForContinue, setWaitingForContinue] = useState(false);
+  const [explainUsed, setExplainUsed] = useState(false);
 
   // Jeopardy state
   const [jeopardy, setJeopardy] = useState<JeopardyState>(createJeopardyState);
@@ -212,10 +255,33 @@ export function useGame(
     return () => clearTimeout(timer);
   }, [jeopardy.chatLocked, jeopardy.chatLockUntilMs, addMsg]);
 
+  // Sync ref → React state helper
+  const syncPauseState = useCallback((ps: PauseState) => {
+    pauseRef.current = ps;
+    setWaitingForContinue(ps.waitingForContinue);
+    setExplainUsed(ps.explainUsed);
+  }, []);
+
+  // Add a Maya message split into paragraph chunks for paced delivery
+  const addMayaChunked = useCallback(
+    (from: string, text: string, type: ChatMsg["type"]) => {
+      const chunks = splitMayaMessage(text);
+      if (chunks.length === 0) return;
+      addMsg(from, chunks[0], type, true);
+      for (let i = 1; i < chunks.length; i++) {
+        pendingMsgRef.current.push({ from, text: chunks[i], type, animated: true });
+      }
+    },
+    [addMsg]
+  );
+
   const handleEvent = useCallback(
     (event: TimedEvent) => {
-      // Don't fire game events while Maya is typing (game is paused)
-      if (pauseStartRef.current > 0) return;
+      // Queue events while game is paused (Maya typing + continue wait)
+      if (shouldQueueEvent(pauseRef.current)) {
+        queuedEventsRef.current.push(event);
+        return;
+      }
 
       if (event.type === "story") {
         setInterrupt({ who: "MAYA", text: event.message });
@@ -238,14 +304,13 @@ export function useGame(
     [addMsg, challenge.steps, stepIndex]
   );
 
-  // Clean up schedulers and resume timer on unmount
+  // Clean up schedulers on unmount
   useEffect(() => {
     const levelSched = levelSchedulerRef.current;
     const stepSched = stepSchedulerRef.current;
     return () => {
       levelSched.stop();
       stepSched.stop();
-      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, []);
 
@@ -266,8 +331,11 @@ export function useGame(
   const handleTimerExpire = useCallback(() => {
     levelSchedulerRef.current.stop();
     stepSchedulerRef.current.stop();
-    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null; }
-    pauseStartRef.current = 0;
+    pauseRef.current = createPauseState();
+    queuedEventsRef.current.length = 0;
+    pendingMsgRef.current.length = 0;
+    setWaitingForContinue(false);
+    setExplainUsed(false);
     if (challenge.timer.gameOverOnExpiry) {
       setHearts((h) => loseHeart(h));
       setPhase("gameover");
@@ -306,7 +374,7 @@ export function useGame(
       false,
       0
     );
-    addMsg("MAYA", reply, "maya", true);
+    addMayaChunked("MAYA", reply, "maya");
 
     // Start level-wide events
     if (challenge.events.length > 0) {
@@ -335,8 +403,8 @@ export function useGame(
       inRush,
       attempts
     );
-    addMsg("MAYA", reply, "maya", true);
-  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg]);
+    addMayaChunked("MAYA", reply, "maya");
+  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked]);
 
   const submitCode = useCallback(() => {
     if (!code.trim() || busy) return;
@@ -355,14 +423,11 @@ export function useGame(
       attempts
     );
 
-    addMsg("MAYA", reply, isComplete ? "win" : "maya", true);
-
     if (isComplete) {
       // Stop step-scoped events/rush
       stepSchedulerRef.current.stop();
       if (wasRush) {
         setInRush(false);
-        // Grant bonus time from rush
         if (currentStep.rushMode) {
           setTimerBonusSeconds((prev) => prev + currentStep.rushMode!.bonusTimeSeconds);
         }
@@ -381,10 +446,25 @@ export function useGame(
         speedBonus,
         1
       );
-
-      // Go Zen analysis — Maya's memory jolt
       const zenResult = analyzeZen(currentStep.id, code);
       const totalEarned = earned + zenResult.bonusXP;
+
+      // Record zen results in library
+      const stepRules = ZEN_RULES[currentStep.id] || [];
+      setLibrary((prev) =>
+        recordZenResults(
+          prev,
+          currentStep.id,
+          stepRules.map((r) => ({
+            id: r.id,
+            principle: r.principle,
+            jolt: r.jolt,
+            suggestion: r.suggestion,
+            bonusXP: r.bonusXP,
+            passed: r.check(code),
+          }))
+        )
+      );
 
       spawnXP(totalEarned);
       setXp((prev) => {
@@ -392,7 +472,7 @@ export function useGame(
         const newLevel = calculateLevel(next);
         if (newLevel > level) {
           setLevel(newLevel);
-          setTimeout(() => showStreak("LEVEL UP!"), 700);
+          showStreak("LEVEL UP!");
         }
         return next;
       });
@@ -400,68 +480,102 @@ export function useGame(
       if (isFirst && wasRush) showStreak("SPEED RUN!");
       else if (isFirst) showStreak("FIRST TRY!");
 
-      // Deliver Maya's zen message after a short delay
+      // Chunked delivery: completion reply → zen → next step intro
+      // Each chunk pauses for "continue" — no more setTimeout timing hacks
+      addMayaChunked("MAYA", reply, "win");
+
+      // Queue zen message chunks
       const missedXP = calculateMissedXP(currentStep.id, zenResult);
       const zenMsg = buildZenMessage(zenResult, missedXP);
       if (zenMsg) {
-        if (zenResult.bonusXP > 0) {
-          setTimeout(() => showStreak("ZEN"), 500);
+        const zenChunks = splitMayaMessage(zenMsg);
+        for (let i = 0; i < zenChunks.length; i++) {
+          pendingMsgRef.current.push({
+            from: "MAYA",
+            text: zenChunks[i],
+            type: "maya",
+            animated: true,
+            onShow: i === 0 && zenResult.bonusXP > 0 ? () => showStreak("ZEN") : undefined,
+          });
         }
-        setTimeout(() => {
-          addMsg("MAYA", zenMsg, "maya", true);
-        }, 1800);
       }
 
-      // Check if there are more steps
+      // Queue step advance or chapter complete
       const nextStepIndex = stepIndex + 1;
       if (nextStepIndex < challenge.steps.length) {
-        // Advance to next step
         const nextStep = challenge.steps[nextStepIndex];
-        showStreak(`STEP ${nextStepIndex + 1}/${challenge.steps.length}`);
-
-        const stepDelay = zenMsg ? 4000 : 1200;
-        setTimeout(() => {
-          setStepIndex(nextStepIndex);
-          setAttempts(0);
-          setBusy(false);
-
-          // Use next step's starter code, or carry forward current code
-          if (nextStep.starterCode !== null) {
-            setCode(nextStep.starterCode);
-          }
-          // else code carries forward
-
-          // Send the next step's intro
-          const { reply: introReply } = callMayaEngine(
-            nextStep.id,
-            "next step",
-            false,
-            true,
-            false,
-            0
-          );
-          addMsg("SYS", `▸ STEP ${nextStepIndex + 1}/${challenge.steps.length} · ${nextStep.title}`, "dim");
-          addMsg("MAYA", introReply, "maya", true);
-
-          // Start next step's events
-          startStepEvents(nextStep);
-        }, stepDelay);
+        const { reply: introReply } = callMayaEngine(
+          nextStep.id, "next step", false, true, false, 0
+        );
+        // Queue step header (non-animated, triggers state transition)
+        pendingMsgRef.current.push({
+          from: "SYS",
+          text: `▸ STEP ${nextStepIndex + 1}/${challenge.steps.length} · ${nextStep.title}`,
+          type: "dim",
+          animated: false,
+          onShow: () => {
+            setStepIndex(nextStepIndex);
+            setAttempts(0);
+            syncPauseState(resetExplainForNewStep(pauseRef.current));
+            if (nextStep.starterCode !== null) setCode(nextStep.starterCode);
+            startStepEvents(nextStep);
+            showStreak(`STEP ${nextStepIndex + 1}/${challenge.steps.length}`);
+          },
+        });
+        // Queue intro message chunks
+        for (const chunk of splitMayaMessage(introReply)) {
+          pendingMsgRef.current.push({ from: "MAYA", text: chunk, type: "maya", animated: true });
+        }
       } else {
         // All steps complete — chapter done
         showStreak("CHAPTER CLEAR!");
-        levelSchedulerRef.current.stop();
-        setTimerStopped(true);
 
-        const twistDelay = zenMsg ? 4500 : 1400;
-        setTimeout(() => {
-          setTwist(twistData);
-          setPhase("twist");
-          setBusy(false);
-        }, twistDelay);
+        // Queue missed zen tips reinforcement before chapter-complete transition
+        // Compute from current library + this step's results (setLibrary hasn't flushed yet)
+        const updatedLib = recordZenResults(
+          libraryRef.current,
+          currentStep.id,
+          stepRules.map((r) => ({
+            id: r.id, principle: r.principle, jolt: r.jolt,
+            suggestion: r.suggestion, bonusXP: r.bonusXP, passed: r.check(code),
+          }))
+        );
+        const missed = getMissedTips(updatedLib);
+        if (missed.length > 0) {
+          const reinforceHeader = `▸ ZEN LIBRARY · ${missed.length} MISSED`;
+          pendingMsgRef.current.push({
+            from: "SYS", text: reinforceHeader, type: "dim", animated: false,
+          });
+          const reinforceLines = missed.map(
+            (m) => `**${m.principle}** — ${m.suggestion}`
+          ).join("\n\n");
+          for (const chunk of splitMayaMessage(reinforceLines)) {
+            pendingMsgRef.current.push({
+              from: "MAYA", text: chunk, type: "maya", animated: true,
+            });
+          }
+        }
+
+        pendingMsgRef.current.push({
+          from: "SYS",
+          text: null,
+          type: "dim",
+          animated: false,
+          onShow: () => {
+            levelSchedulerRef.current.stop();
+            setTimerStopped(true);
+            setTwist(twistData);
+            setPhase("twist");
+            syncPauseState(createPauseState());
+          },
+        });
       }
+
+      setBusy(false);
       return;
     }
 
+    addMayaChunked("MAYA", reply, "maya");
     setBusy(false);
   }, [
     code,
@@ -474,9 +588,11 @@ export function useGame(
     level,
     twistData,
     addMsg,
+    addMayaChunked,
     spawnXP,
     showStreak,
     startStepEvents,
+    syncPauseState,
   ]);
 
   const dismissTwist = useCallback(() => {
@@ -496,36 +612,67 @@ export function useGame(
     setXp((prev) => prev + amount);
   }, []);
 
-  const RESUME_DELAY_MS = 7000;
-
   const onMayaTypingStart = useCallback(() => {
-    // Pause the timer when Maya starts typing
-    if (timerStopped || pauseStartRef.current > 0) return;
-    // Clear any pending resume
-    if (resumeTimerRef.current) {
-      clearTimeout(resumeTimerRef.current);
-      resumeTimerRef.current = null;
-    }
-    pauseStartRef.current = Date.now();
+    const result = pureStartPause(pauseRef.current, Date.now(), timerStopped);
+    if (!result) return;
+    syncPauseState(result);
     setTimerStopped(true);
-  }, [timerStopped]);
+  }, [timerStopped, syncPauseState]);
 
   const onMayaTypingEnd = useCallback(() => {
-    // Resume timer 7s after Maya finishes typing
-    if (pauseStartRef.current === 0) return;
-    // Clear any existing resume timer
-    if (resumeTimerRef.current) {
-      clearTimeout(resumeTimerRef.current);
+    const result = markTypingDone(pauseRef.current);
+    if (!result) return;
+    syncPauseState(result);
+  }, [syncPauseState]);
+
+  const flushQueuedEvents = useCallback(() => {
+    const queued = queuedEventsRef.current.splice(0);
+    for (const event of queued) {
+      handleEvent(event);
     }
-    resumeTimerRef.current = setTimeout(() => {
-      const pausedMs = Date.now() - pauseStartRef.current;
-      pauseStartRef.current = 0;
-      resumeTimerRef.current = null;
-      // Compensate for paused time by adding bonus seconds
-      setTimerBonusSeconds((prev) => prev + pausedMs / 1000);
-      setTimerStopped(false);
-    }, RESUME_DELAY_MS);
-  }, []);
+  }, [handleEvent]);
+
+  const resumeFromPause = useCallback(() => {
+    // Drain pending message chunks before actually resuming the timer
+    if (pendingMsgRef.current.length > 0) {
+      syncPauseState({ ...pauseRef.current, waitingForContinue: false });
+      while (pendingMsgRef.current.length > 0) {
+        const next = pendingMsgRef.current.shift()!;
+        if (next.onShow) next.onShow();
+        if (!next.text) continue; // action-only entry
+        addMsg(next.from, next.text, next.type, next.animated);
+        if (next.animated) return; // new pause cycle will start from TypeText callbacks
+        // Non-animated: add it and keep draining
+      }
+      // All remaining items were non-animated — fall through to actual resume
+    }
+
+    const result = pureResume(pauseRef.current, Date.now());
+    if (!result) return;
+    syncPauseState(result.state);
+    setTimerBonusSeconds((prev) => prev + result.bonusSeconds);
+    setTimerStopped(false);
+    flushQueuedEvents();
+  }, [syncPauseState, flushQueuedEvents, addMsg]);
+
+  const requestExplain = useCallback(() => {
+    const result = pureRequestExplain(pauseRef.current, xp);
+    if (!result) return;
+    syncPauseState(result.state);
+    setXp(result.newXP);
+
+    addMsg("YOU", "explain again", "you");
+    const { reply } = callMayaEngine(
+      currentStep.id,
+      "explain again",
+      false,
+      false,
+      inRush,
+      attempts
+    );
+    addMayaChunked("MAYA", reply, "maya");
+    // Maya will type again → onMayaTypingStart/End cycle repeats
+  }, [xp, currentStep, inRush, attempts, addMsg, addMayaChunked, syncPauseState]);
 
   const retryFromCheckpoint = useCallback(() => {
     setPhase("intro");
@@ -544,6 +691,8 @@ export function useGame(
     setStreaks([]);
     setTimerBonusSeconds(0);
     setTimerStopped(true);
+    syncPauseState(createPauseState());
+    pendingMsgRef.current.length = 0;
 
     setJeopardy((prev) => {
       const carried = createJeopardyState();
@@ -592,6 +741,10 @@ export function useGame(
     hearts,
     canBuyHeart: canBuyHeart(hearts, xp),
     heartCostXP: HEART_COST_XP,
+    gamePaused: isPaused(pauseRef.current),
+    waitingForContinue,
+    explainUsed,
+    library,
   };
 
   const actions: GameActions = {
@@ -614,6 +767,8 @@ export function useGame(
     addXP,
     onMayaTypingStart,
     onMayaTypingEnd,
+    resumeFromPause,
+    requestExplain,
   };
 
   return [state, actions];

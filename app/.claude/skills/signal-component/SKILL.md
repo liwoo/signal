@@ -108,11 +108,11 @@ When extending vim mode, add keys to `useVim.ts` — never add vim logic directl
 
 ## Chat Message Fading (`ChatPanel`)
 
-Older chat messages fade out to reduce clutter. The last 5 messages are full opacity; older messages progressively fade to 15%:
+Aggressive opacity fade keeps focus on the current conversation. Last 2 messages at full opacity, then drops 0.25 per message to a 0.08 floor:
 
 ```typescript
 const distFromEnd = messages.length - 1 - i;
-const opacity = distFromEnd < 5 ? 1 : Math.max(0.15, 1 - (distFromEnd - 4) * 0.15);
+const opacity = distFromEnd < 2 ? 1 : Math.max(0.08, 1 - (distFromEnd - 1) * 0.25);
 ```
 
 Uses `transition-opacity duration-700` for smooth fade transitions.
@@ -127,7 +127,7 @@ Uses `transition-opacity duration-700` for smooth fade transitions.
 
 **Lifecycle:** Maya messages stream as plain text via `TypeText`, then swap to `MayaMarkdown` rendering once typing completes. The `ChatPanel` tracks finished messages in a `typedIds` set.
 
-**Timer integration:** `ChatPanel` takes `onMayaTypingStart` / `onMayaTypingEnd` props. When the last Maya message starts streaming, the game timer pauses. 7 seconds after streaming finishes, the timer resumes. This gives the player time to read zen jolts and story content.
+**Timer integration:** `ChatPanel` takes `onMayaTypingStart` / `onMayaTypingEnd` props. When the last Maya message starts streaming, the game timer pauses. When typing finishes, a "continue" button appears (with 5s auto-countdown). Player clicks continue to see the next chunk or resume the game. Long messages are split at `\n\n` boundaries and delivered one paragraph at a time via `addMayaChunked` in `useGame.ts`.
 
 ## TypeText Callbacks (`TypeText`)
 

@@ -33,39 +33,49 @@ const groupedImport: ZenRule = {
   suggestion: "try grouping your import: `import ( \"fmt\" )` — parentheses. even for one. it's the go way... i think i remember that much.",
 };
 
-const cleanStructure: ZenRule = {
-  id: "clean_structure",
-  principle: "clean structure",
+const packageImportSep: ZenRule = {
+  id: "package_import_sep",
+  principle: "blank line after package",
   check: (code) => {
-    // blank line between package and import, and between import and func
     const lines = code.split("\n");
-    let hasPackageSep = false;
-    let hasImportSep = false;
     for (let i = 0; i < lines.length - 1; i++) {
       if (/^\s*package\s/.test(lines[i])) {
-        // check if next non-empty line gap exists
-        if (i + 1 < lines.length && lines[i + 1].trim() === "") hasPackageSep = true;
-      }
-      // after import block, check for blank line
-      if (/^\s*\)/.test(lines[i]) || /^\s*import\s+"/.test(lines[i])) {
-        if (i + 1 < lines.length && lines[i + 1].trim() === "") hasImportSep = true;
+        return i + 1 < lines.length && lines[i + 1].trim() === "";
       }
     }
-    return hasPackageSep && hasImportSep;
+    return false;
   },
-  bonusXP: 5,
-  jolt: "the spacing... blank lines between package, import, and func. that's not random. go code breathes in sections. gofmt enforces it. you already write like someone who knows.",
-  suggestion: "add blank lines between your package, import, and func blocks. go code has rhythm — let it breathe.",
+  bonusXP: 3,
+  jolt: "blank line after `package main`. go code breathes in sections — package, imports, functions. gofmt enforces it. you already write like someone who knows.",
+  suggestion: "add a blank line after `package main`. go code has rhythm — each section gets its own space.",
+};
+
+const importFuncSep: ZenRule = {
+  id: "import_func_sep",
+  principle: "blank line after imports",
+  check: (code) => {
+    const lines = code.split("\n");
+    for (let i = 0; i < lines.length - 1; i++) {
+      // after grouped import close or single-line import
+      if (/^\s*\)/.test(lines[i]) || /^\s*import\s+"/.test(lines[i])) {
+        if (i + 1 < lines.length && lines[i + 1].trim() === "") return true;
+      }
+    }
+    return false;
+  },
+  bonusXP: 2,
+  jolt: "the gap between imports and func — that's not cosmetic. gofmt puts it there. sections breathe.",
+  suggestion: "add a blank line between your import block and `func main()`. let the sections breathe.",
 };
 
 // Ch01: Transmit
-const useConstants: ZenRule = {
-  id: "use_constants",
-  principle: "const for fixed values",
-  check: (code) => /\bconst\b/.test(code),
+const useNamedValues: ZenRule = {
+  id: "use_named_values",
+  principle: "named values over hardcoding",
+  check: (code) => /\bconst\b/.test(code) || /\w+\s*:=\s*["'`\d]/.test(code),
   bonusXP: 10,
-  jolt: "...the gas is clearing.\n\nyou used `const`. that's not just syntax — it's intent. you're telling anyone reading this: \"this value does not change. period.\" in go, constants aren't just immutable... they're evaluated at compile time. zero runtime cost.\n\nzen of go: make the zero value useful. make your intent visible.",
-  suggestion: "cell B-09 doesn't move. sublevel 3 doesn't change. those should be `const`, not `var` or `:=`. constants signal intent... i'm sure of it.",
+  jolt: "...the gas is clearing.\n\nyou gave things names — variables, not raw strings buried in a print call. that's intent. anyone reading this code knows what \"B-09\" means because you told them.\n\nzen of go: make your intent visible. `const` locks it down at compile time. `:=` is good too — it's short, clear, declared right where it's used.",
+  suggestion: "try declaring named values — `cell := \"B-09\"` or `const cell = \"B-09\"` — instead of hardcoding strings directly in the print call. names are documentation.",
 };
 
 const usePrintfFormat: ZenRule = {
@@ -102,7 +112,7 @@ const descriptiveNames: ZenRule = {
   },
   bonusXP: 10,
   jolt: "good names. `cell`, `sublevel`... not `x` and `y`. in go, a variable's name is its documentation. no javadoc, no docblocks — just honest names.\n\nmy advisor used to say: \"the length of a name should be proportional to its scope.\" short in a loop. descriptive everywhere else.",
-  suggestion: "your variable names could say more. `cell := \"B-09\"` reads better than `x := \"B-09\"`. in go, names are documentation.",
+  suggestion: "try using descriptive names — `cell := \"B-09\"` reads better than `x := \"B-09\"`. in go, names are documentation.",
 };
 
 // Ch02: Loop
@@ -112,7 +122,7 @@ const simpleIncrement: ZenRule = {
   check: (code) => /i\+\+/.test(code) && !/i\s*=\s*i\s*\+\s*1/.test(code) && !/i\s*\+=\s*1/.test(code),
   bonusXP: 5,
   jolt: "`i++` — the simplest form. go doesn't have `++i` as an expression. it's a statement. one thing, one way to do it.\n\nzen of go: simplicity matters. fewer ways to write something means fewer ways to misread it.",
-  suggestion: "`i++` is the go way. not `i += 1`, not `i = i + 1`. one operation, one form. simplicity matters.",
+  suggestion: "use `i++` — it's the go way. not `i += 1`, not `i = i + 1`. one operation, one form. simplicity matters.",
 };
 
 // Ch02: Classify
@@ -147,7 +157,7 @@ const shortVarInLoop: ZenRule = {
   },
   bonusXP: 10,
   jolt: "...short variable names in the loop. `c`, not `codeValue`. in go, a name's length matches its scope.\n\ni remember — effective go says: \"the further from its declaration a name is used, the more descriptive the name should be.\" inside a 3-line loop? single letter is perfect.\n\nmy encryption library... every loop var was one letter. reviewers loved it.",
-  suggestion: "in a short loop, `c` is better than `codeValue`. go convention: shorter scope = shorter name. save long names for long-lived things.",
+  suggestion: "try shorter names in small loops — `c` instead of `codeValue`. go convention: shorter scope = shorter name. save long names for long-lived things.",
 };
 
 const underscoreUnused: ZenRule = {
@@ -171,7 +181,7 @@ const singlePurposeFunc: ZenRule = {
   },
   bonusXP: 10,
   jolt: "sumCodes does one thing — sums. no printing, no validation. just the sum.\n\nzen of go: \"each package fulfils a single purpose.\" same for functions. a function that sums AND prints is two functions pretending to be one.\n\ni remember now... my thesis had a function called `encrypt`. it only encrypted. everything else was someone else's job.",
-  suggestion: "your sumCodes function does more than sum. keep it pure — just the math. let main() handle printing. single purpose, single responsibility.",
+  suggestion: "try keeping `sumCodes` pure — just the math, no printing. let `main()` handle output. single purpose, single responsibility.",
 };
 
 // Ch03: Validate
@@ -207,8 +217,8 @@ const reuseFunctions: ZenRule = {
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
-  "chapter-01:scaffold": [groupedImport, cleanStructure],
-  "chapter-01:location": [useConstants, usePrintfFormat, descriptiveNames],
+  "chapter-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-01:location": [useNamedValues, usePrintfFormat, descriptiveNames],
   "chapter-02:loop": [simpleIncrement],
   "chapter-02:classify": [switchOverIfElse, noUnnecessaryBreak],
   "chapter-03:sumfunc": [shortVarInLoop, underscoreUnused, singlePurposeFunc],
@@ -244,12 +254,12 @@ export function buildZenMessage(result: ZenResult, missedXP?: number): string | 
 
   const parts: string[] = [];
 
-  // Pick one jolt (the first/most relevant) to avoid overwhelming
-  if (result.jolts.length > 0) {
-    parts.push(result.jolts[0]);
+  // Show all jolts — every good practice should be acknowledged
+  for (const jolt of result.jolts) {
+    parts.push(jolt);
   }
 
-  // Pick one suggestion if no jolts, or if there are some
+  // Pick one suggestion — keep improvement feedback focused
   if (result.suggestions.length > 0 && result.jolts.length === 0) {
     // Only suggestions — frame as memory trying to return
     parts.push("...something's trying to come back.\n\n" + result.suggestions[0]);
