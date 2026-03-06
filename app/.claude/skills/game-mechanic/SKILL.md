@@ -203,6 +203,16 @@ Each `ZenRule` has:
 
 When adding new challenge steps, add corresponding zen rules in the `STEP_ZEN_RULES` registry. Rules should map to actual Go idioms from Zen of Go or Effective Go.
 
+### Zen Library & Replay Loop (`src/lib/game/library.ts`)
+
+After chapter completion, the **WinModal** shows a Library tab with all zen entries — learned and missed. Missed zen items are the replay hook: they represent bonus XP the player left on the table.
+
+- `LibraryState.entries` — all zen results from the completed chapter (learned + missed)
+- `getLibraryStats(library)` — returns `{ learned, missed, total, earnedXP, missedXP }`
+- Missed items show the `suggestion` text and available XP
+- Learned items show the `jolt` text (Maya's memory returning)
+- **Design intent:** missed zen items inform subsequent rounds. When the player retries a chapter, they can focus on the Go idioms they missed to earn the full zen bonus. This creates a natural replay incentive without artificial gating.
+
 ### Retry from Checkpoint
 
 When captured (game over), `retryFromCheckpoint()`:

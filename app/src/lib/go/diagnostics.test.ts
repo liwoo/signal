@@ -479,3 +479,136 @@ func main() {
     expect(Array.isArray(diags)).toBe(true);
   });
 });
+
+// ═══════════════════════════════════════════════
+//  STDLIB METHOD VALIDATION
+// ═══════════════════════════════════════════════
+
+describe("stdlib method validation", () => {
+  it("flags fmt.WriteLine as unknown", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.WriteLine("hello")
+}`;
+    expect(hasError(code, "fmt.WriteLine is not a known function")).toBe(true);
+  });
+
+  it("suggests fmt.Println for fmt.Writeln", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Writeln("hello")
+}`;
+    const errs = errors(code);
+    const methodErr = errs.find((d) => d.message.includes("fmt.Writeln"));
+    expect(methodErr).toBeDefined();
+    // Should suggest something reasonable
+    expect(methodErr!.message).toContain("did you mean");
+  });
+
+  it("accepts valid fmt methods", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("hello")
+    fmt.Printf("%s", "world")
+    fmt.Print("!")
+}`;
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("is not a known function")
+    );
+    expect(methodErrors).toHaveLength(0);
+  });
+
+  it("accepts valid fmt.Sprintf", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    s := fmt.Sprintf("hello %s", "world")
+    fmt.Println(s)
+}`;
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("is not a known function")
+    );
+    expect(methodErrors).toHaveLength(0);
+  });
+
+  it("only checks imported packages", () => {
+    // fmt not imported — don't flag it (unused import check handles that)
+    const code = `package main
+func main() {
+    fmt.FakeMethod("hello")
+}`;
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("is not a known function")
+    );
+    expect(methodErrors).toHaveLength(0);
+  });
+
+  it("handles grouped imports", () => {
+    const code = `package main
+import (
+    "fmt"
+    "strings"
+)
+func main() {
+    fmt.BadFunc("hello")
+    strings.FakeJoin("a", "b")
+}`;
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("is not a known function")
+    );
+    expect(methodErrors).toHaveLength(2);
+  });
+
+  it("flags unknown strings methods", () => {
+    const code = `package main
+import "strings"
+func main() {
+    strings.Includes("hello", "ell")
+}`;
+    expect(hasError(code, "strings.Includes is not a known function")).toBe(true);
+  });
+
+  it("accepts valid strings methods", () => {
+    const code = `package main
+import "strings"
+func main() {
+    strings.Contains("hello", "ell")
+    strings.ToUpper("hello")
+}`;
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("is not a known function")
+    );
+    expect(methodErrors).toHaveLength(0);
+  });
+
+  it("points error at the method name token", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.WriteLine("hello")
+}`;
+    const methodErr = errors(code).find((d) =>
+      d.message.includes("fmt.WriteLine")
+    );
+    expect(methodErr).toBeDefined();
+    expect(methodErr!.line).toBe(4);
+    expect(methodErr!.length).toBe("WriteLine".length);
+  });
+
+  it("ignores packages without known method registry", () => {
+    const code = `package main
+import "os"
+import "bufio"
+func main() {
+    bufio.NewScanner(os.Stdin)
+}`;
+    // bufio is not in our registry — should not flag it
+    const methodErrors = errors(code).filter((d) =>
+      d.message.includes("bufio.NewScanner")
+    );
+    expect(methodErrors).toHaveLength(0);
+  });
+});

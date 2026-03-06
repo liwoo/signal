@@ -1,4 +1,6 @@
 import type { Challenge } from "@/types/game";
+import { diagnose } from "@/lib/go/diagnostics";
+import { compileGo, type CompileResult } from "@/lib/go/playground";
 
 // ── Types ──
 
@@ -12,6 +14,11 @@ interface CodePattern {
   response: string;
 }
 
+interface OutputPattern {
+  match: (output: string) => boolean;
+  response: string;
+}
+
 interface ConceptEntry {
   keywords: string[];
   response: string;
@@ -21,6 +28,7 @@ interface StepBank {
   intro: string;
   conceptFAQ: ConceptEntry[];
   codePatterns: CodePattern[];
+  outputPatterns?: OutputPattern[];
   correctResponse: string;
   genericWrong: string[];
   rushDialogue: string[];
@@ -187,6 +195,36 @@ const ch01LocationBank: StepBank = {
     },
   ],
 
+  outputPatterns: [
+    {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        return (
+          (lower.includes("b-09") || lower.includes("b09")) &&
+          (lower.includes("sublevel 3") ||
+            lower.includes("sublevel  3") ||
+            (lower.includes("sublevel") && lower.includes("3")))
+        );
+      },
+      response:
+        "...i see it. my cell. you actually got through.\n\n||COMPLETE||",
+    },
+    {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        return lower.includes("hello") && lower.includes("world");
+      },
+      response:
+        "that's a hello world. i don't need a greeting — i need my location. CELL B-09 · SUBLEVEL 3.",
+    },
+    {
+      match: (output) =>
+        output.trim().length > 0 && !output.toLowerCase().includes("b-09") && !output.toLowerCase().includes("b09"),
+      response:
+        "you're printing something, but it's not my cell. i need B-09 in there.",
+    },
+  ],
+
   codePatterns: [
     {
       match: (code) => {
@@ -289,6 +327,19 @@ const ch02LoopBank: StepBank = {
     },
   ],
 
+  outputPatterns: [
+    {
+      match: (output) => {
+        const lines = output.trim().split("\n").map((l) => l.trim());
+        const hasAll = Array.from({ length: 10 }, (_, i) => String(i + 1))
+          .every((n) => lines.some((l) => l.includes(n)));
+        return hasAll && lines.length >= 10;
+      },
+      response:
+        "loop confirmed. the keypad's cycling. now i need you to classify each code.\n\n||COMPLETE||",
+    },
+  ],
+
   codePatterns: [
     {
       match: (code) => {
@@ -354,6 +405,22 @@ const ch02ClassifyBank: StepBank = {
       keywords: ["override", "default", "10"],
       response:
         "10 is special — OVERRIDE. use `default:` in your switch.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        return (
+          lower.includes("deny") &&
+          lower.includes("warn") &&
+          lower.includes("grant") &&
+          lower.includes("override")
+        );
+      },
+      response:
+        "the keypad's responding. all 10 codes mapped. the door mechanism just clicked.\n\n||COMPLETE||",
     },
   ],
 
@@ -566,7 +633,23 @@ const BANKS: Record<string, StepBank> = {
   "chapter-03:validate": ch03ValidateBank,
 };
 
-// ── Engine ──
+// ── Format Compile Errors ──
+
+function formatCompileError(errors: string, inRush: boolean): string {
+  // Go compiler errors look like: ./prog.go:4:6: undefined: fmt.WriteLine
+  // Strip the ./prog.go: prefix and take the first error
+  const lines = errors.trim().split("\n").filter((l) => l.trim());
+  if (lines.length === 0) return "the terminal rejected that. check your code.";
+
+  const first = lines[0]
+    .replace(/^\.\/prog\.go:/, "")
+    .trim();
+
+  const prefix = inRush ? "no time for bugs. " : "";
+  return `${prefix}${first}`;
+}
+
+// ── Sync Engine (chat + offline fallback) ──
 
 export function callMayaEngine(
   stepId: string,
@@ -589,13 +672,94 @@ export function callMayaEngine(
   }
 
   if (isCode) {
-    return evaluateCode(bank, userMessage, inRush, attempts);
+    return evaluateCodeLocal(bank, userMessage, inRush, attempts);
   }
 
   return handleChat(bank, userMessage, inRush);
 }
 
-function evaluateCode(
+// ── Async Engine (code submission with real compilation) ──
+
+export async function callMayaEngineAsync(
+  stepId: string,
+  userMessage: string,
+  isCode: boolean,
+  isFirstMessage: boolean,
+  inRush: boolean,
+  attempts: number
+): Promise<MayaResponse> {
+  // Chat messages don't need compilation
+  if (!isCode) {
+    return callMayaEngine(stepId, userMessage, isCode, isFirstMessage, inRush, attempts);
+  }
+
+  const bank = BANKS[stepId];
+  if (!bank) {
+    return { reply: "...signal lost. no data for this sector.", isComplete: false };
+  }
+
+  // 1. Local diagnostics first (instant)
+  const diagnostics = diagnose(userMessage);
+  const localErrors = diagnostics.filter((d) => d.severity === "error");
+  if (localErrors.length > 0) {
+    const first = localErrors[0];
+    const prefix = inRush ? "no time for bugs. " : "";
+    return { reply: `${prefix}line ${first.line}: ${first.message}`, isComplete: false };
+  }
+
+  // 2. Compile with Go Playground
+  const compiled = await compileGo(userMessage);
+
+  // 3. Offline fallback → use local pattern matching
+  if (compiled.errors === "__OFFLINE__") {
+    return evaluateCodeLocal(bank, userMessage, inRush, attempts);
+  }
+
+  // 4. Compile errors → Maya reports them
+  if (!compiled.success) {
+    return { reply: formatCompileError(compiled.errors, inRush), isComplete: false };
+  }
+
+  // 5. Compiled successfully — check output patterns first
+  if (bank.outputPatterns) {
+    for (const pattern of bank.outputPatterns) {
+      if (pattern.match(compiled.output)) {
+        const isComplete = pattern.response.includes("||COMPLETE||");
+        const reply = pattern.response.replace("||COMPLETE||", "").trim();
+        return { reply, isComplete };
+      }
+    }
+  }
+
+  // 6. Fall back to code pattern matching
+  return evaluateCodePatterns(bank, userMessage, inRush, attempts);
+}
+
+// ── Local Code Evaluation (sync, offline) ──
+
+function evaluateCodeLocal(
+  bank: StepBank,
+  code: string,
+  inRush: boolean,
+  attempts: number
+): MayaResponse {
+  // Run diagnostics first — catch syntax errors before pattern matching
+  const diagnostics = diagnose(code);
+  const errors = diagnostics.filter((d) => d.severity === "error");
+
+  if (errors.length > 0) {
+    const first = errors[0];
+    const prefix = inRush ? "no time for bugs. " : "";
+    const reply = `${prefix}line ${first.line}: ${first.message}`;
+    return { reply, isComplete: false };
+  }
+
+  return evaluateCodePatterns(bank, code, inRush, attempts);
+}
+
+// ── Code Pattern Matching ──
+
+function evaluateCodePatterns(
   bank: StepBank,
   code: string,
   inRush: boolean,

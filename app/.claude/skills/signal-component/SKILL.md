@@ -152,6 +152,17 @@ These are used by `ChatPanel` to coordinate the game pause around Maya's animate
 - "CAPTURED / SIGNAL LOST" reveal
 - "RETRY FROM CHECKPOINT" button with penalty description (30% energy, no speed bonus, jeopardy at 50%)
 
+## Win Modal (`WinModal`)
+
+`src/components/game/WinModal.tsx` — Chapter complete overlay:
+- **Centered modal** (max 560px wide, 620px tall) — NOT full-screen. Dark backdrop with grid overlay.
+- Header: title, subtitle, compact XP/Level/Zen stat boxes
+- Tabbed content: LIBRARY (default), MISSIONS, GAME MAP, STORE
+- Library tab scrolls if content overflows — buttons always visible
+- Story teaser above action buttons
+- Action buttons pinned at bottom: RETRY CHAPTER / NEXT CHAPTER
+- Zen library shows missed items — these feed into subsequent round challenges
+
 ## Mission Panel Step Props
 
 `MissionPanel` now takes `currentStep`, `currentStepIndex`, and `totalSteps`:

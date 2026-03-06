@@ -26,6 +26,7 @@ export function diagnose(source: string): Diagnostic[] {
   diagnostics.push(...checkUnclosedStrings(source));
   diagnostics.push(...checkUnusedImports(tokens, source));
   diagnostics.push(...checkNearMissKeywords(tokens));
+  diagnostics.push(...checkStdlibMethods(tokens));
 
   return diagnostics;
 }
@@ -278,4 +279,113 @@ function checkNearMissKeywords(tokens: Token[]): Diagnostic[] {
   }
 
   return diagnostics;
+}
+
+// ── Standard Library Method Validation ──
+
+export const KNOWN_PKG_METHODS: Record<string, Set<string>> = {
+  fmt: new Set([
+    "Print", "Println", "Printf",
+    "Sprint", "Sprintf", "Sprintln",
+    "Fprint", "Fprintf", "Fprintln",
+    "Scan", "Scanf", "Scanln",
+    "Sscan", "Sscanf", "Sscanln",
+    "Fscan", "Fscanf", "Fscanln",
+    "Errorf", "Stringer",
+  ]),
+  strings: new Set([
+    "Contains", "HasPrefix", "HasSuffix", "Index", "Join",
+    "Replace", "ReplaceAll", "Split", "ToLower", "ToUpper",
+    "Trim", "TrimSpace", "TrimLeft", "TrimRight", "TrimPrefix",
+    "TrimSuffix", "Count", "Repeat", "NewReader", "NewReplacer",
+    "Map", "Title", "Fields", "EqualFold", "Compare",
+    "Builder", "Reader", "Replacer",
+  ]),
+  strconv: new Set([
+    "Atoi", "Itoa", "FormatInt", "FormatFloat", "FormatBool",
+    "ParseInt", "ParseFloat", "ParseBool",
+  ]),
+  math: new Set([
+    "Abs", "Max", "Min", "Sqrt", "Pow", "Floor", "Ceil",
+    "Round", "Log", "Log2", "Log10", "Sin", "Cos", "Tan",
+    "Pi", "E", "Inf", "NaN", "IsNaN", "IsInf",
+  ]),
+  os: new Set([
+    "Exit", "Getenv", "Setenv", "Args", "Stdin", "Stdout", "Stderr",
+    "Open", "Create", "ReadFile", "WriteFile", "Remove", "Mkdir",
+    "MkdirAll", "Stat", "Getwd",
+  ]),
+};
+
+function checkStdlibMethods(tokens: Token[]): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+
+  // Find imported packages
+  const importedPkgs = new Set<string>();
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].type === "keyword" && tokens[i].value === "import") {
+      if (tokens[i + 1]?.type === "string") {
+        const pkg = tokens[i + 1].value.slice(1, -1);
+        const name = pkg.includes("/") ? pkg.split("/").pop()! : pkg;
+        importedPkgs.add(name);
+      }
+      if (tokens[i + 1]?.value === "(") {
+        for (let j = i + 2; j < tokens.length; j++) {
+          if (tokens[j].value === ")") break;
+          if (tokens[j].type === "string") {
+            const pkg = tokens[j].value.slice(1, -1);
+            const name = pkg.includes("/") ? pkg.split("/").pop()! : pkg;
+            importedPkgs.add(name);
+          }
+        }
+      }
+    }
+  }
+
+  // Check pkg.Method calls against known methods
+  for (let i = 0; i < tokens.length - 2; i++) {
+    const pkg = tokens[i];
+    const dot = tokens[i + 1];
+    const method = tokens[i + 2];
+
+    if (
+      pkg.type === "identifier" &&
+      dot.value === "." &&
+      method.type === "identifier" &&
+      importedPkgs.has(pkg.value) &&
+      KNOWN_PKG_METHODS[pkg.value]
+    ) {
+      const known = KNOWN_PKG_METHODS[pkg.value];
+      if (!known.has(method.value)) {
+        diagnostics.push({
+          severity: "error",
+          message: `${pkg.value}.${method.value} is not a known function — did you mean ${suggestMethod(pkg.value, method.value, known)}?`,
+          line: method.line,
+          col: method.col,
+          length: method.value.length,
+        });
+      }
+    }
+  }
+
+  return diagnostics;
+}
+
+function suggestMethod(pkg: string, typo: string, known: Set<string>): string {
+  const lower = typo.toLowerCase();
+  let best = "";
+  let bestScore = 0;
+
+  for (const m of known) {
+    const mLower = m.toLowerCase();
+    if (mLower.startsWith(lower.slice(0, 3)) || lower.includes(mLower.slice(0, 4))) {
+      const score = mLower === lower ? 100 : mLower.startsWith(lower.slice(0, 3)) ? 10 : 5;
+      if (score > bestScore) {
+        bestScore = score;
+        best = m;
+      }
+    }
+  }
+
+  return best ? `${pkg}.${best}` : `check the ${pkg} package docs`;
 }

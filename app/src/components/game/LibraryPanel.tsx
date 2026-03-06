@@ -12,7 +12,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
 
   if (library.entries.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-6">
+      <div className="flex items-center justify-center p-6">
         <div className="text-center">
           <div className="text-[var(--color-dim)] text-[9px] tracking-[3px] mb-2">
             ▸ ZEN LIBRARY
@@ -26,7 +26,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-3">
+    <div className="p-3">
       {/* Stats bar */}
       <div
         className="flex gap-2 mb-3 px-2 py-1.5"

@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og.png",
+        url: "/og.jpg",
         width: 1200,
         height: 630,
         alt: "Dr. Maya Chen pixel art avatar with speech bubble: fmt.Println(\"Help Me!\")",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SIGNAL — Learn Go by keeping someone alive",
     description,
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
   appleWebApp: {
     capable: true,

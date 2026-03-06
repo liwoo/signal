@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
-import { callMayaEngine } from "@/lib/ai/engine";
+import { callMayaEngine, callMayaEngineAsync } from "@/lib/ai/engine";
 import { createEventScheduler } from "@/lib/game/events";
 import { calculateTotalXP, calculateSpeedXP, calculateLevel } from "@/lib/game/xp";
 import {
@@ -406,7 +406,7 @@ export function useGame(
     addMayaChunked("MAYA", reply, "maya");
   }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked]);
 
-  const submitCode = useCallback(() => {
+  const submitCode = useCallback(async () => {
     if (!code.trim() || busy) return;
     const isFirst = attempts === 0;
     const wasRush = inRush;
@@ -414,7 +414,7 @@ export function useGame(
     setBusy(true);
     addMsg("YOU", `[ transmitting · ${currentStep.title} · attempt ${attempts + 1} ]`, "dim");
 
-    const { reply, isComplete } = callMayaEngine(
+    const { reply, isComplete } = await callMayaEngineAsync(
       currentStep.id,
       code,
       true,

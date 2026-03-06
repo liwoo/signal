@@ -729,3 +729,242 @@ func main() {
     expect(r.isComplete).toBe(true);
   });
 });
+
+// ═══════════════════════════════════════════════
+//  DIAGNOSTICS GATE — BAD CODE REJECTED BY MAYA
+// ═══════════════════════════════════════════════
+
+describe("ch01 scaffold — diagnostics catch bad code", () => {
+  it("rejects unclosed brace", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("hello")
+`;
+    const r = call("chapter-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("unclosed");
+  });
+
+  it("rejects mismatched brackets", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("hello"]
+}`;
+    const r = call("chapter-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("mismatched");
+  });
+
+  it("rejects unclosed string literal", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("hello
+}`;
+    const r = call("chapter-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("mismatched bracket");
+  });
+});
+
+describe("ch01 location — diagnostics catch bad code", () => {
+  it("rejects fmt.WriteLine (not a real Go function)", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("fmt.WriteLine");
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("rejects fmt.PrintLine (not a real Go function)", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.PrintLine("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("fmt.PrintLine");
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("rejects fmt.Log (not a real fmt function)", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Log("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("fmt.Log");
+  });
+
+  it("rejects fmt.console (not a real fmt function)", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.console("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("still accepts valid fmt.Println", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("still accepts valid fmt.Printf", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    cell := "B-09"
+    fmt.Printf("CELL %s · SUBLEVEL 3\\n", cell)
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("reports line number of the error", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.reply).toContain("line 4");
+  });
+
+  it("prefixes with rush urgency during rush mode", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true, inRush: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("no time for bugs");
+    expect(r.reply).toContain("fmt.WriteLine");
+  });
+
+  it("rejects extra closing brace", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("CELL B-09 · SUBLEVEL 3")
+}}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("unexpected");
+  });
+
+  it("rejects missing package main", () => {
+    const code = `import "fmt"
+func main() {
+    fmt.Println("CELL B-09 · SUBLEVEL 3")
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("package main");
+  });
+
+  it("rejects missing func main", () => {
+    const code = `package main
+import "fmt"
+fmt.Println("CELL B-09 · SUBLEVEL 3")`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("func main()");
+  });
+
+  it("rejects multiple errors — reports the first one", () => {
+    const code = `import "fmt"
+func main() {
+    fmt.WriteLine("CELL B-09 · SUBLEVEL 3"
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    // Should report at least one error (whichever fires first)
+    expect(r.reply).toMatch(/line \d+/);
+  });
+});
+
+describe("ch02 — diagnostics catch bad code", () => {
+  it("rejects fmt.Printline in loop", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        fmt.Printline(i)
+    }
+}`;
+    const r = call("chapter-02:loop", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("rejects unclosed for loop", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        fmt.Println(i)
+}`;
+    const r = call("chapter-02:loop", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("unclosed");
+  });
+});
+
+describe("ch03 — diagnostics catch bad code", () => {
+  it("rejects fmt.Writef in sumCodes", () => {
+    const code = `package main
+import "fmt"
+func sumCodes(codes ...int) int {
+    total := 0
+    for _, c := range codes {
+        total += c
+    }
+    return total
+}
+func main() {
+    sum := sumCodes(25, 30, 50, 10)
+    fmt.Writef("Sum: %d\\n", sum)
+}`;
+    const r = call("chapter-03:sumfunc", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("fmt.Writef");
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("rejects mismatched parens in function call", () => {
+    const code = `package main
+import "fmt"
+func sumCodes(codes ...int) int {
+    total := 0
+    for _, c := range codes {
+        total += c
+    }
+    return total
+}
+func main() {
+    sum := sumCodes(25, 30, 50, 10
+    fmt.Println("Sum:", sum)
+}`;
+    const r = call("chapter-03:sumfunc", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("mismatched bracket");
+  });
+});
