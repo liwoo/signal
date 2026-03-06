@@ -1,12 +1,11 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
+export const alt = 'Dr. Maya Chen pixel art avatar with speech bubble: fmt.Println("Help Me!")';
+export const size = { width: 1200, height: 630 };
+export const contentType = "image/png";
 
-// OG image: 1200x630 — Maya's pixel avatar blown up with title + tagline
-export function GET() {
-  // Pixel size of each "block" when scaling the 64x64 icon to fill the card
-  const S = 6; // scale factor for each SVG unit
-
+export default function OGImage() {
   return new ImageResponse(
     (
       <div
@@ -43,13 +42,11 @@ export function GET() {
             position: "relative",
           }}
         >
-          {/* Render the favicon as scaled pixel blocks */}
           <svg
-            width={64 * S}
-            height={64 * S}
+            width={384}
+            height={384}
             viewBox="0 0 64 64"
             xmlns="http://www.w3.org/2000/svg"
-            style={{ imageRendering: "pixelated" }}
           >
             <rect width="64" height="64" fill="#040810" />
             {/* Hair */}
@@ -183,12 +180,6 @@ export function GET() {
         </div>
       </div>
     ),
-    {
-      width: 1200,
-      height: 630,
-      headers: {
-        "Content-Type": "image/jpeg",
-      },
-    },
+    { ...size },
   );
 }
