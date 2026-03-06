@@ -26,11 +26,20 @@ export const metadata: Metadata = {
     description,
     siteName: "SIGNAL",
     type: "website",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: 'Dr. Maya Chen pixel art avatar with speech bubble: fmt.Println("Help Me!")',
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "SIGNAL — Learn Go by keeping someone alive",
     description,
+    images: ["/og.jpg"],
   },
   appleWebApp: {
     capable: true,
