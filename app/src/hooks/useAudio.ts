@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useEffect } from "react";
-import { loadSettings } from "@/lib/storage/local";
+// Sound enabled is passed in via parameter — no direct storage import.
 
 // ── Sound Registry ──
 
@@ -30,6 +30,10 @@ const SFX = {
   // Environment
   "door-slide": "/audio/sfx/door-slide.ogg",
   "machinery": "/audio/sfx/machinery.ogg",
+  "knock-1": "/audio/sfx/knock-1.ogg",
+  "knock-2": "/audio/sfx/knock-2.ogg",
+  "knock-heavy": "/audio/sfx/knock-heavy.ogg",
+  "keypad-beep": "/audio/sfx/keypad-beep.ogg",
 
   // Game state
   "captured-impact": "/audio/sfx/captured-impact.ogg",
@@ -57,6 +61,7 @@ const AMBIENCE = {
 
 const MUSIC = {
   "gameplay-loop": "/audio/music/gameplay-loop.mp3",
+  "boss-loop": "/audio/music/boss-loop.mp3",
 } as const;
 
 export type SfxName = keyof typeof SFX;
@@ -65,7 +70,7 @@ export type MusicName = keyof typeof MUSIC;
 
 // ── Hook ──
 
-export function useAudio() {
+export function useAudio(soundEnabled = true) {
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferCache = useRef<Map<string, AudioBuffer>>(new Map());
   const loopNodes = useRef<Map<string, { source: AudioBufferSourceNode; gain: GainNode }>>(new Map());
@@ -101,10 +106,10 @@ export function useAudio() {
     [getCtx]
   );
 
-  // Check settings
+  // Sync with external setting
   useEffect(() => {
-    enabledRef.current = loadSettings().soundEnabled;
-  }, []);
+    enabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   // Play a one-shot SFX
   const playSfx = useCallback(
@@ -217,6 +222,23 @@ export function useAudio() {
     []
   );
 
+  // Preload sounds into buffer cache (no playback)
+  // Call during scene transitions or level load to avoid first-play delay
+  const preload = useCallback(
+    async (names: (SfxName | AmbienceName | MusicName)[]) => {
+      const urls = names.map((name) => {
+        if (name in SFX) return SFX[name as SfxName];
+        if (name in AMBIENCE) return AMBIENCE[name as AmbienceName];
+        if (name in MUSIC) return MUSIC[name as MusicName];
+        return null;
+      });
+      await Promise.all(
+        urls.filter(Boolean).map((url) => loadBuffer(url!))
+      );
+    },
+    [loadBuffer]
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -238,5 +260,6 @@ export function useAudio() {
     stopLoop,
     stopAllLoops,
     setLoopVolume,
+    preload,
   };
 }

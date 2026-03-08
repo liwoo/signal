@@ -15,20 +15,28 @@ function pad(n: number): string {
 export function RushBar({ seconds, label, onExpire }: RushBarProps) {
   const [left, setLeft] = useState(seconds);
   const total = useRef(seconds);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
     const iv = setInterval(() => {
       setLeft((p) => {
         if (p <= 1) {
           clearInterval(iv);
-          onExpire();
           return 0;
         }
         return p - 1;
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [onExpire]);
+  }, []);
+
+  // Fire onExpire outside the state updater to avoid setState-in-render
+  useEffect(() => {
+    if (left <= 0 && !expiredRef.current) {
+      expiredRef.current = true;
+      onExpire();
+    }
+  }, [left, onExpire]);
 
   const pct = (left / total.current) * 100;
   const crit = left <= 10;

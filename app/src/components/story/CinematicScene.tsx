@@ -47,6 +47,20 @@ export function CinematicScene({
     setTimeout(onComplete, 600);
   }, [onComplete, audio]);
 
+  // Preload all sounds for this scene set on mount
+  useEffect(() => {
+    const names = new Set<string>();
+    for (const scene of scenes) {
+      if (!scene.audio) continue;
+      for (const cue of scene.audio) {
+        if (cue.sound) names.add(cue.sound);
+      }
+    }
+    if (names.size > 0) {
+      audio.preload([...names] as Parameters<typeof audio.preload>[0]);
+    }
+  }, [scenes, audio]);
+
   // Fade in on mount
   useEffect(() => {
     const t = setTimeout(() => setFadePhase("playing"), 100);

@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { callMayaEngine } from "./engine";
+import { describe, it, expect, vi } from "vitest";
+import { callMayaEngine, callMayaEngineAsync, type StepTestConfig } from "./engine";
+import * as playground from "@/lib/go/playground";
 
 // ── Helper ──
 
@@ -313,6 +314,60 @@ describe("ch01 location — chat interactions", () => {
 });
 
 // ═══════════════════════════════════════════════
+//  CHAPTER 2 · STEP 0 — SCAFFOLD
+// ═══════════════════════════════════════════════
+
+describe("ch02 scaffold", () => {
+  it("returns intro message", () => {
+    const r = call("chapter-02:scaffold", "ready", { isFirst: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/keypad|skeleton|program/);
+  });
+
+  it("accepts valid scaffold with package, import, and main", () => {
+    const code = `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const r = call("chapter-02:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects code without package main", () => {
+    const code = `import "fmt"
+func main() {
+    fmt.Println("test")
+}`;
+    const r = call("chapter-02:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects code without import", () => {
+    const code = `package main
+func main() { }`;
+    const r = call("chapter-02:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/import|fmt/);
+  });
+
+  it("rejects code without func main", () => {
+    const code = `package main
+import "fmt"`;
+    const r = call("chapter-02:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("answers FAQ about skeleton", () => {
+    const r = call("chapter-02:scaffold", "how do I set up the skeleton?");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/package|import|main/);
+  });
+});
+
+// ═══════════════════════════════════════════════
 //  CHAPTER 2 · STEP 1 — LOOP
 // ═══════════════════════════════════════════════
 
@@ -463,7 +518,7 @@ func main() {
 describe("ch03 sum — intro", () => {
   it("returns intro", () => {
     const r = call("chapter-03:sumfunc", "ready", { isFirst: true });
-    expect(r.reply).toContain("ventilation shaft");
+    expect(r.reply).toContain("sumCodes");
     expect(r.isComplete).toBe(false);
   });
 });
@@ -928,6 +983,247 @@ func main() {
   });
 });
 
+// ═══════════════════════════════════════════════
+//  BOSS 1 — SCAFFOLD
+// ═══════════════════════════════════════════════
+
+describe("boss-01:scaffold", () => {
+  it("returns intro message", () => {
+    const r = call("boss-01:scaffold", "ready", { isFirst: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/lock|scaffold|interface|program/);
+  });
+
+  it("accepts valid scaffold with predictNext, main, and import", () => {
+    const code = `package main
+
+import "fmt"
+
+func predictNext(codes []int) int {
+    return 0
+}
+
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects code without predictNext function", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("hello")
+}`;
+    const r = call("boss-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/predictNext/);
+  });
+
+  it("rejects code with predictNext but no main", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    return 0
+}`;
+    const r = call("boss-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects code with predictNext but without []int param", () => {
+    const code = `package main
+import "fmt"
+func predictNext(n int) int {
+    return n
+}
+func main() {
+    fmt.Println(predictNext(5))
+}`;
+    const r = call("boss-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/slice|int/i);
+  });
+
+  it("rejects code where main doesn't call predictNext", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    return 0
+}
+func main() {
+    fmt.Println("hello")
+}`;
+    const r = call("boss-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("answers FAQ about function signature", () => {
+    const r = call("boss-01:scaffold", "what's the function signature?");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/predictNext|slice|int/i);
+  });
+
+  it("answers FAQ about slices", () => {
+    const r = call("boss-01:scaffold", "what is []int?");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/slice/i);
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  BOSS 1 — PREDICT NEXT CODE
+// ═══════════════════════════════════════════════
+
+describe("boss-01:predict", () => {
+  it("returns intro message", () => {
+    const r = call("boss-01:predict", "ready", { isFirst: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/lock|pattern|cycling/);
+  });
+
+  it("accepts valid predictNext with delta computation", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    delta := 0
+    for i := 1; i < len(codes); i++ {
+        delta = codes[i] - codes[i-1]
+    }
+    return codes[len(codes)-1] + delta
+}
+func main() {
+    codes := []int{102847, 104694, 106541}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects code without predictNext function", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println(42)
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("predictNext");
+  });
+
+  it("rejects code without a loop or slice indexing", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    return 999
+}
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects fmt.Writeln (diagnostics gate)", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    delta := codes[1] - codes[0]
+    return codes[len(codes)-1] + delta
+}
+func main() {
+    codes := []int{102847, 104694, 106541}
+    fmt.Writeln(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("not a known function");
+  });
+
+  it("rejects missing package main (diagnostics gate)", () => {
+    const code = `import "fmt"
+func predictNext(codes []int) int {
+    delta := codes[1] - codes[0]
+    return codes[len(codes)-1] + delta
+}
+func main() {
+    codes := []int{102847, 104694, 106541}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects unclosed brace", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    delta := codes[1] - codes[0]
+    return codes[len(codes)-1] + delta
+func main() {
+    codes := []int{102847, 104694, 106541}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/mismatched|unclosed/);
+  });
+
+  it("responds to pattern/delta concept question", () => {
+    const r = call("boss-01:predict", "what is the pattern?");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/delta|difference/);
+  });
+
+  it("responds to function signature question", () => {
+    const r = call("boss-01:predict", "what function do I write?");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("predictNext");
+  });
+
+  it("handles help/stuck request", () => {
+    const r = call("boss-01:predict", "I'm stuck");
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/delta/);
+  });
+
+  it("never marks chat as complete", () => {
+    const messages = [
+      "what is the pattern?",
+      "what function do I write?",
+      "I'm stuck",
+      "hello",
+      "ok",
+      "random xyz",
+    ];
+    for (const msg of messages) {
+      const r = call("boss-01:predict", msg);
+      expect(r.isComplete).toBe(false);
+    }
+  });
+
+  it("strips ||COMPLETE|| from reply", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    delta := 0
+    for i := 1; i < len(codes); i++ {
+        delta = codes[i] - codes[i-1]
+    }
+    return codes[len(codes)-1] + delta
+}
+func main() {
+    codes := []int{102847, 104694, 106541}
+    fmt.Println(predictNext(codes))
+}`;
+    const r = call("boss-01:predict", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+    expect(r.reply).not.toContain("||COMPLETE||");
+  });
+});
+
 describe("ch03 — diagnostics catch bad code", () => {
   it("rejects fmt.Writef in sumCodes", () => {
     const code = `package main
@@ -966,5 +1262,222 @@ func main() {
     const r = call("chapter-03:sumfunc", code, { isCode: true });
     expect(r.isComplete).toBe(false);
     expect(r.reply).toContain("mismatched bracket");
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  ASYNC ENGINE — OUTPUT VALIDATOR (compiled output)
+// ═══════════════════════════════════════════════
+
+// Valid Go code that passes local diagnostics
+const VALID_GO = `package main
+import "fmt"
+func main() {
+    fmt.Println("test")
+}`;
+
+function mockCompile(output: string) {
+  vi.spyOn(playground, "compileGo").mockResolvedValue({
+    success: true,
+    errors: "",
+    output,
+    vetErrors: "",
+  });
+}
+
+async function callAsync(
+  stepId: string,
+  opts: { inRush?: boolean; attempts?: number; stepTest?: StepTestConfig } = {}
+) {
+  return callMayaEngineAsync(
+    stepId,
+    VALID_GO,
+    true,
+    false,
+    opts.inRush ?? false,
+    opts.attempts ?? 0,
+    opts.stepTest
+  );
+}
+
+const ch02LoopTest: StepTestConfig = {
+  expectedOutput: "1\n2\n3\n4\n5\n6\n7\n8\n9\n10",
+};
+
+describe("ch02 loop — exact output (async)", () => {
+  it("accepts correct sequential output 1-10", async () => {
+    mockCompile("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
+    const r = await callAsync("chapter-02:loop", { stepTest: ch02LoopTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects hardcoded single Println with all numbers", async () => {
+    mockCompile("1 2 3 4 5 6 7 8 9 10\n");
+    const r = await callAsync("chapter-02:loop", { stepTest: ch02LoopTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects output with only 5 numbers", async () => {
+    mockCompile("1\n2\n3\n4\n5\n");
+    const r = await callAsync("chapter-02:loop", { stepTest: ch02LoopTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects output with extra text per line", async () => {
+    mockCompile("Code 1\nCode 2\nCode 3\nCode 4\nCode 5\nCode 6\nCode 7\nCode 8\nCode 9\nCode 10\n");
+    const r = await callAsync("chapter-02:loop", { stepTest: ch02LoopTest });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+const ch02ClassifyTest: StepTestConfig = {
+  expectedOutput:
+    "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+};
+
+describe("ch02 classify — exact output (async)", () => {
+  it("accepts correct mapping", async () => {
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects hardcoded fmt.Println with all four labels on one line", async () => {
+    mockCompile("DENY WARN GRANT OVERRIDE\n");
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects wrong mapping (all DENY)", async () => {
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 DENY\n5 DENY\n6 DENY\n7 DENY\n8 DENY\n9 DENY\n10 DENY\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects swapped ranges (4-6 GRANT instead of WARN)", async () => {
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 GRANT\n5 GRANT\n6 GRANT\n7 WARN\n8 WARN\n9 WARN\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects missing OVERRIDE for code 10", async () => {
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 GRANT\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects different formatting (colon separator)", async () => {
+    mockCompile(
+      "1: DENY\n2: DENY\n3: DENY\n4: WARN\n5: WARN\n6: WARN\n7: GRANT\n8: GRANT\n9: GRANT\n10: OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("gives targeted feedback when labels present but mapping wrong", async () => {
+    mockCompile(
+      "1 GRANT\n2 DENY\n3 WARN\n4 OVERRIDE\n5 DENY\n6 WARN\n7 GRANT\n8 DENY\n9 WARN\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("mapping");
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  TEST HARNESS — replaceMain + exact output
+// ═══════════════════════════════════════════════
+
+describe("test harness — replaceMain via compilation", () => {
+  it("harness replaces user main with test calls", async () => {
+    // The harness swaps main() before sending to compiler
+    // We verify by checking that when compiler returns the expected output, it completes
+    mockCompile("Sum: 115\nSum: 6\nSum: 100\n");
+    const r = await callAsync("chapter-03:sumfunc", {
+      stepTest: {
+        testHarness: `func main() { fmt.Println("Sum:", sumCodes(25, 30, 50, 10)); fmt.Println("Sum:", sumCodes(1, 2, 3)); fmt.Println("Sum:", sumCodes(100)) }`,
+        expectedOutput: "Sum: 115\nSum: 6\nSum: 100",
+      },
+    });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("harness rejects when any test case fails", async () => {
+    mockCompile("Sum: 115\nSum: 7\nSum: 100\n");  // second case wrong
+    const r = await callAsync("chapter-03:sumfunc", {
+      stepTest: {
+        testHarness: `func main() { fmt.Println("test") }`,
+        expectedOutput: "Sum: 115\nSum: 6\nSum: 100",
+      },
+    });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+const ch03SumTest: StepTestConfig = {
+  testHarness: `func main() {
+    fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
+    fmt.Println("Sum:", sumCodes(1, 2, 3))
+    fmt.Println("Sum:", sumCodes(100))
+}`,
+  expectedOutput: "Sum: 115\nSum: 6\nSum: 100",
+};
+
+const ch03ValidateTest: StepTestConfig = {
+  testHarness: `func main() {
+    fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
+    s, v := validateCode(25, 30, 50, 10)
+    fmt.Printf("Result: %d, Valid: %v\\n", s, v)
+    s2, v2 := validateCode(10, 20, 30)
+    fmt.Printf("Result: %d, Valid: %v\\n", s2, v2)
+}`,
+  expectedOutput: "Sum: 115\nResult: 115, Valid: true\nResult: 60, Valid: false",
+};
+
+describe("ch03 sum — test harness (async)", () => {
+  it("accepts correct output from harness", async () => {
+    mockCompile("Sum: 115\nSum: 6\nSum: 100\n");
+    const r = await callAsync("chapter-03:sumfunc", { stepTest: ch03SumTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects wrong sum", async () => {
+    mockCompile("Sum: 100\nSum: 6\nSum: 100\n");
+    const r = await callAsync("chapter-03:sumfunc", { stepTest: ch03SumTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects partial output (only one test case)", async () => {
+    mockCompile("Sum: 115\n");
+    const r = await callAsync("chapter-03:sumfunc", { stepTest: ch03SumTest });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+describe("ch03 validate — test harness (async)", () => {
+  it("accepts correct multi-test output", async () => {
+    mockCompile("Sum: 115\nResult: 115, Valid: true\nResult: 60, Valid: false\n");
+    const r = await callAsync("chapter-03:validate", { stepTest: ch03ValidateTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects if second test case says valid: true", async () => {
+    mockCompile("Sum: 115\nResult: 115, Valid: true\nResult: 60, Valid: true\n");
+    const r = await callAsync("chapter-03:validate", { stepTest: ch03ValidateTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects missing test case lines", async () => {
+    mockCompile("Sum: 115\nResult: 115, Valid: true\n");
+    const r = await callAsync("chapter-03:validate", { stepTest: ch03ValidateTest });
+    expect(r.isComplete).toBe(false);
   });
 });

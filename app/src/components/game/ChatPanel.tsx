@@ -254,16 +254,32 @@ function ContinueButton({ onContinue }: { onContinue: () => void }) {
       setRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          if (!firedRef.current) {
-            firedRef.current = true;
-            onContinue();
-          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fire onContinue when countdown hits 0 — outside the state updater
+  useEffect(() => {
+    if (remaining === 0 && !firedRef.current) {
+      firedRef.current = true;
+      onContinue();
+    }
+  }, [remaining, onContinue]);
+
+  // Allow Enter key to continue
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !firedRef.current) {
+        firedRef.current = true;
+        onContinue();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [onContinue]);
 
   return (
@@ -290,6 +306,7 @@ function ContinueButton({ onContinue }: { onContinue: () => void }) {
       }}
     >
       continue <span style={{ opacity: 0.4, fontSize: "7px" }}>{remaining}s</span>
+      <span className="ml-1.5" style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
     </button>
   );
 }

@@ -22,6 +22,16 @@ export function TwistReveal({ headline, lines, onDone }: TwistRevealProps) {
     }
   }, [lineIdx, lines.length]);
 
+  // Allow Enter key to continue once done
+  useEffect(() => {
+    if (!done) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter") onDone();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [done, onDone]);
+
   return (
     <div className="fixed inset-0 z-[9000] flex flex-col items-center justify-center animate-twist-in"
       style={{ background: "rgba(4,8,16,.97)" }}
@@ -63,7 +73,7 @@ export function TwistReveal({ headline, lines, onDone }: TwistRevealProps) {
                          hover:border-[var(--color-signal)] hover:text-[var(--color-signal)]
                          transition-colors cursor-pointer"
             >
-              CONTINUE ▸
+              CONTINUE ▸ <span style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
             </button>
           </div>
         )}

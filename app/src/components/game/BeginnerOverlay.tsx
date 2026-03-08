@@ -97,6 +97,16 @@ export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: Begi
     setSectionDone(false);
   }, [isLastSection, onReady]);
 
+  // Allow Enter key to advance when section is done
+  useEffect(() => {
+    if (!sectionDone) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter") advanceSection();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [sectionDone, advanceSection]);
+
   const completedBlocks = notes.blocks.filter((b) => b.section < currentSection);
 
   return (
@@ -246,7 +256,8 @@ export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: Begi
                 border: "1px solid rgba(110,255,160,.3)",
               }}
             >
-              {isLastSection ? "START LEVEL" : "CONTINUE ▸"}
+              {isLastSection ? "START LEVEL" : "CONTINUE ▸"}{" "}
+              <span style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
             </button>
           )}
           <button

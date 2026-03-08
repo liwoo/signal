@@ -8,8 +8,8 @@ import type { GameState } from "./useGame";
  * Orchestrates audio based on game state changes.
  * Drop into the page component alongside useGame.
  */
-export function useGameAudio(state: GameState) {
-  const audio = useAudio();
+export function useGameAudio(state: GameState, soundEnabled = true) {
+  const audio = useAudio(soundEnabled);
   const prevPhase = useRef(state.phase);
   const prevRush = useRef(state.inRush);
   const prevStepIndex = useRef(state.currentStepIndex);
@@ -27,8 +27,14 @@ export function useGameAudio(state: GameState) {
 
     if (prev === curr) return;
 
-    // intro → playing: start ambient + gameplay music
+    // intro → playing: start ambient + gameplay music, preload gameplay sounds
     if (prev === "intro" && curr === "playing") {
+      audio.preload([
+        "code-submit", "maya-message", "warning-beep", "alert-beep",
+        "dread-sting", "rush-warning", "captured-impact", "game-over-slam",
+        "handshake-confirm", "heartbeat-slow", "heartbeat-fast",
+        "knock-1", "knock-2", "knock-heavy",
+      ]);
       audio.startLoop("cell-ambient", 0.15, 3000);
       audio.startLoop("facility-hum", 0.08, 2000);
       audio.startLoop("gameplay-loop", 0.12, 4000);
@@ -187,11 +193,19 @@ export function useGameAudio(state: GameState) {
     }
   }, [state.messages, state.phase, audio]);
 
-  // ── Power cut ──
+  // ── Power cut → backup power mode ──
   useEffect(() => {
     if (state.powerCut) {
-      audio.stopAllLoops(500);
-      audio.playSfx("captured-impact", 0.3);
+      // Brief alert, then shift to electric buzz ambience
+      audio.playSfx("warning-beep", 0.5);
+      // Dim everything except facility hum (backup power buzz)
+      audio.setLoopVolume("gameplay-loop", 0.03, 800);
+      audio.setLoopVolume("cell-ambient", 0.02, 600);
+      audio.stopLoop("dark-drone-2", 600);
+      // Boost facility hum to sound like backup generators
+      audio.setLoopVolume("facility-hum", 0.25, 1200);
+      // Add tension drone underneath
+      audio.startLoop("tension-drone", 0.06, 2000);
     }
   }, [state.powerCut, audio]);
 

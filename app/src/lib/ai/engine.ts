@@ -52,6 +52,29 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// ── Scaffold Validator ──
+// Minify the code (strip whitespace, comments, lowercase) and check
+// that the Go skeleton is present. Two valid forms:
+//   packagemainimport"fmt"funcmain(){...}
+//   packagemainimport("fmt")funcmain(){...}
+
+function minify(code: string): string {
+  return code
+    .replace(/\/\/[^\n]*/g, "")   // strip line comments
+    .replace(/\/\*[\s\S]*?\*\//g, "") // strip block comments
+    .replace(/\s+/g, "")         // strip all whitespace
+    .toLowerCase();
+}
+
+/** Returns true if code is a valid Go scaffold (package + import fmt + func main). */
+export function isValidScaffold(code: string): boolean {
+  const m = minify(code);
+  const hasPackage = m.includes("packagemain");
+  const hasImport = m.includes('import"fmt"') || m.includes('import("fmt")');
+  const hasMain = m.includes("funcmain(){");
+  return hasPackage && hasImport && hasMain;
+}
+
 // ── Step Banks ──
 
 // Chapter 01: Step 1 — Scaffold
@@ -99,31 +122,28 @@ const ch01ScaffoldBank: StepBank = {
 
   codePatterns: [
     {
-      match: (code) => {
-        const hasPackage = /^\s*package\s+main\b/m.test(code);
-        const hasImport = /import\s+["(]/.test(code) || /import\s+"fmt"/.test(code);
-        const hasMain = /func\s+main\s*\(\s*\)\s*\{/.test(code);
-        return hasPackage && hasImport && hasMain;
-      },
+      match: (code) => isValidScaffold(code),
       response:
         "structure checks out. package, import, main — the terminal accepted it.\n\nnow i need you to actually print something.\n\n||COMPLETE||",
     },
     {
-      match: (code) => !(/package\s+main/.test(code)),
+      match: (code) => !minify(code).includes("packagemain"),
       response:
         "the terminal rejected it. every go file starts with `package main`. first line.",
     },
     {
-      match: (code) =>
-        /package\s+main/.test(code) && !(/import/.test(code)),
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && !m.includes('import"fmt"') && !m.includes('import("fmt")');
+      },
       response:
         "package is good. but you need `import \"fmt\"` — we'll need print functions next.",
     },
     {
-      match: (code) =>
-        /package\s+main/.test(code) &&
-        /import/.test(code) &&
-        !(/func\s+main/.test(code)),
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && !m.includes("funcmain(){");
+      },
       response:
         "package and import are set. now add `func main() { }` — the entry point.",
     },
@@ -299,7 +319,83 @@ const ch01LocationBank: StepBank = {
   ],
 };
 
-// Chapter 02: Step 1 — Loop
+// Chapter 02: Step 1 — Scaffold
+const ch02ScaffoldBank: StepBank = {
+  intro:
+    "the keypad on my door runs go. same deal as before — set up the program skeleton. package, import, main function.\n\nonce the terminal recognizes the structure, we can start cracking the sequence.",
+
+  conceptFAQ: [
+    {
+      keywords: ["package", "package main"],
+      response:
+        "`package main` — first line. tells go this is a runnable program.",
+    },
+    {
+      keywords: ["import", "fmt"],
+      response:
+        "`import \"fmt\"` — we'll need printing for the code output.",
+    },
+    {
+      keywords: ["func", "function", "main"],
+      response:
+        "`func main() { }` — entry point. your loop goes inside here.",
+    },
+    {
+      keywords: ["skeleton", "scaffold", "structure", "setup"],
+      response:
+        "three parts: package main, import fmt, func main. same skeleton every time.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => isValidScaffold(code),
+      response:
+        "terminal initialized. the keypad's listening.\n\nnow loop through codes 1-10.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !minify(code).includes("packagemain"),
+      response:
+        "the keypad terminal needs `package main`. first line.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && !m.includes('import"fmt"') && !m.includes('import("fmt")');
+      },
+      response:
+        "package is set. add `import \"fmt\"` — you'll need print functions.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && !m.includes("funcmain(){");
+      },
+      response:
+        "almost. add `func main() { }` — the entry point.",
+    },
+  ],
+
+  correctResponse:
+    "terminal initialized. the keypad's listening.\n\nnow loop through codes 1-10.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the keypad rejected that. i need: package main, import, func main().",
+    "not valid go. start with the skeleton: package, import, main function.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "same three things: `package main`, `import \"fmt\"`, `func main() { }`. that's the skeleton.",
+  ],
+
+  deflections: [
+    "focus. set up the program skeleton first, then we crack the codes.",
+  ],
+};
+
+// Chapter 02: Step 2 — Loop
 const ch02LoopBank: StepBank = {
   intro:
     "good, you're still here.\n\nthe keypad on my door cycles codes 1 through 10. first step — write a loop that prints each number. we'll classify them next.",
@@ -330,18 +426,22 @@ const ch02LoopBank: StepBank = {
   outputPatterns: [
     {
       match: (output) => {
-        const lines = output.trim().split("\n").map((l) => l.trim());
-        const hasAll = Array.from({ length: 10 }, (_, i) => String(i + 1))
-          .every((n) => lines.some((l) => l.includes(n)));
-        return hasAll && lines.length >= 10;
+        const lines = output.trim().split("\n").filter(Boolean);
+        return lines.length > 0 && lines.length < 10;
       },
       response:
-        "loop confirmed. the keypad's cycling. now i need you to classify each code.\n\n||COMPLETE||",
+        "you're printing, but not all 10 codes. check your loop bounds — 1 through 10.",
+    },
+    {
+      match: (output) => output.trim().length === 0,
+      response:
+        "nothing came through. are you printing inside the loop? `fmt.Println(i)`.",
     },
   ],
 
   codePatterns: [
     {
+      // Offline fallback — check structure: for loop starting at 1, printing inside
       match: (code) => {
         const hasLoop = /for\s+\w+\s*:=\s*1/.test(code);
         const hasPrint = /fmt\.\w*[Pp]rint/.test(code);
@@ -411,6 +511,7 @@ const ch02ClassifyBank: StepBank = {
   outputPatterns: [
     {
       match: (output) => {
+        // Has all 4 labels but wrong mapping (e.g. wrong ranges)
         const lower = output.toLowerCase();
         return (
           lower.includes("deny") &&
@@ -420,25 +521,38 @@ const ch02ClassifyBank: StepBank = {
         );
       },
       response:
-        "the keypad's responding. all 10 codes mapped. the door mechanism just clicked.\n\n||COMPLETE||",
+        "all four labels are there, but the mapping is off. check: 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
+    },
+    {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        const hasAny = lower.includes("deny") || lower.includes("warn") || lower.includes("grant") || lower.includes("override");
+        return hasAny;
+      },
+      response:
+        "some labels are there but not all. i need DENY, WARN, GRANT, and OVERRIDE.",
+    },
+    {
+      match: (output) => output.trim().length > 0,
+      response:
+        "you're printing numbers but not classifying. add switch or if/else for the ranges.",
     },
   ],
 
   codePatterns: [
     {
+      // Offline fallback — check structure: loop + branch + all 4 labels
       match: (code) => {
         const hasLoop = /for\s+\w+\s*:=/.test(code);
-        const hasBranch =
-          code.includes("switch") ||
-          code.includes("if") ||
-          code.includes("case");
+        const hasBranch = code.includes("switch") || code.includes("if") || code.includes("case");
         const hasDeny = code.includes("DENY");
-        const hasOverride = code.includes("OVERRIDE");
+        const hasWarn = code.includes("WARN");
         const hasGrant = code.includes("GRANT");
-        return hasLoop && hasBranch && hasDeny && hasOverride && hasGrant;
+        const hasOverride = code.includes("OVERRIDE");
+        return hasLoop && hasBranch && hasDeny && hasWarn && hasGrant && hasOverride;
       },
       response:
-        "the keypad's responding. all 10 codes mapped. the door mechanism just clicked.\n\n||COMPLETE||",
+        "the keypad's responding. all 10 codes mapped. but the redundancy protocol just kicked in — one more step.\n\n||COMPLETE||",
     },
     {
       match: (code) =>
@@ -462,7 +576,7 @@ const ch02ClassifyBank: StepBank = {
   ],
 
   correctResponse:
-    "the keypad's responding. all 10 codes mapped. the door mechanism just clicked.\n\n||COMPLETE||",
+    "the keypad's responding. all 10 codes mapped. but the redundancy protocol just kicked in — one more step.\n\n||COMPLETE||",
 
   genericWrong: [
     "that's not matching. loop 1-10, classify each.",
@@ -483,10 +597,186 @@ const ch02ClassifyBank: StepBank = {
   ],
 };
 
+// Chapter 02: Step 3 — Rewrite
+const ch02RewriteBank: StepBank = {
+  intro:
+    "redundancy protocol. the keypad needs the same classification written a different way.\n\nif you used switch before, rewrite it with if/else chains. if you used if/else, rewrite with switch/case.\n\nsame output. +45s on the clock if you clear it.",
+
+  conceptFAQ: [
+    {
+      keywords: ["switch", "case"],
+      response:
+        "`switch { case i <= 3: ... }` — no variable after switch for range checks. each case is a boolean condition.",
+    },
+    {
+      keywords: ["if", "else", "condition"],
+      response:
+        "`if i <= 3 { ... } else if i <= 6 { ... } else if i <= 9 { ... } else { ... }` — chain them together.",
+    },
+    {
+      keywords: ["same", "output", "what"],
+      response:
+        "same as before: 1 DENY, 2 DENY, 3 DENY, 4 WARN, 5 WARN, 6 WARN, 7 GRANT, 8 GRANT, 9 GRANT, 10 OVERRIDE.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        return (
+          lower.includes("deny") &&
+          lower.includes("warn") &&
+          lower.includes("grant") &&
+          lower.includes("override")
+        );
+      },
+      response:
+        "all four labels are there, but the mapping is off. check: 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
+    },
+    {
+      match: (output) => output.trim().length > 0,
+      response:
+        "output doesn't match. need: 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      // Offline fallback — accept either approach with correct labels
+      match: (code) => {
+        const hasLoop = /for\s+\w+\s*:=/.test(code);
+        const hasBranch = code.includes("switch") || code.includes("if") || code.includes("case");
+        const hasDeny = code.includes("DENY");
+        const hasWarn = code.includes("WARN");
+        const hasGrant = code.includes("GRANT");
+        const hasOverride = code.includes("OVERRIDE");
+        return hasLoop && hasBranch && hasDeny && hasWarn && hasGrant && hasOverride;
+      },
+      response:
+        "redundancy check cleared. the door mechanism just clicked.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) =>
+        !code.includes("switch") &&
+        !code.includes("if") &&
+        !code.includes("case"),
+      response:
+        "you need branching logic. use switch/case or if/else to classify the codes.",
+    },
+    {
+      match: (code) => !code.includes("OVERRIDE"),
+      response:
+        "don't forget code 10 — OVERRIDE.",
+    },
+    {
+      match: (code) =>
+        code.includes("DENY") && !code.includes("WARN"),
+      response:
+        "got DENY but missing WARN. codes 4-6 should map to WARN.",
+    },
+  ],
+
+  correctResponse:
+    "redundancy check cleared. the door mechanism just clicked.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. same output as before, different approach.",
+    "wrong output. 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
+  ],
+
+  rushDialogue: [
+    "redundancy check is ticking. rewrite the classification.",
+    "clock's running. same output, different approach.",
+  ],
+
+  stuckResponses: [
+    "if/else approach: `if i <= 3 { fmt.Println(i, \"DENY\") } else if i <= 6 { fmt.Println(i, \"WARN\") } else if i <= 9 { fmt.Println(i, \"GRANT\") } else { fmt.Println(i, \"OVERRIDE\") }`.",
+  ],
+
+  deflections: [
+    "focus. rewrite the classification and clear the redundancy check.",
+  ],
+};
+
+// Chapter 03: Step 0 — Scaffold
+const ch03ScaffoldBank: StepBank = {
+  intro:
+    "we're in the ventilation shaft now. the junction panels run go — same as before.\n\nset up the program skeleton. package, import, main. the panel won't initialize without it.",
+
+  conceptFAQ: [
+    {
+      keywords: ["package", "package main"],
+      response:
+        "`package main` — first line. same as every go program.",
+    },
+    {
+      keywords: ["import", "fmt"],
+      response:
+        "`import \"fmt\"` — you'll need it for printing results.",
+    },
+    {
+      keywords: ["func", "main", "entry"],
+      response:
+        "`func main() { }` — the entry point. everything runs from here.",
+    },
+    {
+      keywords: ["function", "sumCodes", "validate"],
+      response:
+        "functions come next step. right now just get the skeleton in.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => isValidScaffold(code),
+      response:
+        "terminal initialized. the shaft panel recognizes the program.\n\nnow i need you to write a function.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !minify(code).includes("packagemain"),
+      response:
+        "every go file starts with `package main`. first line.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && !m.includes('import"fmt"') && !m.includes('import("fmt")');
+      },
+      response:
+        "package is set. add `import \"fmt\"` — we'll need print functions.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && !m.includes("funcmain(){");
+      },
+      response:
+        "package and import are set. add `func main() { }` — the entry point.",
+    },
+  ],
+
+  correctResponse:
+    "terminal initialized. the shaft panel recognizes the program.\n\nnow i need you to write a function.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the panel can't parse that. package main, import, func main().",
+    "not a valid go program. start with `package main`.",
+  ],
+
+  rushDialogue: [],
+  stuckResponses: [
+    "three things: `package main`, `import \"fmt\"`, `func main() { }`.",
+  ],
+  deflections: [
+    "just the skeleton for now. package, import, main.",
+  ],
+};
+
 // Chapter 03: Step 1 — Sum Function
 const ch03SumBank: StepBank = {
   intro:
-    "we're in the ventilation shaft. each junction has a code panel.\n\nfirst — write a function that sums any number of codes. variadic parameter. return the total.",
+    "good. terminal's ready.\n\nnow write a function called `sumCodes`. it takes any number of ints — variadic parameter — and returns their sum. add it above main and call it.",
 
   conceptFAQ: [
     {
@@ -513,6 +803,7 @@ const ch03SumBank: StepBank = {
 
   codePatterns: [
     {
+      // Offline fallback
       match: (code) => {
         const hasVariadic = /func\s+sumCodes\s*\(\s*\w+\s+\.\.\.int/.test(code);
         const hasLoop = code.includes("range") || /for\s+\w+\s*:=/.test(code);
@@ -556,7 +847,7 @@ const ch03SumBank: StepBank = {
 // Chapter 03: Step 2 — Validate
 const ch03ValidateBank: StepBank = {
   intro:
-    "sum works. now add validateCode — returns the sum AND whether it's valid. two return values. the junction needs both.",
+    "sum works. now add `validateCode` — takes variadic ints, returns `(int, bool)`. the bool is whether the sum is greater than 100. call sumCodes inside it, then `return total, total > 100`.",
 
   conceptFAQ: [
     {
@@ -578,6 +869,7 @@ const ch03ValidateBank: StepBank = {
 
   codePatterns: [
     {
+      // Offline fallback
       match: (code) => {
         const hasMultiReturn = /func\s+validateCode[\s\S]*\(int,\s*bool\)/.test(code);
         const hasReturn = (code.match(/return/g) || []).length >= 2;
@@ -622,15 +914,214 @@ const ch03ValidateBank: StepBank = {
   ],
 };
 
+// Boss 01: Step 1 — Scaffold
+const boss01ScaffoldBank: StepBank = {
+  intro:
+    "the lock controller is ahead. before we crack it, i need you to set up the program.\n\nwrite a function called `predictNext` — takes a slice of ints, returns an int. wire it into main so we can test it. the lock won't accept anything until the interface matches.",
+
+  conceptFAQ: [
+    {
+      keywords: ["func", "function", "signature"],
+      response:
+        "`func predictNext(codes []int) int` — that's what the lock controller expects. takes a slice, returns an int.",
+    },
+    {
+      keywords: ["slice", "[]int", "array"],
+      response:
+        "`[]int` is a slice of ints — go's dynamic array. you'll get the visible codes as a slice.",
+    },
+    {
+      keywords: ["main", "entry"],
+      response:
+        "`func main()` — create a test slice, call predictNext, print the result. fmt.Println(predictNext(codes)).",
+    },
+    {
+      keywords: ["import", "fmt"],
+      response:
+        "`import \"fmt\"` — you need fmt for printing. add it after package main.",
+    },
+    {
+      keywords: ["return", "placeholder"],
+      response:
+        "`return 0` for now. the function needs to return something. we'll add the real logic next.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const m = minify(code);
+        return (
+          isValidScaffold(code) &&
+          m.includes("funcpredictnext(") &&
+          m.includes("[]int)int{") &&
+          // main body must call predictNext
+          m.slice(m.lastIndexOf("funcmain(){")).includes("predictnext(")
+        );
+      },
+      response:
+        "interface locked in. the lock controller recognizes the function signature.\n\nnow implement the prediction logic.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !minify(code).includes("funcpredictnext("),
+      response:
+        "the lock controller needs `func predictNext(codes []int) int`. that exact signature.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("funcpredictnext(") && !m.includes("[]int)int{");
+      },
+      response:
+        "predictNext needs to accept a slice: `codes []int`. that's what the lock feeds it.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("funcpredictnext(") && !m.includes("funcmain(){");
+      },
+      response:
+        "function looks good. now add `func main()` that calls it and prints the result.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return (
+          m.includes("funcpredictnext(") &&
+          m.includes("funcmain(){") &&
+          !m.slice(m.lastIndexOf("funcmain(){")).includes("predictnext(")
+        );
+      },
+      response:
+        "main needs to call predictNext. create a test slice and pass it in.",
+    },
+  ],
+
+  correctResponse:
+    "interface locked in. the lock controller recognizes the function signature.\n\nnow implement the prediction logic.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the lock controller rejected the interface. it needs: predictNext(codes []int) int.",
+    "not matching. set up: package, import, predictNext function, main calling it.",
+  ],
+
+  rushDialogue: [
+    "the codes are cycling. get the structure in. now.",
+    "hurry — predictNext signature, main function, print call.",
+  ],
+
+  stuckResponses: [
+    "three parts: `func predictNext(codes []int) int { return 0 }`, then `func main()` that creates a slice and calls it.",
+    "scaffold: package main, import fmt, func predictNext with []int param returning int, func main calls it.",
+  ],
+
+  deflections: [
+    "focus on the scaffold. the lock controller needs the right interface first.",
+    "not now. set up the program structure — then we crack the pattern.",
+  ],
+};
+
+// Boss 01: Step 2 — Predict Next Code
+const boss01PredictBank: StepBank = {
+  intro:
+    "the lock controller is cycling codes. i can see them on the display but i can't compute the next one — my terminal is read-only on this circuit.\n\nyou need to write `func predictNext(codes []int) int`. it takes the visible codes and returns what comes next. the pattern could be linear, alternating, or accelerating. find the rule. get it wrong and the lockmaster resets everything.",
+
+  conceptFAQ: [
+    {
+      keywords: ["pattern", "rule", "delta"],
+      response:
+        "the difference between consecutive codes. compute it. if it's constant, add it to the last code.",
+    },
+    {
+      keywords: ["function", "func", "signature"],
+      response:
+        "`func predictNext(codes []int) int` — takes the visible codes, returns the next one.",
+    },
+    {
+      keywords: ["alternating", "two patterns"],
+      response:
+        "if the deltas alternate between two values, check odd/even position to pick which one comes next.",
+    },
+  ],
+
+  outputPatterns: [],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const hasFn = /func\s+predictNext/.test(code);
+        const hasCodes = code.includes("codes[");
+        const hasReturn = code.includes("return");
+        const hasLoop = /for\s/.test(code) || code.includes("range");
+        return hasFn && hasCodes && hasReturn && hasLoop;
+      },
+      response:
+        "the lock's accepting it. codes aligning... all 10 match. the mechanism is releasing.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !(/func\s+predictNext/.test(code)),
+      response:
+        "i need `func predictNext(codes []int) int`. that's the interface the lock accepts.",
+    },
+    {
+      match: (code) =>
+        /func\s+predictNext/.test(code) && !(/for\s/.test(code)) && !code.includes("range"),
+      response:
+        "you need to iterate through the codes to find the pattern. use a `for` loop.",
+    },
+    {
+      match: (code) =>
+        /func\s+predictNext/.test(code) &&
+        (/for\s/.test(code) || code.includes("range")) &&
+        !code.includes("return"),
+      response:
+        "the function needs to return the predicted next code.",
+    },
+    {
+      match: (code) => {
+        const hasReturn = /return\s+\d+/.test(code);
+        const noLoop = !(/for\s/.test(code)) && !code.includes("range");
+        return hasReturn && noLoop;
+      },
+      response:
+        "you can't hardcode it. the pattern changes. find the rule.",
+    },
+  ],
+
+  correctResponse:
+    "the lock's accepting it. codes aligning... all 10 match. the mechanism is releasing.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "wrong. the lockmaster reset. try again.",
+    "pattern didn't match. look at the deltas.",
+    "rejected. find the rule between consecutive codes.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "compute the delta: `codes[i] - codes[i-1]`. if it's constant, add it to the last code.",
+  ],
+
+  deflections: [
+    "the lock controller doesn't care about that. find the pattern.",
+  ],
+};
+
 // ── Registry ──
 
 const BANKS: Record<string, StepBank> = {
   "chapter-01:scaffold": ch01ScaffoldBank,
   "chapter-01:location": ch01LocationBank,
+  "chapter-02:scaffold": ch02ScaffoldBank,
   "chapter-02:loop": ch02LoopBank,
   "chapter-02:classify": ch02ClassifyBank,
+  "chapter-02:rewrite": ch02RewriteBank,
+  "chapter-03:scaffold": ch03ScaffoldBank,
   "chapter-03:sumfunc": ch03SumBank,
   "chapter-03:validate": ch03ValidateBank,
+  "boss-01:scaffold": boss01ScaffoldBank,
+  "boss-01:predict": boss01PredictBank,
 };
 
 // ── Format Compile Errors ──
@@ -647,6 +1138,25 @@ function formatCompileError(errors: string, inRush: boolean): string {
 
   const prefix = inRush ? "no time for bugs. " : "";
   return `${prefix}${first}`;
+}
+
+function formatVetError(vetErrors: string, inRush: boolean): string {
+  // Go vet errors look like: ./prog.go:7:2: fmt.Println call has possible Printf formatting directive %s
+  const lines = vetErrors.trim().split("\n").filter((l) => l.trim());
+  if (lines.length === 0) return "the terminal flagged a warning. check your code.";
+
+  const first = lines[0]
+    .replace(/^\.\/prog\.go:/, "")
+    .trim();
+
+  const prefix = inRush ? "hurry — " : "";
+
+  // Common vet: Println with format verbs → give clear Maya-style guidance
+  if (first.includes("Println") && first.includes("Printf")) {
+    return `${prefix}${first}\n\nyou're using format verbs like \`%s\` or \`%d\` inside \`Println\`. that's \`Printf\` territory.\n\n\`Println\` just prints its args separated by spaces. \`Printf\` interprets the format string. switch to \`fmt.Printf(...)\` and add \`\\n\` at the end.`;
+  }
+
+  return `${prefix}go vet: ${first}`;
 }
 
 // ── Sync Engine (chat + offline fallback) ──
@@ -680,13 +1190,19 @@ export function callMayaEngine(
 
 // ── Async Engine (code submission with real compilation) ──
 
+export interface StepTestConfig {
+  testHarness?: string;
+  expectedOutput?: string;
+}
+
 export async function callMayaEngineAsync(
   stepId: string,
   userMessage: string,
   isCode: boolean,
   isFirstMessage: boolean,
   inRush: boolean,
-  attempts: number
+  attempts: number,
+  stepTest?: StepTestConfig
 ): Promise<MayaResponse> {
   // Chat messages don't need compilation
   if (!isCode) {
@@ -707,20 +1223,40 @@ export async function callMayaEngineAsync(
     return { reply: `${prefix}line ${first.line}: ${first.message}`, isComplete: false };
   }
 
-  // 2. Compile with Go Playground
-  const compiled = await compileGo(userMessage);
+  // 2. Build source to compile — if testHarness is provided, swap main()
+  const source = stepTest?.testHarness
+    ? replaceMain(userMessage, stepTest.testHarness)
+    : userMessage;
 
-  // 3. Offline fallback → use local pattern matching
+  // 3. Compile with Go Playground
+  const compiled = await compileGo(source);
+
+  // 4. Offline fallback → use local pattern matching
   if (compiled.errors === "__OFFLINE__") {
     return evaluateCodeLocal(bank, userMessage, inRush, attempts);
   }
 
-  // 4. Compile errors → Maya reports them
+  // 5. Compile errors → Maya reports them
   if (!compiled.success) {
     return { reply: formatCompileError(compiled.errors, inRush), isComplete: false };
   }
 
-  // 5. Compiled successfully — check output patterns first
+  // 5b. Vet warnings (code compiles but has issues like Println with format verbs)
+  if (compiled.vetErrors) {
+    return { reply: formatVetError(compiled.vetErrors, inRush), isComplete: false };
+  }
+
+  // 6. Test harness — exact output comparison (the scalable path)
+  if (stepTest?.expectedOutput) {
+    if (compiled.output.trim() === stepTest.expectedOutput.trim()) {
+      const reply = bank.correctResponse.replace("||COMPLETE||", "").trim();
+      return { reply, isComplete: true };
+    }
+    // Output didn't match — use outputPatterns for targeted feedback, then generic
+    return evaluateWrongOutput(bank, compiled.output, inRush);
+  }
+
+  // 7. Output pattern matching (for steps without test harness)
   if (bank.outputPatterns) {
     for (const pattern of bank.outputPatterns) {
       if (pattern.match(compiled.output)) {
@@ -731,8 +1267,52 @@ export async function callMayaEngineAsync(
     }
   }
 
-  // 6. Fall back to code pattern matching
+  // 9. Fall back to code pattern matching
   return evaluateCodePatterns(bank, userMessage, inRush, attempts);
+}
+
+// ── Replace user's main() with test harness ──
+
+function replaceMain(code: string, harness: string): string {
+  // Remove user's func main() { ... } and replace with the harness
+  // Match func main() { ... } accounting for nested braces
+  const mainStart = code.search(/func\s+main\s*\(\s*\)\s*\{/);
+  if (mainStart === -1) {
+    // No main found — just append the harness
+    return code + "\n" + harness;
+  }
+
+  // Find the matching closing brace
+  const braceStart = code.indexOf("{", mainStart);
+  let depth = 0;
+  let braceEnd = braceStart;
+  for (let i = braceStart; i < code.length; i++) {
+    if (code[i] === "{") depth++;
+    if (code[i] === "}") depth--;
+    if (depth === 0) {
+      braceEnd = i;
+      break;
+    }
+  }
+
+  return code.slice(0, mainStart) + harness + code.slice(braceEnd + 1);
+}
+
+// ── Wrong output feedback ──
+
+function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean): MayaResponse {
+  if (bank.outputPatterns) {
+    for (const pattern of bank.outputPatterns) {
+      if (pattern.match(output)) {
+        return { reply: pattern.response, isComplete: false };
+      }
+    }
+  }
+  let reply = pickRandom(bank.genericWrong);
+  if (inRush && bank.rushDialogue.length > 0) {
+    reply += "\n\n" + pickRandom(bank.rushDialogue);
+  }
+  return { reply, isComplete: false };
 }
 
 // ── Local Code Evaluation (sync, offline) ──

@@ -8,26 +8,61 @@ export const chapter03: Challenge = {
   location: "VENTILATION SHAFT · SUBLEVEL 3",
   concepts: ["Functions", "Multiple Returns", "Variadic"],
   steps: [
+    // ── Step 0: Scaffold ──
+    {
+      id: "chapter-03:scaffold",
+      title: "SCAFFOLD",
+      brief:
+        "the ventilation shaft runs on go. set up the program skeleton — package, import, main function. the junction panel won't initialize until the terminal structure is right.",
+      starterCode: `package main
+
+// TODO: import the fmt package
+
+// TODO: write func main()
+// the shaft junctions need computed codes
+// you'll write functions to process them
+`,
+      expectedBehavior:
+        "valid go program with package main, import fmt, and func main",
+      hints: [
+        {
+          level: 1,
+          text: "same skeleton as before: package main, import \"fmt\", func main() { }.",
+          energyCost: 5,
+        },
+        {
+          level: 2,
+          text: "add import \"fmt\" after the package line. then write func main() { } at the bottom.",
+          energyCost: 8,
+        },
+        {
+          level: 3,
+          text: 'package main, then import "fmt", then func main() { fmt.Println("ready") }',
+          energyCost: 12,
+        },
+      ],
+      rushMode: null,
+      xp: {
+        base: 40,
+        firstTryBonus: 20,
+        parTimeSeconds: 30,
+      },
+      events: [],
+    },
+    // ── Step 1: Sum Function ──
     {
       id: "chapter-03:sumfunc",
       title: "SUM FUNCTION",
       brief:
-        "Each shaft junction needs computed codes. Write a variadic function `sumCodes` that takes any number of ints and returns their sum.",
-      starterCode: `package main
-
-import "fmt"
-
-// sumCodes takes any number of ints and returns their sum
-func sumCodes(codes ...int) int {
-    // TODO
-}
-
-func main() {
-    sum := sumCodes(25, 30, 50, 10)
-    fmt.Println("Sum:", sum)
-}
-`,
+        "each shaft junction needs computed codes. write a variadic function `sumCodes` that takes any number of ints and returns their sum. add it above main and call it from main.",
+      starterCode: null, // carry forward from scaffold
       expectedBehavior: "Sum: 115",
+      testHarness: `func main() {
+    fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
+    fmt.Println("Sum:", sumCodes(1, 2, 3))
+    fmt.Println("Sum:", sumCodes(100))
+}`,
+      expectedOutput: "Sum: 115\nSum: 6\nSum: 100",
       hints: [
         {
           level: 1,
@@ -64,13 +99,23 @@ func main() {
         },
       ],
     },
+    // ── Step 2: Validate ──
     {
       id: "chapter-03:validate",
       title: "VALIDATE",
       brief:
-        "Now add `validateCode` — it returns two values: the sum and whether it's valid (> 100). The junction won't open unless the total passes.",
+        "now add `validateCode(codes ...int) (int, bool)` — it sums the codes and checks if the total is greater than 100. return both: the sum and `total > 100`. the junction won't open unless the total passes.",
       starterCode: null,
       expectedBehavior: "Sum: 115\nResult: 115, Valid: true",
+      testHarness: `func main() {
+    fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
+    s, v := validateCode(25, 30, 50, 10)
+    fmt.Printf("Result: %d, Valid: %v\n", s, v)
+    s2, v2 := validateCode(10, 20, 30)
+    fmt.Printf("Result: %d, Valid: %v\n", s2, v2)
+}`,
+      expectedOutput:
+        "Sum: 115\nResult: 115, Valid: true\nResult: 60, Valid: false",
       hints: [
         {
           level: 1,
@@ -110,7 +155,7 @@ func main() {
   ],
   events: [],
   timer: {
-    timeLimitSeconds: 240,
+    timeLimitSeconds: 300,
     gameOverOnExpiry: false,
   },
   isBoss: false,

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
+import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
+import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
 import { useGame } from "@/hooks/useGame";
+import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
 import { TopBar } from "@/components/game/TopBar";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { CodeEditor } from "@/components/game/CodeEditor";
@@ -17,48 +20,269 @@ import { StreakLabel } from "@/components/story/StreakLabel";
 import { GameOver } from "@/components/story/GameOver";
 import { WinModal } from "@/components/game/WinModal";
 import { LibraryPanel } from "@/components/game/LibraryPanel";
+import { NotesPanel } from "@/components/game/NotesPanel";
 import { CinematicScene } from "@/components/story/CinematicScene";
 import { MayaAnimation } from "@/components/story/MayaAnimation";
-import { INTRO_SCENES, CHAPTER_01_COMPLETE_SCENES } from "@/lib/sprites/scenes";
+import {
+  INTRO_SCENES,
+  CHAPTER_01_COMPLETE_SCENES,
+  CHAPTER_02_INTRO_SCENES,
+  CHAPTER_02_COMPLETE_SCENES,
+  CHAPTER_03_INTRO_SCENES,
+  CHAPTER_03_COMPLETE_SCENES,
+} from "@/lib/sprites/scenes";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { MobileGate } from "@/components/game/MobileGate";
+import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
-import { loadSettings, saveSettings } from "@/lib/storage/local";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import {
+  loadPersistedState,
+  savePersistedState,
+  type PersistedState,
+} from "@/lib/storage/persistence";
+import type { Challenge, PlayerSettings } from "@/types/game";
+import type { SceneDefinition } from "@/lib/sprites/scenes";
+
+// ── Chapter Registry ──
+
+interface ChapterConfig {
+  challenge: Challenge;
+  twist: { headline: string; lines: string[] };
+  introScenes: SceneDefinition[];
+  completeScenes: SceneDefinition[];
+  introTitle: string;
+  introSubtitle: string;
+  completeTitle: string;
+  completeSubtitle: string;
+  // Intro screen content
+  tagline: string;
+  storyLines: [string, string];
+  ctaLabel: string;
+}
+
+const CHAPTERS: ChapterConfig[] = [
+  {
+    challenge: chapter01,
+    twist: chapter01Twist,
+    introScenes: INTRO_SCENES,
+    completeScenes: CHAPTER_01_COMPLETE_SCENES,
+    introTitle: "SIGNAL",
+    introSubtitle: "FIRST CONTACT",
+    completeTitle: "CHAPTER 1 COMPLETE",
+    completeSubtitle: "HANDSHAKE ESTABLISHED",
+    tagline: "▸ ENCRYPTED SIGNAL · ACT I",
+    storyLines: [
+      "maya chen. missing 72hrs. she's alive — hacked a terminal in sublevel 3.",
+      "she needs a Go programmer. write the code. get her out.",
+    ],
+    ctaLabel: "CONNECT TO MAYA",
+  },
+  {
+    challenge: chapter02,
+    twist: chapter02Twist,
+    introScenes: CHAPTER_02_INTRO_SCENES,
+    completeScenes: CHAPTER_02_COMPLETE_SCENES,
+    introTitle: "CHAPTER 2",
+    introSubtitle: "DOOR CODE",
+    completeTitle: "CHAPTER 2 COMPLETE",
+    completeSubtitle: "KEYPAD CRACKED",
+    tagline: "▸ SUBLEVEL 3 · CELL B-09",
+    storyLines: [
+      "the keypad on maya's cell door cycles codes 1-10. she needs them classified.",
+      "for loops. switch statements. crack the sequence. open the door.",
+    ],
+    ctaLabel: "START CHAPTER",
+  },
+  {
+    challenge: chapter03,
+    twist: chapter03Twist,
+    introScenes: CHAPTER_03_INTRO_SCENES,
+    completeScenes: CHAPTER_03_COMPLETE_SCENES,
+    introTitle: "CHAPTER 3",
+    introSubtitle: "SHAFT CODES",
+    completeTitle: "CHAPTER 3 COMPLETE",
+    completeSubtitle: "JUNCTION CLEARED",
+    tagline: "▸ VENTILATION SHAFT · SUBLEVEL 3",
+    storyLines: [
+      "the ventilation shaft connects to cell B-10. each junction has a code panel.",
+      "functions. variadic parameters. multiple returns. compute the codes. open the gates.",
+    ],
+    ctaLabel: "START CHAPTER",
+  },
+];
 
 export default function Home() {
   return (
     <MobileGate>
-      <GameScreen />
+      <GameRouter />
     </MobileGate>
   );
 }
 
-function GameScreen() {
-  const [state, actions] = useGame(chapter01, chapter01Twist);
-  const audio = useGameAudio(state);
+function GameRouter() {
+  const [persisted, setPersisted] = useState<PersistedState | null>(null);
+  const [chapterIndex, setChapterIndex] = useState(0);
+
+  // Load persisted state from IndexedDB on mount
+  useEffect(() => {
+    loadPersistedState().then((state) => {
+      setPersisted(state);
+      // Resume from last completed chapter
+      const completedCount = state.progress.completedChapters.length;
+      if (completedCount > 0 && completedCount < CHAPTERS.length) {
+        setChapterIndex(completedCount);
+      }
+    });
+  }, []);
+
+  const handleSave = useCallback((payload: SavePayload) => {
+    setPersisted((prev) => {
+      if (!prev) return prev;
+      const updated: PersistedState = {
+        ...prev,
+        stats: { ...prev.stats, xp: payload.xp, level: payload.level, hearts: payload.hearts },
+        library: payload.library,
+        progress: payload.completedChapter
+          ? {
+              ...prev.progress,
+              completedChapters: prev.progress.completedChapters.includes(payload.completedChapter)
+                ? prev.progress.completedChapters
+                : [...prev.progress.completedChapters, payload.completedChapter],
+              currentChapter: payload.completedChapter + 1,
+            }
+          : prev.progress,
+      };
+      savePersistedState(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleSaveSettings = useCallback((partial: Partial<PlayerSettings>) => {
+    setPersisted((prev) => {
+      if (!prev) return prev;
+      const updated: PersistedState = {
+        ...prev,
+        settings: { ...prev.settings, ...partial },
+      };
+      savePersistedState({ settings: updated.settings });
+      return updated;
+    });
+  }, []);
+
+  const advanceChapter = useCallback(() => {
+    setChapterIndex((i) => Math.min(i + 1, CHAPTERS.length - 1));
+  }, []);
+
+  // Show loading state while persistence loads
+  if (!persisted) {
+    return (
+      <div
+        className="h-dvh flex items-center justify-center"
+        style={{ background: "var(--color-background)" }}
+      >
+        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
+          LOADING<span className="cursor-blink">...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const config = CHAPTERS[chapterIndex];
+  const initialState: InitialPersistedState = {
+    xp: persisted.stats.xp,
+    level: persisted.stats.level,
+    hearts: persisted.stats.hearts,
+    library: persisted.library,
+  };
+
+  return (
+    <GameScreen
+      key={config.challenge.id}
+      config={config}
+      hasNextChapter={chapterIndex < CHAPTERS.length - 1}
+      onNextChapter={advanceChapter}
+      initialState={initialState}
+      onSave={handleSave}
+      onSaveSettings={handleSaveSettings}
+      settings={persisted.settings}
+      completedChapterIds={CHAPTERS.slice(0, chapterIndex).map((c) => c.challenge.id)}
+    />
+  );
+}
+
+interface GameScreenProps {
+  config: ChapterConfig;
+  hasNextChapter: boolean;
+  onNextChapter: () => void;
+  initialState: InitialPersistedState;
+  onSave: (payload: SavePayload) => void;
+  onSaveSettings: (settings: Partial<PlayerSettings>) => void;
+  completedChapterIds: string[];
+  settings: PlayerSettings;
+}
+
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds }: GameScreenProps) {
+  const { challenge, twist, introScenes, completeScenes } = config;
+  const [state, actions] = useGame(challenge, twist, initialState, onSave);
+  const audio = useGameAudio(state, settings.soundEnabled);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
-  const beginnerNotes = getBeginnerNotes(chapter01.id);
+  const beginnerNotes = getBeginnerNotes(challenge.id);
+
+  // Resizable split
+  const [chatWidth, setChatWidth] = useState(settings.chatWidthPercent || 42);
+  const draggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.max(25, Math.min(65, pct));
+      setChatWidth(clamped);
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      // Persist
+      setChatWidth((w) => {
+        onSaveSettings({ chatWidthPercent: Math.round(w) });
+        return w;
+      });
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [onSaveSettings]);
 
   if (state.phase === "intro" && !showCinematic && !showBeginner) {
-    return <IntroScreen onStart={() => {
-      // Pre-warm audio on user gesture (browser requires interaction)
-      audio.startLoop("dark-drone-1", 0.08, 5000);
-      setShowCinematic(true);
-    }} />;
+    return <IntroScreen
+      config={config}
+      onStart={() => {
+        audio.startLoop("dark-drone-1", 0.08, 5000);
+        setShowCinematic(true);
+      }}
+    />;
   }
 
   if (showCinematic) {
     return (
       <CinematicScene
-        scenes={INTRO_SCENES}
-        title="SIGNAL"
-        subtitle="FIRST CONTACT"
+        scenes={introScenes}
+        title={config.introTitle}
+        subtitle={config.introSubtitle}
         onComplete={() => {
           setShowCinematic(false);
-          const settings = loadSettings();
           if (settings.beginnerMode && beginnerNotes) {
             setShowBeginner(true);
           } else {
@@ -78,8 +302,7 @@ function GameScreen() {
           actions.startGame();
         }}
         onDisable={() => {
-          const settings = loadSettings();
-          saveSettings({ ...settings, beginnerMode: false });
+          onSaveSettings({ beginnerMode: false });
           setShowBeginner(false);
           actions.startGame();
         }}
@@ -104,9 +327,9 @@ function GameScreen() {
     if (!showWinCinematic) {
       return (
         <CinematicScene
-          scenes={CHAPTER_01_COMPLETE_SCENES}
-          title="CHAPTER 1 COMPLETE"
-          subtitle="HANDSHAKE ESTABLISHED"
+          scenes={completeScenes}
+          title={config.completeTitle}
+          subtitle={config.completeSubtitle}
           onComplete={() => setShowWinCinematic(true)}
         />
       );
@@ -116,13 +339,14 @@ function GameScreen() {
         xp={state.xp}
         level={state.level}
         library={state.library}
+        title={config.completeTitle}
+        subtitle={config.completeSubtitle}
+        completedChapter={challenge.id}
         onRetry={() => {
           setShowWinCinematic(false);
           actions.retryFromCheckpoint();
         }}
-        onContinue={() => {
-          // TODO: navigate to next chapter when available
-        }}
+        onContinue={hasNextChapter ? onNextChapter : () => {}}
       />
     );
   }
@@ -207,14 +431,14 @@ function GameScreen() {
           }
         />
 
-        <div className="flex-1 flex overflow-hidden">
+        <div ref={containerRef} className="flex-1 flex overflow-hidden">
           {/* Left: Chat */}
           <div
-            className="min-w-0 flex flex-col transition-all duration-500"
+            className="min-w-0 flex flex-col"
             style={{
-              width: state.jeopardy.editorNarrow ? "58%" : "42%",
-              borderRight: `1px solid ${state.inRush ? "#2a1a0a" : "var(--color-border)"}`,
+              width: `${state.jeopardy.editorNarrow ? Math.max(chatWidth, 55) : chatWidth}%`,
               opacity: state.jeopardy.chatLocked ? 0.5 : 1,
+              transition: state.jeopardy.editorNarrow ? "width 500ms" : undefined,
             }}
           >
             <ChatPanel
@@ -223,15 +447,30 @@ function GameScreen() {
               chatInput={state.chatInput}
               onChatChange={actions.setChatInput}
               onSend={actions.sendChat}
-              challengeTitle={`${chapter01.title} · ${state.currentStep.title}`}
-              challengeConcepts={chapter01.concepts.join(" · ")}
-              location={chapter01.location}
+              challengeTitle={`${challenge.title} · ${state.currentStep.title}`}
+              challengeConcepts={challenge.concepts.join(" · ")}
+              location={challenge.location}
               onMayaTypingStart={actions.onMayaTypingStart}
               onMayaTypingEnd={actions.onMayaTypingEnd}
               waitingForContinue={state.waitingForContinue}
               explainUsed={state.explainUsed}
               onContinue={actions.resumeFromPause}
               onExplain={actions.requestExplain}
+            />
+          </div>
+
+          {/* Drag handle */}
+          <div
+            onMouseDown={handleDragStart}
+            className="shrink-0 cursor-col-resize group flex items-center justify-center"
+            style={{
+              width: "5px",
+              background: state.inRush ? "#2a1a0a" : "var(--color-border)",
+            }}
+          >
+            <div
+              className="w-px h-8 transition-colors group-hover:h-12"
+              style={{ background: "rgba(110,255,160,.2)" }}
             />
           </div>
 
@@ -245,7 +484,7 @@ function GameScreen() {
                 borderBottom: "1px solid #0a1820",
               }}
             >
-              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"]] as const).map(
+              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"], ["notes", "NOTES"]] as const).map(
                 ([t, label]) => (
                   <button
                     key={t}
@@ -270,7 +509,7 @@ function GameScreen() {
               {/* Step progress */}
               {state.totalSteps > 1 && (
                 <div className="ml-auto flex items-center gap-1 pr-2">
-                  {chapter01.steps.map((step, i) => (
+                  {challenge.steps.map((step, i) => (
                     <div
                       key={step.id}
                       className="flex items-center gap-1"
@@ -327,26 +566,63 @@ function GameScreen() {
 
             {/* Tab content */}
             {state.tab === "code" && (
-              <CodeEditor
-                code={state.code}
-                onCodeChange={actions.setCode}
-                onSubmit={actions.submitCode}
-                busy={state.busy}
-                attempts={state.attempts}
-                inRush={state.inRush}
-                baseXP={state.currentStep.xp.base}
-                rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
-                camFeed={
-                  <MayaAnimation
-                    animation={state.inRush ? "walk-right" : "hack"}
-                    location={chapter01.location}
+              <div className="relative flex-1 min-h-0 flex flex-col">
+                {/* AI Suggest overlay */}
+                {state.aiSuggestOpen && state.aiSuggestions.length > 0 && (
+                  <AISuggestPanel
+                    suggestions={state.aiSuggestions}
+                    tokens={state.aiTokens}
+                    onUseSuggestion={actions.useAISuggestion}
+                    onClose={actions.closeAISuggest}
                   />
-                }
-              />
+                )}
+                <CodeEditor
+                  code={state.code}
+                  onCodeChange={actions.setCode}
+                  onSubmit={actions.submitCode}
+                  busy={state.busy}
+                  disabled={state.gamePaused}
+                  attempts={state.attempts}
+                  inRush={state.inRush}
+                  baseXP={state.currentStep.xp.base}
+                  rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
+                  vimEnabled={settings.vimModeEnabled}
+                  onVimToggle={(enabled) => onSaveSettings({ vimModeEnabled: enabled })}
+                  camFeed={
+                    <MayaAnimation
+                      animation={state.inRush ? "walk-right" : "hack"}
+                      location={challenge.location}
+                    />
+                  }
+                  aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
+                    <button
+                      onClick={actions.openAISuggest}
+                      className="ai-glow bg-transparent text-[7px] tracking-[2px] px-2.5 py-1 cursor-pointer font-[family-name:var(--font-display)]"
+                      style={{
+                        color: "var(--color-info)",
+                        border: "1px solid rgba(122,184,216,.3)",
+                        textShadow: "0 0 8px rgba(122,184,216,.5)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "rgba(122,184,216,.1)";
+                        e.currentTarget.style.borderColor = "rgba(122,184,216,.6)";
+                        e.currentTarget.style.animation = "none";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.borderColor = "rgba(122,184,216,.3)";
+                        e.currentTarget.style.animation = "";
+                      }}
+                    >
+                      ◆ AI · {state.aiTokens}
+                    </button>
+                  ) : undefined}
+                />
+              </div>
             )}
             {state.tab === "mission" && (
               <MissionPanel
-                challenge={chapter01}
+                challenge={challenge}
                 currentStep={state.currentStep}
                 currentStepIndex={state.currentStepIndex}
                 totalSteps={state.totalSteps}
@@ -355,6 +631,12 @@ function GameScreen() {
             {state.tab === "library" && (
               <LibraryPanel library={state.library} />
             )}
+            {state.tab === "notes" && (
+              <NotesPanel
+                currentChapterId={challenge.id}
+                completedChapterIds={completedChapterIds}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -362,7 +644,12 @@ function GameScreen() {
   );
 }
 
-function IntroScreen({ onStart }: { onStart: () => void }) {
+function IntroScreen({ config, onStart }: {
+  config: ChapterConfig;
+  onStart: () => void;
+}) {
+  const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
+
   return (
     <div
       className="min-h-dvh flex items-center justify-center px-5"
@@ -400,16 +687,16 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
           style={{ animation: "intro-in .7s ease forwards" }}
         >
           <div className="text-[#0a4a2a] text-[9px] tracking-[6px] mb-3.5">
-            ▸ ENCRYPTED SIGNAL · ACT I
+            {tagline}
           </div>
           <div
             className="font-[family-name:var(--font-display)] font-black text-[var(--color-signal)] tracking-[6px] leading-none glow-pulse"
-            style={{ fontSize: "clamp(52px, 13vw, 88px)" }}
+            style={{ fontSize: "clamp(36px, 10vw, 72px)" }}
           >
-            SIGNAL
+            {introTitle}
           </div>
           <div className="text-[#1a6a3a] text-[9px] tracking-[5px] mt-1.5">
-            FIRST CONTACT
+            {introSubtitle}
           </div>
         </div>
 
@@ -419,9 +706,9 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
           style={{ animation: "intro-in .7s ease .2s forwards" }}
         >
           {[
-            ["1", "CHALLENGE"],
-            ["100", "BASE XP"],
-            ["TIMED", "EVENTS"],
+            [String(challenge.steps.length), challenge.steps.length === 1 ? "STEP" : "STEPS"],
+            [String(challenge.steps.reduce((s, st) => s + st.xp.base, 0)), "BASE XP"],
+            [challenge.timer.gameOverOnExpiry ? "TIMED" : "OPEN", "EVENTS"],
             ["GO", "LANGUAGE"],
           ].map(([v, l]) => (
             <div
@@ -451,11 +738,10 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
             ▸ SIGNAL INTERCEPTED · 02:14:07
           </div>
           <p className="text-[#3a7a5a] text-xs leading-[1.8]">
-            maya chen. missing 72hrs. she&apos;s alive — hacked a terminal in
-            sublevel 3.
+            {storyLines[0]}
           </p>
           <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">
-            she needs a Go programmer. write the code. get her out.
+            {storyLines[1]}
           </p>
         </div>
 
@@ -472,7 +758,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
                        hover:bg-[var(--color-signal)] hover:text-[var(--color-background)]
                        transition-colors"
           >
-            CONNECT TO MAYA
+            {ctaLabel}
           </button>
           <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
@@ -483,4 +769,3 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
     </div>
   );
 }
-

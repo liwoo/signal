@@ -10,6 +10,9 @@ export interface ZenRule {
   id: string;
   principle: string;       // short name, e.g. "grouped imports"
   check: (code: string) => boolean;
+  /** If defined, rule is skipped entirely when this returns false.
+   *  Prevents irrelevant suggestions (e.g. "use switch" when user has no branching). */
+  isRelevant?: (code: string) => boolean;
   bonusXP: number;
   jolt: string;            // Maya's memory returning (when followed)
   suggestion: string;      // Maya's hint (when not followed)
@@ -81,6 +84,8 @@ const useNamedValues: ZenRule = {
 const usePrintfFormat: ZenRule = {
   id: "use_printf_format",
   principle: "printf formatting",
+  // Only relevant when user is printing with variables (concatenation or Printf)
+  isRelevant: (code) => /fmt\.\w*[Pp]rint/.test(code) && (/\+\s*"/.test(code) || /"\s*\+/.test(code) || /fmt\.Printf/.test(code) || /,\s*\w+\)/.test(code)),
   check: (code) => /fmt\.Printf/.test(code) && /%[sdvf]/.test(code),
   bonusXP: 15,
   jolt: "...my thesis notes. i can see them.\n\nyou used Printf with format verbs — `%s`, `%d`. that's how go separates data from presentation. the template is one thing, the values another. when i was writing my encryption library... format strings everywhere. clean. composable.\n\neffective go calls it \"the printer's idiom.\"",
@@ -119,25 +124,50 @@ const descriptiveNames: ZenRule = {
 const simpleIncrement: ZenRule = {
   id: "simple_increment",
   principle: "simple increment",
+  // Only relevant when user is incrementing a variable (any form)
+  isRelevant: (code) => /i\+\+/.test(code) || /i\s*\+=\s*1/.test(code) || /i\s*=\s*i\s*\+\s*1/.test(code),
   check: (code) => /i\+\+/.test(code) && !/i\s*=\s*i\s*\+\s*1/.test(code) && !/i\s*\+=\s*1/.test(code),
   bonusXP: 5,
   jolt: "`i++` — the simplest form. go doesn't have `++i` as an expression. it's a statement. one thing, one way to do it.\n\nzen of go: simplicity matters. fewer ways to write something means fewer ways to misread it.",
   suggestion: "use `i++` — it's the go way. not `i += 1`, not `i = i + 1`. one operation, one form. simplicity matters.",
 };
 
-// Ch02: Classify
+// Ch02: Classify — constants for labels
+const useConstantsForLabels: ZenRule = {
+  id: "use_constants_labels",
+  principle: "constants over magic strings",
+  // Only relevant when user has string literals like "DENY", "WARN" etc. in their code
+  isRelevant: (code) => /"(DENY|WARN|GRANT|OVERRIDE)"/.test(code),
+  check: (code) => {
+    // Check that const block exists and contains at least 2 label-like string assignments
+    const constBlock = code.match(/\bconst\s*\([\s\S]*?\)/);
+    const constSingle = code.match(/\bconst\s+\w+\s*=\s*"/g);
+    const labelCount = (constBlock?.[0]?.match(/=\s*"/g)?.length ?? 0) +
+      (constSingle?.length ?? 0);
+    return labelCount >= 2;
+  },
+  bonusXP: 10,
+  jolt: "...something's coming back.\n\nyou named the labels — constants instead of magic strings buried in switch cases. `\"DENY\"` scattered everywhere is invisible intent. a `const` says \"this matters, this has meaning.\"\n\nzen of go: make the important things visible. when you change a label, you change it in one place.",
+  suggestion: "try defining constants for your labels: `const deny = \"DENY\"` (or a const block). magic strings in switch cases are fragile — named constants make intent visible and changes safe.",
+};
+
+// Ch02: Classify — switch (only jolt if used, never suggest switching approach)
 const switchOverIfElse: ZenRule = {
   id: "switch_over_ifelse",
   principle: "switch over if-else chains",
+  // Only relevant when user chose switch — reward the choice, never nag about if/else
+  isRelevant: (code) => /\bswitch\b/.test(code),
   check: (code) => /\bswitch\b/.test(code),
   bonusXP: 15,
   jolt: "...fragments coming back.\n\nswitch without a variable — `switch { case condition: }` — that's go's secret weapon. it replaces if-else chains and reads like a truth table. each case is a contract.\n\neffective go: \"switch on true replaces if-else chains.\" i wrote that in my notes once. i'm sure of it now.\n\nthe compiler checks completeness. your intent is crystal clear.",
-  suggestion: "if-else chains work, but `switch { case i <= 3: ... }` is more idiomatic. go's switch is powerful — no variable needed for range checks.",
+  suggestion: "",
 };
 
 const noUnnecessaryBreak: ZenRule = {
   id: "no_unnecessary_break",
   principle: "no fallthrough by default",
+  // Only relevant when user actually wrote a switch statement
+  isRelevant: (code) => /\bswitch\b/.test(code),
   check: (code) => {
     // check that switch is used but break is NOT present (go doesn't fall through)
     return /\bswitch\b/.test(code) && !/\bbreak\b/.test(code);
@@ -151,6 +181,8 @@ const noUnnecessaryBreak: ZenRule = {
 const shortVarInLoop: ZenRule = {
   id: "short_var_loop",
   principle: "short names in small scope",
+  // Only relevant when user wrote a range loop
+  isRelevant: (code) => /\brange\b/.test(code),
   check: (code) => {
     // check for range loop with short variable names (1-2 chars)
     return /for\s+[_a-z],?\s*[a-z]\s*:=\s*range/.test(code);
@@ -163,6 +195,8 @@ const shortVarInLoop: ZenRule = {
 const underscoreUnused: ZenRule = {
   id: "underscore_unused",
   principle: "blank identifier for unused values",
+  // Only relevant when user wrote a range loop
+  isRelevant: (code) => /\brange\b/.test(code),
   check: (code) => /for\s+_\s*,/.test(code),
   bonusXP: 5,
   jolt: "the blank identifier — `_`. you threw away the index because you don't need it. that's not laziness, that's precision.\n\ngo forces you to use every variable. `_` is how you say \"i acknowledge this exists, but i don't need it.\" intentional discards.",
@@ -172,6 +206,8 @@ const underscoreUnused: ZenRule = {
 const singlePurposeFunc: ZenRule = {
   id: "single_purpose",
   principle: "single-purpose function",
+  // Only relevant when user wrote the sumCodes function
+  isRelevant: (code) => /func\s+sumCodes/.test(code),
   check: (code) => {
     // sumCodes only sums — no prints, no validation inside it
     const funcBody = code.match(/func\s+sumCodes[^{]*\{([\s\S]*?)\n\}/);
@@ -188,13 +224,17 @@ const singlePurposeFunc: ZenRule = {
 const directBoolReturn: ZenRule = {
   id: "direct_bool_return",
   principle: "direct boolean returns",
+  // Only relevant when user wrote the validateCode function
+  isRelevant: (code) => /func\s+validateCode/.test(code),
   check: (code) => {
-    // check for `return total, total > 100` pattern (no if/else for the bool)
+    // Shape check: function body has no if/else branching to return true/false.
+    // If they avoid that anti-pattern, they're returning the bool directly.
     const funcBody = code.match(/func\s+validateCode[^{]*\{([\s\S]*?)\n\}/);
     if (!funcBody) return false;
     const body = funcBody[1];
-    // should have a direct comparison return, not an if/else
-    return /return\s+\w+\s*,\s*\w+\s*[><=!]/.test(body);
+    const hasIfElse = /\bif\b/.test(body);
+    const returnsTrueFalse = /return\s+.+,\s*(true|false)\b/.test(body);
+    return !hasIfElse && !returnsTrueFalse;
   },
   bonusXP: 15,
   jolt: "...the fog is lifting.\n\n`return total, total > 100` — you returned the comparison directly. no if/else wrapping a boolean that's already right there.\n\neffective go: \"don't test a boolean against true.\" and don't build one with if/else when the expression already IS a boolean.\n\nmy advisor circled this pattern in red ink. \"this,\" she said, \"is how you know someone actually thinks in go.\"",
@@ -204,6 +244,8 @@ const directBoolReturn: ZenRule = {
 const reuseFunctions: ZenRule = {
   id: "reuse_functions",
   principle: "compose by calling existing functions",
+  // Only relevant when validateCode exists (sumCodes will be in scope from previous step)
+  isRelevant: (code) => /func\s+validateCode/.test(code),
   check: (code) => {
     const funcBody = code.match(/func\s+validateCode[^{]*\{([\s\S]*?)\n\}/);
     if (!funcBody) return false;
@@ -214,20 +256,79 @@ const reuseFunctions: ZenRule = {
   suggestion: "you're re-implementing the sum inside validateCode. call `sumCodes(codes...)` instead — reuse what you already built. composition over duplication.",
 };
 
+// Boss01: Predict
+const sliceIndexing: ZenRule = {
+  id: "slice_indexing",
+  principle: "dynamic slice length",
+  check: (code) => /\blen\s*\(/.test(code),
+  bonusXP: 5,
+  jolt: "...fragments. you used `len(codes)` to find the end. never hardcode a length — the slice knows its own size. my advisor said something about that... \"let the data describe itself.\"",
+  suggestion: "use `len(codes)` to find the last element — never hardcode the index. slices know their own length.",
+};
+
+const deltaComputation: ZenRule = {
+  id: "delta_computation",
+  principle: "delta pattern for consecutive differences",
+  check: (code) => /codes\s*\[.*\]\s*-\s*codes\s*\[/.test(code),
+  bonusXP: 10,
+  jolt: "...the delta pattern. you computed differences between consecutive codes. that's signal analysis — my thesis was about detecting patterns in encrypted streams. this felt... familiar.",
+  suggestion: "try computing deltas: `delta := codes[i] - codes[i-1]`. the pattern lives in the differences.",
+};
+
+const earlyReturn: ZenRule = {
+  id: "early_return",
+  principle: "guard clause for edge cases",
+  check: (code) => {
+    // look for an early return guard near the top of predictNext
+    const funcBody = code.match(/func\s+predictNext[^{]*\{([\s\S]*?)\n\}/);
+    if (!funcBody) return false;
+    const body = funcBody[1];
+    // check for if len(...) < N { ... return ... } in the first few lines
+    const lines = body.split("\n").slice(0, 6);
+    const chunk = lines.join("\n");
+    return /if\s+len\s*\(.*\)\s*</.test(chunk) && /return/.test(chunk);
+  },
+  bonusXP: 5,
+  jolt: "you guarded the edge case. `if len(codes) < 2` — return early, don't process garbage. defensive coding. that's... that's what we did in the lab. validate inputs first, always.",
+  suggestion: "add a guard: `if len(codes) < 2 { return 0 }`. handle edge cases before the main logic — go functions should fail fast.",
+};
+
+const namedVariables: ZenRule = {
+  id: "named_variables",
+  principle: "descriptive variable names for domain concepts",
+  check: (code) => /\b(delta|diff|difference)\s*(:=|=)/.test(code),
+  bonusXP: 5,
+  jolt: "you named it `delta`. not `x`, not `d` — a real name. \"a good name is the best documentation\" — that's from effective go. my professor had it on his office door.",
+  suggestion: "use descriptive names: `delta` or `diff` instead of `d` or `x`. go values clarity.",
+};
+
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "chapter-01:location": [useNamedValues, usePrintfFormat, descriptiveNames],
+  "chapter-02:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "chapter-02:loop": [simpleIncrement],
-  "chapter-02:classify": [switchOverIfElse, noUnnecessaryBreak],
+  "chapter-02:classify": [switchOverIfElse, noUnnecessaryBreak, useConstantsForLabels],
+  "chapter-03:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "chapter-03:sumfunc": [shortVarInLoop, underscoreUnused, singlePurposeFunc],
   "chapter-03:validate": [directBoolReturn, reuseFunctions],
+  "boss-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
 };
 
 // ── Analysis ──
 
-export function analyzeZen(stepId: string, code: string): ZenResult {
+/**
+ * Analyze code for zen patterns.
+ * @param masteredIds — IDs of rules the player already mastered in previous rounds.
+ *   Mastered rules are skipped: no XP, no jolt, no suggestion.
+ */
+export function analyzeZen(
+  stepId: string,
+  code: string,
+  masteredIds?: Set<string>
+): ZenResult {
   const rules = STEP_ZEN_RULES[stepId];
   if (!rules || rules.length === 0) {
     return { bonusXP: 0, jolts: [], suggestions: [] };
@@ -238,10 +339,16 @@ export function analyzeZen(stepId: string, code: string): ZenResult {
   const suggestions: string[] = [];
 
   for (const rule of rules) {
+    const alreadyMastered = masteredIds?.has(rule.id) ?? false;
+    if (alreadyMastered) continue;
+
+    // Skip rules that aren't relevant to the user's code
+    if (rule.isRelevant && !rule.isRelevant(code)) continue;
+
     if (rule.check(code)) {
       bonusXP += rule.bonusXP;
       jolts.push(rule.jolt);
-    } else {
+    } else if (rule.suggestion) {
       suggestions.push(rule.suggestion);
     }
   }
@@ -280,10 +387,13 @@ export function buildZenMessage(result: ZenResult, missedXP?: number): string | 
   return parts.join("\n\n");
 }
 
-export function calculateMissedXP(stepId: string, result: ZenResult): number {
+export function calculateMissedXP(stepId: string, result: ZenResult, code?: string): number {
   const rules = STEP_ZEN_RULES[stepId];
   if (!rules) return 0;
-  const maxXP = rules.reduce((sum, r) => sum + r.bonusXP, 0);
+  const relevant = code
+    ? rules.filter((r) => !r.isRelevant || r.isRelevant(code))
+    : rules;
+  const maxXP = relevant.reduce((sum, r) => sum + r.bonusXP, 0);
   return maxXP - result.bonusXP;
 }
 

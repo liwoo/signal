@@ -217,3 +217,471 @@ export const CHAPTER_01_COMPLETE_SCENES: SceneDefinition[] = [
     ],
   },
 ];
+
+// ── CHAPTER 2 INTRO SCENES ───────────────────────────────────────
+
+export const CHAPTER_02_INTRO_SCENES: SceneDefinition[] = [
+  // Scene 1: Maya walks across the cell toward the heavy door on the right wall
+  {
+    background: "cell",
+    actors: [
+      {
+        type: "maya",
+        x: 340,
+        y: 370,
+        animation: "walk-right",
+        path: [{ x: 700, y: 360, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 40, y: 80, time: 0 },
+      { x: 300, y: 70, time: 3000 },
+    ],
+    durationMs: 3500,
+    location: "CELL B-09 · DOOR",
+    caption: "the door has a keypad. 10 codes cycle through it.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "cell-ambient", volume: 0.1, fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.05, fadeMs: 1000 },
+      // Maya's footsteps approaching the door
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 480, volume: 0.2 },
+    ],
+  },
+  // Scene 2: Maya at the door — punching codes into the keypad, rejected twice
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 700, y: 360, animation: "keypad" },
+    ],
+    camera: [
+      { x: 300, y: 50, time: 0 },
+      { x: 340, y: 60, time: 4500 },
+    ],
+    durationMs: 5000,
+    location: "CELL B-09 · DOOR",
+    caption: "tried 3. tried 7. wrong pattern. the keypad buzzes red.",
+    audio: [
+      // First attempt — keypad beeps as she punches digits, then rejection
+      { atMs: 400, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 650, action: "sfx", sound: "keypad-beep", volume: 0.25 },
+      { atMs: 900, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 1300, action: "sfx", sound: "warning-beep", volume: 0.4 },
+      // Pause — she stares at the keypad
+      // Second attempt — different code, same result
+      { atMs: 2400, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 2650, action: "sfx", sound: "keypad-beep", volume: 0.25 },
+      { atMs: 2900, action: "sfx", sound: "keypad-beep", volume: 0.28 },
+      { atMs: 3150, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 3500, action: "sfx", sound: "warning-beep", volume: 0.45 },
+      // Third attempt — rushing, still wrong
+      { atMs: 4000, action: "sfx", sound: "keypad-beep", volume: 0.2 },
+      { atMs: 4150, action: "sfx", sound: "keypad-beep", volume: 0.2 },
+      { atMs: 4400, action: "sfx", sound: "warning-beep", volume: 0.35 },
+    ],
+  },
+  // Scene 3: Maya walks back from the door — she needs another approach
+  {
+    background: "cell",
+    actors: [
+      {
+        type: "maya",
+        x: 700,
+        y: 360,
+        animation: "walk-left",
+        path: [{ x: 380, y: 370, duration: 2000 }],
+      },
+    ],
+    camera: [
+      { x: 320, y: 60, time: 0 },
+      { x: 60, y: 80, time: 2500 },
+    ],
+    durationMs: 3500,
+    location: "CELL B-09 · TERMINAL",
+    caption: "guessing won't work. the codes follow a pattern.",
+    audio: [
+      // Maya stepping away from the door
+      { atMs: 100, action: "footsteps", count: 5, intervalMs: 420, volume: 0.2 },
+      // Terminal beep as she reaches it
+      { atMs: 2200, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+    ],
+  },
+];
+
+// ── CHAPTER 2 COMPLETE SCENES ────────────────────────────────────
+
+export const CHAPTER_02_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: Maya at the door — enters the correct code sequence, keypad goes green
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 700, y: 360, animation: "keypad" },
+    ],
+    camera: [
+      { x: 280, y: 50, time: 0 },
+      { x: 320, y: 60, time: 3500 },
+    ],
+    durationMs: 4000,
+    location: "CELL B-09 · DOOR",
+    caption: "all 10 codes classified. she enters the sequence.",
+    audio: [
+      // Confident keypad entry — faster, deliberate
+      { atMs: 300, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 550, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 800, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 1050, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 1300, action: "sfx", sound: "keypad-beep", volume: 0.35 },
+      // Confirmation — green light, mechanism engages
+      { atMs: 1800, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      // Heavy door mechanism unlocking
+      { atMs: 2600, action: "sfx", sound: "machinery", volume: 0.3 },
+      { atMs: 3200, action: "sfx", sound: "door-slide", volume: 0.45 },
+    ],
+  },
+  // Win 2: Knocks from B-10 — the twist
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 500, y: 360, animation: "idle" },
+    ],
+    camera: [
+      { x: 120, y: 80, time: 0 },
+      { x: 140, y: 70, time: 3000 },
+    ],
+    durationMs: 4000,
+    location: "CELL B-09 · CORRIDOR",
+    caption: "\"Maya? Maya Chen?\"",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "cell-ambient", fadeMs: 1000 },
+      // Two slow knocks
+      { atMs: 400, action: "sfx", sound: "knock-1", volume: 0.5 },
+      { atMs: 1000, action: "sfx", sound: "knock-2", volume: 0.45 },
+      // Pause — then three fast knocks (distress)
+      { atMs: 1800, action: "sfx", sound: "knock-1", volume: 0.55 },
+      { atMs: 2100, action: "sfx", sound: "knock-2", volume: 0.5 },
+      { atMs: 2400, action: "sfx", sound: "knock-heavy", volume: 0.6 },
+      // Tension drone
+      { atMs: 2000, action: "loop-start", sound: "dark-drone-1", volume: 0.1, fadeMs: 2000 },
+      { atMs: 3200, action: "sfx", sound: "dread-sting", volume: 0.3 },
+    ],
+  },
+  // Win 3: Maya resolves — she has to get to B-10
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 500, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 250, y: 10, time: 2500 },
+    ],
+    durationMs: 3000,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "someone in B-10 knows her name.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 3 INTRO SCENES ──────────────────────────────────────
+
+export const CHAPTER_03_INTRO_SCENES: SceneDefinition[] = [
+  // Scene 0: Bridge — Maya stands in the corridor, processing what just happened
+  {
+    background: "corridor",
+    actors: [
+      { type: "maya", x: 420, y: 310, animation: "idle" },
+    ],
+    camera: [
+      { x: 120, y: 10, time: 0 },
+      { x: 140, y: 20, time: 3500 },
+    ],
+    durationMs: 4000,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "\"Maya? Maya Chen?\" — someone in B-10 knows her name.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.1, fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.06, fadeMs: 1000 },
+      // Echo of the knocks from B-10 — haunting memory
+      { atMs: 600, action: "sfx", sound: "knock-1", volume: 0.2 },
+      { atMs: 1100, action: "sfx", sound: "knock-2", volume: 0.15 },
+      { atMs: 1600, action: "sfx", sound: "knock-heavy", volume: 0.12 },
+      // Tension builds
+      { atMs: 2800, action: "sfx", sound: "dread-sting", volume: 0.15 },
+    ],
+  },
+  // Scene 1: Maya walks the corridor — the direct path is blocked
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 420,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 620, y: 310, duration: 2000 }],
+      },
+    ],
+    camera: [
+      { x: 140, y: 10, time: 0 },
+      { x: 300, y: 10, time: 2500 },
+    ],
+    durationMs: 3500,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "the corridor to B-10 is sealed. but the ventilation shaft isn't.",
+    audio: [
+      // Maya's footsteps — purposeful, then stopping
+      { atMs: 100, action: "footsteps", count: 5, intervalMs: 420, volume: 0.25 },
+      // She spots the vent grate
+      { atMs: 2400, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+      { atMs: 2800, action: "sfx", sound: "machinery", volume: 0.15 },
+    ],
+  },
+  // Scene 2: Maya crawls into the ventilation shaft — tight, claustrophobic
+  {
+    background: "vent",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 330,
+        animation: "crawl-right",
+        path: [{ x: 450, y: 330, duration: 3200 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 30, time: 0 },
+      { x: 200, y: 30, time: 3200 },
+    ],
+    durationMs: 4000,
+    location: "VENTILATION SHAFT · SUBLEVEL 3",
+    caption: "tight. dark. the only way to B-10.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1000 },
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "dark-drone-2", volume: 0.1, fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.04, fadeMs: 1000 },
+      // Maya crawling — slower, muffled, lower volume than walking
+      { atMs: 100, action: "footsteps", count: 7, intervalMs: 520, volume: 0.1 },
+    ],
+  },
+  // Scene 2: Maya reaches the junction panel — punches in a code, rejected
+  {
+    background: "vent",
+    actors: [
+      { type: "maya", x: 550, y: 310, animation: "keypad" },
+    ],
+    camera: [
+      { x: 200, y: 20, time: 0 },
+      { x: 230, y: 30, time: 3500 },
+    ],
+    durationMs: 4000,
+    location: "VENTILATION SHAFT · JUNCTION A",
+    caption: "a junction panel. each gate needs a computed code to pass.",
+    audio: [
+      { atMs: 300, action: "sfx", sound: "keypad-beep", volume: 0.25 },
+      { atMs: 550, action: "sfx", sound: "keypad-beep", volume: 0.25 },
+      { atMs: 800, action: "sfx", sound: "keypad-beep", volume: 0.28 },
+      { atMs: 1200, action: "sfx", sound: "warning-beep", volume: 0.35 },
+      // She studies the panel display
+      { atMs: 2500, action: "sfx", sound: "keypad-beep", volume: 0.2 },
+      { atMs: 3200, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+    ],
+  },
+];
+
+// ── CHAPTER 3 COMPLETE SCENES ───────────────────────────────────
+
+export const CHAPTER_03_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: Maya enters the correct codes at the junction panel — green confirmation
+  {
+    background: "vent",
+    actors: [
+      { type: "maya", x: 550, y: 310, animation: "keypad" },
+    ],
+    camera: [
+      { x: 200, y: 20, time: 0 },
+    ],
+    durationMs: 3000,
+    location: "VENTILATION SHAFT · JUNCTION A",
+    caption: "codes validated. the shaft gate opens.",
+    audio: [
+      { atMs: 200, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+      { atMs: 1500, action: "sfx", sound: "machinery", volume: 0.25 },
+      { atMs: 2200, action: "sfx", sound: "door-slide", volume: 0.35 },
+    ],
+  },
+  // Win 2: Maya walks through to cell B-10
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 550, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 280, y: 10, time: 2500 },
+    ],
+    durationMs: 3000,
+    location: "SUBLEVEL 3 · CELL B-10",
+    caption: "cell B-10. someone's inside.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-2", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.25 },
+      // Knocks from inside B-10
+      { atMs: 2200, action: "sfx", sound: "knock-1", volume: 0.5 },
+      { atMs: 2600, action: "sfx", sound: "knock-2", volume: 0.45 },
+    ],
+  },
+  // Win 3: Door opens — dramatic reveal moment
+  {
+    background: "corridor",
+    actors: [
+      { type: "maya", x: 550, y: 310, animation: "idle" },
+    ],
+    camera: [
+      { x: 250, y: 10, time: 0 },
+    ],
+    durationMs: 3500,
+    location: "SUBLEVEL 3 · CELL B-10",
+    caption: "\"Maya — I know exactly why they took us.\"",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 1500 },
+      { atMs: 300, action: "sfx", sound: "door-slide", volume: 0.45 },
+      { atMs: 1200, action: "loop-start", sound: "dark-drone-1", volume: 0.12, fadeMs: 2000 },
+      { atMs: 2500, action: "sfx", sound: "dread-sting", volume: 0.35 },
+    ],
+  },
+];
+
+// ── BOSS 01 INTRO SCENES ─────────────────────────────────────────
+
+export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
+  // Scene 1: Maya approaches a heavy door in the corridor
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 420, y: 310, duration: 2200 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 200, y: 10, time: 2200 },
+    ],
+    durationMs: 3500,
+    location: "SUBLEVEL 3 · MASTER LOCK CONTROLLER",
+    caption: "the master lock. if it cycles to zero, we're trapped.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      // Maya's cautious footsteps — slower pace
+      { atMs: 100, action: "footsteps", count: 5, intervalMs: 480, volume: 0.25 },
+      // Heavy door sliding open ahead
+      { atMs: 2000, action: "sfx", sound: "door-slide", volume: 0.45 },
+    ],
+  },
+  // Scene 2: Close up on the lock mechanism — server/technical room
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 60, time: 0 },
+      { x: 120, y: 70, time: 3000 },
+    ],
+    durationMs: 3000,
+    location: "SUBLEVEL 3 · LOCK CONTROLLER",
+    caption: "codes cycling. 90 seconds until permanent lockdown.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 600 },
+      { atMs: 0, action: "sfx", sound: "machinery", volume: 0.35 },
+      { atMs: 0, action: "loop-start", sound: "tension-drone", volume: 0.1, fadeMs: 1500 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+      { atMs: 1600, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+      { atMs: 2400, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── BOSS 01 COMPLETE SCENES ──────────────────────────────────────
+
+export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: Lock mechanism accepting — terminal confirmation
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 60, time: 0 },
+    ],
+    durationMs: 2500,
+    location: "SUBLEVEL 3 · LOCK CONTROLLER",
+    caption: "codes aligned. lock disengaging.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "tension-drone", fadeMs: 1200 },
+      { atMs: 200, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 1400, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+    ],
+  },
+  // Win 2: Maya running through the door — victorious chase energy
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 100,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 700, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 350, y: 10, time: 2500 },
+    ],
+    durationMs: 3000,
+    location: "SUBLEVEL 3 · EAST WING",
+    caption: "sublevel 3 — cleared.",
+    audio: [
+      { atMs: 0, action: "sfx", sound: "door-slide", volume: 0.4 },
+      // Maya running — fast footsteps (360ms = running pace)
+      { atMs: 100, action: "footsteps", count: 7, intervalMs: 360, volume: 0.35 },
+      { atMs: 0, action: "loop-stop", sound: "alarm-loop", fadeMs: 800 },
+    ],
+  },
+  // Win 3: Brief calm — Maya at far right, corridor behind her
+  {
+    background: "corridor",
+    actors: [
+      { type: "maya", x: 680, y: 310, animation: "idle" },
+    ],
+    camera: [
+      { x: 300, y: 10, time: 0 },
+    ],
+    durationMs: 2500,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "dr. reeves is on sublevel 2. she has to keep going.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-2", volume: 0.08, fadeMs: 2000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.06, fadeMs: 1500 },
+    ],
+  },
+];

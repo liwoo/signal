@@ -52,7 +52,13 @@ export function LevelTimer({
     ? "var(--color-danger)"
     : warn
       ? "var(--color-alert)"
-      : "var(--color-dim)";
+      : "var(--color-signal)";
+
+  const glow = crit
+    ? "0 0 12px rgba(255,64,64,.7), 0 0 30px rgba(255,64,64,.3)"
+    : warn
+      ? "0 0 10px rgba(255,159,28,.5), 0 0 24px rgba(255,159,28,.2)"
+      : "0 0 8px rgba(110,255,160,.4), 0 0 20px rgba(110,255,160,.15)";
 
   const mins = Math.floor(remaining / 60);
   const secs = Math.floor(remaining % 60);
@@ -71,9 +77,10 @@ export function LevelTimer({
         </span>
       )}
       <span
-        className="font-[family-name:var(--font-display)] text-[11px] font-bold tabular-nums min-w-[38px] text-right"
+        className="font-[family-name:var(--font-display)] text-[13px] font-black tabular-nums min-w-[42px] text-right"
         style={{
           color,
+          textShadow: glow,
           animation: crit ? "blink .5s step-end infinite" : "none",
         }}
       >
@@ -81,14 +88,15 @@ export function LevelTimer({
       </span>
       {/* Tiny bar */}
       <div
-        className="w-12 h-[3px] relative overflow-hidden"
-        style={{ background: "rgba(255,255,255,.03)" }}
+        className="w-14 h-[4px] relative overflow-hidden"
+        style={{ background: "rgba(255,255,255,.05)" }}
       >
         <div
           className="absolute inset-y-0 left-0 transition-[width] duration-250 ease-linear"
           style={{
             width: `${pct * 100}%`,
             background: color,
+            boxShadow: glow,
           }}
         />
       </div>

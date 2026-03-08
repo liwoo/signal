@@ -11,14 +11,14 @@ interface MayaAnimationProps {
   className?: string;
 }
 
-const CAM_W = 200;
-const CAM_H = 120;
+const CAM_W = 220;
+const CAM_H = 140;
 // Scene painted larger for framing headroom
-const SCENE_W = 420;
-const SCENE_H = 300;
+const SCENE_W = 460;
+const SCENE_H = 340;
 // Camera offset into the scene (crops to CAM_W x CAM_H viewport)
 const CAM_X = 110;
-const CAM_Y = 40;
+const CAM_Y = 30;
 const CHAR_SCALE = 2;
 // Terminal screen flicker interval
 const FLICKER_INTERVAL = 2800;
@@ -50,8 +50,8 @@ export function MayaAnimation({
     const mayaFrame = frames[0];
 
     // Maya position in scene coords
-    const mayaX = animation === "hack" ? 240 : 200;
-    const mayaFeetY = SCENE_H * 0.50 + 45;
+    const mayaX = animation === "hack" ? 250 : 210;
+    const mayaFeetY = SCENE_H * 0.50 + 55;
 
     // Draw scene cropped by camera
     ctx.clearRect(0, 0, CAM_W, CAM_H);

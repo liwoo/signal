@@ -98,26 +98,48 @@ This scales correctly at any scene resolution (640x420 test, 1040x600 in-game).
 
 ## Character Painting
 
-### Base Dimensions
+### Base Dimensions & Proportions
 
-Characters are painted at **40x64 pixels** then scaled up by `CHAR_SCALE` (default 3) = **120x192** in scene.
+Characters are painted at **48x80 pixels** then scaled up by `CHAR_SCALE` (default 3) = **144x240** in scene.
+
+**5-head proportional model** (SLYNYRD Pixelblog reference):
+- Head (forehead-chin): 14px — eyes at half head height, mouth at 2/3
+- Neck: 3px
+- Torso (shoulders-belt): 20px — tapered from 22px shoulders to 14px waist
+- Belt/hip: 3px
+- Legs: 20px — tapered from 8px thigh to 6px calf
+- Boots: 8px — chunky combat style with sole detail
+
+**Key anatomy techniques:**
+- **Shaped silhouette**: Row-by-row width interpolation for face/torso — not rectangles
+- **Tapered limbs**: `drawTaperedLimb()` interpolates width from top to bottom
+- **Anti-aliased edges**: Intermediate color pixels on diagonals
+- **Selective lighting**: Left side lighter, right side darker (consistent light source)
+- **Strategic highlights**: 1-2px bright spots on nose tip, boot cuff, shoulder
 
 ### Maya Design
 
-- Dark hair with **green streak** (signature — `C.signalMid`)
-- **Open hoodie** over gray tank top — clothing variety is key to visual interest
-- Dark cargo pants with pockets, combat boots with laces
-- Warm skin on forearms, face, neck (hoodie sleeves stop at elbow)
-- Bright green eyes with catch lights and subtle glow
-- **Rim light** on right side (green, 15% opacity) for environmental lighting
+- Dark hair with **green streak** (signature — `C.signalMid`, with shadowBlur glow)
+- **Open hoodie** over gray tank top — zippered edges with `C.hoodieAccent`
+- Dark cargo pants with visible pockets, knee creases
+- Combat boots with lace eyelets, ankle cuff, thick sole
+- Warm skin on forearms/hands with thumb/finger distinction
+- Expressive face: 5x4px eyes with whites, green irises, pupils, catch lights, lower lash hint
+- Defined nose bridge + tip highlight, shaped lips (upper/lower)
+- Row-based face shape (14 rows from forehead to chin, widening then narrowing)
+- **Rim light** on right side (green, 12% opacity)
 
 ### Guard Design
 
-- Full tactical armor, bulkier than Maya (wider shoulders, shoulder pads)
-- Helmet with **red visor slit** (glowing, `C.dangerBright`)
-- Chest plates, utility belt with pouches, knee pads, heavy boots
-- Dark palette (`C.guardArmor/Dark/Mid`) with red accents
-- **Red rim light** on right side
+- Bulkier frame than Maya — 4.5-head proportions, wider shoulders
+- **Tactical helmet** with angular visor, side vents with slits, breathing grille, comms antenna
+- **Red visor** (glowing, `C.dangerBright`, shadowBlur 8) with highlight streak
+- Segmented chest plates with edge highlighting, center gap
+- Red center stripe insignia
+- Armored shoulder pads with rivets, elbow guards, tactical gloves with knuckle detail
+- Utility belt: red buckle, side pouches with shadow
+- Thigh armor plates, knee pads, heavy boots with shin guard and straps
+- **Red rim light** on right side (10% opacity)
 
 ### Walk Cycle Animation (8 frames)
 

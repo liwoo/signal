@@ -59,6 +59,15 @@ export function getLearnedTips(state: LibraryState): LibraryEntry[] {
   return state.entries.filter((e) => e.learned);
 }
 
+/** Get IDs of all rules the player has mastered (learned at least once). */
+export function getMasteredRuleIds(state: LibraryState): Set<string> {
+  const ids = new Set<string>();
+  for (const entry of state.entries) {
+    if (entry.learned) ids.add(entry.id);
+  }
+  return ids;
+}
+
 /** Summary stats for the library. */
 export function getLibraryStats(state: LibraryState): {
   total: number;

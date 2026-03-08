@@ -1,24 +1,46 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface PowerCutProps {
   onDone: () => void;
 }
 
+// Escalating flicker stages — gets more aggressive over time
+const STAGES = [
+  { after: 0, animation: "backup-flicker-1", bg: "rgba(255,15,5,.03)" },
+  { after: 30, animation: "backup-flicker-2", bg: "rgba(255,15,5,.05)" },
+  { after: 60, animation: "backup-flicker-3", bg: "rgba(255,20,5,.07)" },
+  { after: 90, animation: "backup-flicker-4", bg: "rgba(255,25,5,.09)" },
+] as const;
+
 export function PowerCut({ onDone }: PowerCutProps) {
-  const [phase, setPhase] = useState<"flicker" | "dark" | "restore">("flicker");
+  const [phase, setPhase] = useState<"flicker" | "backup">("flicker");
+  const [stage, setStage] = useState(0);
+  const startRef = useRef(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("dark"), 1200);
-    const t2 = setTimeout(() => setPhase("restore"), 3200);
-    const t3 = setTimeout(() => onDone(), 4000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    const t1 = setTimeout(() => {
+      setPhase("backup");
+      startRef.current = Date.now();
+      onDone();
+    }, 1400);
+    return () => clearTimeout(t1);
   }, [onDone]);
+
+  // Escalate stage over time
+  useEffect(() => {
+    if (phase !== "backup") return;
+    const iv = setInterval(() => {
+      const elapsed = (Date.now() - startRef.current) / 1000;
+      let next = 0;
+      for (let i = STAGES.length - 1; i >= 0; i--) {
+        if (elapsed >= STAGES[i].after) { next = i; break; }
+      }
+      setStage((prev) => (prev !== next ? next : prev));
+    }, 2000);
+    return () => clearInterval(iv);
+  }, [phase]);
 
   if (phase === "flicker") {
     return (
@@ -26,29 +48,13 @@ export function PowerCut({ onDone }: PowerCutProps) {
     );
   }
 
-  if (phase === "dark") {
-    return (
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center flex-col gap-3"
-        style={{ background: "#010204" }}
-      >
-        <div className="font-[family-name:var(--font-display)] text-[11px] tracking-[6px]"
-          style={{ color: "#1a0a0a" }}
-        >
-          POWER FAILURE
-        </div>
-        <div className="text-[9px] tracking-[3px]" style={{ color: "#2a0808" }}>
-          SWITCHING TO BACKUP
-        </div>
-      </div>
-    );
-  }
-
+  const s = STAGES[stage];
   return (
     <div
       className="fixed inset-0 z-[9990] pointer-events-none"
       style={{
-        animation: "red-flood 1s ease forwards",
-        background: "rgba(255,30,10,.06)",
+        background: s.bg,
+        animation: `${s.animation} ${3 - stage * 0.4}s ease-in-out infinite`,
       }}
     />
   );

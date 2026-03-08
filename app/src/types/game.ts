@@ -26,6 +26,10 @@ export interface ChallengeStep {
   rushMode: RushConfig | null;       // step-scoped rush (optional)
   xp: XPConfig;
   events: TimedEvent[];              // step-scoped timed events
+  /** Go main() that tests the user's code with fixed inputs. Engine swaps this in before compiling. */
+  testHarness?: string;
+  /** Exact stdout the testHarness produces when the code is correct. */
+  expectedOutput?: string;
 }
 
 export interface Challenge {
@@ -125,6 +129,7 @@ export interface PlayerSettings {
   fontSize: number;
   soundEnabled: boolean;
   beginnerMode: boolean;
+  chatWidthPercent: number;
 }
 
 // ── Chat ──

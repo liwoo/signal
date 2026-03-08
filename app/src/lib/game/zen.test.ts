@@ -4,14 +4,17 @@ import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen
 // ── Registry Tests ──
 
 describe("zen rules registry", () => {
-  test("has rules for all 6 steps", () => {
+  test("has rules for all 9 steps", () => {
     const stepIds = [
       "chapter-01:scaffold",
       "chapter-01:location",
+      "chapter-02:scaffold",
       "chapter-02:loop",
       "chapter-02:classify",
       "chapter-03:sumfunc",
       "chapter-03:validate",
+      "boss-01:scaffold",
+      "boss-01:predict",
     ];
     for (const id of stepIds) {
       expect(ZEN_RULES[id]).toBeDefined();
@@ -33,7 +36,7 @@ describe("zen rules registry", () => {
         expect(rule.principle, `${stepId}/${rule.id} missing principle`).toBeTruthy();
         expect(rule.bonusXP, `${stepId}/${rule.id} bonusXP must be > 0`).toBeGreaterThan(0);
         expect(rule.jolt, `${stepId}/${rule.id} missing jolt`).toBeTruthy();
-        expect(rule.suggestion, `${stepId}/${rule.id} missing suggestion`).toBeTruthy();
+        expect(typeof rule.suggestion, `${stepId}/${rule.id} suggestion must be string`).toBe("string");
         expect(typeof rule.check, `${stepId}/${rule.id} check not function`).toBe("function");
       }
     }
@@ -43,10 +46,13 @@ describe("zen rules registry", () => {
     const maxXP: Record<string, number> = {
       "chapter-01:scaffold": 15,   // 10 + 3 + 2
       "chapter-01:location": 35,   // 10 + 15 + 10
+      "chapter-02:scaffold": 15,   // 10 + 3 + 2
       "chapter-02:loop": 5,        // 5
-      "chapter-02:classify": 25,   // 15 + 10
+      "chapter-02:classify": 35,   // 15 + 10 + 10
       "chapter-03:sumfunc": 25,    // 10 + 5 + 10
       "chapter-03:validate": 25,   // 15 + 10
+      "boss-01:scaffold": 15,      // 10 + 3 + 2
+      "boss-01:predict": 25,       // 5 + 10 + 5 + 5
     };
     for (const [stepId, expected] of Object.entries(maxXP)) {
       const total = ZEN_RULES[stepId].reduce((sum, r) => sum + r.bonusXP, 0);
@@ -331,7 +337,7 @@ func main() {
 }`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 3,
+      suggestionCount: 2, // namedValues + descriptiveNames (printf irrelevant for static string)
     },
     {
       name: "const + Printf with %v verb + descriptive name",
@@ -388,6 +394,52 @@ func main() {
       expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
     });
   }
+});
+
+// ── Chapter 02: Scaffold ──
+
+describe("chapter-02:scaffold — zen detection", () => {
+  const STEP = "chapter-02:scaffold";
+
+  test("detects grouped import with blank lines", () => {
+    const code = `package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(15);
+    expect(result.jolts.length).toBe(3);
+  });
+
+  test("detects non-grouped import with blank lines", () => {
+    const code = `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(5); // pkg_sep(3) + import_sep(2), no grouped
+    expect(result.jolts.length).toBe(2);
+    expect(result.suggestions.length).toBe(1);
+  });
+
+  test("no zen on minimal code", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(0);
+    expect(result.suggestions.length).toBe(3);
+  });
 });
 
 // ── Chapter 02: Loop ──
@@ -519,8 +571,33 @@ describe("chapter-02:classify — zen detection", () => {
     fmt.Println(i, "OVERRIDE")
   }
 }`,
-      expectedXP: 25,
+      expectedXP: 25,    // switchOverIfElse(15) + noUnnecessaryBreak(10), missing constants
       joltCount: 2,
+      suggestionCount: 1, // constants suggestion
+    },
+    {
+      name: "perfect: switch + constants",
+      code: `const (
+  deny     = "DENY"
+  warn     = "WARN"
+  grant    = "GRANT"
+  override = "OVERRIDE"
+)
+
+for i := 1; i <= 10; i++ {
+  switch {
+  case i <= 3:
+    fmt.Println(i, deny)
+  case i <= 6:
+    fmt.Println(i, warn)
+  case i <= 9:
+    fmt.Println(i, grant)
+  default:
+    fmt.Println(i, override)
+  }
+}`,
+      expectedXP: 35,    // all three rules pass
+      joltCount: 3,
       suggestionCount: 0,
     },
     {
@@ -541,9 +618,9 @@ describe("chapter-02:classify — zen detection", () => {
     break
   }
 }`,
-      expectedXP: 15,
+      expectedXP: 15,    // switchOverIfElse only
       joltCount: 1,
-      suggestionCount: 1,
+      suggestionCount: 2, // noBreak + constants
     },
     {
       name: "switch on variable (switch i)",
@@ -559,12 +636,12 @@ describe("chapter-02:classify — zen detection", () => {
     fmt.Println(i, "OVERRIDE")
   }
 }`,
-      expectedXP: 25,
+      expectedXP: 25,    // switchOverIfElse + noBreak
       joltCount: 2,
-      suggestionCount: 0,
+      suggestionCount: 1, // constants suggestion
     },
     {
-      name: "if-else chain (no switch)",
+      name: "if-else chain (no switch) — no switch suggestion",
       code: `for i := 1; i <= 10; i++ {
   if i <= 3 {
     fmt.Println(i, "DENY")
@@ -578,7 +655,7 @@ describe("chapter-02:classify — zen detection", () => {
 }`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 2,
+      suggestionCount: 1, // constants only (switch/noBreak both irrelevant without switch)
     },
     {
       name: "if-else with break keyword elsewhere (string matching edge)",
@@ -592,7 +669,7 @@ describe("chapter-02:classify — zen detection", () => {
 }`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 2,
+      suggestionCount: 1, // constants only (switch/noBreak both irrelevant without switch)
     },
     {
       name: "switch with one case having break, others not",
@@ -607,9 +684,9 @@ describe("chapter-02:classify — zen detection", () => {
     fmt.Println(i, "OVERRIDE")
   }
 }`,
-      expectedXP: 15,
+      expectedXP: 15,    // switchOverIfElse only
       joltCount: 1,
-      suggestionCount: 1,
+      suggestionCount: 2, // noBreak + constants
     },
   ];
 
@@ -672,7 +749,7 @@ describe("chapter-03:sumfunc — zen detection", () => {
 }`,
       expectedXP: 10,
       joltCount: 1,
-      suggestionCount: 2,
+      suggestionCount: 0, // shortVar + underscore irrelevant (no range)
     },
     {
       name: "range with long variable names",
@@ -728,7 +805,7 @@ describe("chapter-03:sumfunc — zen detection", () => {
 }`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 3,
+      suggestionCount: 1, // only singlePurpose (shortVar + underscore irrelevant, no range)
     },
     {
       name: "range with _, but uses Println (2 of 3 rules)",
@@ -874,6 +951,15 @@ describe("chapter-03:validate — zen detection", () => {
       joltCount: 2,
       suggestionCount: 0,
     },
+    {
+      name: "inline sumCodes call in return — direct bool",
+      code: `func validateCode(codes ...int) (int, bool) {
+  return sumCodes(codes...), sumCodes(codes...) > 100
+}`,
+      expectedXP: 25,
+      joltCount: 2,
+      suggestionCount: 0,
+    },
   ];
 
   for (const entry of entries) {
@@ -884,6 +970,253 @@ describe("chapter-03:validate — zen detection", () => {
       expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
     });
   }
+});
+
+// ── Boss 01: Scaffold ──
+
+describe("boss-01:scaffold — zen detection", () => {
+  const STEP = "boss-01:scaffold";
+
+  test("detects grouped import with blank lines", () => {
+    const code = `package main
+
+import (
+    "fmt"
+)
+
+func predictNext(codes []int) int {
+    return 0
+}
+
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(15); // grouped_import(10) + pkg_sep(3) + import_sep(2)
+    expect(result.jolts.length).toBe(3);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  test("detects non-grouped import", () => {
+    const code = `package main
+
+import "fmt"
+
+func predictNext(codes []int) int {
+    return 0
+}
+
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const result = analyzeZen(STEP, code);
+    // no grouped import (0), but has blank lines (3 + 2)
+    expect(result.bonusXP).toBe(5);
+    expect(result.jolts.length).toBe(2);
+    expect(result.suggestions.length).toBe(1);
+  });
+
+  test("no blank lines gives only suggestions", () => {
+    const code = `package main
+import "fmt"
+func predictNext(codes []int) int {
+    return 0
+}
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(0);
+    expect(result.suggestions.length).toBe(3);
+  });
+});
+
+// ── Boss 01: Predict ──
+
+describe("boss-01:predict — zen detection", () => {
+  const STEP = "boss-01:predict";
+
+  const entries: Array<{
+    name: string;
+    code: string;
+    expectedXP: number;
+    joltCount: number;
+    suggestionCount: number;
+  }> = [
+    {
+      name: "perfect: len, delta subtraction, early return, named delta",
+      code: `func predictNext(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  delta := codes[len(codes)-1] - codes[len(codes)-2]
+  return codes[len(codes)-1] + delta
+}`,
+      expectedXP: 25,
+      joltCount: 4,
+      suggestionCount: 0,
+    },
+    {
+      name: "starter code (empty function body) triggers no rules",
+      code: `func predictNext(codes []int) int {
+  // your code here
+  return 0
+}`,
+      expectedXP: 0,
+      joltCount: 0,
+      suggestionCount: 4,
+    },
+    {
+      name: "uses len but no delta, no guard, no named var",
+      code: `func predictNext(codes []int) int {
+  last := codes[len(codes)-1]
+  return last + 1
+}`,
+      expectedXP: 5,
+      joltCount: 1,
+      suggestionCount: 3,
+    },
+    {
+      name: "uses len + delta subtraction but no guard, short var name",
+      code: `func predictNext(codes []int) int {
+  d := codes[len(codes)-1] - codes[len(codes)-2]
+  return codes[len(codes)-1] + d
+}`,
+      expectedXP: 15,
+      joltCount: 2,
+      suggestionCount: 2,
+    },
+    {
+      name: "uses len + delta + named variable but no early return",
+      code: `func predictNext(codes []int) int {
+  delta := codes[len(codes)-1] - codes[len(codes)-2]
+  return codes[len(codes)-1] + delta
+}`,
+      expectedXP: 20,
+      joltCount: 3,
+      suggestionCount: 1,
+    },
+    {
+      name: "uses len + early return + named diff but no delta subtraction",
+      code: `func predictNext(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  diff := codes[len(codes)-1] + 1
+  return diff
+}`,
+      expectedXP: 15,
+      joltCount: 3,
+      suggestionCount: 1,
+    },
+    {
+      name: "hardcoded index (no len), loop-based delta",
+      code: `func predictNext(codes []int) int {
+  d := codes[1] - codes[0]
+  for i := 2; i < 5; i++ {
+    d = codes[i] - codes[i-1]
+  }
+  return codes[4] + d
+}`,
+      expectedXP: 10,
+      joltCount: 1,
+      suggestionCount: 3,
+    },
+    {
+      name: "full solution with for loop and diff variable",
+      code: `func predictNext(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  diff := 0
+  for i := 1; i < len(codes); i++ {
+    diff = codes[i] - codes[i-1]
+  }
+  return codes[len(codes)-1] + diff
+}`,
+      expectedXP: 25,
+      joltCount: 4,
+      suggestionCount: 0,
+    },
+    {
+      name: "uses difference as variable name",
+      code: `func predictNext(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  difference := codes[len(codes)-1] - codes[len(codes)-2]
+  return codes[len(codes)-1] + difference
+}`,
+      expectedXP: 25,
+      joltCount: 4,
+      suggestionCount: 0,
+    },
+  ];
+
+  for (const entry of entries) {
+    test(entry.name, () => {
+      const result = analyzeZen(STEP, entry.code);
+      expect(result.bonusXP, "bonusXP").toBe(entry.expectedXP);
+      expect(result.jolts.length, "jolt count").toBe(entry.joltCount);
+      expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
+    });
+  }
+
+  test("slice_indexing detects len( in various forms", () => {
+    const withLen = `func predictNext(codes []int) int { return codes[len(codes)-1] }`;
+    const withoutLen = `func predictNext(codes []int) int { return codes[4] }`;
+    const r1 = analyzeZen(STEP, withLen);
+    const r2 = analyzeZen(STEP, withoutLen);
+    expect(r1.jolts.length).toBeGreaterThan(r2.jolts.length);
+  });
+
+  test("delta_computation requires codes[ subtraction pattern", () => {
+    const withDelta = `func predictNext(codes []int) int { x := codes[1] - codes[0]; return x }`;
+    const noDelta = `func predictNext(codes []int) int { x := 5 - 3; return x }`;
+    const r1 = analyzeZen(STEP, withDelta);
+    const r2 = analyzeZen(STEP, noDelta);
+    // withDelta triggers delta_computation, noDelta does not
+    expect(r1.bonusXP).toBeGreaterThan(r2.bonusXP);
+  });
+
+  test("early_return only triggers with guard in predictNext body", () => {
+    // guard inside predictNext
+    const guarded = `func predictNext(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  return codes[0]
+}`;
+    // guard in a different function (should not trigger)
+    const otherFunc = `func otherFunc(codes []int) int {
+  if len(codes) < 2 {
+    return 0
+  }
+  return codes[0]
+}
+
+func predictNext(codes []int) int {
+  return codes[0]
+}`;
+    const r1 = analyzeZen(STEP, guarded);
+    const r2 = analyzeZen(STEP, otherFunc);
+    // r1 should have early_return jolt, r2 should not (predictNext body has no guard)
+    const earlyReturnXP = 5;
+    expect(r1.bonusXP).toBeGreaterThanOrEqual(earlyReturnXP);
+    // r2: predictNext has no guard, so early_return should be a suggestion
+    expect(r2.suggestions.some((s) => s.includes("guard"))).toBe(true);
+  });
+
+  test("named_variables checks for := or = assignment", () => {
+    const named = `delta := codes[1] - codes[0]`;
+    const shortName = `d := codes[1] - codes[0]`;
+    const r1 = analyzeZen(STEP, named);
+    const r2 = analyzeZen(STEP, shortName);
+    expect(r1.bonusXP).toBeGreaterThan(r2.bonusXP);
+  });
 });
 
 // ── Full Program Tests (realistic end-to-end submissions) ──
@@ -979,7 +1312,7 @@ func main() {
 }`;
     const result = analyzeZen("chapter-02:classify", code);
     expect(result.bonusXP).toBe(0);
-    expect(result.suggestions.length).toBe(2);
+    expect(result.suggestions.length).toBe(1); // constants only (switch not suggested for if-else users)
   });
 
   test("ch02 classify: Java dev writes switch with breaks", () => {
@@ -997,7 +1330,7 @@ func main() {
 }`;
     const result = analyzeZen("chapter-02:classify", code);
     expect(result.bonusXP).toBe(15);
-    expect(result.suggestions.length).toBe(1);
+    expect(result.suggestions.length).toBe(2); // noBreak + constants
     expect(result.suggestions[0]).toContain("break");
   });
 
@@ -1152,7 +1485,7 @@ func main() {
     const r1 = analyzeZen("chapter-02:loop", loopCode);
     const r2 = analyzeZen("chapter-02:classify", classifyCode);
     const total = r1.bonusXP + r2.bonusXP;
-    expect(total).toBe(30); // 5 + 25
+    expect(total).toBe(30); // 5 + 25 (constants rule not met since no consts)
   });
 
   test("chapter 3: perfect code on both steps", () => {
@@ -1173,17 +1506,18 @@ func main() {
     expect(total).toBe(50); // 25 + 25
   });
 
-  test("all chapters perfect = 130 total zen XP", () => {
+  test("all chapters + bosses perfect = 165 total zen XP", () => {
     const maxPerStep: Record<string, number> = {
       "chapter-01:scaffold": 15,
       "chapter-01:location": 35,
       "chapter-02:loop": 5,
-      "chapter-02:classify": 25,
+      "chapter-02:classify": 35,
       "chapter-03:sumfunc": 25,
       "chapter-03:validate": 25,
+      "boss-01:predict": 25,
     };
     const grandTotal = Object.values(maxPerStep).reduce((a, b) => a + b, 0);
-    expect(grandTotal).toBe(130);
+    expect(grandTotal).toBe(165);
   });
 });
 
@@ -1420,6 +1754,7 @@ describe("jolt and suggestion content", () => {
   test("suggestions contain actionable advice (not vague)", () => {
     for (const [stepId, rules] of Object.entries(ZEN_RULES)) {
       for (const rule of rules) {
+        if (!rule.suggestion) continue; // jolt-only rules have no suggestion
         const lower = rule.suggestion.toLowerCase();
         const hasAction =
           lower.includes("try") ||
@@ -1438,9 +1773,101 @@ describe("jolt and suggestion content", () => {
   test("suggestions contain code examples", () => {
     for (const [stepId, rules] of Object.entries(ZEN_RULES)) {
       for (const rule of rules) {
+        if (!rule.suggestion) continue; // jolt-only rules have no suggestion
         const hasCode = rule.suggestion.includes("`");
         expect(hasCode, `${stepId}/${rule.id} suggestion should include code example`).toBe(true);
       }
     }
+  });
+});
+
+// ── Mastery Filtering ──
+
+describe("mastery filtering — skip already-mastered rules", () => {
+  test("mastered rules are skipped entirely", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`;
+    // Without mastery: all 3 rules checked
+    const r1 = analyzeZen("chapter-01:scaffold", code);
+    expect(r1.bonusXP).toBe(15);
+    expect(r1.jolts.length).toBe(3);
+
+    // With all mastered: no XP, no jolts, no suggestions
+    const mastered = new Set(["grouped_import", "package_import_sep", "import_func_sep"]);
+    const r2 = analyzeZen("chapter-01:scaffold", code, mastered);
+    expect(r2.bonusXP).toBe(0);
+    expect(r2.jolts.length).toBe(0);
+    expect(r2.suggestions.length).toBe(0);
+  });
+
+  test("partially mastered: only new rules yield XP", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`;
+    const mastered = new Set(["grouped_import"]);
+    const result = analyzeZen("chapter-01:scaffold", code, mastered);
+    // packageImportSep(3) + importFuncSep(2) = 5, grouped_import(10) skipped
+    expect(result.bonusXP).toBe(5);
+    expect(result.jolts.length).toBe(2);
+  });
+
+  test("mastered rule that player now fails: no suggestion shown", () => {
+    // Player mastered grouped_import before, but now writes non-grouped import
+    const code = `package main
+import "fmt"
+func main() {}`;
+    const mastered = new Set(["grouped_import"]);
+    const result = analyzeZen("chapter-01:scaffold", code, mastered);
+    // grouped_import is mastered → skipped (no suggestion even though it fails now)
+    // packageImportSep and importFuncSep both fail → 2 suggestions
+    expect(result.suggestions.length).toBe(2);
+    expect(result.bonusXP).toBe(0);
+  });
+
+  test("cross-chapter mastery: ch01 grouped_import mastered, ch02 scaffold reuses it", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("ready")
+}`;
+    // ch02:scaffold has same rules as ch01:scaffold
+    const mastered = new Set(["grouped_import", "package_import_sep", "import_func_sep"]);
+    const result = analyzeZen("chapter-02:scaffold", code, mastered);
+    expect(result.bonusXP).toBe(0);
+    expect(result.jolts.length).toBe(0);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  test("empty mastered set behaves like no mastery", () => {
+    const code = `package main
+
+import (
+  "fmt"
+)
+
+func main() {
+  fmt.Println("hello")
+}`;
+    const r1 = analyzeZen("chapter-01:scaffold", code);
+    const r2 = analyzeZen("chapter-01:scaffold", code, new Set());
+    expect(r1.bonusXP).toBe(r2.bonusXP);
+    expect(r1.jolts.length).toBe(r2.jolts.length);
   });
 });

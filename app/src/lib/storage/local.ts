@@ -68,6 +68,7 @@ const DEFAULT_SETTINGS: PlayerSettings = {
   fontSize: 12,
   soundEnabled: true,
   beginnerMode: true,
+  chatWidthPercent: 42,
 };
 
 // ── Helpers ──

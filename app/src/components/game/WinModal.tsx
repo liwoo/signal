@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { LibraryState } from "@/lib/game/library";
 import { getLibraryStats } from "@/lib/game/library";
 import { LibraryPanel } from "@/components/game/LibraryPanel";
+import { GameMap } from "@/components/game/GameMap";
 
 type WinTab = "library" | "missions" | "map" | "store";
 
@@ -11,6 +12,12 @@ interface WinModalProps {
   xp: number;
   level: number;
   library: LibraryState;
+  /** ID of the chapter just completed (e.g. "chapter-01") */
+  completedChapter?: string;
+  /** e.g. "CHAPTER 2 COMPLETE" */
+  title: string;
+  /** e.g. "KEYPAD CRACKED" */
+  subtitle: string;
   onRetry: () => void;
   onContinue: () => void;
 }
@@ -22,7 +29,7 @@ const TABS: Array<[WinTab, string]> = [
   ["store", "STORE"],
 ];
 
-export function WinModal({ xp, level, library, onRetry, onContinue }: WinModalProps) {
+export function WinModal({ xp, level, library, completedChapter, title, subtitle, onRetry, onContinue }: WinModalProps) {
   const [tab, setTab] = useState<WinTab>("library");
   const stats = getLibraryStats(library);
 
@@ -57,10 +64,10 @@ export function WinModal({ xp, level, library, onRetry, onContinue }: WinModalPr
             className="font-[family-name:var(--font-display)] font-black text-[var(--color-signal)] tracking-[6px] mb-1 glow-pulse"
             style={{ fontSize: "clamp(18px, 4vw, 28px)" }}
           >
-            CHAPTER 1 COMPLETE
+            {title}
           </div>
           <div className="text-[#1a8a4a] text-[8px] tracking-[4px] mb-3">
-            HANDSHAKE ESTABLISHED
+            {subtitle}
           </div>
 
           {/* XP Summary — compact row */}
@@ -102,7 +109,7 @@ export function WinModal({ xp, level, library, onRetry, onContinue }: WinModalPr
         <div className="flex-1 min-h-0 overflow-y-auto">
           {tab === "library" && <LibraryPanel library={library} />}
           {tab === "missions" && <PlaceholderTab label="MISSIONS" description="challenge log coming soon" />}
-          {tab === "map" && <PlaceholderTab label="GAME MAP" description="act progression coming soon" />}
+          {tab === "map" && <GameMap completedUpTo={completedChapter ?? "chapter-01"} />}
           {tab === "store" && <PlaceholderTab label="STORE" description="hearts, skins, and upgrades coming soon" />}
         </div>
 

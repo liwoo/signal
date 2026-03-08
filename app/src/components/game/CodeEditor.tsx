@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { tokenize, type Token } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
-import { getCompletions, getKnownPackages, type Completion } from "@/lib/go/completions";
+import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
 
 interface CodeEditorProps {
   code: string;
@@ -15,6 +15,10 @@ interface CodeEditorProps {
   baseXP: number;
   rushBonus: number;
   camFeed?: React.ReactNode;
+  vimEnabled?: boolean;
+  onVimToggle?: (enabled: boolean) => void;
+  disabled?: boolean;
+  aiButton?: React.ReactNode;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -70,14 +74,26 @@ function vimModeLabel(mode: VimMode): string {
 
 const KNOWN_PKGS = getKnownPackages();
 
-function detectAutocomplete(code: string, pos: number): { pkg: string; partial: string; start: number } | null {
-  // Look backwards from cursor to find pkg.partial pattern
+type AcContext =
+  | { type: "pkg"; pkg: string; partial: string; start: number }
+  | { type: "symbol"; partial: string; start: number };
+
+function detectAutocomplete(code: string, pos: number): AcContext | null {
   const before = code.slice(0, pos);
-  const match = before.match(/(\w+)\.(\w*)$/);
-  if (!match) return null;
-  const pkg = match[1];
-  if (!KNOWN_PKGS.includes(pkg)) return null;
-  return { pkg, partial: match[2], start: pos - match[2].length };
+
+  // Check for pkg.partial pattern first — only if the package is actually imported
+  const pkgMatch = before.match(/(\w+)\.(\w*)$/);
+  if (pkgMatch && KNOWN_PKGS.includes(pkgMatch[1]) && isPackageImported(code, pkgMatch[1])) {
+    return { type: "pkg", pkg: pkgMatch[1], partial: pkgMatch[2], start: pos - pkgMatch[2].length };
+  }
+
+  // Check for bare identifier (min 2 chars to avoid noise)
+  const symMatch = before.match(/(?:^|[^.\w])(\w{2,})$/);
+  if (symMatch) {
+    return { type: "symbol", partial: symMatch[1], start: pos - symMatch[1].length };
+  }
+
+  return null;
 }
 
 export function CodeEditor({
@@ -90,12 +106,16 @@ export function CodeEditor({
   baseXP,
   rushBonus,
   camFeed,
+  vimEnabled,
+  onVimToggle,
+  disabled,
+  aiButton,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const lineNumRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  const [vim, vimActions] = useVim();
+  const [vim, vimActions] = useVim(vimEnabled);
   const [cursorPos, setCursorPos] = useState(0);
 
   // Autocomplete state
@@ -104,6 +124,10 @@ export function CodeEditor({
   const [acStart, setAcStart] = useState(0);
   const [acVisible, setAcVisible] = useState(false);
   const [acPos, setAcPos] = useState({ x: 0, y: 0 });
+
+  // Font size / zoom
+  const [fontSize, setFontSize] = useState(11.5);
+  const lineHeight = Math.round(fontSize * 1.4);
 
   const isBlockCursor = vim.enabled && vim.mode === "normal";
   const [isMac, setIsMac] = useState(false);
@@ -118,10 +142,20 @@ export function CodeEditor({
       setAcVisible(false);
       return;
     }
-    const all = getCompletions(ctx.pkg);
-    const filtered = ctx.partial
-      ? all.filter((c) => c.label.toLowerCase().startsWith(ctx.partial.toLowerCase()))
-      : all;
+    let filtered: Completion[];
+    if (ctx.type === "pkg") {
+      const all = getCompletions(ctx.pkg);
+      filtered = ctx.partial
+        ? all.filter((c) => c.label.toLowerCase().startsWith(ctx.partial.toLowerCase()))
+        : all;
+    } else {
+      filtered = getSymbolCompletions(newCode, ctx.start, ctx.partial);
+      // Don't show if the only match is exactly what's typed
+      if (filtered.length === 1 && filtered[0].label === ctx.partial) {
+        setAcVisible(false);
+        return;
+      }
+    }
     if (filtered.length === 0) {
       setAcVisible(false);
       return;
@@ -135,9 +169,11 @@ export function CodeEditor({
     if (textareaRef.current && highlightRef.current) {
       const ta = textareaRef.current;
       const measure = document.createElement("span");
+      const fs = textareaRef.current.style.fontSize || "11.5px";
+      const lh = textareaRef.current.style.lineHeight || "16px";
       measure.style.cssText = `
         position: absolute; visibility: hidden; white-space: pre-wrap; word-break: break-all;
-        font-family: var(--font-mono); font-size: 11.5px; line-height: 16px; tab-size: 4;
+        font-family: var(--font-mono); font-size: ${fs}; line-height: ${lh}; tab-size: 4;
         padding: 12px; width: ${highlightRef.current.clientWidth}px; box-sizing: border-box;
       `;
       measure.textContent = newCode.slice(0, pos);
@@ -150,7 +186,7 @@ export function CodeEditor({
       document.body.removeChild(measure);
       setAcPos({
         x: markerRect.left - measureRect.left,
-        y: markerRect.top - measureRect.top + 16 - ta.scrollTop,
+        y: markerRect.top - measureRect.top + parseInt(lh) - ta.scrollTop,
       });
     }
   }, []);
@@ -181,7 +217,7 @@ export function CodeEditor({
     const measure = document.createElement("span");
     measure.style.cssText = `
       position: absolute; visibility: hidden; white-space: pre-wrap; word-break: break-all;
-      font-family: var(--font-mono); font-size: 11.5px; line-height: 16px; tab-size: 4;
+      font-family: var(--font-mono); font-size: ${fontSize}px; line-height: ${lineHeight}px; tab-size: 4;
       padding: 12px; width: ${highlightRef.current.clientWidth}px; box-sizing: border-box;
     `;
     const textBefore = code.slice(0, pos);
@@ -202,7 +238,7 @@ export function CodeEditor({
     const cursor = cursorRef.current;
     cursor.style.transform = `translate(${x}px, ${y - ta.scrollTop}px)`;
     cursor.style.width = `${Math.max(w, 7)}px`;
-  }, [isBlockCursor, code]);
+  }, [isBlockCursor, code, fontSize, lineHeight]);
 
   useEffect(() => {
     updateCursorOverlay();
@@ -224,22 +260,28 @@ export function CodeEditor({
 
   const trackCursor = useCallback(() => {
     if (textareaRef.current) {
-      const pos = textareaRef.current.selectionStart;
-      setCursorPos(pos);
-      updateAutocomplete(code, pos);
+      setCursorPos(textareaRef.current.selectionStart);
     }
-  }, [code, updateAutocomplete]);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Block all input when disabled (Maya typing / game paused)
+      if (disabled) {
+        e.preventDefault();
+        return;
+      }
+
       // Autocomplete navigation
       if (acVisible) {
-        if (e.key === "ArrowDown") {
+        const isDown = e.key === "ArrowDown" || (vim.enabled && vim.mode === "normal" && e.key === "j");
+        const isUp = e.key === "ArrowUp" || (vim.enabled && vim.mode === "normal" && e.key === "k");
+        if (isDown) {
           e.preventDefault();
           setAcIndex((i) => Math.min(i + 1, acItems.length - 1));
           return;
         }
-        if (e.key === "ArrowUp") {
+        if (isUp) {
           e.preventDefault();
           setAcIndex((i) => Math.max(i - 1, 0));
           return;
@@ -271,12 +313,79 @@ export function CodeEditor({
         return;
       }
 
+      // Auto-close pairs (works when vim is off or in insert mode)
+      const PAIRS: Record<string, string> = { "{": "}", "(": ")", "[": "]", '"': '"', "'": "'", "`": "`" };
+      const CLOSING = new Set(["}", ")", "]", '"', "'", "`"]);
+      const target = e.target as HTMLTextAreaElement;
+      const s = target.selectionStart;
+      const end = target.selectionEnd;
+
+      if (e.key in PAIRS && !e.metaKey && !e.ctrlKey) {
+        // For quotes, skip if next char is the same quote (already paired)
+        const isQuote = e.key === '"' || e.key === "'" || e.key === "`";
+        if (isQuote && code[s] === e.key) {
+          e.preventDefault();
+          requestAnimationFrame(() => {
+            target.selectionStart = target.selectionEnd = s + 1;
+            trackCursor();
+          });
+          return;
+        }
+        e.preventDefault();
+        const open = e.key;
+        const close = PAIRS[open];
+        // If there's a selection, wrap it
+        if (s !== end) {
+          const selected = code.slice(s, end);
+          const next = code.slice(0, s) + open + selected + close + code.slice(end);
+          onCodeChange(next);
+          requestAnimationFrame(() => {
+            target.selectionStart = s + 1;
+            target.selectionEnd = end + 1;
+            trackCursor();
+          });
+        } else {
+          const next = code.slice(0, s) + open + close + code.slice(s);
+          onCodeChange(next);
+          requestAnimationFrame(() => {
+            target.selectionStart = target.selectionEnd = s + 1;
+            setCursorPos(s + 1);
+            updateAutocomplete(next, s + 1);
+          });
+        }
+        return;
+      }
+
+      // Skip over closing char if already present
+      if (CLOSING.has(e.key) && code[s] === e.key && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        requestAnimationFrame(() => {
+          target.selectionStart = target.selectionEnd = s + 1;
+          trackCursor();
+        });
+        return;
+      }
+
+      // Backspace between empty pair → delete both
+      if (e.key === "Backspace" && s === end && s > 0) {
+        const before = code[s - 1];
+        const after = code[s];
+        if (before in PAIRS && PAIRS[before] === after) {
+          e.preventDefault();
+          const next = code.slice(0, s - 1) + code.slice(s + 1);
+          onCodeChange(next);
+          requestAnimationFrame(() => {
+            target.selectionStart = target.selectionEnd = s - 1;
+            setCursorPos(s - 1);
+            updateAutocomplete(next, s - 1);
+          });
+          return;
+        }
+      }
+
       // Tab handling
       if (e.key === "Tab") {
         e.preventDefault();
-        const target = e.target as HTMLTextAreaElement;
-        const s = target.selectionStart;
-        const end = target.selectionEnd;
         const next = code.slice(0, s) + "    " + code.slice(end);
         onCodeChange(next);
         requestAnimationFrame(() => {
@@ -287,7 +396,7 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, onCodeChange, onSubmit, busy, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion]
+    [code, onCodeChange, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -308,11 +417,45 @@ export function CodeEditor({
     <div className="flex flex-col h-full">
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
+        {/* Zoom controls */}
+        <div
+          className="absolute top-1.5 right-2.5 z-40 flex items-center gap-1"
+          style={{
+            background: "rgba(4,8,16,.85)",
+            border: "1px solid var(--color-border)",
+            padding: "2px 4px",
+          }}
+        >
+          <button
+            onClick={() => setFontSize((s) => Math.max(8, s - 1))}
+            className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
+            style={{ color: "var(--color-signal)" }}
+            title="Zoom out"
+          >
+            −
+          </button>
+          <span
+            className="text-[9px] tracking-[1px] tabular-nums min-w-[28px] text-center font-[family-name:var(--font-display)]"
+            style={{ color: "var(--color-dim)" }}
+          >
+            {fontSize}
+          </span>
+          <button
+            onClick={() => setFontSize((s) => Math.min(24, s + 1))}
+            className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
+            style={{ color: "var(--color-signal)" }}
+            title="Zoom in"
+          >
+            +
+          </button>
+        </div>
         {/* Line numbers */}
         <div
           ref={lineNumRef}
-          className="py-3 px-2 text-[9.5px] leading-4 text-right select-none overflow-hidden shrink-0 min-w-[30px]"
+          className="py-3 px-2 text-right select-none overflow-hidden shrink-0 min-w-[30px]"
           style={{
+            fontSize: `${Math.max(fontSize - 2, 8)}px`,
+            lineHeight: `${lineHeight}px`,
             background: "rgba(0,0,0,.5)",
             borderRight: "1px solid #0a1820",
             color: "#0a3040",
@@ -329,9 +472,11 @@ export function CodeEditor({
           <pre
             ref={highlightRef}
             aria-hidden="true"
-            className="absolute inset-0 p-3 m-0 text-[11.5px] leading-4 overflow-hidden pointer-events-none whitespace-pre-wrap break-words"
+            className="absolute inset-0 p-3 m-0 overflow-hidden pointer-events-none whitespace-pre-wrap break-words"
             style={{
               fontFamily: "var(--font-mono)",
+              fontSize: `${fontSize}px`,
+              lineHeight: `${lineHeight}px`,
               background: "transparent",
               tabSize: 4,
             }}
@@ -349,7 +494,7 @@ export function CodeEditor({
               style={{
                 top: 0,
                 left: 0,
-                height: 16,
+                height: lineHeight,
                 background: "var(--color-signal)",
                 opacity: 0.7,
                 animation: "blink 1s step-end infinite",
@@ -405,20 +550,34 @@ export function CodeEditor({
           <textarea
             ref={textareaRef}
             value={code}
+            readOnly={disabled}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onKeyUp={trackCursor}
-            onClick={trackCursor}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            data-form-type="other"
+            onClick={() => {
+              trackCursor();
+              if (textareaRef.current) {
+                updateAutocomplete(code, textareaRef.current.selectionStart);
+              }
+            }}
+            onPaste={(e) => e.preventDefault()}
             onScroll={syncScroll}
             spellCheck={false}
             className="absolute inset-0 w-full h-full bg-transparent border-0 text-transparent
-                       text-[11.5px] leading-4 p-3 resize-none focus:outline-none"
+                       p-3 resize-none focus:outline-none"
             style={{
+              fontSize: `${fontSize}px`,
+              lineHeight: `${lineHeight}px`,
               tabSize: 4,
-              caretColor: isBlockCursor ? "transparent" : "var(--color-signal)",
+              caretColor: disabled ? "transparent" : isBlockCursor ? "transparent" : "var(--color-signal)",
               fontFamily: "var(--font-mono)",
               whiteSpace: "pre-wrap",
               wordBreak: "break-all",
+              opacity: disabled ? 0.5 : 1,
             }}
           />
         </div>
@@ -448,8 +607,11 @@ export function CodeEditor({
         <div className="flex gap-2.5 text-[8px] items-center">
           {/* Vim toggle + mode */}
           <button
-            onClick={vimActions.toggle}
-            className="bg-transparent border px-1.5 py-0.5 text-[7px] tracking-[1px] cursor-pointer transition-colors"
+            onClick={() => {
+              vimActions.toggle();
+              onVimToggle?.(!vim.enabled);
+            }}
+            className={`bg-transparent border px-1.5 py-0.5 text-[7px] tracking-[1px] cursor-pointer transition-colors${!vim.enabled ? " vim-flicker" : ""}`}
             style={{
               borderColor: vim.enabled ? "var(--color-signal)" : "#0a2030",
               color: vim.enabled ? "var(--color-signal)" : "#0a3040",
@@ -473,6 +635,7 @@ export function CodeEditor({
             </span>
           )}
 
+          {aiButton}
           <span className="text-[#0a3a2a]">{lineCount}L</span>
           {attempts === 0 && !inRush && (
             <span className="text-[#1a5a3a]">
@@ -503,7 +666,7 @@ export function CodeEditor({
         </div>
         <button
           onClick={onSubmit}
-          disabled={busy || !code.trim()}
+          disabled={busy || disabled || !code.trim()}
           className="py-1.5 px-5 text-[9px] tracking-[2px] cursor-pointer
                      transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2"
           style={{

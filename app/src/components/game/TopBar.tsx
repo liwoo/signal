@@ -44,7 +44,10 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts }: To
             }}
           />
         </div>
-        <div className="text-[var(--color-dim)] text-[8px] shrink-0">
+        <div
+          className="text-[var(--color-signal)] text-[9px] font-bold shrink-0"
+          style={{ textShadow: "0 0 8px rgba(110,255,160,.5), 0 0 20px rgba(110,255,160,.2)" }}
+        >
           {xp} XP
         </div>
       </div>

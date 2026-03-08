@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Crawl Test</title>
+  <style>
+    body { margin: 0; background: #020406; display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; }
+    canvas { border: 1px solid #0a2030; }
+    .label { color: #6effa0; font-family: monospace; font-size: 11px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="label">MAYA CRAWL CYCLE — 8 FRAMES (scale 5)</div>
+    <canvas id="crawl-strip" width="1920" height="400"></canvas>
+  </div>
+  <div>
+    <div class="label">CRAWL IN VENT (640x420)</div>
+    <canvas id="crawl-vent" width="640" height="420"></canvas>
+  </div>
+  <div>
+    <div class="label">WALK vs CRAWL COMPARISON</div>
+    <canvas id="walk-vs-crawl" width="960" height="580"></canvas>
+  </div>
+  <script type="module" src="./crawl-test.ts"></script>
+</body>
+</html>

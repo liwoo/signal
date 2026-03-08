@@ -13,7 +13,7 @@ const PLAYGROUND_URL = "https://go.dev/_/compile";
 const TIMEOUT_MS = 8000;
 
 export async function compileGo(source: string): Promise<CompileResult> {
-  const body = new URLSearchParams({ version: "2", body: source });
+  const body = new URLSearchParams({ version: "2", body: source, withVet: "true" });
 
   try {
     const controller = new AbortController();

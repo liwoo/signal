@@ -18,8 +18,17 @@ import {
   createLibraryState,
   recordZenResults,
   getMissedTips,
+  getMasteredRuleIds,
   type LibraryState,
 } from "@/lib/game/library";
+import { isMainTimerExpired } from "@/lib/game/timer";
+import {
+  TOKEN_GRANT_CHAPTER_03,
+  useToken,
+  canUseAI,
+  getAISuggestions,
+  type AISuggestion,
+} from "@/lib/game/ai-tokens";
 import {
   EXPLAIN_COST_XP,
   createPauseState,
@@ -33,6 +42,21 @@ import {
   splitMayaMessage,
   type PauseState,
 } from "@/lib/game/pause";
+
+export interface InitialPersistedState {
+  xp: number;
+  level: number;
+  hearts: number;
+  library: LibraryState;
+}
+
+export interface SavePayload {
+  xp: number;
+  level: number;
+  hearts: number;
+  library: LibraryState;
+  completedChapter?: number;
+}
 
 interface Particle {
   id: number;
@@ -66,7 +90,7 @@ export interface GameState {
   twist: TwistData | null;
   particles: Particle[];
   streaks: Streak[];
-  tab: "code" | "mission" | "library";
+  tab: "code" | "mission" | "library" | "notes";
   // Timer
   timerStartMs: number;
   timerLimitSeconds: number;
@@ -89,6 +113,10 @@ export interface GameState {
   explainUsed: boolean;
   // Library
   library: LibraryState;
+  // AI Tokens
+  aiTokens: number;
+  aiSuggestOpen: boolean;
+  aiSuggestions: AISuggestion[];
 }
 
 export interface GameActions {
@@ -97,7 +125,7 @@ export interface GameActions {
   submitCode: () => void;
   setChatInput: (v: string) => void;
   setCode: (v: string) => void;
-  setTab: (t: "code" | "mission" | "library") => void;
+  setTab: (t: "code" | "mission" | "library" | "notes") => void;
   dismissInterrupt: () => void;
   dismissRush: () => void;
   dismissTwist: () => void;
@@ -111,23 +139,32 @@ export interface GameActions {
   onMayaTypingEnd: () => void;
   resumeFromPause: () => void;
   requestExplain: () => void;
+  openAISuggest: () => void;
+  closeAISuggest: () => void;
+  useAISuggestion: (suggestion: AISuggestion) => void;
 }
 
 export function useGame(
   challenge: Challenge,
-  twistData: TwistData
+  twistData: TwistData | null,
+  initial?: InitialPersistedState,
+  onSave?: (payload: SavePayload) => void
 ): [GameState, GameActions] {
   const [phase, setPhase] = useState<GameState["phase"]>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [xp, setXp] = useState(0);
-  const [level, setLevel] = useState(1);
+  const [xp, setXp] = useState(initial?.xp ?? 0);
+  const [level, setLevel] = useState(initial?.level ?? 1);
   const [attempts, setAttempts] = useState(0);
-  const [tab, setTab] = useState<"code" | "mission" | "library">("code");
-  const [library, setLibrary] = useState<LibraryState>(createLibraryState);
+  const [tab, setTab] = useState<"code" | "mission" | "library" | "notes">("code");
+  const [library, setLibrary] = useState<LibraryState>(
+    () => initial?.library ?? createLibraryState()
+  );
   const libraryRef = useRef(library);
   libraryRef.current = library;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
 
   // Step tracking
   const [stepIndex, setStepIndex] = useState(0);
@@ -144,12 +181,27 @@ export function useGame(
   const [streaks, setStreaks] = useState<Streak[]>([]);
 
   // Hearts
-  const [hearts, setHearts] = useState(INITIAL_HEARTS);
+  const [hearts, setHearts] = useState(initial?.hearts ?? INITIAL_HEARTS);
+
+  // AI Tokens
+  const [aiTokens, setAiTokens] = useState(0);
+  const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
+  const aiIntroShownRef = useRef(false);
 
   // Timer state
   const [timerStartMs, setTimerStartMs] = useState(0);
   const [timerBonusSeconds, setTimerBonusSeconds] = useState(0);
   const [timerStopped, setTimerStopped] = useState(true);
+
+  // Refs for values needed in timer/rush callbacks to avoid stale closures
+  const heartsRef = useRef(hearts);
+  heartsRef.current = hearts;
+  const xpRef = useRef(xp);
+  xpRef.current = xp;
+  const levelRef = useRef(level);
+  levelRef.current = level;
+  const inRushRef = useRef(inRush);
+  inRushRef.current = inRush;
 
   // Maya typing → timer pause (mutable ref for synchronous reads)
   const pauseRef = useRef<PauseState>(createPauseState());
@@ -180,29 +232,28 @@ export function useGame(
   const startTimeRef = useRef<number>(0);
   const stepStartTimeRef = useRef<number>(0);
 
+  const msgIdCounter = useRef(0);
+
   const addMsg = useCallback(
     (from: string, text: string, type: ChatMsg["type"], animated = false) => {
+      const id = `msg-${++msgIdCounter.current}`;
       setMessages((prev) => [
         ...prev,
-        {
-          id: String(Date.now() + Math.random()),
-          from,
-          text,
-          type,
-          animated,
-        },
+        { id, from, text, type, animated },
       ]);
     },
     []
   );
 
+  const idCounter = useRef(0);
+
   const spawnXP = useCallback((amount: number) => {
-    const id = Date.now();
+    const id = ++idCounter.current;
     setParticles((p) => [...p, { id, amount }]);
   }, []);
 
   const showStreak = useCallback((text: string) => {
-    const id = Date.now();
+    const id = ++idCounter.current;
     setStreaks((s) => [...s, { id, text }]);
   }, []);
 
@@ -329,6 +380,10 @@ export function useGame(
 
   // Level timer expired
   const handleTimerExpire = useCallback(() => {
+    // If rush is active, let the rush timer control the game — don't trigger game over yet.
+    // handleRushExpire will check isMainTimerExpired when the rush ends.
+    if (inRushRef.current) return;
+
     levelSchedulerRef.current.stop();
     stepSchedulerRef.current.stop();
     pauseRef.current = createPauseState();
@@ -337,23 +392,30 @@ export function useGame(
     setWaitingForContinue(false);
     setExplainUsed(false);
     if (challenge.timer.gameOverOnExpiry) {
-      setHearts((h) => loseHeart(h));
+      const newHearts = loseHeart(heartsRef.current);
+      setHearts(newHearts);
       setPhase("gameover");
       setTimerStopped(true);
+      onSaveRef.current?.({ xp: xpRef.current, level: levelRef.current, hearts: newHearts, library: libraryRef.current });
     } else {
       fireJeopardy("energy_drain");
       addMsg("SYS", "▸ TIME EXPIRED · jeopardy active", "dim");
     }
   }, [challenge.timer.gameOverOnExpiry, fireJeopardy, addMsg]);
 
-  // Rush expired
+  // Rush expired — check if main timer still has time
   const handleRushExpire = useCallback(() => {
     setInRush(false);
     const step = challenge.steps[stepIndex];
     if (step?.rushMode) {
       fireJeopardy(step.rushMode.onExpiry);
     }
-  }, [challenge.steps, stepIndex, fireJeopardy]);
+    // Check if main timer has already expired while rush was running
+    if (startTimeRef.current > 0 &&
+        isMainTimerExpired(startTimeRef.current, Date.now(), challenge.timer.timeLimitSeconds, timerBonusSeconds)) {
+      handleTimerExpire();
+    }
+  }, [challenge.steps, challenge.timer.timeLimitSeconds, stepIndex, timerBonusSeconds, fireJeopardy, handleTimerExpire]);
 
   const startGame = useCallback(() => {
     setPhase("playing");
@@ -375,6 +437,18 @@ export function useGame(
       0
     );
     addMayaChunked("MAYA", reply, "maya");
+
+    // Grant AI tokens for chapter 03 (first time discovering the feature)
+    if (challenge.id === "chapter-03" && !aiIntroShownRef.current) {
+      aiIntroShownRef.current = true;
+      setAiTokens(TOKEN_GRANT_CHAPTER_03);
+      pendingMsgRef.current.push({
+        from: "MAYA",
+        text: "...wait. there's something else on this terminal.\n\na model. some kind of code assistant. it needs tokens to activate — i found " + TOKEN_GRANT_CHAPTER_03 + ". use them wisely.\n\npress the AI button if you want suggestions. each one costs a token.",
+        type: "maya",
+        animated: true,
+      });
+    }
 
     // Start level-wide events
     if (challenge.events.length > 0) {
@@ -420,7 +494,10 @@ export function useGame(
       true,
       false,
       inRush,
-      attempts
+      attempts,
+      currentStep.testHarness || currentStep.expectedOutput
+        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput }
+        : undefined
     );
 
     if (isComplete) {
@@ -446,16 +523,20 @@ export function useGame(
         speedBonus,
         1
       );
-      const zenResult = analyzeZen(currentStep.id, code);
+      const masteredIds = getMasteredRuleIds(libraryRef.current);
+      const zenResult = analyzeZen(currentStep.id, code, masteredIds);
       const totalEarned = earned + zenResult.bonusXP;
 
-      // Record zen results in library
+      // Record zen results in library — only rules relevant to the player's code
       const stepRules = ZEN_RULES[currentStep.id] || [];
+      const relevantRules = stepRules.filter(
+        (r) => !r.isRelevant || r.isRelevant(code)
+      );
       setLibrary((prev) =>
         recordZenResults(
           prev,
           currentStep.id,
-          stepRules.map((r) => ({
+          relevantRules.map((r) => ({
             id: r.id,
             principle: r.principle,
             jolt: r.jolt,
@@ -485,7 +566,7 @@ export function useGame(
       addMayaChunked("MAYA", reply, "win");
 
       // Queue zen message chunks
-      const missedXP = calculateMissedXP(currentStep.id, zenResult);
+      const missedXP = calculateMissedXP(currentStep.id, zenResult, code);
       const zenMsg = buildZenMessage(zenResult, missedXP);
       if (zenMsg) {
         const zenChunks = splitMayaMessage(zenMsg);
@@ -520,6 +601,13 @@ export function useGame(
             if (nextStep.starterCode !== null) setCode(nextStep.starterCode);
             startStepEvents(nextStep);
             showStreak(`STEP ${nextStepIndex + 1}/${challenge.steps.length}`);
+            // Persist mid-chapter state
+            onSaveRef.current?.({
+              xp: xp + totalEarned,
+              level: calculateLevel(xp + totalEarned),
+              hearts,
+              library: libraryRef.current,
+            });
           },
         });
         // Queue intro message chunks
@@ -540,7 +628,11 @@ export function useGame(
             suggestion: r.suggestion, bonusXP: r.bonusXP, passed: r.check(code),
           }))
         );
-        const missed = getMissedTips(updatedLib);
+        // Only show missed tips from THIS chapter's steps, not all time
+        const chapterPrefix = challenge.id + ":";
+        const missed = getMissedTips(updatedLib).filter(
+          (m) => m.stepId.startsWith(chapterPrefix)
+        );
         if (missed.length > 0) {
           const reinforceHeader = `▸ ZEN LIBRARY · ${missed.length} MISSED`;
           pendingMsgRef.current.push({
@@ -567,6 +659,14 @@ export function useGame(
             setTwist(twistData);
             setPhase("twist");
             syncPauseState(createPauseState());
+            // Persist state — chapter complete
+            onSaveRef.current?.({
+              xp: xp + totalEarned,
+              level: calculateLevel(xp + totalEarned),
+              hearts,
+              library: updatedLib,
+              completedChapter: challenge.chapter,
+            });
           },
         });
       }
@@ -745,6 +845,9 @@ export function useGame(
     waitingForContinue,
     explainUsed,
     library,
+    aiTokens,
+    aiSuggestOpen,
+    aiSuggestions: getAISuggestions(currentStep.id),
   };
 
   const actions: GameActions = {
@@ -769,6 +872,23 @@ export function useGame(
     onMayaTypingEnd,
     resumeFromPause,
     requestExplain,
+    openAISuggest: () => {
+      if (canUseAI(aiTokens)) setAiSuggestOpen(true);
+    },
+    closeAISuggest: () => setAiSuggestOpen(false),
+    useAISuggestion: (suggestion: AISuggestion) => {
+      const newTokens = useToken(aiTokens);
+      if (newTokens === null) return;
+      setAiTokens(newTokens);
+      // Insert snippet at cursor (append to code)
+      setCode((prev) => {
+        // If code ends with newline, insert directly; otherwise add newline first
+        const separator = prev.endsWith("\n") ? "" : "\n";
+        return prev + separator + suggestion.code + "\n";
+      });
+      setAiSuggestOpen(false);
+      addMsg("SYS", `AI ASSIST · ${suggestion.label} · ${newTokens} tokens remaining`, "dim");
+    },
   };
 
   return [state, actions];
