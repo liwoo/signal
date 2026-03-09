@@ -110,9 +110,9 @@ export const chapter03: Challenge = {
       testHarness: `func main() {
     fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
     s, v := validateCode(25, 30, 50, 10)
-    fmt.Printf("Result: %d, Valid: %v\n", s, v)
+    fmt.Printf("Result: %d, Valid: %v\\n", s, v)
     s2, v2 := validateCode(10, 20, 30)
-    fmt.Printf("Result: %d, Valid: %v\n", s2, v2)
+    fmt.Printf("Result: %d, Valid: %v\\n", s2, v2)
 }`,
       expectedOutput:
         "Sum: 115\nResult: 115, Valid: true\nResult: 60, Valid: false",

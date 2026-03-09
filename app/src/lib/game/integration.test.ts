@@ -1287,8 +1287,8 @@ func main() {
     expect(result.success).toBe(false);
   }, 15000);
 
-  // 6. Wrong return types (both int)
-  it("wrong return types — (int, int)", async () => {
+  // 6. Wrong return types (both int) — Go's := infers type, %v prints any type
+  it("wrong return types — (int, int) compiles but wrong output", async () => {
     const code = `package main
 
 import "fmt"
@@ -1313,9 +1313,9 @@ func main() {
     fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
 }`;
     const result = await compileWithHarness(code, HARNESS);
-    // Harness assigns to bool: s, v := validateCode(...) then uses %v
-    // Type mismatch: cannot use int as bool
-    expect(result.success).toBe(false);
+    // Go's := infers type from return, and %v prints int as "1" / "0" not "true" / "false"
+    expect(result.success).toBe(true);
+    expect(result.output.trim()).not.toBe(EXPECTED); // "Valid: 1" != "Valid: true"
   }, 15000);
 
   // 7. Hardcoded return values (gaming)

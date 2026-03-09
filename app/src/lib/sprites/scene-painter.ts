@@ -4,7 +4,7 @@
 
 import { C } from "./palette";
 
-export type SceneType = "cell" | "corridor" | "chase" | "vent" | "server";
+export type SceneType = "cell" | "corridor" | "chase" | "vent" | "server" | "boss-arena";
 
 export function paintScene(type: SceneType, w: number, h: number): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -19,6 +19,7 @@ export function paintScene(type: SceneType, w: number, h: number): HTMLCanvasEle
     case "chase": paintCorridor(ctx, w, h, true); break;
     case "vent": paintVent(ctx, w, h); break;
     case "server": paintServer(ctx, w, h); break;
+    case "boss-arena": paintBossArena(ctx, w, h); break;
   }
   return canvas;
 }
@@ -575,6 +576,728 @@ function paintServer(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
   drawVignette(ctx, w, h, 0.45);
   drawAO(ctx, 0, wallBot, w, 18, "down");
+}
+
+// ════════════════════════════════════════════════════════════════════
+// BOSS ARENA — server room variant with red/danger lighting
+// Wide-format combat scene: Maya (left) vs Boss (right)
+// ════════════════════════════════════════════════════════════════════
+
+function paintBossArena(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const ch = Math.floor(h / 100); // character height unit
+  const ceilY = Math.floor(h * 0.06);
+  const wallBot = Math.floor(h * 0.38);
+  const floorBot = h;
+
+  // ── Background fill — deep red-black ──
+  const bgG = ctx.createLinearGradient(0, 0, 0, h);
+  bgG.addColorStop(0, "#0c0406");
+  bgG.addColorStop(0.3, "#120810");
+  bgG.addColorStop(1, "#0e0608");
+  ctx.fillStyle = bgG;
+  ctx.fillRect(0, 0, w, h);
+
+  // ── Ceiling — dark industrial with red highlights ──
+  fillGradientV(ctx, 0, 0, w, ceilY + 8, "#0a0406", "#140a10");
+  // Ceiling panels
+  for (let x = 0; x < w; x += 40) {
+    ctx.fillStyle = "#100810";
+    ctx.fillRect(x, 0, 38, ceilY);
+    ctx.fillStyle = "#1a1014";
+    ctx.fillRect(x, ceilY - 2, 38, 2);
+  }
+
+  // ── Back wall — industrial panels ──
+  const wallG = ctx.createLinearGradient(0, ceilY, 0, wallBot);
+  wallG.addColorStop(0, "#18100e");
+  wallG.addColorStop(0.5, "#201816");
+  wallG.addColorStop(1, "#181010");
+  ctx.fillStyle = wallG;
+  ctx.fillRect(0, ceilY, w, wallBot - ceilY);
+
+  // Wall panel rows
+  const panelRows = 3;
+  const panelH = (wallBot - ceilY) / panelRows;
+  for (let r = 0; r < panelRows; r++) {
+    const py = ceilY + r * panelH;
+    // Panel border
+    ctx.fillStyle = "#241a18";
+    ctx.fillRect(0, py, w, 1);
+    ctx.fillStyle = "#0c0808";
+    ctx.fillRect(0, py + panelH - 1, w, 1);
+    // Individual panel blocks
+    for (let x = 0; x < w; x += 60) {
+      ctx.fillStyle = r % 2 === 0 ? "#1e1412" : "#1a100e";
+      ctx.fillRect(x + 1, py + 2, 57, panelH - 4);
+      // Top bevel
+      ctx.fillStyle = "#2a201c";
+      ctx.fillRect(x + 1, py + 2, 57, 1);
+      // Rivets
+      ctx.fillStyle = "#3a2e28";
+      ctx.fillRect(x + 3, py + 4, 2, 2);
+      ctx.fillRect(x + 54, py + 4, 2, 2);
+    }
+  }
+
+  // ── Lockmaster housing (center of back wall) ──
+  const lmX = Math.floor(w * 0.35);
+  const lmW = Math.floor(w * 0.30);
+  const lmY = ceilY + 4;
+  const lmH = wallBot - ceilY - 8;
+
+  // Main housing (dark recessed panel)
+  ctx.fillStyle = "#0c0608";
+  ctx.fillRect(lmX, lmY, lmW, lmH);
+  // Frame
+  ctx.fillStyle = "#2a1818";
+  ctx.fillRect(lmX, lmY, lmW, 3); // top
+  ctx.fillRect(lmX, lmY + lmH - 3, lmW, 3); // bottom
+  ctx.fillRect(lmX, lmY, 3, lmH); // left
+  ctx.fillRect(lmX + lmW - 3, lmY, 3, lmH); // right
+  // Inner frame highlight
+  ctx.fillStyle = "#3a2020";
+  ctx.fillRect(lmX + 4, lmY + 4, lmW - 8, 1);
+  ctx.fillRect(lmX + 4, lmY + 4, 1, lmH - 8);
+
+  // Central "eye" monitor
+  const eyeX = lmX + Math.floor(lmW * 0.35);
+  const eyeY = lmY + Math.floor(lmH * 0.18);
+  const eyeW = Math.floor(lmW * 0.30);
+  const eyeH = Math.floor(lmH * 0.22);
+  ctx.fillStyle = "#1a0808";
+  ctx.fillRect(eyeX, eyeY, eyeW, eyeH);
+  // Eye glow
+  const eyeG = ctx.createRadialGradient(
+    eyeX + eyeW / 2, eyeY + eyeH / 2, 1,
+    eyeX + eyeW / 2, eyeY + eyeH / 2, eyeW * 0.6,
+  );
+  eyeG.addColorStop(0, "rgba(255,64,64,0.5)");
+  eyeG.addColorStop(0.5, "rgba(255,20,20,0.2)");
+  eyeG.addColorStop(1, "transparent");
+  ctx.fillStyle = eyeG;
+  ctx.fillRect(eyeX - 4, eyeY - 4, eyeW + 8, eyeH + 8);
+  // Pupil
+  ctx.fillStyle = C.dangerBright;
+  ctx.fillRect(eyeX + Math.floor(eyeW * 0.4), eyeY + Math.floor(eyeH * 0.3), 4, 4);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(eyeX + Math.floor(eyeW * 0.4) + 1, eyeY + Math.floor(eyeH * 0.3), 2, 2);
+
+  // LED matrix below eye
+  const ledY = eyeY + eyeH + 6;
+  const ledCols = 8;
+  const ledRows = 3;
+  const ledSize = Math.max(2, Math.floor(lmW * 0.02));
+  const ledGap = Math.floor((lmW * 0.6) / ledCols);
+  const ledStartX = lmX + Math.floor(lmW * 0.2);
+  for (let r = 0; r < ledRows; r++) {
+    for (let c = 0; c < ledCols; c++) {
+      const isGreen = c < 5;
+      const isYellow = c >= 5 && c < 7;
+      ctx.fillStyle = isGreen ? C.signalBright : isYellow ? "#ffaa00" : C.dangerBright;
+      ctx.globalAlpha = 0.7;
+      ctx.fillRect(ledStartX + c * ledGap, ledY + r * (ledSize + 2), ledSize, ledSize);
+      // LED glow
+      if (isGreen) {
+        ctx.fillStyle = "rgba(110,255,160,0.1)";
+        ctx.fillRect(ledStartX + c * ledGap - 1, ledY + r * (ledSize + 2) - 1, ledSize + 2, ledSize + 2);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Mechanical arms (4 extending from housing)
+  const armPositions = [
+    { x: lmX + 6, y: lmY + lmH * 0.3, angle: -0.4, len: 20 },
+    { x: lmX + lmW - 6, y: lmY + lmH * 0.3, angle: 0.4, len: 20 },
+    { x: lmX + 8, y: lmY + lmH * 0.6, angle: -0.6, len: 16 },
+    { x: lmX + lmW - 8, y: lmY + lmH * 0.6, angle: 0.6, len: 16 },
+  ];
+  for (const arm of armPositions) {
+    const endX = arm.x + Math.cos(arm.angle) * arm.len * (arm.x < lmX + lmW / 2 ? -1 : 1);
+    const endY = arm.y + Math.sin(Math.abs(arm.angle)) * arm.len * 0.3;
+    ctx.strokeStyle = "#3a2828";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(arm.x, arm.y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    // Joint
+    ctx.fillStyle = "#4a3030";
+    ctx.fillRect(arm.x - 2, arm.y - 2, 4, 4);
+    // Tool tip
+    ctx.fillStyle = C.dangerBright;
+    ctx.fillRect(endX - 1, endY - 1, 3, 3);
+  }
+
+  // Cable conduits running from housing down to floor
+  for (let i = 0; i < 3; i++) {
+    const cx = lmX + 10 + i * Math.floor(lmW / 3);
+    ctx.strokeStyle = "#1e1414";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx, lmY + lmH);
+    ctx.lineTo(cx + (i - 1) * 8, wallBot + 20);
+    ctx.stroke();
+    ctx.strokeStyle = "#2a1c1c";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - 1, lmY + lmH);
+    ctx.lineTo(cx - 1 + (i - 1) * 8, wallBot + 20);
+    ctx.stroke();
+  }
+
+  // ── Server racks flanking the Lockmaster ──
+  const rackPositions = [
+    { x: 20, w: 50 }, { x: 80, w: 45 },
+    { x: w - 70, w: 50 }, { x: w - 125, w: 45 },
+  ];
+  for (const rack of rackPositions) {
+    const rY = ceilY + 6;
+    const rH = wallBot - ceilY - 10;
+    // Rack body
+    ctx.fillStyle = "#120a0c";
+    ctx.fillRect(rack.x, rY, rack.w, rH);
+    ctx.fillStyle = "#1e1416";
+    ctx.fillRect(rack.x + 2, rY + 2, rack.w - 4, rH - 4);
+    ctx.fillStyle = "#2a1c20";
+    ctx.fillRect(rack.x, rY, rack.w, 2);
+    // Shelf lines
+    for (let s = 1; s < 5; s++) {
+      const sy = rY + (rH / 5) * s;
+      ctx.fillStyle = "#140c10";
+      ctx.fillRect(rack.x + 3, sy, rack.w - 6, 1);
+    }
+    // LEDs
+    for (let l = 0; l < 6; l++) {
+      const ly = rY + 8 + l * Math.floor(rH / 7);
+      const isRed = l % 2 === 0;
+      ctx.fillStyle = isRed ? "rgba(255,64,64,0.7)" : "rgba(110,255,160,0.5)";
+      ctx.fillRect(rack.x + 4, ly, 2, 1);
+      if (isRed) {
+        ctx.fillStyle = "rgba(255,64,64,0.08)";
+        ctx.fillRect(rack.x, ly - 1, rack.w, 3);
+      }
+    }
+  }
+
+  // ── Floor — metal grating with red reflected light ──
+  fillGradientV(ctx, 0, wallBot, w, floorBot - wallBot, "#181010", "#100a0a");
+  // Grate pattern
+  for (let x = 0; x < w; x += 16) {
+    ctx.fillStyle = x % 32 < 16 ? "#1c1414" : "#140e0e";
+    ctx.fillRect(x, wallBot + 4, 14, floorBot - wallBot - 8);
+    // Grate line
+    ctx.fillStyle = "#241a1a";
+    ctx.fillRect(x, wallBot + 3, 1, floorBot - wallBot - 6);
+  }
+  // Hazard stripes
+  const stripeY = wallBot + 2;
+  ctx.globalAlpha = 0.12;
+  for (let x = 0; x < w; x += 24) {
+    ctx.fillStyle = x % 48 < 24 ? C.dangerBright : "transparent";
+    ctx.fillRect(x, stripeY, 12, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // ── Red alarm lights ──
+  for (let x = 80; x < w; x += 140) {
+    // Light cone
+    const coneG = ctx.createRadialGradient(x, ceilY + 6, 2, x, ceilY + 50, 70);
+    coneG.addColorStop(0, "rgba(255,48,48,0.2)");
+    coneG.addColorStop(1, "transparent");
+    ctx.fillStyle = coneG;
+    ctx.fillRect(x - 70, ceilY, 140, 70);
+    // Fixture
+    ctx.fillStyle = C.dangerBright;
+    ctx.fillRect(x - 3, ceilY + 1, 6, 3);
+    ctx.fillStyle = "rgba(255,64,64,0.4)";
+    ctx.fillRect(x - 4, ceilY, 8, 4);
+  }
+
+  // ── Red ambient glow (from Lockmaster eye) ──
+  const eyeCenterX = eyeX + eyeW / 2;
+  const eyeCenterY = eyeY + eyeH / 2;
+  const redG = ctx.createRadialGradient(eyeCenterX, eyeCenterY, 5, eyeCenterX, eyeCenterY, w * 0.35);
+  redG.addColorStop(0, "rgba(255,40,40,0.08)");
+  redG.addColorStop(1, "transparent");
+  ctx.fillStyle = redG;
+  ctx.fillRect(0, 0, w, h);
+
+  // Red floor reflection
+  const floorRedG = ctx.createLinearGradient(0, wallBot, 0, wallBot + 50);
+  floorRedG.addColorStop(0, "rgba(255,30,30,0.06)");
+  floorRedG.addColorStop(1, "transparent");
+  ctx.fillStyle = floorRedG;
+  ctx.fillRect(0, wallBot, w, 50);
+
+  // ── Heavy vignette ──
+  drawVignette(ctx, w, h, 0.65);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// BOSS FPS VIEW — first-person perspective looking at the Lockmaster
+// ════════════════════════════════════════════════════════════════════
+
+export function paintBossFPS(w: number, h: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  drawBossFPS(ctx, w, h);
+  return canvas;
+}
+
+function drawBossFPS(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  // Vanishing point — slightly above center
+  const vpX = w * 0.5;
+  const vpY = h * 0.38;
+
+  // Room boundaries at near plane (screen edges)
+  const nearL = 0;
+  const nearR = w;
+  const nearT = 0;
+  const nearB = h;
+  // Room boundaries at far plane (near vanishing point)
+  const farW = w * 0.28;
+  const farH = h * 0.30;
+  const farL = vpX - farW / 2;
+  const farR = vpX + farW / 2;
+  const farT = vpY - farH * 0.45;
+  const farB = vpY + farH * 0.55;
+
+  // Industrial palette — warm grays, browns, rust
+  const DARK = "#0c0a08";
+  const WALL_DARK = "#1a1612";
+  const WALL_MID = "#2a2420";
+  const WALL_LIGHT = "#3a322c";
+  const WALL_HI = "#4a4038";
+  const FLOOR_DARK = "#201c16";
+  const FLOOR_MID = "#38302a";
+  const FLOOR_LIGHT = "#443c34";
+  const PANEL_DARK = "#1e1a16";
+  const PANEL_MID = "#302a24";
+  const PANEL_LIGHT = "#3e362e";
+  const PANEL_HI = "#4e443a";
+  const CEIL_DARK = "#121010";
+  const CEIL_MID = "#1e1a18";
+  const RIVET = "#5a5048";
+  const RUST = "#4a3020";
+
+  // Helper: perspective-interpolated position
+  const pLerp = (near: number, far: number, t: number) =>
+    near + (far - near) * Math.pow(t, 1.3);
+
+  // ── Ceiling ──
+  const ceilGrad = ctx.createLinearGradient(0, 0, 0, vpY);
+  ceilGrad.addColorStop(0, CEIL_DARK);
+  ceilGrad.addColorStop(1, CEIL_MID);
+  ctx.fillStyle = ceilGrad;
+  ctx.beginPath();
+  ctx.moveTo(nearL, nearT);
+  ctx.lineTo(nearR, nearT);
+  ctx.lineTo(farR, farT);
+  ctx.lineTo(farL, farT);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Floor base ──
+  const floorGrad = ctx.createLinearGradient(0, h, 0, vpY);
+  floorGrad.addColorStop(0, FLOOR_MID);
+  floorGrad.addColorStop(0.4, FLOOR_DARK);
+  floorGrad.addColorStop(1, DARK);
+  ctx.fillStyle = floorGrad;
+  ctx.beginPath();
+  ctx.moveTo(nearL, nearB);
+  ctx.lineTo(nearR, nearB);
+  ctx.lineTo(farR, farB);
+  ctx.lineTo(farL, farB);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Left wall ──
+  const wallGradL = ctx.createLinearGradient(0, 0, vpX * 0.5, 0);
+  wallGradL.addColorStop(0, WALL_MID);
+  wallGradL.addColorStop(1, WALL_DARK);
+  ctx.fillStyle = wallGradL;
+  ctx.beginPath();
+  ctx.moveTo(nearL, nearT);
+  ctx.lineTo(farL, farT);
+  ctx.lineTo(farL, farB);
+  ctx.lineTo(nearL, nearB);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Right wall ──
+  const wallGradR = ctx.createLinearGradient(w, 0, w - vpX * 0.5, 0);
+  wallGradR.addColorStop(0, WALL_MID);
+  wallGradR.addColorStop(1, WALL_DARK);
+  ctx.fillStyle = wallGradR;
+  ctx.beginPath();
+  ctx.moveTo(nearR, nearT);
+  ctx.lineTo(farR, farT);
+  ctx.lineTo(farR, farB);
+  ctx.lineTo(nearR, nearB);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Wall panel blocks (thick horizontal segments like armor plates) ──
+  const panelRows = 5;
+  for (let side = 0; side < 2; side++) {
+    const isLeft = side === 0;
+    // Draw panels at depth increments along the wall
+    for (let d = 0; d < 6; d++) {
+      const t0 = d * 0.15;
+      const t1 = t0 + 0.14;
+      if (t1 > 1) continue;
+      const tt0 = Math.pow(t0, 1.3);
+      const tt1 = Math.pow(t1, 1.3);
+
+      const x0 = isLeft ? pLerp(nearL, farL, t0) : pLerp(nearR, farR, t0);
+      const x1 = isLeft ? pLerp(nearL, farL, t1) : pLerp(nearR, farR, t1);
+      const ty0 = pLerp(nearT, farT, t0);
+      const ty1 = pLerp(nearT, farT, t1);
+      const by0 = pLerp(nearB, farB, t0);
+      const by1 = pLerp(nearB, farB, t1);
+
+      // Divide wall height into panel rows
+      for (let row = 0; row < panelRows; row++) {
+        const rf0 = row / panelRows;
+        const rf1 = (row + 0.96) / panelRows;
+        const py0t = ty0 + (by0 - ty0) * rf0;
+        const py0b = ty0 + (by0 - ty0) * rf1;
+        const py1t = ty1 + (by1 - ty1) * rf0;
+        const py1b = ty1 + (by1 - ty1) * rf1;
+
+        // Panel face
+        const alpha = Math.max(0.15, 0.6 * (1 - tt0 * 0.8));
+        ctx.fillStyle = row % 2 === 0 ? PANEL_MID : PANEL_DARK;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(x0, py0t);
+        ctx.lineTo(x1, py1t);
+        ctx.lineTo(x1, py1b);
+        ctx.lineTo(x0, py0b);
+        ctx.closePath();
+        ctx.fill();
+
+        // Top edge highlight
+        ctx.fillStyle = PANEL_HI;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x0, py0t);
+        ctx.lineTo(x1, py1t);
+        ctx.lineTo(x1, py1t + 1);
+        ctx.lineTo(x0, py0t + 1);
+        ctx.closePath();
+        ctx.fill();
+
+        // Bottom edge shadow
+        ctx.fillStyle = DARK;
+        ctx.globalAlpha = alpha * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(x0, py0b - 1);
+        ctx.lineTo(x1, py1b - 1);
+        ctx.lineTo(x1, py1b);
+        ctx.lineTo(x0, py0b);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // Vertical seam between depth segments
+      ctx.strokeStyle = `rgba(10,8,6,${0.6 * (1 - tt1)})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, ty1);
+      ctx.lineTo(x1, by1);
+      ctx.stroke();
+
+      // Rivets at panel corners
+      if (d < 4) {
+        const rivetAlpha = 0.4 * (1 - tt0);
+        ctx.fillStyle = RIVET;
+        ctx.globalAlpha = rivetAlpha;
+        for (let row = 0; row <= panelRows; row++) {
+          const rf = row / panelRows;
+          const ry = ty0 + (by0 - ty0) * rf;
+          ctx.fillRect(x0 + (isLeft ? 1 : -3), ry - 1, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // ── Server rack cabinets (wider, on walls) ──
+  for (let side = 0; side < 2; side++) {
+    const isLeft = side === 0;
+    for (let i = 0; i < 5; i++) {
+      const t = 0.07 + i * 0.17;
+      const tt = Math.pow(t, 1.3);
+      const edgeX = isLeft
+        ? nearL + (farL - nearL) * tt
+        : nearR + (farR - nearR) * tt;
+      const ty = nearT + (farT - nearT) * tt;
+      const by = nearB + (farB - nearB) * tt;
+      const rackH = (by - ty) * 0.75;
+      const rackW = Math.max(10, 28 * (1 - tt * 0.6));
+      const rackY = ty + (by - ty) * 0.12;
+      const x = isLeft ? edgeX : edgeX - rackW;
+
+      const rAlpha = Math.max(0.3, 1 - tt);
+
+      // Rack body
+      ctx.fillStyle = PANEL_DARK;
+      ctx.globalAlpha = rAlpha;
+      ctx.fillRect(x, rackY, rackW, rackH);
+      // Rack face
+      ctx.fillStyle = PANEL_MID;
+      ctx.fillRect(x + 2, rackY + 2, rackW - 4, rackH - 4);
+      // Top bevel
+      ctx.fillStyle = PANEL_HI;
+      ctx.fillRect(x, rackY, rackW, 2);
+      // Bottom shadow
+      ctx.fillStyle = DARK;
+      ctx.fillRect(x, rackY + rackH - 2, rackW, 2);
+      ctx.globalAlpha = 1;
+
+      // Horizontal shelf divisions
+      const shelfCount = Math.max(2, Math.floor(4 * (1 - tt)));
+      for (let s = 1; s <= shelfCount; s++) {
+        const sy = rackY + (rackH / (shelfCount + 1)) * s;
+        ctx.strokeStyle = WALL_DARK;
+        ctx.globalAlpha = rAlpha;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + 2, sy);
+        ctx.lineTo(x + rackW - 2, sy);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // LED dots
+      const ledCount = Math.max(2, Math.floor(6 * (1 - tt)));
+      for (let led = 0; led < ledCount; led++) {
+        const ly = rackY + 6 + led * Math.floor(rackH / (ledCount + 1));
+        const isRed = led % 3 === 0;
+        ctx.fillStyle = isRed ? C.dangerBright : led % 3 === 1 ? C.signalDim : RIVET;
+        ctx.globalAlpha = rAlpha;
+        ctx.fillRect(x + 3, ly, 2, 1);
+        if (isRed && tt < 0.5) {
+          ctx.fillStyle = "rgba(255,50,50,0.15)";
+          ctx.fillRect(x, ly - 1, rackW, 3);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // ── Floor grating — bold visible grid with alternating cell shading ──
+  const gridRows = 18;
+  // Pre-compute row positions
+  const rowPos: { y: number; xl: number; xr: number; t: number }[] = [];
+  for (let i = 0; i <= gridRows; i++) {
+    const t = i / gridRows;
+    const tt = Math.pow(t, 1.5);
+    rowPos.push({
+      y: nearB + (farB - nearB) * tt,
+      xl: nearL + (farL - nearL) * tt,
+      xr: nearR + (farR - nearR) * tt,
+      t,
+    });
+  }
+
+  // Vertical line positions for cross-hatching
+  const gridCols = 14;
+  const colFracs: number[] = [];
+  for (let c = 0; c <= gridCols; c++) colFracs.push(c / gridCols);
+
+  // Draw alternating floor cells
+  for (let r = 1; r <= gridRows; r++) {
+    const prev = rowPos[r - 1];
+    const cur = rowPos[r];
+    const brightness = Math.max(0.3, 1 - cur.t * 0.6);
+
+    for (let c = 0; c < gridCols; c++) {
+      const cf0 = colFracs[c];
+      const cf1 = colFracs[c + 1];
+      // Corners of this cell in perspective
+      const x0p = prev.xl + (prev.xr - prev.xl) * cf0;
+      const x1p = prev.xl + (prev.xr - prev.xl) * cf1;
+      const x0c = cur.xl + (cur.xr - cur.xl) * cf0;
+      const x1c = cur.xl + (cur.xr - cur.xl) * cf1;
+
+      // Checkerboard pattern
+      const isLight = (r + c) % 2 === 0;
+      ctx.fillStyle = isLight ? FLOOR_LIGHT : FLOOR_DARK;
+      ctx.globalAlpha = brightness;
+      ctx.beginPath();
+      ctx.moveTo(x0p, prev.y);
+      ctx.lineTo(x1p, prev.y);
+      ctx.lineTo(x1c, cur.y);
+      ctx.lineTo(x0c, cur.y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Horizontal grate bar
+    ctx.strokeStyle = `rgba(90,80,65,${0.5 * brightness})`;
+    ctx.lineWidth = cur.t < 0.25 ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(cur.xl, cur.y);
+    ctx.lineTo(cur.xr, cur.y);
+    ctx.stroke();
+  }
+
+  // Vertical grate bars
+  for (let c = 0; c <= gridCols; c++) {
+    const frac = colFracs[c];
+    const nx = nearL + (nearR - nearL) * frac;
+    const fx = farL + (farR - farL) * frac;
+    ctx.strokeStyle = `rgba(80,70,55,0.25)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(nx, nearB);
+    ctx.lineTo(fx, farB);
+    ctx.stroke();
+  }
+
+  // ── Ceiling pipes ──
+  for (let pipe = 0; pipe < 3; pipe++) {
+    const pipeFrac = [0.18, 0.5, 0.82][pipe];
+    const pipeW = pipe === 1 ? 4 : 3;
+    ctx.strokeStyle = WALL_MID;
+    ctx.lineWidth = pipeW;
+    ctx.beginPath();
+    const nx = nearL + (nearR - nearL) * pipeFrac;
+    const fx = farL + (farR - farL) * pipeFrac;
+    ctx.moveTo(nx, nearT + 3);
+    ctx.lineTo(fx, farT + 1);
+    ctx.stroke();
+    // Pipe highlight
+    ctx.strokeStyle = WALL_HI;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(nx, nearT + 2);
+    ctx.lineTo(fx, farT);
+    ctx.stroke();
+  }
+
+  // ── Ceiling beams (thick structural ribs) ──
+  for (let i = 0; i < 6; i++) {
+    const t = 0.08 + i * 0.17;
+    const tt = Math.pow(t, 1.3);
+    const lx = nearL + (farL - nearL) * tt;
+    const rx = nearR + (farR - nearR) * tt;
+    const ty = nearT + (farT - nearT) * tt;
+    const beamH = Math.max(2, 5 * (1 - tt));
+    ctx.fillStyle = WALL_DARK;
+    ctx.fillRect(lx, ty, rx - lx, beamH);
+    ctx.fillStyle = WALL_LIGHT;
+    ctx.fillRect(lx, ty, rx - lx, 1);
+    // Bottom edge shadow
+    ctx.fillStyle = DARK;
+    ctx.fillRect(lx, ty + beamH - 1, rx - lx, 1);
+  }
+
+  // ── Back wall (Lockmaster mount point) ──
+  const backGrad = ctx.createRadialGradient(vpX, vpY, 2, vpX, vpY, farW * 0.8);
+  backGrad.addColorStop(0, WALL_MID);
+  backGrad.addColorStop(0.5, WALL_DARK);
+  backGrad.addColorStop(1, DARK);
+  ctx.fillStyle = backGrad;
+  ctx.fillRect(farL, farT, farR - farL, farB - farT);
+  // Edge framing
+  ctx.fillStyle = WALL_LIGHT;
+  ctx.fillRect(farL, farT, 2, farB - farT);
+  ctx.fillRect(farR - 2, farT, 2, farB - farT);
+  ctx.fillStyle = WALL_HI;
+  ctx.fillRect(farL, farT, farR - farL, 2);
+  ctx.fillStyle = WALL_DARK;
+  ctx.fillRect(farL, farB - 2, farR - farL, 2);
+  // Mounting bolts
+  ctx.fillStyle = RIVET;
+  const boltInset = 4;
+  ctx.fillRect(farL + boltInset, farT + boltInset, 2, 2);
+  ctx.fillRect(farR - boltInset - 2, farT + boltInset, 2, 2);
+  ctx.fillRect(farL + boltInset, farB - boltInset - 2, 2, 2);
+  ctx.fillRect(farR - boltInset - 2, farB - boltInset - 2, 2, 2);
+
+  // ── Red alarm lights on ceiling ──
+  for (let i = 0; i < 5; i++) {
+    const t = 0.1 + i * 0.18;
+    const tt = Math.pow(t, 1.3);
+    const lx = nearL + (farL - nearL) * tt;
+    const rx = nearR + (farR - nearR) * tt;
+    const ty = nearT + (farT - nearT) * tt;
+    const cx = (lx + rx) / 2;
+    const lightR = (rx - lx) * 0.15;
+
+    // Red light cone
+    const coneG = ctx.createRadialGradient(cx, ty + 4, 1, cx, ty + lightR * 3, lightR * 3);
+    coneG.addColorStop(0, `rgba(255,40,30,${0.2 * (1 - tt * 0.7)})`);
+    coneG.addColorStop(1, "transparent");
+    ctx.fillStyle = coneG;
+    ctx.fillRect(cx - lightR * 4, ty, lightR * 8, lightR * 5);
+
+    // Light fixture
+    ctx.fillStyle = C.dangerBright;
+    ctx.fillRect(cx - 2, ty + 1, 4, 3);
+    ctx.fillStyle = "rgba(255,50,50,0.3)";
+    ctx.fillRect(cx - 4, ty, 8, 4);
+  }
+
+  // ── Red ambient wash (subtle, not overpowering) ──
+  const redGlow = ctx.createLinearGradient(0, h, 0, h * 0.5);
+  redGlow.addColorStop(0, "rgba(255,30,20,0.08)");
+  redGlow.addColorStop(1, "transparent");
+  ctx.fillStyle = redGlow;
+  ctx.fillRect(0, h * 0.4, w, h * 0.6);
+
+  // Red tint on walls near floor
+  for (let side = 0; side < 2; side++) {
+    const isLeft = side === 0;
+    const glowG = ctx.createLinearGradient(
+      isLeft ? 0 : w, h,
+      isLeft ? w * 0.3 : w * 0.7, h * 0.5
+    );
+    glowG.addColorStop(0, "rgba(255,35,25,0.05)");
+    glowG.addColorStop(1, "transparent");
+    ctx.fillStyle = glowG;
+    ctx.fillRect(isLeft ? 0 : w * 0.5, h * 0.4, w * 0.5, h * 0.6);
+  }
+
+  // ── Rust streaks on walls (subtle vertical stains) ──
+  for (let side = 0; side < 2; side++) {
+    const isLeft = side === 0;
+    for (let s = 0; s < 3; s++) {
+      const t = 0.15 + s * 0.25;
+      const tt = Math.pow(t, 1.3);
+      const x = isLeft
+        ? nearL + (farL - nearL) * tt + 3
+        : nearR + (farR - nearR) * tt - 5;
+      const ty = nearT + (farT - nearT) * tt;
+      const by = nearB + (farB - nearB) * tt;
+      const streakY = ty + (by - ty) * 0.3;
+      const streakH = (by - ty) * 0.35;
+      const streakG = ctx.createLinearGradient(0, streakY, 0, streakY + streakH);
+      streakG.addColorStop(0, "transparent");
+      streakG.addColorStop(0.3, `rgba(74,48,32,${0.15 * (1 - tt)})`);
+      streakG.addColorStop(1, "transparent");
+      ctx.fillStyle = streakG;
+      ctx.fillRect(x, streakY, 2, streakH);
+    }
+  }
+
+  // ── Vignette (moderate — keep industrial detail visible) ──
+  const vigG = ctx.createRadialGradient(vpX, vpY, w * 0.15, vpX, vpY, w * 0.7);
+  vigG.addColorStop(0, "transparent");
+  vigG.addColorStop(0.5, "rgba(0,0,0,0.15)");
+  vigG.addColorStop(0.8, "rgba(0,0,0,0.35)");
+  vigG.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = vigG;
+  ctx.fillRect(0, 0, w, h);
 }
 
 // ════════════════════════════════════════════════════════════════════

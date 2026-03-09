@@ -1075,9 +1075,9 @@ describe("boss-01:predict — zen detection", () => {
   last := codes[len(codes)-1]
   return last + 1
 }`,
-      expectedXP: 5,
-      joltCount: 1,
-      suggestionCount: 3,
+      expectedXP: 10,  // sliceIndexing + namedVariables (last is 4 chars)
+      joltCount: 2,
+      suggestionCount: 2,
     },
     {
       name: "uses len + delta subtraction but no guard, short var name",
@@ -1211,8 +1211,14 @@ func predictNext(codes []int) int {
   });
 
   test("named_variables checks for := or = assignment", () => {
-    const named = `delta := codes[1] - codes[0]`;
-    const shortName = `d := codes[1] - codes[0]`;
+    const named = `func predictNext(codes []int) int {
+  delta := codes[1] - codes[0]
+  return codes[0] + delta
+}`;
+    const shortName = `func predictNext(codes []int) int {
+  d := codes[1] - codes[0]
+  return codes[0] + d
+}`;
     const r1 = analyzeZen(STEP, named);
     const r2 = analyzeZen(STEP, shortName);
     expect(r1.bonusXP).toBeGreaterThan(r2.bonusXP);
@@ -1699,11 +1705,11 @@ func main() {
   });
 
   test("validateCode without closing brace on own line", () => {
-    // The regex expects \n} — inline closing won't match
+    // Structural extraction handles inline braces correctly
     const code = `func validateCode(codes ...int) (int, bool) { total := sumCodes(codes...); return total, total > 100 }`;
     const result = analyzeZen("chapter-03:validate", code);
-    // regex won't match the inline form
-    expect(result.bonusXP).toBe(0);
+    // brace-depth extraction works for inline form — both rules pass
+    expect(result.bonusXP).toBe(25);
   });
 
   test("sumCodes regex doesn't match different function names", () => {

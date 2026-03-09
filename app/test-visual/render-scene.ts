@@ -2,6 +2,8 @@ import { paintScene } from "../src/lib/sprites/scene-painter";
 import { paintMayaFrames, paintGuardFrames } from "../src/lib/sprites/character-painter";
 import { paintActOneMap, ACT_ONE_NODES } from "../src/lib/sprites/map-painter";
 import type { MapNode } from "../src/lib/sprites/map-painter";
+import { paintBossFrames } from "../src/lib/sprites/boss-painter";
+import type { BossAnimation } from "../src/lib/sprites/boss-painter";
 
 function renderTo(id: string, source: HTMLCanvasElement) {
   const target = document.getElementById(id) as HTMLCanvasElement;
@@ -14,7 +16,7 @@ function renderTo(id: string, source: HTMLCanvasElement) {
 console.log("Starting render...");
 
 // Scenes — paint at exact target size
-for (const type of ["cell", "corridor", "chase", "server"] as const) {
+for (const type of ["cell", "corridor", "chase", "server", "boss-arena"] as const) {
   try {
     const bg = paintScene(type, 640, 420);
     console.log(`${type}: ${bg.width}x${bg.height}, has data:`, bg.width > 0);
@@ -261,6 +263,83 @@ try {
   console.log("Map ch02:", map2.width, "x", map2.height);
 } catch (e) {
   console.error("Error painting maps:", e);
+}
+
+// ── BOSS: Lockmaster animation strips ──
+function renderBossStrip(canvasId: string, anim: BossAnimation, hp: number = 100) {
+  try {
+    const frames = paintBossFrames(anim, 3, hp);
+    console.log(`Boss ${anim}: ${frames.length} frames, ${frames[0].width}x${frames[0].height}`);
+    const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#080e16";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    frames.forEach((f, i) => {
+      ctx.drawImage(f, i * f.width, 0);
+      ctx.fillStyle = "#ff4040";
+      ctx.font = "9px monospace";
+      ctx.fillText(`F${i}`, i * f.width + 2, canvas.height - 6);
+    });
+  } catch (e) {
+    console.error(`Error painting boss ${anim}:`, e);
+  }
+}
+
+renderBossStrip("boss-idle", "idle");
+renderBossStrip("boss-charge", "charge");
+renderBossStrip("boss-hit", "hit-react");
+renderBossStrip("boss-low", "low-hp", 25);
+renderBossStrip("boss-defeat", "defeat");
+
+// ── BOSS ARENA COMPOSITE: Maya vs Lockmaster in server room ──
+try {
+  const W = 640;
+  const H = 420;
+  const bg = paintScene("boss-arena", W, H);
+  const mayaFrames = paintMayaFrames("hack", 3);
+  const bossFrames = paintBossFrames("idle", 3);
+
+  const arenaCanvas = document.getElementById("boss-composite") as HTMLCanvasElement;
+  const ctx = arenaCanvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+
+  // Background (already has red tint from boss-arena scene)
+  ctx.drawImage(bg, 0, 0);
+
+  // Floor line
+  const floorY = Math.floor(H * 0.38);
+  ctx.strokeStyle = "rgba(255,64,64,0.3)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, floorY);
+  ctx.lineTo(W, floorY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Maya on the left
+  const mayaFeetY = floorY + 65;
+  const mayaX = W * 0.2;
+  const mf = mayaFrames[0];
+  ctx.drawImage(mf, mayaX - mf.width / 2, mayaFeetY - mf.height);
+
+  // Lockmaster on the right (wall-mounted, higher up)
+  const bossY = floorY - 10; // Mounted on wall
+  const bossX = W * 0.75;
+  const bf = bossFrames[0];
+  ctx.drawImage(bf, bossX - bf.width / 2, bossY - bf.height / 2);
+
+  // Labels
+  ctx.font = "11px monospace";
+  ctx.fillStyle = "#6effa0";
+  ctx.fillText("MAYA", mayaX - 15, mayaFeetY + 14);
+  ctx.fillStyle = "#ff4040";
+  ctx.fillText("LOCKMASTER", bossX - 32, bossY + bf.height / 2 + 14);
+
+  console.log(`Boss arena: ${W}x${H}, maya@${mayaX},${mayaFeetY}, boss@${bossX},${bossY}`);
+} catch (e) {
+  console.error("Error painting boss arena:", e);
 }
 
 console.log("Render complete");

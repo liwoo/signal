@@ -44,6 +44,16 @@ const SFX = {
   "keypress-1": "/audio/sfx/keypress-1.ogg",
   "keypress-2": "/audio/sfx/keypress-2.ogg",
   "keypress-3": "/audio/sfx/keypress-3.ogg",
+
+  // Boss fight weapon
+  "weapon-charge": "/audio/sfx/weapon-charge.ogg",
+  "laser-fire": "/audio/sfx/laser-fire.ogg",
+  "explosion-small": "/audio/sfx/explosion-small.ogg",
+  "shield-break": "/audio/sfx/shield-break.ogg",
+  "target-lock": "/audio/sfx/target-lock.ogg",
+  "hit-confirm": "/audio/sfx/hit-confirm.ogg",
+  "boss-hit": "/audio/sfx/boss-hit.ogg",
+  "countdown-tick": "/audio/sfx/countdown-tick.ogg",
 } as const;
 
 const AMBIENCE = {

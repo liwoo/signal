@@ -280,3 +280,18 @@ body {
   96% { opacity: 0.9; }
   97% { opacity: 1; }
 }
+
+/* Boss telegraph slide-in */
+@keyframes telegraph-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Boss hit shake */
+@keyframes boss-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}

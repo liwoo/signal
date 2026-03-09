@@ -101,5 +101,53 @@ try {
   console.error("Error painting walk vs crawl:", e);
 }
 
+// ── CAM FEED per chapter — simulates MayaAnimation component ──
+try {
+  const CAM_W = 220;
+  const CAM_H = 140;
+  const SCENE_W = 460;
+  const SCENE_H = 340;
+  const feeds: { label: string; scene: Parameters<typeof paintScene>[0]; anim: Parameters<typeof paintMayaFrames>[0]; scale: number; camX: number; camY: number; mayaX: number; mayaFeetY: number }[] = [
+    { label: "CH.01", scene: "cell", anim: "hack", scale: 2, camX: 110, camY: 30, mayaX: 250, mayaFeetY: SCENE_H * 0.50 + 55 },
+    { label: "CH.02", scene: "cell", anim: "keypad", scale: 2, camX: 160, camY: 30, mayaX: 310, mayaFeetY: SCENE_H * 0.50 + 55 },
+    { label: "CH.03", scene: "vent", anim: "crawl-right", scale: 3, camX: 60, camY: 90, mayaX: 200, mayaFeetY: SCENE_H * 0.50 + 85 },
+    { label: "BOSS", scene: "server", anim: "hack", scale: 2, camX: 90, camY: 40, mayaX: 240, mayaFeetY: SCENE_H * 0.50 + 50 },
+  ];
+
+  const canvas = document.getElementById("cam-feeds") as HTMLCanvasElement;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#020406";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  feeds.forEach((feed, i) => {
+    const offsetX = i * 235;
+    const bg = paintScene(feed.scene, SCENE_W, SCENE_H);
+    const frames = paintMayaFrames(feed.anim, feed.scale);
+    const mf = frames[0];
+
+    // Draw cropped scene
+    ctx.drawImage(bg, feed.camX, feed.camY, CAM_W, CAM_H, offsetX, 16, CAM_W, CAM_H);
+
+    // Draw Maya
+    const drawX = offsetX + feed.mayaX - feed.camX - mf.width / 2;
+    const drawY = 16 + feed.mayaFeetY - feed.camY - mf.height;
+    ctx.drawImage(mf, drawX, drawY);
+
+    // Label
+    ctx.fillStyle = "#6effa0";
+    ctx.font = "10px monospace";
+    ctx.fillText(feed.label, offsetX + 4, 12);
+
+    // Border
+    ctx.strokeStyle = "rgba(110,255,160,0.15)";
+    ctx.strokeRect(offsetX, 16, CAM_W, CAM_H);
+  });
+
+  console.log("Cam feeds rendered");
+} catch (e) {
+  console.error("Error painting cam feeds:", e);
+}
+
 console.log("Crawl test render complete");
 document.title = "RENDERED";

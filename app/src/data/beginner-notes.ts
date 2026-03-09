@@ -478,157 +478,175 @@ if total > 100 {
   },
 
   "boss-01": {
-    title: "PATTERN ANALYSIS",
-    subtitle: "EVERYTHING YOU NEED FOR THE LOCKMASTER",
+    title: "WEAPON SYSTEMS",
+    subtitle: "HOW TO FIGHT THE LOCKMASTER",
     blocks: [
-      // Section 0: Program structure recap
+      // Section 0: Combat overview
       {
         type: "text",
         section: 0,
         content:
-          "every go program needs the same skeleton — package, import, functions, main. the lockmaster is no different. get the structure right first, then solve the puzzle.",
+          "this is a boss fight. the lockmaster attacks in turns — each turn it telegraphs what it's doing and you have a few seconds to write code and hit RUN (or ctrl+enter). you have 3 weapon tabs: aim, load, and fire. each tab has one function you need to complete.",
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "every turn, the game tells you which tab to focus on. your functions all run together as one program — aim feeds coordinates to fire, load feeds ammo to fire. miss a turn and you take damage. lose all hearts and it's over.",
       },
       {
         type: "code",
         section: 0,
-        content: `package main
+        content: `// AIM tab — returns x, y coordinates
+func Aim(sector int) (int, int)
 
-import "fmt"
+// LOAD tab — returns ammo sequence
+func Load(threat string) []string
 
-func predictNext(codes []int) int {
-    // your logic here
-    return 0
-}
+// FIRE tab — combines aim + load
+func Fire(x, y int, ammo []string) string`,
+        hotspots: [
+          { text: "func Aim(sector int) (int, int)", tip: "takes a sector number (1-9), returns pixel coordinates. two return values — (x, y)." },
+          { text: "func Load(threat string) []string", tip: "takes a threat type like \"shield\" or \"armor\", returns a slice of ammo strings." },
+          { text: "func Fire(x, y int, ammo []string) string", tip: "takes coordinates + ammo, returns a result string. this is where aim and load come together." },
+        ],
+      },
 
+      // Section 1: Aim — sector grid
+      {
+        type: "text",
+        section: 1,
+        content:
+          "the lockmaster's systems are laid out on a 3x3 sector grid. each sector maps to fixed pixel coordinates. when the game says \"sector 3\", you return the x,y for that position. use if/else or a slice to map sectors to coordinates.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `// the sector grid:
+//   1=(128,160)  2=(256,160)  3=(384,160)
+//   4=(128,320)  5=(256,320)  6=(384,320)
+//   7=(128,480)  8=(256,480)  9=(384,480)
+
+func Aim(sector int) (int, int) {
+    if sector == 1 {
+        return 128, 160
+    }
+    if sector == 2 {
+        return 256, 160
+    }
+    // ... handle all 9 sectors
+    return 0, 0
+}`,
+        hotspots: [
+          { text: "(int, int)", tip: "multiple return values — go lets functions return more than one thing. the caller uses x, y := Aim(3)." },
+          { text: "return 128, 160", tip: "returning two values at once. no parentheses needed around the values." },
+          { text: "return 0, 0", tip: "fallback for unknown sectors. guard clause — if the sector isn't valid, return zeros." },
+          { text: "sector == 1", tip: "each sector maps to a fixed pair of coordinates. you could also use a switch statement." },
+        ],
+      },
+
+      // Section 2: Load — threat types and slices
+      {
+        type: "text",
+        section: 2,
+        content:
+          "different threats need different ammo. a shield needs 3 piercing rounds. armor needs 2 blast rounds. an exposed core needs 1 pulse. Load returns a slice of strings — the ammo sequence.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `// threat → ammo mapping:
+//   "shield"  → 3x "pierce"
+//   "armor"   → 2x "blast"
+//   "exposed" → 1x "pulse"
+
+func Load(threat string) []string {
+    if threat == "shield" {
+        return []string{"pierce", "pierce", "pierce"}
+    }
+    if threat == "armor" {
+        return []string{"blast", "blast"}
+    }
+    if threat == "exposed" {
+        return []string{"pulse"}
+    }
+    return []string{}
+}`,
+        hotspots: [
+          { text: "[]string{\"pierce\", \"pierce\", \"pierce\"}", tip: "a slice literal with 3 elements. the brackets define the type, the braces define the values." },
+          { text: "return []string{}", tip: "empty slice — no ammo for unknown threats. never return nil when the caller expects a slice." },
+          { text: "threat == \"shield\"", tip: "string comparison in go uses ==. the threat type comes from the boss's telegraph message." },
+        ],
+      },
+
+      // Section 3: Fire — wiring it together
+      {
+        type: "text",
+        section: 3,
+        content:
+          "fire is where everything connects. the test harness calls Aim to get coordinates, Load to get ammo, and passes both to Fire. your fire function validates the inputs and returns a result. when everything works: return \"HIT\".",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `// how the test harness calls your code:
 func main() {
-    codes := []int{100, 200, 300}
-    fmt.Println(predictNext(codes))
-}`,
-        hotspots: [
-          { text: "func predictNext(codes []int) int", tip: "a function that takes a slice of ints and returns one int. this is the interface the lock controller expects." },
-          { text: "[]int", tip: "slice of ints — a dynamic-length list of integers. the lock controller feeds you the visible codes." },
-          { text: "return 0", tip: "placeholder — you'll replace this with actual logic. every code path in the function must return an int." },
-          { text: "predictNext(codes)", tip: "calling your function from main. the result gets printed." },
-        ],
-      },
-
-      // Section 1: Slices and len()
-      {
-        type: "text",
-        section: 1,
-        content:
-          "the lock controller gives you a slice of codes. you need to walk through it, compare elements, and find the pattern. len() tells you how many elements you have — never assume the count.",
-      },
-      {
-        type: "code",
-        section: 1,
-        content: `codes := []int{102847, 104694, 106541}
-
-// how many codes?
-n := len(codes)
-
-// access first and last
-first := codes[0]
-last := codes[n-1]
-
-// loop through pairs
-for i := 1; i < n; i++ {
-    diff := codes[i] - codes[i-1]
-    fmt.Println(diff)
-}`,
-        hotspots: [
-          { text: "len(codes)", tip: "built-in function. returns the count. use it — don't hardcode 3 or any number." },
-          { text: "codes[n-1]", tip: "last element. n is the length, so n-1 is the last valid index." },
-          { text: "i := 1; i < n", tip: "start at 1 (not 0) because we compare codes[i] with codes[i-1]. avoids out-of-bounds." },
-          { text: "codes[i] - codes[i-1]", tip: "the difference between consecutive elements. this is how you detect a pattern — compute all the deltas." },
-        ],
-      },
-
-      // Section 2: Computing deltas
-      {
-        type: "text",
-        section: 2,
-        content:
-          "the key to pattern detection: compute the difference (delta) between each consecutive pair. if all deltas are the same, the pattern is linear — just add the delta to the last code.",
-      },
-      {
-        type: "code",
-        section: 2,
-        content: `// compute first delta
-delta := codes[1] - codes[0]
-
-// check if all deltas match
-allSame := true
-for i := 2; i < len(codes); i++ {
-    if codes[i] - codes[i-1] != delta {
-        allSame = false
-    }
+    x, y := Aim(5)
+    ammo := Load("armor")
+    result := Fire(x, y, ammo)
+    fmt.Println(result)
 }
 
-// if linear, predict the next
-if allSame {
-    return codes[len(codes)-1] + delta
+// Fire needs to return "HIT" when inputs are valid
+func Fire(x, y int, ammo []string) string {
+    if x == 0 || y == 0 {
+        return "NO TARGET"
+    }
+    if len(ammo) == 0 {
+        return "NO AMMO"
+    }
+    return "HIT"
 }`,
         hotspots: [
-          { text: "delta := codes[1] - codes[0]", tip: "give the difference a descriptive name — 'delta' tells the reader exactly what this value represents." },
-          { text: "allSame := true", tip: "a flag that starts true. any mismatch flips it to false. clean pattern for checking consistency." },
-          { text: "codes[i] - codes[i-1] != delta", tip: "compare each gap to the first one. if any differ, the pattern isn't linear." },
-          { text: "codes[len(codes)-1] + delta", tip: "last code plus the constant delta. that's the prediction for a linear sequence." },
+          { text: "x, y := Aim(5)", tip: "multiple assignment — captures both return values from Aim. this is how go handles functions that return multiple values." },
+          { text: "ammo := Load(\"armor\")", tip: "ammo is a []string. the Load function decides what goes in it based on the threat." },
+          { text: "Fire(x, y, ammo)", tip: "all three weapon systems wired together. aim → coordinates. load → ammo. fire → result." },
+          { text: "return \"HIT\"", tip: "when coordinates are valid and ammo is loaded, fire returns \"HIT\". this is what the boss fight checks for." },
         ],
       },
 
-      // Section 3: Guard clauses and early returns
+      // Section 4: Grid shift
       {
         type: "text",
-        section: 3,
+        section: 4,
         content:
-          "good go functions handle edge cases first with guard clauses — short if statements at the top that return early. this keeps the main logic clean and unindented.",
+          "halfway through the fight, the lockmaster reroutes — the sector grid shifts by +64 on each axis. you need to update your Aim function to handle the new coordinates. this tests whether your code can adapt under pressure.",
       },
       {
         type: "code",
-        section: 3,
-        content: `func predictNext(codes []int) int {
-    // guard: need at least 2 codes to find a pattern
-    if len(codes) < 2 {
-        return 0
-    }
+        section: 4,
+        content: `// shifted grid (+64 on each axis):
+//   1=(192,224)  2=(320,224)  3=(448,224)
+//   4=(192,384)  5=(320,384)  6=(448,384)
+//   7=(192,544)  8=(320,544)  9=(448,544)
 
-    // now the main logic can assume len >= 2
-    delta := codes[1] - codes[0]
+// update your Aim to use the new values
+func Aim(sector int) (int, int) {
+    if sector == 5 {
+        return 320, 384   // was 256, 320
+    }
     // ...
 }`,
         hotspots: [
-          { text: "if len(codes) < 2 {", tip: "guard clause — check the edge case and return immediately. don't nest the main logic inside an else." },
-          { text: "return 0", tip: "early return. can't detect a pattern with fewer than 2 codes. exit fast." },
-          { text: "// now the main logic", tip: "after the guard, you can safely assume the input is valid. no extra indentation needed." },
-        ],
-      },
-
-      // Section 4: Naming and clarity
-      {
-        type: "text",
-        section: 4,
-        content:
-          "name your variables for what they mean, not what they are. delta instead of d. codes instead of arr. go values clarity — a good name is the best documentation.",
-      },
-      {
-        type: "code",
-        section: 4,
-        content: `// unclear
-d := a[1] - a[0]
-
-// clear — intent is visible
-delta := codes[1] - codes[0]`,
-        hotspots: [
-          { text: "d := a[1] - a[0]", tip: "what is 'a'? what is 'd'? this compiles but it doesn't communicate." },
-          { text: "delta := codes[1] - codes[0]", tip: "delta — the difference. codes — the input sequence. the reader knows exactly what's happening." },
+          { text: "+64 on each axis", tip: "every x gets +64 and every y gets +64. 128→192, 256→320, 384→448, etc." },
+          { text: "return 320, 384   // was 256, 320", tip: "sector 5 used to be (256,320). now it's (320,384). the pattern holds for all 9 sectors." },
         ],
       },
       {
         type: "text",
         section: 4,
         content:
-          "the lockmaster tests everything you've learned: program structure, slices, loops, conditionals, functions, and clean code. scaffold first. solve second. good luck.",
+          "the lockmaster tests everything you've learned: functions, multiple returns, slices, string comparison, and adapting under time pressure. read the telegraph, check the active tab, write your code, hit run. good luck.",
       },
     ],
   },

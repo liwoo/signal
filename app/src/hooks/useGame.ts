@@ -168,7 +168,11 @@ export function useGame(
 
   // Step tracking
   const [stepIndex, setStepIndex] = useState(0);
-  const currentStep = challenge.steps[stepIndex];
+  const EMPTY_STEP: ChallengeStep = {
+    id: "", title: "", brief: "", starterCode: "", expectedBehavior: "",
+    hints: [], rushMode: null, xp: { base: 0, firstTryBonus: 0, parTimeSeconds: 0 }, events: [],
+  };
+  const currentStep = challenge.steps[stepIndex] ?? EMPTY_STEP;
   const [code, setCode] = useState(currentStep.starterCode ?? "");
 
   const [inRush, setInRush] = useState(false);
@@ -656,8 +660,12 @@ export function useGame(
           onShow: () => {
             levelSchedulerRef.current.stop();
             setTimerStopped(true);
-            setTwist(twistData);
-            setPhase("twist");
+            if (twistData) {
+              setTwist(twistData);
+              setPhase("twist");
+            } else {
+              setPhase("win");
+            }
             syncPauseState(createPauseState());
             // Persist state — chapter complete
             onSaveRef.current?.({

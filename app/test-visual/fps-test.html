@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FPS Test</title>
+  <style>
+    body { margin: 0; background: #020406; display: flex; gap: 16px; padding: 16px; flex-wrap: wrap; }
+    canvas { border: 1px solid #0a2030; }
+    .label { color: #6effa0; font-family: monospace; font-size: 11px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="label">BOSS FPS VIEW (640x200) — game size</div>
+    <canvas id="fps-game" width="640" height="200"></canvas>
+  </div>
+  <div>
+    <div class="label">BOSS FPS VIEW (640x400) — detail</div>
+    <canvas id="fps-detail" width="640" height="400"></canvas>
+  </div>
+  <script type="module" src="./fps-test.ts"></script>
+</body>
+</html>

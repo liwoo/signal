@@ -112,6 +112,9 @@ export function CinematicScene({
         case "loop-stop":
           if (cue.sound) audio.stopLoop(cue.sound as AmbienceName | MusicName, cue.fadeMs ?? 1500);
           break;
+        case "loop-volume":
+          if (cue.sound) audio.setLoopVolume(cue.sound as AmbienceName | MusicName, cue.volume ?? 0.2, cue.fadeMs ?? 500);
+          break;
         case "footsteps":
           audio.playFootsteps(cue.count ?? 4, cue.intervalMs ?? 480, cue.volume ?? 0.3, cue.variant ?? "metal");
           break;

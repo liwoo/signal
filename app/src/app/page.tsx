@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
+import { boss01, boss01Config } from "@/data/challenges/boss-01";
 import { useGame } from "@/hooks/useGame";
 import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
 import { TopBar } from "@/components/game/TopBar";
@@ -30,7 +31,12 @@ import {
   CHAPTER_02_COMPLETE_SCENES,
   CHAPTER_03_INTRO_SCENES,
   CHAPTER_03_COMPLETE_SCENES,
+  BOSS_01_INTRO_SCENES,
+  BOSS_01_COMPLETE_SCENES,
 } from "@/lib/sprites/scenes";
+import type { SceneType } from "@/lib/sprites/scene-painter";
+import type { CharAnimation } from "@/lib/sprites/character-painter";
+import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { MobileGate } from "@/components/game/MobileGate";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
@@ -41,14 +47,25 @@ import {
   savePersistedState,
   type PersistedState,
 } from "@/lib/storage/persistence";
-import type { Challenge, PlayerSettings } from "@/types/game";
+import type { Challenge, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
+
+// ── Cam-feed scene mapping — where Maya actually is per chapter ──
+
+const CAM_FEED_CONFIG: Record<string, { scene: SceneType; animation: CharAnimation; rushAnimation: CharAnimation }> = {
+  "chapter-01": { scene: "cell",   animation: "hack",       rushAnimation: "walk-right" },
+  "chapter-02": { scene: "cell",   animation: "keypad",     rushAnimation: "walk-right" },
+  "chapter-03": { scene: "vent",   animation: "crawl-right", rushAnimation: "crawl-right" },
+  "boss-01":    { scene: "boss-arena", animation: "hack",  rushAnimation: "hack" },
+};
+
+const DEFAULT_CAM = { scene: "cell" as SceneType, animation: "hack" as CharAnimation, rushAnimation: "walk-right" as CharAnimation };
 
 // ── Chapter Registry ──
 
 interface ChapterConfig {
   challenge: Challenge;
-  twist: { headline: string; lines: string[] };
+  twist?: { headline: string; lines: string[] };
   introScenes: SceneDefinition[];
   completeScenes: SceneDefinition[];
   introTitle: string;
@@ -59,6 +76,8 @@ interface ChapterConfig {
   tagline: string;
   storyLines: [string, string];
   ctaLabel: string;
+  // Boss fight config (only for boss chapters)
+  bossFightConfig?: BossFightConfig;
 }
 
 const CHAPTERS: ChapterConfig[] = [
@@ -109,6 +128,22 @@ const CHAPTERS: ChapterConfig[] = [
       "functions. variadic parameters. multiple returns. compute the codes. open the gates.",
     ],
     ctaLabel: "START CHAPTER",
+  },
+  {
+    challenge: boss01,
+    bossFightConfig: boss01Config,
+    introScenes: BOSS_01_INTRO_SCENES,
+    completeScenes: BOSS_01_COMPLETE_SCENES,
+    introTitle: "BOSS FIGHT",
+    introSubtitle: "LOCKMASTER",
+    completeTitle: "BOSS DEFEATED",
+    completeSubtitle: "LOCKMASTER DOWN",
+    tagline: "▸ SERVER ROOM · SUBLEVEL 3",
+    storyLines: [
+      "the server room door runs a lockmaster AI. it generates codes and you must predict the next.",
+      "everything you've learned — functions, loops, logic. 90 seconds. prove you're ready.",
+    ],
+    ctaLabel: "FACE THE LOCKMASTER",
   },
 ];
 
@@ -224,11 +259,13 @@ interface GameScreenProps {
 
 function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
-  const [state, actions] = useGame(challenge, twist, initialState, onSave);
+  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave);
   const audio = useGameAudio(state, settings.soundEnabled);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
+  const [showBossArena, setShowBossArena] = useState(false);
+  const [bossVictory, setBossVictory] = useState(false);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
   // Resizable split
@@ -265,7 +302,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     document.addEventListener("mouseup", onUp);
   }, [onSaveSettings]);
 
-  if (state.phase === "intro" && !showCinematic && !showBeginner) {
+  if (state.phase === "intro" && !showCinematic && !showBeginner && !showBossArena) {
     return <IntroScreen
       config={config}
       onStart={() => {
@@ -285,6 +322,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowCinematic(false);
           if (settings.beginnerMode && beginnerNotes) {
             setShowBeginner(true);
+          } else if (config.bossFightConfig) {
+            setShowBossArena(true);
           } else {
             actions.startGame();
           }
@@ -299,14 +338,86 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         notes={beginnerNotes}
         onReady={() => {
           setShowBeginner(false);
-          actions.startGame();
+          if (config.bossFightConfig) {
+            setShowBossArena(true);
+          } else {
+            actions.startGame();
+          }
         }}
         onDisable={() => {
           onSaveSettings({ beginnerMode: false });
           setShowBeginner(false);
-          actions.startGame();
+          if (config.bossFightConfig) {
+            setShowBossArena(true);
+          } else {
+            actions.startGame();
+          }
         }}
         onHotspotXP={actions.addXP}
+      />
+    );
+  }
+
+  // ── Boss Arena ──
+  if (showBossArena && config.bossFightConfig) {
+    return (
+      <BossArena
+        config={config.bossFightConfig}
+        chapterNumber={challenge.chapter}
+        initialXP={initialState.xp}
+        initialLevel={initialState.level}
+        initialHearts={initialState.hearts}
+        soundEnabled={settings.soundEnabled}
+        vimEnabled={settings.vimModeEnabled}
+        onSave={(payload) => {
+          onSave({
+            xp: payload.xp,
+            level: payload.level,
+            hearts: payload.hearts,
+            library: initialState.library,
+            completedChapter: payload.completedChapter,
+          });
+        }}
+        onVictory={() => {
+          setShowBossArena(false);
+          setBossVictory(true);
+        }}
+        onGameOver={() => {
+          // Game over handled internally by BossArena (retry button)
+        }}
+        onRetry={() => {
+          // Retry handled internally by BossArena
+        }}
+      />
+    );
+  }
+
+  // ── Boss Victory Path ──
+  if (bossVictory) {
+    if (!showWinCinematic) {
+      return (
+        <CinematicScene
+          scenes={completeScenes}
+          title={config.completeTitle}
+          subtitle={config.completeSubtitle}
+          onComplete={() => setShowWinCinematic(true)}
+        />
+      );
+    }
+    return (
+      <WinModal
+        xp={initialState.xp}
+        level={initialState.level}
+        library={initialState.library}
+        title={config.completeTitle}
+        subtitle={config.completeSubtitle}
+        completedChapter={challenge.id}
+        onRetry={() => {
+          setBossVictory(false);
+          setShowWinCinematic(false);
+          setShowBossArena(true);
+        }}
+        onContinue={hasNextChapter ? onNextChapter : () => {}}
       />
     );
   }
@@ -588,12 +699,16 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
                   vimEnabled={settings.vimModeEnabled}
                   onVimToggle={(enabled) => onSaveSettings({ vimModeEnabled: enabled })}
-                  camFeed={
-                    <MayaAnimation
-                      animation={state.inRush ? "walk-right" : "hack"}
-                      location={challenge.location}
-                    />
-                  }
+                  camFeed={(() => {
+                    const cam = CAM_FEED_CONFIG[challenge.id] ?? DEFAULT_CAM;
+                    return (
+                      <MayaAnimation
+                        scene={cam.scene}
+                        animation={state.inRush ? cam.rushAnimation : cam.animation}
+                        location={challenge.location}
+                      />
+                    );
+                  })()}
                   aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                     <button
                       onClick={actions.openAISuggest}

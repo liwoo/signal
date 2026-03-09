@@ -2,11 +2,13 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { paintScene } from "@/lib/sprites/scene-painter";
+import type { SceneType } from "@/lib/sprites/scene-painter";
 import { paintMayaFrames } from "@/lib/sprites/character-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 
 interface MayaAnimationProps {
   animation?: CharAnimation;
+  scene?: SceneType;
   location?: string;
   className?: string;
 }
@@ -16,13 +18,61 @@ const CAM_H = 140;
 // Scene painted larger for framing headroom
 const SCENE_W = 460;
 const SCENE_H = 340;
-// Camera offset into the scene (crops to CAM_W x CAM_H viewport)
-const CAM_X = 110;
-const CAM_Y = 30;
-const CHAR_SCALE = 2;
+const CHAR_SCALE_DEFAULT = 2;
 // Terminal screen flicker interval
 const FLICKER_INTERVAL = 2800;
 const FLICKER_DURATION = 120;
+
+// Per-scene camera + character placement
+// Camera crops SCENE_W×SCENE_H → CAM_W×CAM_H viewport
+interface SceneLayout {
+  camX: number;
+  camY: number;
+  mayaX: number;
+  mayaFeetY: number;
+  charScale: number;
+}
+
+function getLayout(scene: SceneType, animation: CharAnimation): SceneLayout {
+  const floorY = SCENE_H * 0.50;
+  switch (scene) {
+    case "cell":
+      return {
+        camX: animation === "keypad" ? 160 : 110,
+        camY: 30,
+        mayaX: animation === "hack" ? 250 : animation === "keypad" ? 310 : 210,
+        mayaFeetY: floorY + 55,
+        charScale: CHAR_SCALE_DEFAULT,
+      };
+    case "vent":
+      // Crawl pose is compact — bigger scale + camera low and tight
+      return {
+        camX: 60,
+        camY: 90,
+        mayaX: 200,
+        mayaFeetY: floorY + 85,
+        charScale: 3,
+      };
+    case "server":
+    case "boss-arena":
+      return {
+        camX: 90,
+        camY: 40,
+        mayaX: 240,
+        mayaFeetY: floorY + 50,
+        charScale: CHAR_SCALE_DEFAULT,
+      };
+    case "corridor":
+    case "chase":
+      return {
+        camX: 100,
+        camY: 20,
+        mayaX: 220,
+        mayaFeetY: floorY + 45,
+        charScale: CHAR_SCALE_DEFAULT,
+      };
+  }
+}
 
 /**
  * Lightweight cam-feed of Maya — static Canvas 2D paint with CSS terminal flicker.
@@ -30,6 +80,7 @@ const FLICKER_DURATION = 120;
  */
 export function MayaAnimation({
   animation = "hack",
+  scene = "cell",
   location = "SUBLEVEL 3",
   className = "",
 }: MayaAnimationProps) {
@@ -43,25 +94,22 @@ export function MayaAnimation({
     ctx.imageSmoothingEnabled = false;
 
     // Paint scene background
-    const bg = paintScene("cell", SCENE_W, SCENE_H);
+    const bg = paintScene(scene, SCENE_W, SCENE_H);
 
-    // Paint Maya
-    const frames = paintMayaFrames(animation, CHAR_SCALE);
+    // Paint Maya with scene-appropriate placement
+    const layout = getLayout(scene, animation);
+    const frames = paintMayaFrames(animation, layout.charScale);
     const mayaFrame = frames[0];
-
-    // Maya position in scene coords
-    const mayaX = animation === "hack" ? 250 : 210;
-    const mayaFeetY = SCENE_H * 0.50 + 55;
 
     // Draw scene cropped by camera
     ctx.clearRect(0, 0, CAM_W, CAM_H);
-    ctx.drawImage(bg, CAM_X, CAM_Y, CAM_W, CAM_H, 0, 0, CAM_W, CAM_H);
+    ctx.drawImage(bg, layout.camX, layout.camY, CAM_W, CAM_H, 0, 0, CAM_W, CAM_H);
 
     // Draw Maya relative to camera
-    const drawX = mayaX - CAM_X - mayaFrame.width / 2;
-    const drawY = mayaFeetY - CAM_Y - mayaFrame.height;
+    const drawX = layout.mayaX - layout.camX - mayaFrame.width / 2;
+    const drawY = layout.mayaFeetY - layout.camY - mayaFrame.height;
     ctx.drawImage(mayaFrame, drawX, drawY);
-  }, [animation]);
+  }, [animation, scene]);
 
   // Initial paint
   useEffect(() => {

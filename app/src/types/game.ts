@@ -205,6 +205,54 @@ export const LEVEL_THRESHOLDS: LevelThreshold[] = [
   { level: 12, xpRequired: 18000, unlock: "NEXUS dossier" },
 ];
 
+// ── Boss Fight ──
+
+export interface BossTab {
+  id: string;                        // "aim" | "load" | "fire"
+  filename: string;                  // "aim.go"
+  label: string;                     // tab display label
+  starterCode: string;               // initial code in this tab
+  functionSignature: string;         // shown as reference
+}
+
+export interface BossTurn {
+  id: number;                        // 1-based turn number
+  telegraph: string;                 // boss announcement
+  hint: string;                      // player guidance
+  activeTab: string;                 // which tab to highlight
+  windowSeconds: number;             // coding time for this turn
+  testHarness: string;               // generated main() for validation
+  expectedOutput: string;            // stdout when correct
+  damage: number;                    // HP removed on hit (out of 100)
+  bossCharge: string;                // animation key during telegraph
+  hitEffect: string;                 // animation key on hit
+  missEffect: string;                // animation key on miss
+}
+
+export interface BossFightConfig {
+  bossName: string;
+  bossHP: number;                    // starting HP (usually 100)
+  tabs: BossTab[];                   // weapon subsystem files
+  turns: BossTurn[];                 // sequence of combat turns
+  defeatXP: number;                  // XP on full defeat
+  survivalXP: number;               // XP if survived but didn't fully defeat
+  retreatThreshold: number;          // boss HP at or below which boss retreats
+  perHitXP: number;                  // XP per successful hit
+  flawlessBonus: number;            // XP bonus for no hearts lost
+  speedBonus: number;               // XP bonus for avg < 5s/turn
+}
+
+export type BossCombatPhase =
+  | "ready"
+  | "telegraph"
+  | "player_window"
+  | "executing"
+  | "hit"
+  | "miss"
+  | "victory"
+  | "boss_retreats"
+  | "gameover";
+
 // ── Streak ──
 
 export interface StreakTier {

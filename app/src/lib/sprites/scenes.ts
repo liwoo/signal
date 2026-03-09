@@ -32,7 +32,7 @@ export interface CameraKeyframe {
 export interface AudioCue {
   /** When to fire (ms from scene start) */
   atMs: number;
-  action: "sfx" | "loop-start" | "loop-stop" | "footsteps";
+  action: "sfx" | "loop-start" | "loop-stop" | "loop-volume" | "footsteps";
   /** Sound name — SfxName for sfx/footsteps, AmbienceName|MusicName for loops */
   sound?: string;
   volume?: number;
@@ -572,51 +572,205 @@ export const CHAPTER_03_COMPLETE_SCENES: SceneDefinition[] = [
 // ── BOSS 01 INTRO SCENES ─────────────────────────────────────────
 
 export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
-  // Scene 1: Maya approaches a heavy door in the corridor
+  // ── ACT BREAK: Reeves told Maya everything ──
+  // Scene 1: B-10 — heavy silence. Maya absorbing what she just learned.
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 480, y: 370, animation: "idle" },
+    ],
+    camera: [
+      { x: 140, y: 90, time: 0 },
+      { x: 120, y: 80, time: 5000 },
+    ],
+    durationMs: 5500,
+    location: "SUBLEVEL 3 · CELL B-10",
+    caption: "dr. reeves told her everything. the project. the subjects. why none of them remember.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.12, fadeMs: 3000 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.04, fadeMs: 2000 },
+      { atMs: 3000, action: "loop-start", sound: "heartbeat-slow", volume: 0.06, fadeMs: 2000 },
+    ],
+  },
+  // Scene 2: Reeves's last words — the server room is the way out
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 480, y: 370, animation: "idle" },
+    ],
+    camera: [
+      { x: 120, y: 80, time: 0 },
+      { x: 130, y: 75, time: 4000 },
+    ],
+    durationMs: 4500,
+    location: "SUBLEVEL 3 · CELL B-10",
+    caption: "\"there's a server room at the end of east wing. the lockmaster controls every door on this level. take it down, and you're out.\"",
+    audio: [
+      // Quiet — just the drone and heartbeat building
+      { atMs: 2500, action: "sfx", sound: "knock-heavy", volume: 0.2 },
+      { atMs: 3500, action: "sfx", sound: "knock-heavy", volume: 0.15 },
+    ],
+  },
+  // Scene 3: ALARM — the quiet shatters. Sirens. Red.
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 480, y: 370, animation: "idle" },
+    ],
+    camera: [
+      { x: 130, y: 75, time: 0 },
+      { x: 100, y: 90, time: 800 },
+    ],
+    durationMs: 3000,
+    location: "SUBLEVEL 3 · CELL B-10",
+    caption: "then the sirens hit.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "heartbeat-slow", fadeMs: 200 },
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 300 },
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 200 },
+      // Hard cut to alarm — violent contrast
+      { atMs: 200, action: "sfx", sound: "alert-beep", volume: 0.65 },
+      { atMs: 500, action: "loop-start", sound: "siren-loop", volume: 0.18, fadeMs: 200 },
+      { atMs: 700, action: "loop-start", sound: "alarm-loop", volume: 0.12, fadeMs: 300 },
+      // Boss music starts low under the alarm — builds from here
+      { atMs: 800, action: "loop-start", sound: "boss-loop", volume: 0.06, fadeMs: 2000 },
+      { atMs: 1500, action: "sfx", sound: "warning-beep", volume: 0.45 },
+      { atMs: 2200, action: "sfx", sound: "alert-beep", volume: 0.3 },
+    ],
+  },
+  // Scene 4: Maya runs through alarm corridor — desperate sprint
+  {
+    background: "chase",
+    actors: [
+      {
+        type: "maya",
+        x: 60,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 750, y: 310, duration: 2800 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 420, y: 10, time: 2800 },
+    ],
+    durationMs: 3500,
+    location: "SUBLEVEL 3 · EAST WING",
+    caption: "run.",
+    audio: [
+      // Running — fast pace, boots on metal
+      { atMs: 50, action: "footsteps", count: 9, intervalMs: 300, volume: 0.45 },
+      { atMs: 0, action: "loop-start", sound: "heartbeat-fast", volume: 0.12, fadeMs: 600 },
+      // Alarm fades, boss music rises
+      { atMs: 1000, action: "loop-stop", sound: "alarm-loop", fadeMs: 2000 },
+      { atMs: 500, action: "loop-volume", sound: "boss-loop", volume: 0.1, fadeMs: 2000 },
+    ],
+  },
+  // Scene 5: Door at the end — she reaches it
   {
     background: "corridor",
     actors: [
       {
         type: "maya",
-        x: 120,
+        x: 400,
         y: 310,
         animation: "walk-right",
-        path: [{ x: 420, y: 310, duration: 2200 }],
+        path: [{ x: 620, y: 310, duration: 1200 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 200, y: 10, time: 2200 },
-    ],
-    durationMs: 3500,
-    location: "SUBLEVEL 3 · MASTER LOCK CONTROLLER",
-    caption: "the master lock. if it cycles to zero, we're trapped.",
-    audio: [
-      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
-      // Maya's cautious footsteps — slower pace
-      { atMs: 100, action: "footsteps", count: 5, intervalMs: 480, volume: 0.25 },
-      // Heavy door sliding open ahead
-      { atMs: 2000, action: "sfx", sound: "door-slide", volume: 0.45 },
-    ],
-  },
-  // Scene 2: Close up on the lock mechanism — server/technical room
-  {
-    background: "server",
-    actors: [],
-    camera: [
-      { x: 100, y: 60, time: 0 },
-      { x: 120, y: 70, time: 3000 },
+      { x: 200, y: 10, time: 0 },
+      { x: 280, y: 20, time: 1500 },
     ],
     durationMs: 3000,
-    location: "SUBLEVEL 3 · LOCK CONTROLLER",
-    caption: "codes cycling. 90 seconds until permanent lockdown.",
+    location: "SUBLEVEL 3 · EAST WING",
+    caption: "end of the corridor. the server room door.",
     audio: [
-      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 600 },
-      { atMs: 0, action: "sfx", sound: "machinery", volume: 0.35 },
-      { atMs: 0, action: "loop-start", sound: "tension-drone", volume: 0.1, fadeMs: 1500 },
-      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.25 },
-      { atMs: 1600, action: "sfx", sound: "terminal-beep", volume: 0.2 },
-      { atMs: 2400, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 0, action: "loop-stop", sound: "siren-loop", fadeMs: 1500 },
+      { atMs: 100, action: "footsteps", count: 3, intervalMs: 400, volume: 0.35 },
+      { atMs: 1400, action: "sfx", sound: "door-slide", volume: 0.55 },
+      // Heartbeat drops, music dips for the reveal moment
+      { atMs: 1600, action: "loop-stop", sound: "heartbeat-fast", fadeMs: 800 },
+      { atMs: 1600, action: "loop-volume", sound: "boss-loop", volume: 0.04, fadeMs: 1000 },
+      { atMs: 2000, action: "loop-start", sound: "tension-drone", volume: 0.04, fadeMs: 1500 },
+    ],
+  },
+  // Scene 6: The boss arena — Maya steps in. Dark. Machinery hum.
+  {
+    background: "boss-arena",
+    actors: [
+      {
+        type: "maya",
+        x: 100,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 240, y: 310, duration: 2000 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 60, time: 0 },
+      { x: 40, y: 50, time: 3000 },
+    ],
+    durationMs: 4000,
+    location: "SERVER ROOM · SUBLEVEL 3",
+    caption: "the room is cold. server racks line both walls. and at the center — mounted to the back wall like a steel eye —",
+    audio: [
+      { atMs: 500, action: "sfx", sound: "door-slide", volume: 0.3 },
+      { atMs: 800, action: "footsteps", count: 4, intervalMs: 550, volume: 0.2 },
+      { atMs: 1500, action: "sfx", sound: "machinery", volume: 0.3 },
+      { atMs: 2200, action: "sfx", sound: "machinery", volume: 0.25 },
+      { atMs: 2800, action: "loop-start", sound: "tension-drone", volume: 0.1, fadeMs: 1000 },
+    ],
+  },
+  // Scene 7: LOCKMASTER REVEAL — camera pushes in on the mainframe
+  {
+    background: "boss-arena",
+    actors: [],
+    camera: [
+      { x: 80, y: 20, time: 0 },
+      { x: 160, y: 40, time: 4500 },
+    ],
+    durationMs: 5000,
+    location: "SERVER ROOM · LOCKMASTER",
+    caption: "the lockmaster.",
+    audio: [
+      // Accelerating beeps — it wakes up. Music rises with it.
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.15 },
+      { atMs: 800, action: "loop-volume", sound: "boss-loop", volume: 0.08, fadeMs: 1500 },
+      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+      { atMs: 2000, action: "sfx", sound: "terminal-beep", volume: 0.28 },
+      { atMs: 2400, action: "sfx", sound: "warning-beep", volume: 0.3 },
+      { atMs: 2400, action: "loop-volume", sound: "boss-loop", volume: 0.14, fadeMs: 1500 },
+      { atMs: 2800, action: "sfx", sound: "terminal-beep", volume: 0.35 },
+      { atMs: 3100, action: "sfx", sound: "terminal-beep", volume: 0.38 },
+      { atMs: 3300, action: "sfx", sound: "alert-beep", volume: 0.4 },
+      { atMs: 3500, action: "sfx", sound: "machinery", volume: 0.4 },
+    ],
+  },
+  // Scene 8: It locks on — weapon systems arming. Music hits full.
+  {
+    background: "boss-arena",
+    actors: [],
+    camera: [
+      { x: 160, y: 40, time: 0 },
+      { x: 180, y: 45, time: 3500 },
+    ],
+    durationMs: 4000,
+    location: "SERVER ROOM · LOCKMASTER",
+    caption: "it sees her. arms extending. sector grid online. weapon systems hot.",
+    audio: [
+      // Music hits full — this is the fight
+      { atMs: 0, action: "loop-volume", sound: "boss-loop", volume: 0.2, fadeMs: 1500 },
+      // Mechanical activation sequence
+      { atMs: 200, action: "sfx", sound: "machinery", volume: 0.45 },
+      { atMs: 600, action: "sfx", sound: "alert-beep", volume: 0.45 },
+      { atMs: 1000, action: "sfx", sound: "keypad-beep", volume: 0.3 },
+      { atMs: 1300, action: "sfx", sound: "keypad-beep", volume: 0.33 },
+      { atMs: 1500, action: "sfx", sound: "keypad-beep", volume: 0.36 },
+      { atMs: 1700, action: "sfx", sound: "warning-beep", volume: 0.4 },
+      { atMs: 2200, action: "sfx", sound: "dread-sting", volume: 0.35 },
+      // Heartbeat — Maya's fear
+      { atMs: 2500, action: "loop-start", sound: "heartbeat-fast", volume: 0.08, fadeMs: 1000 },
     ],
   },
 ];
