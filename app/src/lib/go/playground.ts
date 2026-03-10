@@ -1,6 +1,6 @@
 // ── Go Playground API Client ──
-// Compiles and runs Go code via the public Go Playground API.
-// Falls back gracefully when offline.
+// In browser: routes through /api/compile proxy (avoids CORS).
+// In Node/tests: calls go.dev directly (no CORS in Node).
 
 export interface CompileResult {
   success: boolean;
@@ -9,21 +9,34 @@ export interface CompileResult {
   vetErrors: string;
 }
 
-const PLAYGROUND_URL = "https://go.dev/_/compile";
-const TIMEOUT_MS = 8000;
+const DIRECT_URL = "https://go.dev/_/compile";
+const PROXY_URL = "/api/compile";
+const TIMEOUT_MS = 10000;
+
+const isBrowser = typeof window !== "undefined";
 
 export async function compileGo(source: string): Promise<CompileResult> {
-  const body = new URLSearchParams({ version: "2", body: source, withVet: "true" });
-
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    const res = await fetch(PLAYGROUND_URL, {
-      method: "POST",
-      body,
-      signal: controller.signal,
-    });
+    let res: Response;
+    if (isBrowser) {
+      // Browser: use server-side proxy to avoid CORS
+      res = await fetch(PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source }),
+        signal: controller.signal,
+      });
+    } else {
+      // Node.js (tests): call Go Playground directly
+      res = await fetch(DIRECT_URL, {
+        method: "POST",
+        body: new URLSearchParams({ version: "2", body: source, withVet: "true" }),
+        signal: controller.signal,
+      });
+    }
     clearTimeout(timer);
 
     if (!res.ok) {

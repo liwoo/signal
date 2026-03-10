@@ -323,7 +323,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           if (settings.beginnerMode && beginnerNotes) {
             setShowBeginner(true);
           } else if (config.bossFightConfig) {
-            setShowBossArena(true);
+            // Defer one frame — let PixiJS WebGL context fully release
+            requestAnimationFrame(() => setShowBossArena(true));
           } else {
             actions.startGame();
           }

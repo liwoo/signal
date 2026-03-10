@@ -479,174 +479,133 @@ if total > 100 {
 
   "boss-01": {
     title: "WEAPON SYSTEMS",
-    subtitle: "HOW TO FIGHT THE LOCKMASTER",
+    subtitle: "GO SURVIVAL GUIDE FOR THE LOCKMASTER",
     blocks: [
-      // Section 0: Combat overview
+      // Section 0: := vs = (the #1 gotcha)
       {
         type: "text",
         section: 0,
         content:
-          "this is a boss fight. the lockmaster attacks in turns — each turn it telegraphs what it's doing and you have a few seconds to write code and hit RUN (or ctrl+enter). you have 3 weapon tabs: aim, load, and fire. each tab has one function you need to complete.",
-      },
-      {
-        type: "text",
-        section: 0,
-        content:
-          "every turn, the game tells you which tab to focus on. your functions all run together as one program — aim feeds coordinates to fire, load feeds ammo to fire. miss a turn and you take damage. lose all hearts and it's over.",
+          "the corrupted weapon code has bugs you need to fix. but be careful — go has rules that will trip you up if you don't know them. first rule: := declares a NEW variable. = reassigns an EXISTING one.",
       },
       {
         type: "code",
         section: 0,
-        content: `// AIM tab — returns x, y coordinates
-func Aim(sector int) (int, int)
+        content: `count := 0          // declares count
 
-// LOAD tab — returns ammo sequence
-func Load(threat string) []string
+count = 5            // reassigns count (correct)
+count := 5           // ERROR — count already exists
 
-// FIRE tab — combines aim + load
-func Fire(x, y int, ammo []string) string`,
+// inside a switch/if block, := creates
+// a NEW variable scoped to that block:
+switch threat {
+case "shield":
+    count = 3        // reassigns outer count
+    count := 3       // creates NEW count (bug!)
+}`,
         hotspots: [
-          { text: "func Aim(sector int) (int, int)", tip: "takes a sector number (1-9), returns pixel coordinates. two return values — (x, y)." },
-          { text: "func Load(threat string) []string", tip: "takes a threat type like \"shield\" or \"armor\", returns a slice of ammo strings." },
-          { text: "func Fire(x, y int, ammo []string) string", tip: "takes coordinates + ammo, returns a result string. this is where aim and load come together." },
+          { text: "count := 0", tip: "short variable declaration — creates a new variable AND assigns it. only use this the FIRST time." },
+          { text: "count = 5            // reassigns count (correct)", tip: "plain = assigns a new value to an existing variable. use this inside switch/if blocks." },
+          { text: "count := 3       // creates NEW count (bug!)", tip: "this creates a DIFFERENT count inside the case block. the outer count stays 0. go will say \"declared and not used\" because the inner one is never read." },
         ],
       },
 
-      // Section 1: Aim — sector grid
+      // Section 1: && vs || (logical operators)
       {
         type: "text",
         section: 1,
         content:
-          "the lockmaster's systems are laid out on a 3x3 sector grid. each sector maps to fixed pixel coordinates. when the game says \"sector 3\", you return the x,y for that position. use if/else or a slice to map sectors to coordinates.",
+          "second rule: && means AND (both must be true). || means OR (either one is true). the weapon code uses these to validate inputs — getting them backwards means your conditions are wrong.",
       },
       {
         type: "code",
         section: 1,
-        content: `// the sector grid:
-//   1=(128,160)  2=(256,160)  3=(384,160)
-//   4=(128,320)  5=(256,320)  6=(384,320)
-//   7=(128,480)  8=(256,480)  9=(384,480)
-
-func Aim(sector int) (int, int) {
-    if sector == 1 {
-        return 128, 160
-    }
-    if sector == 2 {
-        return 256, 160
-    }
-    // ... handle all 9 sectors
-    return 0, 0
-}`,
-        hotspots: [
-          { text: "(int, int)", tip: "multiple return values — go lets functions return more than one thing. the caller uses x, y := Aim(3)." },
-          { text: "return 128, 160", tip: "returning two values at once. no parentheses needed around the values." },
-          { text: "return 0, 0", tip: "fallback for unknown sectors. guard clause — if the sector isn't valid, return zeros." },
-          { text: "sector == 1", tip: "each sector maps to a fixed pair of coordinates. you could also use a switch statement." },
-        ],
-      },
-
-      // Section 2: Load — threat types and slices
-      {
-        type: "text",
-        section: 2,
-        content:
-          "different threats need different ammo. a shield needs 3 piercing rounds. armor needs 2 blast rounds. an exposed core needs 1 pulse. Load returns a slice of strings — the ammo sequence.",
-      },
-      {
-        type: "code",
-        section: 2,
-        content: `// threat → ammo mapping:
-//   "shield"  → 3x "pierce"
-//   "armor"   → 2x "blast"
-//   "exposed" → 1x "pulse"
-
-func Load(threat string) []string {
-    if threat == "shield" {
-        return []string{"pierce", "pierce", "pierce"}
-    }
-    if threat == "armor" {
-        return []string{"blast", "blast"}
-    }
-    if threat == "exposed" {
-        return []string{"pulse"}
-    }
-    return []string{}
-}`,
-        hotspots: [
-          { text: "[]string{\"pierce\", \"pierce\", \"pierce\"}", tip: "a slice literal with 3 elements. the brackets define the type, the braces define the values." },
-          { text: "return []string{}", tip: "empty slice — no ammo for unknown threats. never return nil when the caller expects a slice." },
-          { text: "threat == \"shield\"", tip: "string comparison in go uses ==. the threat type comes from the boss's telegraph message." },
-        ],
-      },
-
-      // Section 3: Fire — wiring it together
-      {
-        type: "text",
-        section: 3,
-        content:
-          "fire is where everything connects. the test harness calls Aim to get coordinates, Load to get ammo, and passes both to Fire. your fire function validates the inputs and returns a result. when everything works: return \"HIT\".",
-      },
-      {
-        type: "code",
-        section: 3,
-        content: `// how the test harness calls your code:
-func main() {
-    x, y := Aim(5)
-    ammo := Load("armor")
-    result := Fire(x, y, ammo)
-    fmt.Println(result)
+        content: `// || means OR — true if EITHER side is true
+if x == 0 || y == 0 {
+    // fires when x is zero OR y is zero
+    return "NO TARGET"
 }
 
-// Fire needs to return "HIT" when inputs are valid
-func Fire(x, y int, ammo []string) string {
-    if x == 0 || y == 0 {
-        return "NO TARGET"
-    }
-    if len(ammo) == 0 {
-        return "NO AMMO"
-    }
-    return "HIT"
+// && means AND — true only if BOTH are true
+if x == 0 && y == 0 {
+    // only fires when BOTH are zero
+    // misses cases like x=0, y=320
 }`,
         hotspots: [
-          { text: "x, y := Aim(5)", tip: "multiple assignment — captures both return values from Aim. this is how go handles functions that return multiple values." },
-          { text: "ammo := Load(\"armor\")", tip: "ammo is a []string. the Load function decides what goes in it based on the threat." },
-          { text: "Fire(x, y, ammo)", tip: "all three weapon systems wired together. aim → coordinates. load → ammo. fire → result." },
-          { text: "return \"HIT\"", tip: "when coordinates are valid and ammo is loaded, fire returns \"HIT\". this is what the boss fight checks for." },
+          { text: "x == 0 || y == 0", tip: "OR — rejects if EITHER coordinate is zero. this is what you want for input validation." },
+          { text: "x == 0 && y == 0", tip: "AND — only rejects when BOTH are zero. if x=0 but y=320, this lets it through. that's a bug." },
         ],
       },
 
-      // Section 4: Grid shift
+      // Section 2: Grouped parameters + types
       {
         type: "text",
-        section: 4,
+        section: 2,
         content:
-          "halfway through the fight, the lockmaster reroutes — the sector grid shifts by +64 on each axis. you need to update your Aim function to handle the new coordinates. this tests whether your code can adapt under pressure.",
+          "third rule: when function parameters share a type, go lets you group them. \"x, y int\" means both x and y are int. the weapon code uses this — and the corrupted version has type names misspelled.",
       },
       {
         type: "code",
-        section: 4,
-        content: `// shifted grid (+64 on each axis):
-//   1=(192,224)  2=(320,224)  3=(448,224)
-//   4=(192,384)  5=(320,384)  6=(448,384)
-//   7=(192,544)  8=(320,544)  9=(448,544)
+        section: 2,
+        content: `// grouped parameters — x and y are both int
+func Fire(x, y int, ammo []string) string
 
-// update your Aim to use the new values
-func Aim(sector int) (int, int) {
-    if sector == 5 {
-        return 320, 384   // was 256, 320
-    }
-    // ...
-}`,
+// this is the same as writing:
+func Fire(x int, y int, ammo []string) string
+
+// watch for corrupted types:
+func Aim(sector in) (int, int)   // WRONG: "in"
+func Aim(sector int) (int, int)  // RIGHT: "int"
+
+func Load(threat sting) []string // WRONG: "sting"
+func Load(threat string) []string // RIGHT: "string"`,
         hotspots: [
-          { text: "+64 on each axis", tip: "every x gets +64 and every y gets +64. 128→192, 256→320, 384→448, etc." },
-          { text: "return 320, 384   // was 256, 320", tip: "sector 5 used to be (256,320). now it's (320,384). the pattern holds for all 9 sectors." },
+          { text: "x, y int", tip: "grouped parameters — when consecutive params share a type, only write the type once after the last name." },
+          { text: "sector in)", tip: "\"in\" is not a type. the malware corrupted \"int\" — fix it to \"int\"." },
+          { text: "threat sting)", tip: "\"sting\" is not a type. the malware corrupted \"string\" — fix it to \"string\"." },
         ],
+      },
+
+      // Section 3: Variadic functions + strings.Join
+      {
+        type: "text",
+        section: 3,
+        content:
+          "the final weapon — Combo — uses a variadic function. the \"...\" before the type means \"zero or more arguments\". inside the function, it's a regular slice. strings.Join connects slice elements with a separator.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `// variadic: accepts any number of strings
+func Combo(shots ...string) string {
+    return strings.Join(shots, " | ")
+}
+
+// calling it:
+Combo("HIT")                  // "HIT"
+Combo("HIT", "HIT", "HIT")   // "HIT | HIT | HIT"
+
+// strings.Join(slice, separator)
+// joins all elements with the separator between them`,
+        hotspots: [
+          { text: "...string", tip: "the three dots make this variadic — you can pass any number of strings. inside the function, shots is a []string." },
+          { text: `strings.Join(shots, " | ")`, tip: "Join takes a slice and a separator. it puts the separator between each element. no separator at the start or end." },
+          { text: `Combo("HIT", "HIT", "HIT")`, tip: "three arguments become a []string{\"HIT\", \"HIT\", \"HIT\"} inside the function. Join returns \"HIT | HIT | HIT\"." },
+        ],
+      },
+
+      // Section 4: Combat overview
+      {
+        type: "text",
+        section: 4,
+        content:
+          "the lockmaster attacks in 6 turns. each turn it telegraphs which tab to focus on — aim, load, fire, or combo. the weapon code is corrupted with misspelled types, wrong operators, and missing braces. fix the bugs, hit RUN, and deal damage.",
       },
       {
         type: "text",
         section: 4,
         content:
-          "the lockmaster tests everything you've learned: functions, multiple returns, slices, string comparison, and adapting under time pressure. read the telegraph, check the active tab, write your code, hit run. good luck.",
+          "halfway through, the sector grid shifts +64 on each axis — you'll need to update every coordinate in aim.go. the final turn uses Combo to chain three shots together. remember: = not :=, || not &&, int not in, string not sting. good luck.",
       },
     ],
   },

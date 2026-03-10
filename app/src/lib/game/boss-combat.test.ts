@@ -172,7 +172,7 @@ describe("buildSource", () => {
     const state = createBossCombatState(CONFIG);
     const source = buildSource(CONFIG, state, TURNS[0]);
     expect(source).toContain("package main");
-    expect(source).toContain(`import "fmt"`);
+    expect(source).toContain(`"fmt"`);
     expect(source).toContain("func Aim");
     expect(source).toContain("func Load");
     expect(source).toContain("func Fire");

@@ -34,19 +34,19 @@ export interface BossMessage {
 // Maya intro (typed before the fight begins — gives narrative context)
 const MAYA_INTRO: string[] = [
   "i just got in... i can see the lockmaster's core from here.",
-  "i've got the main weapon system online but the firmware's corrupted.",
-  "i need you to fix each module — aim, load, fire — while i keep us alive.",
-  "the lockmaster will shoot back. every hit takes me down. don't let me die in here.",
+  "the weapon system's online but the malware mangled the code. types are wrong, braces missing, variables renamed...",
+  "i need you to debug each file — aim.go, load.go, fire.go — while i keep us alive.",
+  "the lockmaster will shoot back. every hit takes me down. fix the code fast.",
 ];
 
 // Per-turn Maya callouts (keyed by turn index)
 const MAYA_TELEGRAPH: Record<number, string> = {
-  0: "first up — open aim.go. i need you to map sector 3 to coordinates. the grid reference is in the comments.",
-  1: "shield array deploying. switch to load.go — match the threat type to the right ammo. hurry.",
-  2: "the core's exposed at sector 7! aim.go — you know the drill. fast.",
-  3: "emp blast charging from sector 5. fire.go — wire aim and load together. return \"HIT\" when it's valid.",
-  4: "it rerouted! the whole grid shifted +64 on each axis. update aim.go — every coordinate changed.",
-  5: "all defenses down. this is the kill shot. aim sector 9, load pulse, fire everything.",
+  0: "aim.go first. the malware broke the parameter type and the switch variable. fix it so sector 3 resolves to coordinates.",
+  1: "load.go now. there's a type error and a wrong variable name in the append loop. the compiler will tell you where.",
+  2: "fire.go next. missing closing brace, wrong operator, and it returns the wrong string. fix all three.",
+  3: "all three files should work now. this turn wires them together — aim, load, fire. the output has to match exactly.",
+  4: "it rerouted the whole grid. every coordinate in aim.go just shifted +64 on both axes. update them all.",
+  5: "last shot. fix the Combo function in main.go — wrong type and wrong separator. then everything fires together.",
 };
 
 const MAYA_HIT: string[] = [
@@ -58,20 +58,77 @@ const MAYA_HIT: string[] = [
   "that's it. one more.",
 ];
 
-const MAYA_MISS: string[] = [
-  "missed. check the expected output — what did your code print?",
-  "not quite. double-check the function returns.",
-  "the output didn't match. slow down and read the hint.",
-];
+// Turn-specific malfunction hints — keyed by activeTab so the player knows exactly what to fix
+// Turn-specific malfunction (compile error) hints — escalate on retry
+const MAYA_MALFUNCTION_BY_TURN: Record<number, string[]> = {
+  1: [
+    "aim.go won't compile. \"in\" isn't a type — change it to \"int\". and the switch says \"s\" but the parameter is called \"sector\".",
+    "still broken. three things: change \"in\" to \"int\" in the parameter, change \"s\" to \"sector\" in the switch, and add a closing \"}\" at the bottom.",
+  ],
+  2: [
+    "load.go won't compile. \"sting\" isn't a type — change it to \"string\". and the append uses \"ammo\" but the variable is called \"ammoType\".",
+    "two fixes: the parameter type is \"sting\" (needs to be \"string\") and line with append says \"ammo\" — change that to \"ammoType\".",
+  ],
+  3: [
+    "fire.go won't compile. the first if block is missing its closing \"}\" before the second if.",
+    "add \"}\" after the NoTarget return to close the first if. then change \"&&\" to \"||\" — reject if either coordinate is zero.",
+  ],
+  4: [
+    "something still won't compile. all three files need to be clean — check the error to see which file has the bug.",
+    "the error line number tells you which file. go back and fix the compile error there first.",
+  ],
+  5: [
+    "aim.go won't compile. if you changed the syntax, double-check your return statements and commas.",
+    "make sure every case still has \"return x, y\" format with two integers separated by a comma.",
+  ],
+  6: [
+    "main.go won't compile. you need to write the Combo function — check the comments for the signature.",
+    "Combo takes variadic strings (shots ...string) and returns strings.Join(shots, \" | \").",
+  ],
+};
+
+// Turn-specific miss (wrong output) hints — escalate on retry
+const MAYA_MISS_BY_TURN: Record<number, string[]> = {
+  1: [
+    "the test calls Aim(3) but your switch doesn't have case 3. add it — sector 3 is at coordinates 384, 160.",
+    "add \"case 3: return 384, 160\" to your switch. the output needs to be exactly \"AIM 384 160\".",
+  ],
+  2: [
+    "the test calls Load(\"shield\") which should return 3 copies of \"pierce\". make sure the append uses \"ammoType\" not \"ammo\".",
+    "check two things: the parameter type must be \"string\" (not \"sting\") and the append line must use \"ammoType\" — that's where \"pierce\" is stored.",
+  ],
+  3: [
+    "wrong result. check the const block — Hit is set to \"FIRE\" but it should be \"HIT\".",
+    "the const Hit = \"FIRE\" is the malware corruption. change it to Hit = \"HIT\". also make sure && is || and the missing brace is added.",
+  ],
+  4: [
+    "all three files need to work together. check which part is wrong — the output must be exactly three lines: AIM, LOAD count, then HIT.",
+    "the test calls Aim(5), Load(\"armor\"), then Fire. output must be \"AIM 256 320\" then \"LOAD 2\" then \"HIT\" — each on its own line.",
+  ],
+  5: [
+    "the grid shifted +64 on both axes. sector 5 was (256,320) — now it's (320,384). update every coordinate in aim.go.",
+    "add 64 to every x and every y value in all your switch cases. sector 5 should return 320, 384.",
+  ],
+  6: [
+    "Combo output is wrong. it should join shots with \" | \" — use strings.Join(shots, \" | \").",
+    "write: func Combo(shots ...string) string { return strings.Join(shots, \" | \") }. output must be \"HIT | HIT | HIT\".",
+  ],
+};
+
+const MAYA_MALFUNCTION_FALLBACK = "won't compile. the error line number tells you where the bug is.";
+const MAYA_MISS_FALLBACK = "output doesn't match. compare what your code prints to what the test expects.";
 
 const MAYA_TIMEOUT: string[] = [
   "too slow. you ran out of time on that one.",
   "the window closed. be faster next turn.",
 ];
 
-const MAYA_MALFUNCTION: string[] = [
-  "compile error. check your syntax — missing brackets? wrong types?",
-  "your code didn't compile. fix the error and be ready for the next turn.",
+const MAYA_DODGE: string[] = [
+  "whoa — ducked that one. keep coding.",
+  "barely missed me. i'm fine, keep going.",
+  "close call. don't look up, just type.",
+  "i saw it coming. stay focused on the code.",
+  "rolled clear. hurry up before the next one.",
 ];
 
 // ── Public state ──
@@ -95,15 +152,18 @@ export interface BossFightState {
   turnResults: TurnResult[];
   messages: BossMessage[];
   heartsLost: number;
+  waitingForContinue: boolean;
 }
 
 export interface BossFightActions {
   startFight: () => void;
+  continueIntro: () => void;
   setTabCode: (tabId: string, code: string) => void;
   execute: () => void;
   nextTurn: () => void;
   retryFight: () => void;
   bossAttackHit: () => void;
+  bossAttackDodge: () => void;
 }
 
 export interface BossSavePayload {
@@ -141,7 +201,10 @@ export function useBossFight(
   const [pendingSave, setPendingSave] = useState<BossSavePayload | null>(null);
 
   const [heartsLost, setHeartsLost] = useState(0);
+  const [waitingForContinue, setWaitingForContinue] = useState(false);
   const msgIdRef = useRef(0);
+  const introIndexRef = useRef(-1);
+  const turnRetryRef = useRef(0); // how many malfunction/miss attempts on current turn
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
   const combatRef = useRef(combat);
@@ -164,17 +227,28 @@ export function useBossFight(
     setPendingSave(null);
   }, [pendingSave]);
 
-  // ── Start the fight ──
+  // ── Start the fight (show first intro message, wait for continue) ──
 
   const startFight = useCallback(() => {
-    // Phase 1: Maya intro typing — gives player context before chaos begins
-    MAYA_INTRO.forEach((line, i) => {
-      setTimeout(() => addMsg("MAYA", line), i * 1200);
-    });
+    introIndexRef.current = 0;
+    addMsg("MAYA", MAYA_INTRO[0]);
+    // Brief delay before showing continue button (let player read)
+    setTimeout(() => setWaitingForContinue(true), 600);
+  }, [addMsg]);
 
-    // Phase 2: After intro, start first telegraph
-    const introDelay = MAYA_INTRO.length * 1200 + 800;
-    setTimeout(() => {
+  // ── Continue through intro messages, then start combat ──
+
+  const continueIntro = useCallback(() => {
+    setWaitingForContinue(false);
+    const nextIndex = introIndexRef.current + 1;
+    introIndexRef.current = nextIndex;
+
+    if (nextIndex < MAYA_INTRO.length) {
+      // More intro messages — show next, then wait for continue
+      addMsg("MAYA", MAYA_INTRO[nextIndex]);
+      setTimeout(() => setWaitingForContinue(true), 600);
+    } else {
+      // Intro complete — start first telegraph
       const state = startTelegraph(combatRef.current);
       setCombat(state);
       addMsg("SYS", "▸ WEAPON SYSTEMS ENGAGED");
@@ -189,7 +263,7 @@ export function useBossFight(
       setTimeout(() => {
         setCombat((prev) => startPlayerWindow(prev, Date.now()));
       }, TELEGRAPH_DURATION_MS);
-    }, introDelay);
+    }
   }, [addMsg]);
 
   // ── Update tab code ──
@@ -215,6 +289,11 @@ export function useBossFight(
     const elapsedMs = Date.now() - state.turnStartMs;
     const source = buildSource(config, state, turn);
 
+    console.log("[BOSS] ── EXECUTE ──");
+    console.log("[BOSS] turn:", turn.id, "activeTab:", turn.activeTab);
+    console.log("[BOSS] expected:", JSON.stringify(turn.expectedOutput));
+    console.log("[BOSS] source:\n" + source);
+
     // Try Go Playground compilation
     let output = "";
     let compileError = "";
@@ -230,15 +309,39 @@ export function useBossFight(
       output = "__OFFLINE__";
     }
 
+    console.log("[BOSS] compileError:", JSON.stringify(compileError));
+    console.log("[BOSS] output:", JSON.stringify(output));
+    console.log("[BOSS] match:", output.trim() === turn.expectedOutput.trim());
+
     if (compileError && compileError !== "__OFFLINE__") {
-      // Compilation error → MALFUNCTION
-      const { state: nextState } = resolveTurnMiss(config, state, turn, elapsedMs, "malfunction");
-      setCombat(nextState);
+      // Compilation error → stay on same turn, let player fix and retry
+      // Parse the first meaningful error from the Go compiler
+      const firstError = compileError
+        .split("\n")
+        .filter((l) => l.includes(": "))
+        .map((l) => l.replace(/^\.\/prog\.go:\d+:\d+:\s*/, "").trim())
+        .find((l) => l.length > 0) ?? "check the error output";
+
+      // Check if this is a known starter-code corruption or a player-introduced bug
+      const isKnownCorruption =
+        compileError.includes('"sting"') ||
+        compileError.includes('"in"') ||
+        compileError.includes("expected declaration") ||
+        /\bin\)/.test(compileError);
+
+      const hints = MAYA_MALFUNCTION_BY_TURN[turn.id];
+      let msg: string;
+      if (isKnownCorruption && hints) {
+        msg = hints[Math.min(turnRetryRef.current, hints.length - 1)];
+      } else {
+        // Player introduced a new bug — show the actual compiler error
+        msg = `won't compile: ${firstError}`;
+      }
+      turnRetryRef.current += 1;
       setLastOutcome("malfunction");
-      setLastFeedback(`MALFUNCTION — ${compileError.split("\n")[0]}`);
-      // No heart loss on malfunction — boss attacks handle damage
+      setLastFeedback(`MALFUNCTION — ${firstError}`);
       addMsg("SYS", `⚠ COMPILE ERROR`);
-      addMsg("MAYA", MAYA_MALFUNCTION[state.turnIndex % MAYA_MALFUNCTION.length]);
+      addMsg("MAYA", msg);
       setBusy(false);
       return;
     }
@@ -247,6 +350,7 @@ export function useBossFight(
     const isCorrect = output !== "__OFFLINE__" && checkOutput(output, turn.expectedOutput);
 
     if (isCorrect) {
+      turnRetryRef.current = 0; // reset for next turn
       const { state: nextState } = resolveTurnHit(config, state, turn, elapsedMs);
       setCombat(nextState);
       setLastOutcome("hit");
@@ -255,13 +359,16 @@ export function useBossFight(
       addMsg("MAYA", MAYA_HIT[state.turnIndex % MAYA_HIT.length]);
       setBusy(false);
     } else {
-      const { state: nextState } = resolveTurnMiss(config, state, turn, elapsedMs, "miss");
-      setCombat(nextState);
+      // Wrong output → stay on same turn, let player fix and retry
+      const hints = MAYA_MISS_BY_TURN[turn.id];
+      const msg = hints
+        ? hints[Math.min(turnRetryRef.current, hints.length - 1)]
+        : MAYA_MISS_FALLBACK;
+      turnRetryRef.current += 1;
       setLastOutcome("miss");
       setLastFeedback(output === "__OFFLINE__" ? "MISS — offline mode" : `MISS — got: ${output.trim().slice(0, 60)}`);
-      // No heart loss on miss — boss attacks handle damage
       addMsg("SYS", `✕ MISS`);
-      addMsg("MAYA", MAYA_MISS[state.turnIndex % MAYA_MISS.length]);
+      addMsg("MAYA", msg);
       setBusy(false);
     }
   }, [busy, config, addMsg]);
@@ -343,6 +450,16 @@ export function useBossFight(
     }
   }, [addMsg, initialHearts]);
 
+  // ── Boss attack dodged by Maya ──
+
+  const dodgeCountRef = useRef(0);
+  const bossAttackDodge = useCallback(() => {
+    const idx = dodgeCountRef.current % MAYA_DODGE.length;
+    dodgeCountRef.current += 1;
+    addMsg("MAYA", MAYA_DODGE[idx]);
+    addMsg("SYS", "▸ NEAR MISS");
+  }, [addMsg]);
+
   // ── Retry (after game over) ──
 
   const retryFight = useCallback(() => {
@@ -353,6 +470,10 @@ export function useBossFight(
     setMessages([]);
     setHeartsLost(0);
     setHearts(Math.max(5, initialHearts));
+    setWaitingForContinue(false);
+    introIndexRef.current = -1;
+    dodgeCountRef.current = 0;
+    turnRetryRef.current = 0;
   }, [config, initialHearts]);
 
   // ── Derive public state ──
@@ -378,15 +499,18 @@ export function useBossFight(
     turnResults: combat.turnResults,
     messages,
     heartsLost,
+    waitingForContinue,
   };
 
   const actions: BossFightActions = {
     startFight,
+    continueIntro,
     setTabCode,
     execute,
     nextTurn,
     retryFight,
     bossAttackHit,
+    bossAttackDodge,
   };
 
   return [state, actions];

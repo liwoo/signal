@@ -24,9 +24,9 @@ describe("boss-01 challenge metadata", () => {
 });
 
 describe("boss-01 config", () => {
-  test("has 3 tabs", () => {
-    expect(boss01Config.tabs).toHaveLength(3);
-    expect(boss01Config.tabs.map((t) => t.id)).toEqual(["aim", "load", "fire"]);
+  test("has 4 tabs (aim, load, fire, main)", () => {
+    expect(boss01Config.tabs).toHaveLength(4);
+    expect(boss01Config.tabs.map((t) => t.id)).toEqual(["aim", "load", "fire", "main"]);
   });
 
   test("has 6 turns", () => {
@@ -42,9 +42,11 @@ describe("boss-01 config", () => {
     expect(totalDamage).toBe(100);
   });
 
-  test("window seconds decrease each turn", () => {
+  test("window seconds generally decrease", () => {
     const windows = boss01Config.turns.map((t) => t.windowSeconds);
-    expect(windows).toEqual([25, 22, 20, 18, 16, 14]);
+    // Turns 1-2: generous (25, 22), Turn 3: 22 (fire fix), Turn 4: 20 (wiring),
+    // Turn 5: 16 (shift), Turn 6: 18 (combo — needs more time for new code)
+    expect(windows).toEqual([25, 22, 22, 20, 16, 18]);
   });
 
   test("boss HP is 100", () => {
@@ -65,35 +67,34 @@ describe("sector grids", () => {
     }
   });
 
-  test("turn 1 expects sector 3 normal coords", () => {
+  test("turn 1 expects AIM + sector 3 normal coords", () => {
     const turn = boss01Config.turns[0];
     const [x, y] = SECTOR_GRID[3];
-    expect(turn.expectedOutput).toBe(`${x} ${y}`);
+    expect(turn.expectedOutput).toBe(`AIM ${x} ${y}`);
   });
 
-  test("turn 3 expects sector 7 normal coords", () => {
-    const turn = boss01Config.turns[2];
-    const [x, y] = SECTOR_GRID[7];
-    expect(turn.expectedOutput).toBe(`${x} ${y}`);
+  test("turn 4 wires aim sector 5", () => {
+    const turn = boss01Config.turns[3];
+    const [x, y] = SECTOR_GRID[5];
+    expect(turn.expectedOutput).toContain(`AIM ${x} ${y}`);
   });
 
-  test("turn 5 expects sector 5 shifted coords", () => {
+  test("turn 5 expects AIM + sector 5 shifted coords", () => {
     const turn = boss01Config.turns[4];
     const [x, y] = SECTOR_GRID_SHIFTED[5];
-    expect(turn.expectedOutput).toBe(`${x} ${y}`);
+    expect(turn.expectedOutput).toBe(`AIM ${x} ${y}`);
   });
 
-  test("turn 6 expects sector 9 shifted coords", () => {
+  test("turn 6 uses shifted grid sectors 7, 5, 9", () => {
     const turn = boss01Config.turns[5];
-    const [x, y] = SECTOR_GRID_SHIFTED[9];
-    expect(turn.expectedOutput).toContain(`${x} ${y}`);
+    // Combo kill shot — all shifted sectors resolve to non-zero → "HIT | HIT | HIT"
+    expect(turn.expectedOutput).toBe("HIT | HIT | HIT");
   });
 });
 
 describe("source building with correct user code", () => {
   test("turn 1 — correct aim compiles", () => {
     let state = createBossCombatState(boss01Config);
-    // User writes correct Aim for normal grid
     state = updateTabCode(state, "aim", `func Aim(sector int) (int, int) {
 \tswitch sector {
 \tcase 1: return 128, 160
@@ -115,17 +116,22 @@ describe("source building with correct user code", () => {
     expect(source).toContain("func main()");
   });
 
-  test("turn 2 — correct load output matches", () => {
-    expect(checkOutput("[pierce pierce pierce]", boss01Config.turns[1].expectedOutput)).toBe(true);
+  test("turn 2 — correct load output: pierce x3 one per line", () => {
+    expect(checkOutput("pierce\npierce\npierce", boss01Config.turns[1].expectedOutput)).toBe(true);
   });
 
-  test("turn 4 — HIT output matches", () => {
-    expect(checkOutput("HIT", boss01Config.turns[3].expectedOutput)).toBe(true);
+  test("turn 3 — HIT output matches", () => {
+    expect(checkOutput("HIT", boss01Config.turns[2].expectedOutput)).toBe(true);
   });
 
-  test("turn 6 — multi-line output matches", () => {
+  test("turn 4 — full sequence output matches", () => {
+    const expected = boss01Config.turns[3].expectedOutput;
+    expect(checkOutput("AIM 256 320\nLOAD 2\nHIT", expected)).toBe(true);
+  });
+
+  test("turn 6 — combo output matches", () => {
     const expected = boss01Config.turns[5].expectedOutput;
-    expect(checkOutput("448 544\n[pulse]\nHIT", expected)).toBe(true);
+    expect(checkOutput("HIT | HIT | HIT", expected)).toBe(true);
   });
 });
 
@@ -143,6 +149,7 @@ describe("full boss-01 fight — all hits", () => {
       state = advanceAfterResult(boss01Config, state, hearts);
     }
 
+    // Damage: 15+15+15+20+15+20 = 100
     expect(state.bossHP).toBe(0);
     expect(state.phase).toBe("victory");
 
@@ -163,9 +170,9 @@ describe("full boss-01 fight — miss one turn", () => {
     for (let i = 0; i < 6; i++) {
       const turn = boss01Config.turns[i];
       if (i === 1) {
-        // Miss turn 2 (15 damage lost)
+        // Miss turn 2 (15 damage lost) + boss attack takes a heart
         const { state: missState } = resolveTurnMiss(boss01Config, { ...state, turnIndex: i }, turn, 9000, "miss");
-        state = missState;
+        state = { ...missState, heartsLost: missState.heartsLost + 1 };
         hearts--;
         state = advanceAfterResult(boss01Config, state, hearts);
       } else {
@@ -206,7 +213,12 @@ describe("tab starter code quality", () => {
     const fireTab = boss01Config.tabs.find((t) => t.id === "fire")!;
     expect(fireTab.starterCode).toContain("NO TARGET");
     expect(fireTab.starterCode).toContain("NO AMMO");
-    expect(fireTab.starterCode).toContain("fmt.Sprintf");
+  });
+
+  test("main.go has Combo function", () => {
+    const mainTab = boss01Config.tabs.find((t) => t.id === "main")!;
+    expect(mainTab.starterCode).toContain("Combo");
+    expect(mainTab.starterCode).toContain("strings.Join");
   });
 
   test("every turn has a non-empty test harness", () => {

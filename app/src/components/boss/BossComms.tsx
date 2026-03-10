@@ -5,15 +5,23 @@ import type { BossMessage } from "@/hooks/useBossFight";
 
 interface BossCommsProps {
   messages: BossMessage[];
+  onNewMessage?: () => void;
 }
 
-export function BossComms({ messages }: BossCommsProps) {
+export function BossComms({ messages, onNewMessage }: BossCommsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(0);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+
+    // Fire callback when a new message arrives
+    if (messages.length > prevCountRef.current) {
+      onNewMessage?.();
+    }
+    prevCountRef.current = messages.length;
+  }, [messages.length, onNewMessage]);
 
   if (messages.length === 0) return null;
 
@@ -23,9 +31,9 @@ export function BossComms({ messages }: BossCommsProps) {
   return (
     <div
       ref={scrollRef}
-      className="px-3 py-2 overflow-y-auto"
+      className="px-3 py-2.5 overflow-y-auto"
       style={{
-        maxHeight: 120,
+        maxHeight: 180,
         background: "rgba(8,4,8,0.82)",
         borderRight: "1px solid rgba(32,16,16,0.5)",
         backdropFilter: "blur(4px)",
@@ -38,17 +46,17 @@ export function BossComms({ messages }: BossCommsProps) {
         return (
           <div
             key={msg.id}
-            className="flex gap-2 py-0.5 msg-enter"
+            className="flex gap-2.5 py-1 msg-enter"
             style={{ opacity }}
           >
             <span
-              className="text-[6px] tracking-[2px] shrink-0 mt-0.5"
+              className="text-[9px] tracking-[2px] shrink-0 mt-0.5 font-[family-name:var(--font-display)]"
               style={{ color: isSys ? "#ff6e6e" : "var(--color-signal)" }}
             >
               {isSys ? "SYS" : "MAYA"}
             </span>
             <span
-              className="text-[9px] leading-[1.5]"
+              className="text-[13px] leading-[1.5]"
               style={{ color: isSys ? "#ff6e6e" : "var(--color-foreground)" }}
             >
               {msg.text}

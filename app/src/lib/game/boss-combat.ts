@@ -70,6 +70,14 @@ export function updateTabCode(
 // ── Compilation ──
 
 /** Build the full Go source from all tabs + the turn's test harness. */
+/** Minimal correct stubs for each tab — used when a non-active tab still has corrupted code. */
+const TAB_STUBS: Record<string, string> = {
+  aim: `func Aim(sector int) (int, int) { return 0, 0 }`,
+  load: `func Load(threat string) []string { return nil }`,
+  fire: `func Fire(x, y int, ammo []string) string { return "" }`,
+  main: `func Combo(shots ...string) string { return "" }`,
+};
+
 export function buildSource(
   config: BossFightConfig,
   state: BossCombatState,
@@ -78,17 +86,40 @@ export function buildSource(
   const parts: string[] = [
     `package main`,
     ``,
-    `import "fmt"`,
+    `import (`,
+    `\t"fmt"`,
+    `\t"strings"`,
+    `)`,
     ``,
   ];
 
   for (const tab of config.tabs) {
     parts.push(`// ── ${tab.filename} ──`);
-    // Strip package/import lines from tab code — we provide them once at the top
-    const cleaned = stripPackageAndImports(state.tabCode[tab.id] ?? tab.starterCode);
-    parts.push(cleaned);
+    const userCode = state.tabCode[tab.id] ?? tab.starterCode;
+    const cleaned = stripPackageAndImports(userCode);
+
+    if (tab.id === turn.activeTab) {
+      // Active tab: always use the player's code (bugs and all)
+      parts.push(cleaned);
+    } else {
+      // Non-active tab: try the player's code, but if it would cause a compile
+      // error (still corrupted), swap in a minimal stub so the active tab can
+      // be tested in isolation.
+      // Heuristic: if the code still contains known corruption markers, use stub.
+      const hasCorruption =
+        userCode === tab.starterCode ||    // untouched starter = still corrupted
+        /\bsting\b/.test(userCode) ||      // "sting" instead of "string"
+        /\bin\)/.test(userCode) ||          // "in)" instead of "int)"
+        (tab.id === "main" && !/\bfunc\b/.test(userCode)); // main.go has no func yet
+      parts.push(hasCorruption ? (TAB_STUBS[tab.id] ?? cleaned) : cleaned);
+    }
     parts.push(``);
   }
+
+  // Suppress unused import errors
+  parts.push(`var _ = fmt.Sprintf`);
+  parts.push(`var _ = strings.Join`);
+  parts.push(``);
 
   parts.push(`// ── test harness ──`);
   parts.push(turn.testHarness);

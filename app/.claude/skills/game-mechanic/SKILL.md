@@ -221,9 +221,28 @@ When captured (game over), `retryFromCheckpoint()`:
 - Applies penalties: 30% energy, no speed bonus eligibility
 - Jeopardy effects carry over at 50% intensity
 
+## Audio Hook (`src/hooks/useAudio.ts`)
+
+`useAudio(soundEnabled)` manages all game audio. Returns a **memoized** object (stable across renders) with:
+- `playSfx(name, volume)` — one-shot via Web Audio API (AudioContext + BufferSource)
+- `startLoop(name, volume)` — looping via HTML Audio elements (reliable for long audio). **Synchronous** — `el.play()` fires in the same call stack (required for autoplay policy).
+- `stopLoop(name, fadeMs)` — fade out and remove
+- `stopAllLoops(fadeMs)` — stop all active loops
+- `setLoopVolume(name, volume, rampMs)` — ramp an existing loop's volume (prefer over stop+start)
+- `preload(names)` — pre-decode sounds into buffer cache
+- `playFootsteps(count, intervalMs, volume, variant)` — sequenced footstep SFX
+
+### Critical Rules
+- **`startLoop` must be synchronous** — never `async`. Browsers reject `el.play()` outside the user gesture call stack. The function uses `.catch()` for error handling, not `await`.
+- **Return value is memoized** via `useMemo`. Safe to use in `useEffect` deps. But for unmount-only cleanup, always use `[]` — never `[audio]` which fires cleanup on every render if something else causes instability.
+- **Volume ramping over stop+start** — `setLoopVolume()` ramps an existing Audio element. `stopLoop()`+`startLoop()` kills and recreates it, causing audible gaps and potential autoplay failures.
+- **No `el.src = ""`** — Firefox throws `NS_ERROR_DOM_INVALID_STATE_ERR`. Just `el.pause()` + delete from map.
+- **Separate instances are independent** — `CinematicScene`, `BossArena`, and `useGameAudio` each call `useAudio()` separately. Their `loopEls` maps don't interfere.
+
 ## Common Mistakes
 
 - **Mutating state directly.** Always spread or create new objects: `saveStats({ ...stats, xp: stats.xp + earned })`.
 - **Forgetting to persist.** After updating React state, call the corresponding `save*()` function.
 - **Hardcoding magic numbers.** XP values, energy costs, and thresholds are already defined as constants. Import them.
 - **Coupling to UI.** Game logic should never import from `components/`. If a component needs game data, it calls a hook, which calls pure functions.
+- **Unstable hook return in effect deps.** Hooks that return objects must memoize the return value (`useMemo`). An unstable reference as an effect dependency triggers cleanup on every render.

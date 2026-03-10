@@ -87,9 +87,19 @@ export function PixiScene({
   const buildScene = useCallback(async () => {
     if (!containerRef.current) return;
 
-    // Clean up previous
+    // Clean up previous — force WebGL context release
     if (appRef.current) {
-      appRef.current.destroy(true);
+      try {
+        const gl =
+          (appRef.current.renderer as unknown as { gl?: WebGL2RenderingContext }).gl
+          ?? (appRef.current.canvas as HTMLCanvasElement).getContext("webgl2")
+          ?? (appRef.current.canvas as HTMLCanvasElement).getContext("webgl");
+        if (gl) {
+          const ext = gl.getExtension("WEBGL_lose_context");
+          ext?.loseContext();
+        }
+      } catch { /* best-effort */ }
+      appRef.current.destroy(true, { children: true, texture: true });
       appRef.current = null;
     }
 
@@ -188,7 +198,19 @@ export function PixiScene({
     buildScene();
     return () => {
       if (appRef.current) {
-        appRef.current.destroy(true);
+        // Force WebGL context release before destroying — prevents
+        // "WebGL context was lost" when BossArena mounts immediately after.
+        try {
+          const gl =
+            (appRef.current.renderer as unknown as { gl?: WebGL2RenderingContext }).gl
+            ?? (appRef.current.canvas as HTMLCanvasElement).getContext("webgl2")
+            ?? (appRef.current.canvas as HTMLCanvasElement).getContext("webgl");
+          if (gl) {
+            const ext = gl.getExtension("WEBGL_lose_context");
+            ext?.loseContext();
+          }
+        } catch { /* best-effort */ }
+        appRef.current.destroy(true, { children: true, texture: true });
         appRef.current = null;
       }
     };

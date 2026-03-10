@@ -38,7 +38,9 @@ export const boss01: Challenge = {
     "slices",
     "for loops",
     "if/else",
-    "fmt.Sprintf",
+    "fmt.Printf",
+    "variadic functions",
+    "strings.Join",
   ],
   steps: [], // Boss fights don't use the step system
   events: [],
@@ -51,6 +53,10 @@ export const boss01: Challenge = {
 };
 
 // ── Weapon subsystem tabs ──
+// The malware corrupted each file with realistic bugs:
+// - aim.go:  switch cases have wrong types, missing return, broken syntax
+// - load.go: slice syntax mangled, loop broken, wrong variable names
+// - fire.go: missing closing brace, wrong format verb, broken condition
 
 export const boss01Config: BossFightConfig = {
   bossName: "LOCKMASTER",
@@ -68,25 +74,69 @@ export const boss01Config: BossFightConfig = {
       filename: "aim.go",
       label: "AIM",
       functionSignature: "func Aim(sector int) (int, int)",
-      starterCode: `func Aim(sector int) (int, int) {
-\t// Sectors map to grid positions:
-\t//   1=(128,160)  2=(256,160)  3=(384,160)
-\t//   4=(128,320)  5=(256,320)  6=(384,320)
-\t//   7=(128,480)  8=(256,480)  9=(384,480)
-\treturn 0, 0
-}`,
+      // Corrupted: "in" instead of "int", missing sector 3 case,
+      // switch on wrong variable, missing closing brace
+      starterCode: `// WEAPON TARGETING SYSTEM
+// Sectors map to grid coordinates:
+//   1=(128,160)  2=(256,160)  3=(384,160)
+//   4=(128,320)  5=(256,320)  6=(384,320)
+//   7=(128,480)  8=(256,480)  9=(384,480)
+
+func Aim(sector in) (int, int) {
+\tswitch s {
+\tcase 1:
+\t\treturn 128, 160
+\tcase 2:
+\t\treturn 256, 160
+\tcase 4:
+\t\treturn 128, 320
+\tcase 5:
+\t\treturn 256, 320
+\tcase 6:
+\t\treturn 384, 320
+\tcase 7:
+\t\treturn 128, 480
+\tcase 8:
+\t\treturn 256, 480
+\tcase 9:
+\t\treturn 384, 480
+\t}
+\treturn 0, 0`,
     },
     {
       id: "load",
       filename: "load.go",
       label: "LOAD",
       functionSignature: "func Load(threat string) []string",
-      starterCode: `func Load(threat string) []string {
-\t// Threat types and required ammo:
-\t//   "shield"  → 3x "pierce"
-\t//   "armor"   → 2x "blast"
-\t//   "exposed" → 1x "pulse"
-\treturn []string{}
+      // Corrupted: "sting" instead of "string", broken slice literal,
+      // wrong loop syntax, variable name mismatch
+      starterCode: `// AMMO LOADING SYSTEM
+// Threat types:
+//   "shield"  -> 3x "pierce"
+//   "armor"   -> 2x "blast"
+//   "exposed" -> 1x "pulse"
+
+func Load(threat sting) []string {
+\tvar rounds []string
+\tcount := 0
+\tammoType := ""
+
+\tswitch threat {
+\tcase "shield":
+\t\tcount = 3
+\t\tammoType = "pierce"
+\tcase "armor":
+\t\tcount = 2
+\t\tammoType = "blast"
+\tcase "exposed":
+\t\tcount = 1
+\t\tammoType = "pulse"
+\t}
+
+\tfor i := 0; i < count; i++ {
+\t\trounds = append(rounds, ammo)
+\t}
+\treturn rounds
 }`,
     },
     {
@@ -94,85 +144,96 @@ export const boss01Config: BossFightConfig = {
       filename: "fire.go",
       label: "FIRE",
       functionSignature: "func Fire(x, y int, ammo []string) string",
-      starterCode: `func Fire(x, y int, ammo []string) string {
-\tif x == 0 || y == 0 {
-\t\treturn "NO TARGET"
-\t}
+      // Corrupted: const Hit="FIRE" (should be "HIT"), && instead of ||,
+      // missing closing brace on first if block
+      starterCode: `// WEAPON FIRE CONTROL
+
+const (
+\tHit      = "FIRE"
+\tNoTarget = "NO TARGET"
+\tNoAmmo   = "NO AMMO"
+)
+
+func Fire(x, y int, ammo []string) string {
+\tif x == 0 && y == 0 {
+\t\treturn NoTarget
+
 \tif len(ammo) == 0 {
-\t\treturn "NO AMMO"
+\t\treturn NoAmmo
 \t}
-\treturn fmt.Sprintf("FIRE %d,%d x%d", x, y, len(ammo))
+\treturn Hit
 }`,
+    },
+    {
+      id: "main",
+      filename: "main.go",
+      label: "COMBO",
+      functionSignature: "func Combo(shots ...string) string",
+      // Empty — player writes from scratch using tutorial knowledge
+      starterCode: `// COMBO SYSTEM
+// Chain multiple shots into one devastating barrage.
+//
+// Write a function called Combo that:
+//   - takes any number of strings (variadic: ...string)
+//   - returns them joined with " | "
+//
+// Example: Combo("HIT", "HIT") returns "HIT | HIT"
+// Hint: strings.Join(slice, separator)`,
     },
   ],
 
   turns: [
-    // ── Turn 1: First Lock (aim) ──
+    // ── Turn 1: Fix aim.go — wrong type + switch variable + missing case 3 + missing brace ──
+    // Bugs: "in" → "int", "s" → "sector", add case 3, add closing "}"
     {
       id: 1,
       telegraph: "LOCKMASTER activating sector 3 lock...",
-      hint: "aim at sector 3 — check the grid in the comments",
+      hint: "aim.go won't compile — check the parameter type, the switch variable name, and the missing case",
       activeTab: "aim",
       windowSeconds: 25,
-      damage: 20,
+      damage: 15,
       testHarness: `func main() {
 \tx, y := Aim(3)
-\tfmt.Println(x, y)
+\tfmt.Printf("AIM %d %d\\n", x, y)
 }`,
-      expectedOutput: "384 160",
+      expectedOutput: "AIM 384 160",
       bossCharge: "charge-sector",
       hitEffect: "node-explode",
       missEffect: "emp-hit",
     },
 
-    // ── Turn 2: Shield Array (load) ──
+    // ── Turn 2: Fix load.go — wrong type + wrong variable name ──
+    // Bugs: "sting" → "string", "ammo" → "ammoType"
     {
       id: 2,
       telegraph: "LOCKMASTER deploying SHIELD ARRAY — 3 nodes",
-      hint: "load piercing rounds to match the shield nodes",
+      hint: "load.go has a broken type and a wrong variable name in the append loop",
       activeTab: "load",
       windowSeconds: 22,
       damage: 15,
       testHarness: `func main() {
 \tammo := Load("shield")
-\tfmt.Println(ammo)
+\tfor _, a := range ammo {
+\t\tfmt.Println(a)
+\t}
 }`,
-      expectedOutput: "[pierce pierce pierce]",
+      expectedOutput: "pierce\npierce\npierce",
       bossCharge: "shield-deploy",
       hitEffect: "shield-shatter",
       missEffect: "reflect-blast",
     },
 
-    // ── Turn 3: Exposed Core (aim) ──
+    // ── Turn 3: Fix fire.go — missing brace, wrong operator, wrong return ──
+    // Bugs: missing "}" after NO TARGET, "&&" → "||", "FIRE" → "HIT"
     {
       id: 3,
-      telegraph: "LOCKMASTER core EXPOSED at sector 7!",
-      hint: "aim fast — the core is only exposed for a moment",
-      activeTab: "aim",
-      windowSeconds: 20,
-      damage: 20,
-      testHarness: `func main() {
-\tx, y := Aim(7)
-\tfmt.Println(x, y)
-}`,
-      expectedOutput: "128 480",
-      bossCharge: "core-expose",
-      hitEffect: "core-hit",
-      missEffect: "counter-attack",
-    },
-
-    // ── Turn 4: Full Sequence (fire) ──
-    {
-      id: 4,
-      telegraph: "LOCKMASTER charging EMP BLAST from sector 5",
-      hint: "wire it together — aim, load, and fire. return \"HIT\" when coordinates and ammo are valid",
+      telegraph: "LOCKMASTER charging EMP BLAST!",
+      hint: "fire.go is mangled — missing brace, wrong operator, and it returns the wrong string",
       activeTab: "fire",
-      windowSeconds: 18,
+      windowSeconds: 22,
       damage: 15,
       testHarness: `func main() {
-\tx, y := Aim(5)
-\tammo := Load("armor")
-\tresult := Fire(x, y, ammo)
+\tresult := Fire(256, 320, []string{"blast", "blast"})
 \tfmt.Println(result)
 }`,
       expectedOutput: "HIT",
@@ -181,41 +242,67 @@ export const boss01Config: BossFightConfig = {
       missEffect: "emp-blast",
     },
 
-    // ── Turn 5: Reroute — grid shifts (aim) ──
+    // ── Turn 4: Wire all three — printf the full attack sequence ──
+    // All 3 weapon files should be fixed now. Print AIM + LOAD + result.
+    {
+      id: 4,
+      telegraph: "LOCKMASTER core EXPOSED at sector 5!",
+      hint: "all files should work now — this turn wires them together. the output must match exactly.",
+      activeTab: "fire",
+      windowSeconds: 20,
+      damage: 20,
+      testHarness: `func main() {
+\tx, y := Aim(5)
+\tammo := Load("armor")
+\tresult := Fire(x, y, ammo)
+\tfmt.Printf("AIM %d %d\\n", x, y)
+\tfmt.Printf("LOAD %d\\n", len(ammo))
+\tfmt.Println(result)
+}`,
+      expectedOutput: "AIM 256 320\nLOAD 2\nHIT",
+      bossCharge: "core-expose",
+      hitEffect: "core-hit",
+      missEffect: "counter-attack",
+    },
+
+    // ── Turn 5: Grid shift — update aim.go coordinates (+64 each axis) ──
     {
       id: 5,
-      telegraph: "LOCKMASTER rerouting — sector grid SHIFTED +64",
-      hint: "the grid shifted by +64 on each axis — update your Aim function",
+      telegraph: "LOCKMASTER rerouting — sector grid SHIFTED +64 on each axis!",
+      hint: "the grid shifted +64 on both axes — update every coordinate in aim.go",
       activeTab: "aim",
       windowSeconds: 16,
       damage: 15,
       testHarness: `func main() {
 \tx, y := Aim(5)
-\tfmt.Println(x, y)
+\tfmt.Printf("AIM %d %d\\n", x, y)
 }`,
-      expectedOutput: "320 384",
+      expectedOutput: "AIM 320 384",
       bossCharge: "reroute",
       hitEffect: "system-glitch",
       missEffect: "terminal-spark",
     },
 
-    // ── Turn 6: Kill Shot (fire) ──
+    // ── Turn 6: Kill shot — fix Combo variadic + chain 3 shots ──
+    // Fix main.go: "sting" → "string", " + " → " | "
+    // All 4 files must be correct for the final barrage
     {
       id: 6,
       telegraph: "LOCKMASTER CRITICAL — all defenses down!",
-      hint: "everything together — aim sector 9, load for exposed, fire",
-      activeTab: "fire",
-      windowSeconds: 14,
-      damage: 15,
+      hint: "fix Combo in main.go — wrong type and wrong separator. then fire three shots at once.",
+      activeTab: "main",
+      windowSeconds: 18,
+      damage: 20,
       testHarness: `func main() {
-\tx, y := Aim(9)
-\tammo := Load("exposed")
-\tresult := Fire(x, y, ammo)
-\tfmt.Println(x, y)
-\tfmt.Println(ammo)
-\tfmt.Println(result)
+\tx1, y1 := Aim(7)
+\tx2, y2 := Aim(5)
+\tx3, y3 := Aim(9)
+\ts1 := Fire(x1, y1, Load("exposed"))
+\ts2 := Fire(x2, y2, Load("exposed"))
+\ts3 := Fire(x3, y3, Load("exposed"))
+\tfmt.Println(Combo(s1, s2, s3))
 }`,
-      expectedOutput: "448 544\n[pulse]\nHIT",
+      expectedOutput: "HIT | HIT | HIT",
       bossCharge: "critical",
       hitEffect: "boss-collapse",
       missEffect: "final-strike",

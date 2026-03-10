@@ -21,6 +21,8 @@ import {
   drawTelegraphWarning,
   drawWeaponStatus,
   drawBloodSplatters,
+  drawScreenShatter,
+  drawDodgeStreak,
   getShakeOffset,
 } from "@/lib/sprites/weapon-painter";
 
@@ -47,6 +49,7 @@ interface AnimState {
   lastBossAttackMs: number;
   nextAttackIntervalMs: number;
   bossAttackLanded: boolean; // whether this attack already triggered damage
+  attackDodged: boolean; // Maya ducked this shot
   attackTargetX: number; // randomized per-attack (0-1 normalized)
   attackTargetY: number;
   hitBeamProgress: number;
@@ -55,6 +58,17 @@ interface AnimState {
   shakeIntensity: number;
   telegraphProgress: number;
   heartsLost: number; // mirror of React state for RAF access
+  hitImpacts: { x: number; y: number; index: number }[]; // shatter points (persist)
+  hitFlash: number; // 0-1 white flash on fresh hit (decays fast)
+  hitRecoilTime: number; // seconds since last hit (drives recoil spring)
+  dodgeFlash: number; // 0-1 screen disorientation on dodge (decays)
+  dodgeStreakProgress: number; // 0-1 near-miss projectile streak animation
+  dodgeTime: number; // seconds since dodge started (drives spring physics)
+  dodgeDirection: number; // -1 or 1 — which way Maya dives
+  dodgeIntensity: number; // magnitude multiplier (randomized per dodge)
+  dodgeTargetX: number; // where the dodged shot was aimed
+  dodgeTargetY: number;
+  totalAttacks: number; // how many attacks fired so far (affects dodge chance)
 }
 
 function randomAttackTarget(): { x: number; y: number } {
@@ -75,6 +89,7 @@ function createAnimState(): AnimState {
     lastBossAttackMs: 0,
     nextAttackIntervalMs: nextAttackInterval(),
     bossAttackLanded: false,
+    attackDodged: false,
     attackTargetX: 0.3,
     attackTargetY: 0.6,
     hitBeamProgress: -1,
@@ -83,12 +98,81 @@ function createAnimState(): AnimState {
     shakeIntensity: 0,
     telegraphProgress: 0,
     heartsLost: 0,
+    hitImpacts: [],
+    hitFlash: 0,
+    hitRecoilTime: -1,
+    dodgeFlash: 0,
+    dodgeStreakProgress: -1,
+    dodgeTime: -1,
+    dodgeDirection: 1,
+    dodgeIntensity: 1,
+    dodgeTargetX: 0.5,
+    dodgeTargetY: 0.5,
+    totalAttacks: 0,
   };
+}
+
+// Dodge chance decreases as fight progresses — early attacks are more survivable
+// First 2 attacks: 60% dodge, then 45%, 30%, 20% floor
+function shouldDodge(totalAttacks: number): boolean {
+  const chance = totalAttacks < 2 ? 0.6 : totalAttacks < 4 ? 0.45 : totalAttacks < 6 ? 0.3 : 0.2;
+  return Math.random() < chance;
 }
 
 // Semi-randomized attack interval (8-14 seconds) — gives player time to code between hits
 function nextAttackInterval(): number {
   return 8000 + Math.random() * 6000;
+}
+
+const AUTO_CONTINUE_SECONDS = 7;
+
+function BossContinueButton({ onContinue }: { onContinue: () => void }) {
+  const [remaining, setRemaining] = useState(AUTO_CONTINUE_SECONDS);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (remaining <= 0 && !firedRef.current) {
+      firedRef.current = true;
+      onContinue();
+      return;
+    }
+    const timer = setTimeout(() => setRemaining((r) => r - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [remaining, onContinue]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !firedRef.current) {
+        firedRef.current = true;
+        onContinue();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onContinue]);
+
+  return (
+    <button
+      onClick={() => {
+        if (!firedRef.current) {
+          firedRef.current = true;
+          onContinue();
+        }
+      }}
+      className="mt-4 px-6 py-2 cursor-pointer text-[9px] tracking-[3px] font-[family-name:var(--font-mono)] transition-opacity"
+      style={{
+        color: "var(--color-signal)",
+        border: "1px solid var(--color-signal)",
+        background: "transparent",
+        opacity: 0.8,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+    >
+      continue {remaining}s
+      <span className="ml-2" style={{ opacity: 0.4 }}>⏎</span>
+    </button>
+  );
 }
 
 export function BossArena({
@@ -128,8 +212,15 @@ export function BossArena({
   const prevOutcomeRef = useRef(state.lastOutcome);
   const bossAttackHitRef = useRef(actions.bossAttackHit);
   bossAttackHitRef.current = actions.bossAttackHit;
+  const bossAttackDodgeRef = useRef(actions.bossAttackDodge);
+  bossAttackDodgeRef.current = actions.bossAttackDodge;
   const audioRef = useRef(audio);
   audioRef.current = audio;
+
+  // Typing sound when Maya sends a message
+  const playMayaSound = useCallback(() => {
+    audio.playSfx("maya-message", 0.25);
+  }, [audio]);
 
   // ── Boss audio ──
   useEffect(() => {
@@ -140,47 +231,42 @@ export function BossArena({
     if (prev === curr) return;
 
     if (prev === "ready" && curr === "telegraph") {
-      audio.preload([
-        "warning-beep", "alert-beep", "dread-sting",
-        "captured-impact", "game-over-slam", "handshake-confirm",
-        "heartbeat-fast", "code-submit",
-        "weapon-charge", "laser-fire", "explosion-small",
-        "boss-hit", "target-lock", "hit-confirm", "countdown-tick",
-      ]);
-      audio.playSfx("alert-beep", 0.4);
-    }
-
-    // Start/maintain boss music whenever in active combat
-    if (curr === "telegraph" || curr === "player_window") {
-      audio.startLoop("boss-loop", 0.2, 1500);
-      audio.startLoop("facility-hum", 0.1, 1500);
-      audio.startLoop("tension-drone", 0.08, 2000);
+      audio.playSfx("alert-beep", 0.5);
+      // Combat begins — slam music to combat intensity (ramp existing loops)
+      audio.setLoopVolume("boss-loop", 0.55, 1200);
+      audio.setLoopVolume("tension-drone", 0.25, 1500);
+      audio.setLoopVolume("facility-hum", 0.2, 1500);
     }
 
     if (curr === "telegraph" && prev !== "ready") {
-      audio.playSfx("warning-beep", 0.35);
-      audio.playSfx("weapon-charge", 0.25);
+      audio.playSfx("warning-beep", 0.4);
+      audio.playSfx("weapon-charge", 0.3);
       animRef.current.telegraphProgress = 0;
     }
 
     if (curr === "player_window") {
-      audio.playSfx("target-lock", 0.3);
+      audio.playSfx("target-lock", 0.35);
       // Use performance.now() to match RAF timestamp scale
       animRef.current.lastBossAttackMs = performance.now();
       animRef.current.weaponProgress = 0;
     }
 
     if (curr === "victory" || curr === "boss_retreats") {
-      audio.playSfx("handshake-confirm", 0.6);
+      audio.playSfx("handshake-confirm", 0.7);
       audio.stopLoop("heartbeat-fast", 1500);
-      audio.stopLoop("tension-drone", 1500);
-      audio.setLoopVolume("boss-loop", 0.04, 3000);
+      audio.stopLoop("tension-drone", 2000);
+      // Music eases back — triumph
+      audio.setLoopVolume("boss-loop", 0.3, 3000);
     }
 
     if (curr === "gameover") {
-      audio.playSfx("captured-impact", 0.6);
-      setTimeout(() => audio.playSfx("game-over-slam", 0.5), 300);
-      audio.stopAllLoops(2000);
+      audio.playSfx("captured-impact", 0.7);
+      setTimeout(() => audio.playSfx("game-over-slam", 0.6), 300);
+      audio.stopLoop("heartbeat-fast", 1500);
+      audio.stopLoop("tension-drone", 2000);
+      // Music drops to ominous undertone
+      audio.setLoopVolume("boss-loop", 0.25, 2000);
+      audio.setLoopVolume("facility-hum", 0.2, 2000);
     }
   }, [state.phase, audio]);
 
@@ -198,9 +284,9 @@ export function BossArena({
       animRef.current.hitBeamProgress = 0;
       animRef.current.explosionProgress = -1;
       if (state.bossHP <= 30) {
-        audio.startLoop("heartbeat-fast", 0.25, 800);
-        audio.setLoopVolume("boss-loop", 0.25, 500);
-        audio.setLoopVolume("tension-drone", 0.15, 500);
+        audio.startLoop("heartbeat-fast", 0.35, 800);
+        audio.setLoopVolume("boss-loop", 0.65, 500);
+        audio.setLoopVolume("tension-drone", 0.3, 500);
       }
     } else {
       audio.playSfx("dread-sting", 0.45);
@@ -212,15 +298,18 @@ export function BossArena({
 
   // Hearts dropping — increase tension audio
   useEffect(() => {
-    if (state.hearts <= 1 && state.hearts > 0) {
-      audio.startLoop("heartbeat-fast", 0.3, 500);
-      audio.setLoopVolume("boss-loop", 0.28, 500);
+    if (state.hearts <= 2 && state.hearts > 0) {
+      audio.startLoop("heartbeat-fast", 0.4, 500);
+      audio.setLoopVolume("boss-loop", 0.7, 500);
+      audio.setLoopVolume("tension-drone", 0.35, 500);
     }
   }, [state.hearts, audio]);
 
+  // Stop all loops on unmount only — audio ref is stable (memoized)
   useEffect(() => {
     return () => { audio.stopAllLoops(500); };
-  }, [audio]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Full-screen canvas render loop ──
   useEffect(() => {
@@ -286,6 +375,8 @@ export function BossArena({
           anim.bossAttackActive = true;
           anim.bossAttackProgress = 0;
           anim.bossAttackLanded = false;
+          anim.attackDodged = shouldDodge(anim.totalAttacks);
+          anim.totalAttacks += 1;
           anim.lastBossAttackMs = time;
           anim.nextAttackIntervalMs = nextAttackInterval();
           // Randomize where this projectile hits
@@ -299,25 +390,127 @@ export function BossArena({
         if (anim.bossAttackProgress > 0.8 && anim.shakeIntensity < 0.3) {
           anim.shakeIntensity = 0.5;
         }
-        // Projectile lands — deal damage to Maya
+        // Projectile lands
         if (anim.bossAttackProgress > 0.85 && !anim.bossAttackLanded) {
           anim.bossAttackLanded = true;
-          anim.heartsLost += 1; // immediate update for RAF-driven blood rendering
-          anim.shakeIntensity = Math.min(1, anim.shakeIntensity + 0.6);
-          bossAttackHitRef.current();
-          audioRef.current.playSfx("boss-hit", 0.45);
-          audioRef.current.playSfx("explosion-small", 0.3);
+          if (anim.attackDodged) {
+            // Maya dives sideways — violent camera lurch with spring-back
+            anim.dodgeFlash = 1;
+            anim.dodgeStreakProgress = 0;
+            anim.dodgeTargetX = anim.attackTargetX;
+            anim.dodgeTargetY = anim.attackTargetY;
+            anim.dodgeTime = 0;
+            anim.dodgeDirection = anim.attackTargetX < 0.5 ? 1 : -1;
+            anim.dodgeIntensity = 0.8 + Math.random() * 0.4; // 0.8-1.2x
+            anim.shakeIntensity = 1;
+            bossAttackDodgeRef.current();
+            audioRef.current.playSfx("warning-beep", 0.35);
+            audioRef.current.playSfx("shield-break", 0.2);
+            // Maya dodge grunt
+            const dodgeGrunts = ["grunt-dodge-1", "grunt-dodge-2"] as const;
+            audioRef.current.playSfx(dodgeGrunts[Math.floor(Math.random() * 2)], 0.5);
+          } else {
+            // Direct hit — screen shatters, violent recoil
+            anim.heartsLost += 1;
+            anim.shakeIntensity = 1;
+            anim.hitFlash = 1;
+            anim.hitRecoilTime = 0;
+            // Add shatter impact at the projectile's target position
+            anim.hitImpacts.push({
+              x: W * anim.attackTargetX,
+              y: H * anim.attackTargetY,
+              index: anim.heartsLost - 1,
+            });
+            bossAttackHitRef.current();
+            audioRef.current.playSfx("boss-hit", 0.5);
+            audioRef.current.playSfx("explosion-small", 0.4);
+            audioRef.current.playSfx("shield-break", 0.35);
+            // Maya pain grunt — slight delay so it lands after the impact
+            const hitGrunts = ["grunt-hit-1", "grunt-hit-2", "grunt-hit-3"] as const;
+            setTimeout(() => {
+              audioRef.current.playSfx(hitGrunts[Math.floor(Math.random() * 3)], 0.55);
+            }, 80);
+          }
         }
         if (anim.bossAttackProgress >= 1) {
           anim.bossAttackActive = false;
           anim.bossAttackProgress = 0;
         }
       }
+      // Decay hit flash (fast — white flash pops then gone)
+      if (anim.hitFlash > 0) {
+        anim.hitFlash = Math.max(0, anim.hitFlash - dtSec * 5);
+      }
+      // Advance hit recoil timer
+      if (anim.hitRecoilTime >= 0) {
+        anim.hitRecoilTime += dtSec;
+        if (anim.hitRecoilTime > 1.2) anim.hitRecoilTime = -1;
+      }
+      // Decay dodge effects
+      if (anim.dodgeFlash > 0) {
+        anim.dodgeFlash = Math.max(0, anim.dodgeFlash - dtSec * 2.0);
+      }
+      if (anim.dodgeStreakProgress >= 0 && anim.dodgeStreakProgress < 1) {
+        anim.dodgeStreakProgress = Math.min(1, anim.dodgeStreakProgress + dtSec * 2.8);
+      }
+      // Advance dodge spring timer
+      if (anim.dodgeTime >= 0) {
+        anim.dodgeTime += dtSec;
+        if (anim.dodgeTime > 1.6) anim.dodgeTime = -1; // done after ~1.6s
+      }
 
       // ── Draw ──
       const shake = getShakeOffset(anim.shakeIntensity);
       ctx.save();
-      ctx.translate(shake.x, shake.y);
+
+      // Dodge spring physics — damped oscillation like a person lurching sideways
+      let dodgeX = 0;
+      let dodgeY = 0;
+      let dodgeRot = 0;
+      if (anim.dodgeTime >= 0) {
+        const t = anim.dodgeTime;
+        const dir = anim.dodgeDirection;
+        const mag = anim.dodgeIntensity;
+        // Damped spring: violent initial lurch, oscillates back
+        const damping = 3.0;
+        const freq = 8.5;
+        const envelope = Math.exp(-damping * t);
+        // 80-110px lateral lurch + initial snap impulse
+        dodgeX = dir * mag * (90 * envelope * Math.sin(freq * t)
+          + (t < 0.1 ? 70 * (1 - t / 0.1) : 0));
+        // Vertical dip — duck down 25-35px, bob back
+        dodgeY = mag * 30 * envelope * Math.abs(Math.sin(freq * t * 0.7));
+        // Camera tilts with the dive, ±4-5 degrees
+        dodgeRot = dir * mag * 0.075 * envelope * Math.sin(freq * t * 0.9);
+      }
+
+      // Hit recoil — violent backward slam, staggers back into position
+      let hitX = 0;
+      let hitY = 0;
+      let hitRot = 0;
+      if (anim.hitRecoilTime >= 0) {
+        const t = anim.hitRecoilTime;
+        const envelope = Math.exp(-4 * t);
+        // Slam backward (downward on screen) + random lateral stagger
+        hitY = 45 * envelope * Math.sin(6 * t);
+        hitX = 20 * envelope * Math.sin(9 * t + 1);
+        hitRot = 0.04 * envelope * Math.sin(7 * t);
+      }
+
+      // Idle sway — slow, persistent drift like a person breathing/standing
+      const swayT = time / 1000; // seconds
+      const idleX = Math.sin(swayT * 0.7) * 6 + Math.sin(swayT * 1.3) * 3;
+      const idleY = Math.sin(swayT * 0.9 + 1.0) * 3 + Math.cos(swayT * 1.6) * 1.5;
+      const idleRot = Math.sin(swayT * 0.5 + 0.5) * 0.006;
+
+      const cx = W / 2;
+      const cy = H / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(dodgeRot + hitRot + idleRot);
+      ctx.translate(
+        -cx + shake.x + dodgeX + hitX + idleX,
+        -cy + shake.y + dodgeY + hitY + idleY
+      );
 
       // Background
       ctx.drawImage(bg, 0, 0);
@@ -356,9 +549,15 @@ export function BossArena({
         // Boss periodic projectile
         if (anim.bossAttackActive) {
           drawBossProjectile(ctx, W, H, vpX, vpY, anim.bossAttackProgress, anim.attackTargetX, anim.attackTargetY);
-          if (anim.bossAttackProgress > 0.85) {
+          // Only show red impact flash on actual hits, not dodges
+          if (anim.bossAttackProgress > 0.85 && !anim.attackDodged) {
             drawImpactFlash(ctx, W, H, 1 - (anim.bossAttackProgress - 0.85) / 0.15);
           }
+        }
+
+        // Dodge streak — near-miss projectile whizzing past camera
+        if (anim.dodgeStreakProgress >= 0 && anim.dodgeStreakProgress < 1) {
+          drawDodgeStreak(ctx, W, H, anim.dodgeStreakProgress, anim.dodgeTargetX, anim.dodgeTargetY);
         }
       }
 
@@ -391,6 +590,31 @@ export function BossArena({
       // (React state would be stale inside RAF closure)
       if (anim.heartsLost > 0) {
         drawBloodSplatters(ctx, W, H, anim.heartsLost, 5);
+      }
+
+      // Screen shatter — persistent glass cracks from each hit
+      if (anim.hitImpacts.length > 0) {
+        drawScreenShatter(ctx, W, H, anim.hitImpacts, anim.hitFlash);
+      }
+
+      // Dodge disorientation — scan line tearing + color channel split
+      if (anim.dodgeFlash > 0) {
+        const df = anim.dodgeFlash;
+        // Heavy horizontal scan line tearing — thick slices displaced far
+        const sliceCount = 10 + Math.floor(df * 14);
+        for (let i = 0; i < sliceCount; i++) {
+          const sy = Math.floor(Math.random() * H);
+          const sh = 3 + Math.floor(Math.random() * 8);
+          const dx = (Math.random() - 0.5) * df * 50;
+          ctx.drawImage(ctx.canvas, 0, sy, W, sh, dx, sy, W, sh);
+        }
+        // Cyan/red chromatic aberration flash
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = `rgba(100,255,240,${df * 0.2})`;
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = `rgba(255,60,60,${df * 0.08})`;
+        ctx.fillRect(anim.dodgeDirection * df * 12, 0, W, H);
+        ctx.globalCompositeOperation = "source-over";
       }
 
       ctx.restore();
@@ -461,21 +685,25 @@ export function BossArena({
           </div>
           <div
             style={{
-              width: "clamp(320px, 50%, 500px)",
+              width: "clamp(360px, 55%, 600px)",
               background: "rgba(8,4,8,0.9)",
               border: "1px solid #201010",
             }}
           >
-            <div className="px-3 py-1.5" style={{ borderBottom: "1px solid #201010" }}>
-              <span className="text-[7px] tracking-[2px]" style={{ color: "#ff6e6e" }}>
+            <div className="px-3 py-2" style={{ borderBottom: "1px solid #201010" }}>
+              <span className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]" style={{ color: "#ff6e6e" }}>
                 INCOMING TRANSMISSION
               </span>
             </div>
-            <BossComms messages={state.messages} />
+            <BossComms messages={state.messages} onNewMessage={playMayaSound} />
           </div>
-          <div className="mt-4 text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
-            standby...
-          </div>
+          {state.waitingForContinue ? (
+            <BossContinueButton onContinue={actions.continueIntro} />
+          ) : (
+            <div className="mt-4 text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
+              standby...
+            </div>
+          )}
         </div>
       );
     }
@@ -497,8 +725,27 @@ export function BossArena({
           </div>
           <button
             onClick={() => {
+              // Start boss music FIRST — must happen synchronously in click handler
+              // so the browser recognises it as user-gesture-initiated playback.
+              audio.startLoop("boss-loop", 0.45);
+              audio.startLoop("facility-hum", 0.15);
+              audio.startLoop("tension-drone", 0.12);
+              // Unlock Web Audio context for one-shot SFX
+              audio.playSfx("terminal-beep", 0);
+
               setShowIntro(true);
               actions.startFight();
+
+              // Preload SFX in background (Web Audio buffers for one-shots)
+              audio.preload([
+                "warning-beep", "alert-beep", "dread-sting",
+                "captured-impact", "game-over-slam", "handshake-confirm",
+                "code-submit",
+                "weapon-charge", "laser-fire", "explosion-small", "shield-break",
+                "boss-hit", "target-lock", "hit-confirm", "countdown-tick",
+                "grunt-hit-1", "grunt-hit-2", "grunt-hit-3",
+                "grunt-dodge-1", "grunt-dodge-2",
+              ]);
             }}
             className="bg-transparent px-8 py-3 cursor-pointer font-[family-name:var(--font-display)] text-[11px] tracking-[4px] transition-colors"
             style={{ color: "#ff6e6e", border: "2px solid #ff4040" }}
@@ -619,11 +866,11 @@ export function BossArena({
       <div
         className="absolute bottom-0 left-0 z-10"
         style={{
-          width: "clamp(280px, 35%, 420px)",
-          maxHeight: "45%",
+          width: "clamp(320px, 40%, 520px)",
+          maxHeight: "50%",
         }}
       >
-        <BossComms messages={state.messages} />
+        <BossComms messages={state.messages} onNewMessage={playMayaSound} />
 
         {/* Telegraph inline in comms area */}
         {(state.phase === "telegraph" || state.phase === "player_window") && state.currentTelegraph && (
@@ -635,16 +882,16 @@ export function BossArena({
               borderRight: "1px solid rgba(255,64,64,0.1)",
             }}
           >
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-[6px] tracking-[2px]" style={{ color: "#ff6e6e" }}>⚡ TELEGRAPH</span>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]" style={{ color: "#ff6e6e" }}>⚡ TELEGRAPH</span>
             </div>
             <div
-              className="text-[9px] leading-[1.4] font-[family-name:var(--font-display)]"
+              className="text-[12px] leading-[1.4] font-[family-name:var(--font-display)]"
               style={{ color: "#ffaa00" }}
             >
               {state.currentTelegraph}
             </div>
-            <div className="text-[8px] leading-[1.3] mt-0.5" style={{ color: "var(--color-dim)" }}>
+            <div className="text-[11px] leading-[1.4] mt-1" style={{ color: "var(--color-dim)" }}>
               {state.currentHint}
             </div>
           </div>

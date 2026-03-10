@@ -278,6 +278,17 @@ export function CinematicScene({
         )}
       </div>
 
+      {/* Credits */}
+      <div
+        className="absolute bottom-16 text-[7px] tracking-[2px] opacity-0"
+        style={{
+          color: "rgba(110,255,160,.15)",
+          animation: "intro-in 1s ease 1.5s forwards",
+        }}
+      >
+        crafted with ❤️ by chienda.com
+      </div>
+
       {/* Skip prompt */}
       <div
         className="absolute bottom-8 text-[7px] tracking-[3px] opacity-0"

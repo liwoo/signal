@@ -611,6 +611,114 @@ export function drawMissEffect(
   ctx.restore();
 }
 
+// ── Screen shatter (on boss attack HIT — glass cracking from impact) ──
+
+// Pre-generate crack paths deterministically per hit
+function crackSeed(hitIndex: number, i: number): number {
+  return ((hitIndex * 6271 + i * 3433) % 1000) / 1000;
+}
+
+/**
+ * Draws persistent glass cracks on the camera lens.
+ * Each hit adds a new cluster of cracks from the impact point.
+ * Cracks persist and accumulate — the screen gets progressively more shattered.
+ */
+export function drawScreenShatter(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  hits: { x: number; y: number; index: number }[], // all hits so far
+  flashIntensity: number, // 0-1, white flash on fresh hit (decays fast)
+) {
+  if (hits.length === 0) return;
+  ctx.save();
+
+  // Draw cracks for each hit
+  for (const hit of hits) {
+    const cx = hit.x;
+    const cy = hit.y;
+    const severity = Math.min(1, (hit.index + 1) / 4); // gets worse with each hit
+
+    // 5-8 crack lines radiating from impact
+    const crackCount = 5 + Math.floor(crackSeed(hit.index, 0) * 4);
+
+    for (let c = 0; c < crackCount; c++) {
+      const baseAngle = (c / crackCount) * Math.PI * 2 + crackSeed(hit.index, c + 10) * 0.8;
+      const len = 60 + crackSeed(hit.index, c + 20) * 180 * (0.6 + severity * 0.4);
+
+      // Each crack is a jagged line with 3-5 segments
+      const segments = 3 + Math.floor(crackSeed(hit.index, c + 30) * 3);
+      let px = cx;
+      let py = cy;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+
+      for (let s = 0; s < segments; s++) {
+        const t = (s + 1) / segments;
+        const jitter = (crackSeed(hit.index, c * 10 + s) - 0.5) * 0.6;
+        const angle = baseAngle + jitter;
+        px = cx + Math.cos(angle) * len * t;
+        py = cy + Math.sin(angle) * len * t;
+        ctx.lineTo(px, py);
+      }
+
+      // Main crack line — bright white/cyan
+      ctx.strokeStyle = `rgba(200,240,255,${0.35 + severity * 0.25})`;
+      ctx.lineWidth = 1.5 + severity;
+      ctx.shadowColor = "rgba(200,240,255,0.6)";
+      ctx.shadowBlur = 4;
+      ctx.stroke();
+
+      // Thinner inner highlight
+      ctx.strokeStyle = `rgba(255,255,255,${0.2 + severity * 0.15})`;
+      ctx.lineWidth = 0.5;
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+
+      // Branch cracks on longer lines
+      if (len > 120 && crackSeed(hit.index, c + 40) > 0.3) {
+        const branchT = 0.4 + crackSeed(hit.index, c + 50) * 0.3;
+        const bx = cx + Math.cos(baseAngle) * len * branchT;
+        const by = cy + Math.sin(baseAngle) * len * branchT;
+        const branchAngle = baseAngle + (crackSeed(hit.index, c + 60) > 0.5 ? 0.6 : -0.6);
+        const branchLen = 30 + crackSeed(hit.index, c + 70) * 60;
+
+        ctx.beginPath();
+        ctx.moveTo(bx, by);
+        ctx.lineTo(
+          bx + Math.cos(branchAngle) * branchLen,
+          by + Math.sin(branchAngle) * branchLen
+        );
+        ctx.strokeStyle = `rgba(200,240,255,${0.2 + severity * 0.15})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Small impact crater — concentric rings at hit point
+    ctx.strokeStyle = `rgba(255,255,255,${0.15 + severity * 0.1})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8 + severity * 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${0.3 + severity * 0.2})`;
+    ctx.fill();
+  }
+
+  // White impact flash (only on fresh hit — decays in ~200ms)
+  if (flashIntensity > 0) {
+    ctx.globalAlpha = flashIntensity * 0.5;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
 // ── Blood splatter on camera lens (progressive damage) ──
 
 // Pre-generate deterministic splatter positions based on hit index
@@ -697,6 +805,85 @@ export function drawBloodSplatters(
     }
   }
 
+  ctx.restore();
+}
+
+// ── Dodge streak (near-miss projectile whizzing past camera) ──
+
+export function drawDodgeStreak(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  progress: number, // 0-1, the streak flies across screen
+  targetNX: number, // where the shot was aimed (normalized)
+  targetNY: number,
+) {
+  if (progress >= 1) return;
+  ctx.save();
+
+  // The projectile "just missed" — it streaks laterally past the camera
+  // Direction: from the target point, it flies off to the nearest edge
+  const edgeX = targetNX < 0.5 ? -0.15 : 1.15; // exit toward nearest side
+  const edgeY = targetNY + (Math.random() - 0.5) * 0.1; // slight vertical drift
+
+  const startX = w * targetNX;
+  const startY = h * targetNY;
+  const endX = w * edgeX;
+  const endY = h * edgeY;
+
+  // Streak expands as it passes (Doppler-like)
+  const t = Math.pow(progress, 0.6); // ease-in for speed feel
+  const x = startX + (endX - startX) * t;
+  const y = startY + (endY - startY) * t;
+  const fade = progress > 0.5 ? (progress - 0.5) / 0.5 : 0;
+  const alpha = (1 - fade) * 0.9;
+
+  if (alpha <= 0) { ctx.restore(); return; }
+  ctx.globalAlpha = alpha;
+
+  // Motion trail — thick red streak
+  const trailLen = 80 + progress * 120;
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const nx = dx / len;
+  const ny = dy / len;
+
+  ctx.strokeStyle = "#ff4040";
+  ctx.lineWidth = 6 + progress * 4;
+  ctx.shadowColor = "#ff0000";
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.moveTo(x - nx * trailLen, y - ny * trailLen);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  // Core bright line
+  ctx.strokeStyle = "#ff8888";
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(x - nx * trailLen * 0.6, y - ny * trailLen * 0.6);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+
+  // Scatter sparks around the near-miss point
+  if (progress < 0.5) {
+    const sparkAlpha = 1 - progress * 2;
+    ctx.globalAlpha = sparkAlpha;
+    for (let i = 0; i < 8; i++) {
+      const sa = Math.random() * Math.PI * 2;
+      const sd = 10 + Math.random() * 40 * progress;
+      const sx = startX + Math.cos(sa) * sd;
+      const sy = startY + Math.sin(sa) * sd;
+      ctx.fillStyle = Math.random() > 0.4 ? "#ff6e6e" : "#ffcc44";
+      ctx.fillRect(sx, sy, 2 + Math.random() * 2, 2);
+    }
+  }
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
