@@ -483,6 +483,168 @@ if total > 100 {
     ],
   },
 
+  "chapter-04": {
+    title: "MAPS & SETS",
+    subtitle: "KEY-VALUE LOOKUPS",
+    blocks: [
+      // Section 0: Scaffold recap + maps intro
+      {
+        type: "text",
+        section: 0,
+        content:
+          "every go program starts the same way. this time you're building a guard roster — and you'll need go's map type.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import "fmt"
+
+func main() {
+    // guard roster goes here
+}`,
+        hotspots: [
+          { text: "package main", tip: "every go executable starts with this. the roster terminal needs it." },
+          { text: `import "fmt"`, tip: "brings in the fmt package for printing. you'll print which floors are clear." },
+          { text: "func main()", tip: "entry point. your map logic goes inside here." },
+        ],
+      },
+
+      // Section 1: Maps
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a map stores key-value pairs. map[string]string means string keys, string values. you create one with a composite literal.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+}`,
+        hotspots: [
+          { text: "map[string]string", tip: "the type — keys are strings, values are strings. the key type goes in brackets, the value type follows." },
+          { text: ":=", tip: "short variable declaration. go infers the full type from the literal on the right." },
+          { text: `{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+}`, tip: "a composite literal — all entries declared at once. cleaner than adding them one by one with guards[\"Chen\"] = \"Floor 1\"." },
+          { text: `"Santos":  "Floor 1",`, tip: "trailing comma is required in go when the closing brace is on its own line. the compiler enforces this." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "access a single value: guards[\"Volkov\"] returns \"Floor 2\". if the key doesn't exist, you get the zero value (empty string for strings).",
+      },
+
+      // Section 2: Range over maps
+      {
+        type: "text",
+        section: 2,
+        content:
+          "use range to iterate over all entries. with maps, range gives you key and value each iteration.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `for name, floor := range guards {
+    fmt.Println(name, "is on", floor)
+}`,
+        hotspots: [
+          { text: "range guards", tip: "iterates all entries in the map. each iteration gives you one key-value pair." },
+          { text: "name", tip: "the key — each guard's name. range assigns it fresh each iteration." },
+          { text: "floor", tip: "the value — the floor assignment for that guard." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "map iteration order is random in go — don't depend on a specific order. this is by design.",
+      },
+
+      // Section 3: Tracking with a bool map
+      {
+        type: "text",
+        section: 3,
+        content:
+          "to find which floors are occupied, collect them in a separate map. a map[string]bool lets you check membership quickly — like a set.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `occupied := map[string]bool{}
+for _, floor := range guards {
+    occupied[floor] = true
+}
+// check if a floor is occupied
+if occupied["Floor 4"] {
+    fmt.Println("Floor 4 has guards")
+} else {
+    fmt.Println("Floor 4 is clear")
+}`,
+        hotspots: [
+          { text: "map[string]bool{}", tip: "empty map literal — the set pattern. keys are the items in the set, values are always true." },
+          { text: "occupied[floor] = true", tip: "marking a floor as present. after this loop, every floor that appears in guards will be in the map." },
+          { text: `occupied["Floor 4"]`, tip: "lookup returns false if the key is missing — the zero value for bool. no need for a special \"contains\" function." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "this is go's \"set\" pattern — a map[T]bool where you only care about the keys. checking a missing key returns false (the zero value for bool), which is exactly what we want.",
+      },
+
+      // Section 4: Looping through floors
+      {
+        type: "text",
+        section: 4,
+        content:
+          "to check multiple floors, use a simple for loop. go's Sprintf function can build the floor string dynamically.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `for i := 1; i <= 4; i++ {
+    floor := fmt.Sprintf("Floor %d", i)
+    if !occupied[floor] {
+        fmt.Println(floor, "is clear")
+    }
+}`,
+        hotspots: [
+          { text: `fmt.Sprintf("Floor %d", i)`, tip: "builds a string without printing it. like Printf but returns the string instead of writing to stdout." },
+          { text: "!occupied[floor]", tip: "negation — true when the floor ISN'T in the map. missing keys return false, so !false = true." },
+        ],
+      },
+
+      // Section 5: Zen recap
+      {
+        type: "text",
+        section: 5,
+        content:
+          "zen tips for this level: use a map composite literal (declare all entries at once, not one by one). use range to iterate maps — not manual key lookups. give your maps descriptive names — guards and occupied, not m and m2.",
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "the expected final output is: Floor 4 is clear",
+      },
+    ],
+  },
+
   "boss-01": {
     title: "WEAPON SYSTEMS",
     subtitle: "GO SURVIVAL GUIDE FOR THE LOCKMASTER",

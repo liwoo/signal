@@ -4,7 +4,7 @@ import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen
 // ── Registry Tests ──
 
 describe("zen rules registry", () => {
-  test("has rules for all 9 steps", () => {
+  test("has rules for all 12 steps", () => {
     const stepIds = [
       "chapter-01:scaffold",
       "chapter-01:location",
@@ -13,6 +13,9 @@ describe("zen rules registry", () => {
       "chapter-02:classify",
       "chapter-03:sumfunc",
       "chapter-03:validate",
+      "chapter-04:scaffold",
+      "chapter-04:guardmap",
+      "chapter-04:clearfloors",
       "boss-01:scaffold",
       "boss-01:predict",
     ];
@@ -51,6 +54,9 @@ describe("zen rules registry", () => {
       "chapter-02:classify": 35,   // 15 + 10 + 10
       "chapter-03:sumfunc": 25,    // 10 + 5 + 10
       "chapter-03:validate": 25,   // 15 + 10
+      "chapter-04:scaffold": 15,   // 10 + 3 + 2
+      "chapter-04:guardmap": 18,   // 10 + 5 + 3
+      "chapter-04:clearfloors": 25, // 10 + 10 + 5
       "boss-01:scaffold": 15,      // 10 + 3 + 2
       "boss-01:predict": 25,       // 5 + 10 + 5 + 5
     };
@@ -972,6 +978,296 @@ describe("chapter-03:validate — zen detection", () => {
   }
 });
 
+// ── Chapter 04: Scaffold ──
+
+describe("chapter-04:scaffold — zen detection", () => {
+  const STEP = "chapter-04:scaffold";
+
+  test("detects grouped import with blank lines", () => {
+    const code = `package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(15);
+    expect(result.jolts.length).toBe(3);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  test("detects non-grouped import with blank lines", () => {
+    const code = `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(5);
+    expect(result.jolts.length).toBe(2);
+    expect(result.suggestions.length).toBe(1);
+  });
+
+  test("no zen on minimal code", () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println("ready")
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(0);
+    expect(result.suggestions.length).toBe(3);
+  });
+});
+
+// ── Chapter 04: Guard Map ──
+
+describe("chapter-04:guardmap — zen detection", () => {
+  const STEP = "chapter-04:guardmap";
+
+  const entries: Array<{
+    name: string;
+    code: string;
+    expectedXP: number;
+    joltCount: number;
+    suggestionCount: number;
+  }> = [
+    {
+      name: "perfect: composite literal + descriptive name + trailing comma",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  fmt.Println(guards["Volkov"])
+}`,
+      expectedXP: 18,
+      joltCount: 3,
+      suggestionCount: 0,
+    },
+    {
+      name: "piecemeal assignment, short name, no trailing comma",
+      code: `package main
+import "fmt"
+func main() {
+  m := map[string]string{}
+  m["Chen"] = "Floor 1"
+  m["Alvarez"] = "Floor 2"
+  m["Volkov"] = "Floor 2"
+  m["Park"] = "Floor 3"
+  m["Santos"] = "Floor 1"
+  fmt.Println(m["Volkov"])
+}`,
+      expectedXP: 0,
+      joltCount: 0,
+      suggestionCount: 3,
+    },
+    {
+      name: "composite literal + short name + trailing comma",
+      code: `package main
+import "fmt"
+func main() {
+  m := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  fmt.Println(m["Volkov"])
+}`,
+      expectedXP: 13,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+    {
+      name: "composite literal + descriptive name + NO trailing comma (last entry on same line as brace)",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1"}
+  fmt.Println(guards["Volkov"])
+}`,
+      expectedXP: 15,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+    {
+      name: "composite literal inline (one-liner) + descriptive name",
+      code: `package main
+import "fmt"
+func main() {
+  roster := map[string]string{"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2", "Park": "Floor 3", "Santos": "Floor 1"}
+  fmt.Println(roster["Volkov"])
+}`,
+      expectedXP: 15,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+  ];
+
+  for (const entry of entries) {
+    test(entry.name, () => {
+      const result = analyzeZen(STEP, entry.code);
+      expect(result.bonusXP, "bonusXP").toBe(entry.expectedXP);
+      expect(result.jolts.length, "jolt count").toBe(entry.joltCount);
+      expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
+    });
+  }
+});
+
+// ── Chapter 04: Clear Floors ──
+
+describe("chapter-04:clearfloors — zen detection", () => {
+  const STEP = "chapter-04:clearfloors";
+
+  const entries: Array<{
+    name: string;
+    code: string;
+    expectedXP: number;
+    joltCount: number;
+    suggestionCount: number;
+  }> = [
+    {
+      name: "perfect: range + bool map + Sprintf + descriptive names",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  occupied := map[string]bool{}
+  for _, floor := range guards {
+    occupied[floor] = true
+  }
+  for i := 1; i <= 4; i++ {
+    name := fmt.Sprintf("Floor %d", i)
+    if !occupied[name] {
+      fmt.Println(name, "is clear")
+    }
+  }
+}`,
+      expectedXP: 25,
+      joltCount: 3,
+      suggestionCount: 0,
+    },
+    {
+      name: "no range (manual iteration), no bool map, hardcoded floor checks",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  if guards["Chen"] != "Floor 4" && guards["Alvarez"] != "Floor 4" && guards["Volkov"] != "Floor 4" && guards["Park"] != "Floor 4" && guards["Santos"] != "Floor 4" {
+    fmt.Println("Floor 4 is clear")
+  }
+}`,
+      expectedXP: 0,
+      joltCount: 0,
+      suggestionCount: 1,
+    },
+    {
+      name: "range + slice instead of bool map + Sprintf",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  floors := []string{}
+  for _, floor := range guards {
+    floors = append(floors, floor)
+  }
+  for i := 1; i <= 4; i++ {
+    name := fmt.Sprintf("Floor %d", i)
+    found := false
+    for _, f := range floors {
+      if f == name {
+        found = true
+      }
+    }
+    if !found {
+      fmt.Println(name, "is clear")
+    }
+  }
+}`,
+      expectedXP: 15,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+    {
+      name: "range + bool map but hardcoded floor strings (no Sprintf)",
+      code: `package main
+import "fmt"
+func main() {
+  guards := map[string]string{
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+  occupied := map[string]bool{}
+  for _, floor := range guards {
+    occupied[floor] = true
+  }
+  if !occupied["Floor 1"] {
+    fmt.Println("Floor 1 is clear")
+  }
+  if !occupied["Floor 2"] {
+    fmt.Println("Floor 2 is clear")
+  }
+  if !occupied["Floor 3"] {
+    fmt.Println("Floor 3 is clear")
+  }
+  if !occupied["Floor 4"] {
+    fmt.Println("Floor 4 is clear")
+  }
+}`,
+      expectedXP: 20,
+      joltCount: 2,
+      suggestionCount: 1,
+    },
+  ];
+
+  for (const entry of entries) {
+    test(entry.name, () => {
+      const result = analyzeZen(STEP, entry.code);
+      expect(result.bonusXP, "bonusXP").toBe(entry.expectedXP);
+      expect(result.jolts.length, "jolt count").toBe(entry.joltCount);
+      expect(result.suggestions.length, "suggestion count").toBe(entry.suggestionCount);
+    });
+  }
+});
+
 // ── Boss 01: Scaffold ──
 
 describe("boss-01:scaffold — zen detection", () => {
@@ -1512,7 +1808,7 @@ func main() {
     expect(total).toBe(50); // 25 + 25
   });
 
-  test("all chapters + bosses perfect = 165 total zen XP", () => {
+  test("all chapters + bosses perfect = 208 total zen XP", () => {
     const maxPerStep: Record<string, number> = {
       "chapter-01:scaffold": 15,
       "chapter-01:location": 35,
@@ -1520,10 +1816,12 @@ func main() {
       "chapter-02:classify": 35,
       "chapter-03:sumfunc": 25,
       "chapter-03:validate": 25,
+      "chapter-04:guardmap": 18,
+      "chapter-04:clearfloors": 25,
       "boss-01:predict": 25,
     };
     const grandTotal = Object.values(maxPerStep).reduce((a, b) => a + b, 0);
-    expect(grandTotal).toBe(165);
+    expect(grandTotal).toBe(208);
   });
 });
 

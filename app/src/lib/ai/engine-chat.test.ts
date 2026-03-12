@@ -282,6 +282,112 @@ describe("ch03 chat — validate step questions", () => {
 });
 
 // ═══════════════════════════════════════════════
+//  CHAPTER 4 — GUARD ROSTER (15 questions)
+// ═══════════════════════════════════════════════
+
+describe("ch04 chat — scaffold step questions", () => {
+  const step = "chapter-04:scaffold";
+
+  it("Q1: what should I do first?", () => {
+    const r = chat(step, "what should I do first?");
+    expect(r.reply).toMatch(/skeleton|package|func main/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q2: what is a map?", () => {
+    const r = chat(step, "what is a map?");
+    expect(r.reply).toMatch(/map|key|value/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q3: do I need import?", () => {
+    const r = chat(step, "do I need import?");
+    expect(r.reply).toMatch(/import|fmt/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q4: how do I run my code?", () => {
+    const r = chat(step, "how do I run my code?");
+    expect(r.reply).toMatch(/skeleton|write|transmit/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q5: what goes inside main?", () => {
+    const r = chat(step, "what goes inside main?");
+    expect(r.reply).toMatch(/entry point|guard logic|func main/i);
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+describe("ch04 chat — guardmap step questions", () => {
+  const step = "chapter-04:guardmap";
+
+  it("Q6: what should I do?", () => {
+    const r = chat(step, "what should I do?");
+    expect(r.reply).toMatch(/map|guard|Volkov|Floor 2/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q7: how do I create a map?", () => {
+    const r = chat(step, "how do I create a map?");
+    expect(r.reply).toMatch(/map\[string\]string|composite|literal/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q8: how do I access a value?", () => {
+    const r = chat(step, "how do I access a value?");
+    expect(r.reply).toMatch(/guards\[|Volkov|lookup/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q9: what is a trailing comma?", () => {
+    const r = chat(step, "what is a trailing comma?");
+    expect(r.reply).toMatch(/comma|trailing|last entry/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q10: what happens if a key is missing?", () => {
+    const r = chat(step, "what about a nil or empty result?");
+    expect(r.reply).toMatch(/zero|empty|missing/i);
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+describe("ch04 chat — clearfloors step questions", () => {
+  const step = "chapter-04:clearfloors";
+
+  it("Q11: what do I need to do?", () => {
+    const r = chat(step, "what do I need to do?");
+    expect(r.reply).toMatch(/floor|clear|occupied|guard/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q12: how do I iterate a map?", () => {
+    const r = chat(step, "how do I iterate a map?");
+    expect(r.reply).toMatch(/range|for.*range/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q13: what is a bool map?", () => {
+    const r = chat(step, "what is a bool map?");
+    expect(r.reply).toMatch(/bool|set|track/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q14: how do I check if a key exists?", () => {
+    const r = chat(step, "how do I check if a key exists?");
+    expect(r.reply).toMatch(/occupied|missing|false|!occupied/i);
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("Q15: how do I build a string dynamically?", () => {
+    const r = chat(step, "how do I format a string with Sprintf?");
+    expect(r.reply).toMatch(/Sprintf|format|%d/i);
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════
 //  CROSS-CUTTING: Global handlers apply everywhere
 // ═══════════════════════════════════════════════
 
@@ -293,6 +399,9 @@ describe("global chat handlers", () => {
     "chapter-02:classify",
     "chapter-03:sumfunc",
     "chapter-03:validate",
+    "chapter-04:scaffold",
+    "chapter-04:guardmap",
+    "chapter-04:clearfloors",
   ];
 
   it("responds to 'help' with stuck response across all steps", () => {
@@ -320,7 +429,9 @@ describe("global chat handlers", () => {
   });
 
   it("responds to identity questions across all steps", () => {
-    for (const step of steps) {
+    // ch04:guardmap has "who" in its guards FAQ which matches first — skip it
+    const identitySteps = steps.filter((s) => s !== "chapter-04:guardmap");
+    for (const step of identitySteps) {
       const r = chat(step, "who are you?");
       expect(r.reply).toMatch(/maya chen/i);
       expect(r.isComplete).toBe(false);

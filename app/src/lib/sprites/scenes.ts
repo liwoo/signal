@@ -839,3 +839,137 @@ export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
     ],
   },
 ];
+
+// ── CHAPTER 4 INTRO SCENES ──────────────────────────────────────
+
+export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
+  // Scene 1: Maya in corridor near surveillance room — studying a photograph
+  {
+    background: "corridor",
+    actors: [
+      { type: "maya", x: 420, y: 310, animation: "idle" },
+    ],
+    camera: [
+      { x: 120, y: 10, time: 0 },
+      { x: 160, y: 20, time: 4500 },
+    ],
+    durationMs: 4500,
+    location: "FLOOR 1-3 · SURVEILLANCE CORRIDOR",
+    caption: "reeves gave her a photograph. guard schedule. names, floors, shift windows.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.04, fadeMs: 1000 },
+      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+    ],
+  },
+  // Scene 2: Maya walks along the corridor past surveillance monitors
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 180,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 620, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 300, y: 10, time: 2500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 1-3 · SURVEILLANCE",
+    caption: "five guards. four floors. one window where a floor goes clear.",
+    audio: [
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.25 },
+      { atMs: 2800, action: "sfx", sound: "maya-typing", volume: 0.2 },
+    ],
+  },
+  // Scene 3: Static shot — surveillance monitor glow. GHOST's broadcast.
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 40, time: 0 },
+      { x: 120, y: 50, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "FLOOR 1-3 · SURVEILLANCE",
+    caption: "[GHOST]: you have twelve hours. then the building burns.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.12, fadeMs: 2000 },
+      { atMs: 800, action: "sfx", sound: "alert-beep", volume: 0.4 },
+      { atMs: 1500, action: "sfx", sound: "dread-sting", volume: 0.35 },
+      { atMs: 2500, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+      { atMs: 3000, action: "sfx", sound: "warning-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 4 COMPLETE SCENES ───────────────────────────────────
+
+export const CHAPTER_04_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: Maya at a terminal — schedule decoded, confirmation
+  {
+    background: "corridor",
+    actors: [
+      { type: "maya", x: 600, y: 310, animation: "hack" },
+    ],
+    camera: [
+      { x: 260, y: 10, time: 0 },
+    ],
+    durationMs: 3000,
+    location: "FLOOR 1-3 · SURVEILLANCE",
+    caption: "guard schedule decoded. floor 4 is clear.",
+    audio: [
+      { atMs: 200, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 1500, action: "sfx", sound: "message-receive", volume: 0.3 },
+    ],
+  },
+  // Win 2: Maya moves toward the stairwell
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 200,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 650, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 300, y: 10, time: 2500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 4 · STAIRWELL",
+    caption: "floor 4. no guards for another forty minutes. enough time.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.3 },
+    ],
+  },
+  // Win 3: Static — tension. GHOST's presence lingers.
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 40, time: 0 },
+      { x: 110, y: 45, time: 3500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 4 · SERVER ACCESS",
+    caption: "but who is GHOST? and what burns in twelve hours?",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-2", volume: 0.08, fadeMs: 2000 },
+      { atMs: 0, action: "loop-start", sound: "tension-drone", volume: 0.06, fadeMs: 1500 },
+      { atMs: 2000, action: "sfx", sound: "dread-sting", volume: 0.25 },
+    ],
+  },
+];

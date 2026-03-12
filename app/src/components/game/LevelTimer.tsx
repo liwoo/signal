@@ -26,6 +26,17 @@ export function LevelTimer({
   const [remaining, setRemaining] = useState(timeLimitSeconds + bonusSeconds);
   const expiredRef = useRef(false);
 
+  // Reset expired guard when bonus time is added (e.g. rush cleared while timer was at 0)
+  useEffect(() => {
+    if (expiredRef.current) {
+      const elapsed = (Date.now() - startTimeMs) / 1000;
+      const left = timeLimitSeconds + bonusSeconds - elapsed;
+      if (left > 0) {
+        expiredRef.current = false;
+      }
+    }
+  }, [bonusSeconds, startTimeMs, timeLimitSeconds]);
+
   useEffect(() => {
     if (stopped) return;
 

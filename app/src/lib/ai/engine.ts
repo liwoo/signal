@@ -632,6 +632,16 @@ const ch02ClassifyBank: StepBank = {
 
   outputPatterns: [
     {
+      // Printf without \n — output is all on one line
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
+        const lower = output.toLowerCase();
+        return lines.length < 5 && lower.includes("deny") && output.trim().length > 30;
+      },
+      response:
+        "your output is all jammed together on one line. `Printf` doesn't add a newline — `Println` does. either use `fmt.Println(i, \"DENY\")` or add `\\n` at the end: `fmt.Printf(\"%d DENY\\n\", i)`.",
+    },
+    {
       match: (output) => {
         // Labels but no numbers (e.g. just "DENY\nDENY\n...")
         const lines = output.trim().split("\n").filter(Boolean);
@@ -762,6 +772,16 @@ const ch02RewriteBank: StepBank = {
   ],
 
   outputPatterns: [
+    {
+      // Printf without \n — output is all on one line
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
+        const lower = output.toLowerCase();
+        return lines.length < 5 && lower.includes("deny") && output.trim().length > 30;
+      },
+      response:
+        "your output is all on one line. `Printf` doesn't add a newline automatically. use `fmt.Println(i, \"DENY\")` or add `\\n`: `fmt.Printf(\"%d DENY\\n\", i)`.",
+    },
     {
       match: (output) => {
         const lower = output.toLowerCase();
@@ -1307,6 +1327,377 @@ const boss01PredictBank: StepBank = {
   ],
 };
 
+// Chapter 04: Step 0 — Scaffold
+const ch04ScaffoldBank: StepBank = {
+  intro:
+    "reeves's photograph. five guards, four floors. but first — set up the terminal. package, import, main.",
+
+  conceptFAQ: [
+    {
+      keywords: ["package", "package main"],
+      response:
+        "`package main` — first line. same as every go program.",
+    },
+    {
+      keywords: ["import", "fmt"],
+      response:
+        "`import \"fmt\"` — you'll need it for printing guard data.",
+    },
+    {
+      keywords: ["func", "main", "entry"],
+      response:
+        "`func main() { }` — the entry point. guard logic goes inside.",
+    },
+    {
+      keywords: ["map", "guard", "roster"],
+      response:
+        "maps come next step. right now just get the skeleton in.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "write the go skeleton. `package main`, `import \"fmt\"`, `func main() { fmt.Println(\"ready\") }`. transmit it.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => isValidScaffold(code),
+      response:
+        "terminal initialized. now build the guard roster.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !minify(code).includes("packagemain"),
+      response:
+        "every go file starts with `package main`. first line.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && !m.includes('import"fmt"') && !m.includes('import("fmt")');
+      },
+      response:
+        "package is set. add `import \"fmt\"` — we'll need print functions.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && !m.includes("funcmain(){");
+      },
+      response:
+        "package and import are set. add `func main() { }` — the entry point.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
+      },
+      response:
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"ready\")` inside main.",
+    },
+  ],
+
+  correctResponse:
+    "terminal initialized. now build the guard roster.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the terminal can't parse that. package main, import, func main().",
+    "not a valid go program. start with `package main`.",
+  ],
+
+  rushDialogue: [],
+  stuckResponses: [
+    "three things: `package main`, `import \"fmt\"`, `func main() { }`.",
+  ],
+  deflections: [
+    "just the skeleton for now. package, import, main.",
+  ],
+};
+
+// Chapter 04: Step 1 — Guard Map
+const ch04GuardmapBank: StepBank = {
+  intro:
+    "good. now build the guard roster. create a map — map[string]string — with each guard's name as the key and their floor as the value. print guards[\"Volkov\"] to verify.\n\nexpected output: Floor 2",
+
+  conceptFAQ: [
+    {
+      keywords: ["map", "what is a map", "maps"],
+      response:
+        "`map[string]string` — key-value pairs. keys are strings (guard names), values are strings (floor assignments). like a lookup table.",
+    },
+    {
+      keywords: ["how do i create", "declare", "initialize", "make", "literal"],
+      response:
+        "composite literal: `guards := map[string]string{\"Chen\": \"Floor 1\", \"Volkov\": \"Floor 2\", ...}`. every entry needs a trailing comma.",
+    },
+    {
+      keywords: ["access", "lookup", "get", "value", "retrieve"],
+      response:
+        "`guards[\"Volkov\"]` returns the value for that key — `\"Floor 2\"`. pass it to `fmt.Println`.",
+    },
+    {
+      keywords: ["key", "string"],
+      response:
+        "keys are strings — the guard names. values are strings — the floor names like `\"Floor 1\"`. both sides are `string`.",
+    },
+    {
+      keywords: [":=", "short", "var"],
+      response:
+        "`:=` declares and initializes in one step. `guards := map[string]string{...}` creates the map and assigns it.",
+    },
+    {
+      keywords: ["comma", "trailing"],
+      response:
+        "every entry in a go map literal needs a trailing comma — including the last one. go's compiler requires it.",
+    },
+    {
+      keywords: ["nil", "zero", "missing", "empty"],
+      response:
+        "accessing a missing key returns the zero value — `\"\"` for strings. no error, just empty. that's why you need to add all guards.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "create a map with guard names as keys and floor assignments as values. then print `guards[\"Volkov\"]`. expected output: `Floor 2`.",
+    },
+    {
+      keywords: ["guard", "guards", "names", "who", "roster"],
+      response:
+        "five guards on four floors. build the map with their assignments and print Volkov's floor to verify.",
+    },
+    {
+      keywords: ["print", "println", "output"],
+      response:
+        "`fmt.Println(guards[\"Volkov\"])` — prints the value for the key \"Volkov\". expected output: `Floor 2`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => {
+        const trimmed = output.trim();
+        return /^[0-9]+$/.test(trimmed);
+      },
+      response:
+        "almost — print the full floor name. `guards[\"Volkov\"]` returns `\"Floor 2\"`, not just `2`. expected output: `Floor 2`.",
+    },
+    {
+      match: (output) => output.trim().length === 0,
+      response:
+        "nothing printed. after building the map, add `fmt.Println(guards[\"Volkov\"])`. expected output: `Floor 2`.",
+    },
+    {
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
+        return lines.length > 1;
+      },
+      response:
+        "just print Volkov's floor for now — `fmt.Println(guards[\"Volkov\"])`. one line: `Floor 2`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const lower = code.toLowerCase();
+        return lower.includes("map[string]string") && lower.includes("volkov") && /fmt\.\w*[Pp]rint/.test(code);
+      },
+      response:
+        "map confirmed. volkov is on floor 2. now we find the gaps.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => {
+        const lower = code.toLowerCase();
+        return lower.includes("map") && !(/fmt\.\w*[Pp]rint/.test(code));
+      },
+      response:
+        "map looks good. now print Volkov's floor: `fmt.Println(guards[\"Volkov\"])`. expected output: `Floor 2`.",
+    },
+    {
+      match: (code) => !code.toLowerCase().includes("map"),
+      response:
+        "you need a map. `guards := map[string]string{\"Chen\": \"Floor 1\", ...}`. expected output after printing Volkov's floor: `Floor 2`.",
+    },
+  ],
+
+  correctResponse:
+    "map confirmed. volkov is on floor 2. now we find the gaps.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. build a `map[string]string` with guard names and floors, then print `guards[\"Volkov\"]`. expected output: `Floor 2`.",
+    "wrong output. the map should give `Floor 2` when you look up Volkov.",
+  ],
+
+  rushDialogue: [
+    "we don't have long. build the roster map and look up volkov.",
+    "hurry — map the guards. print volkov's floor.",
+  ],
+
+  stuckResponses: [
+    "`guards := map[string]string{\"Chen\": \"Floor 1\", \"Volkov\": \"Floor 2\", ...}` then `fmt.Println(guards[\"Volkov\"])`.",
+    "create the map, add guards with their floors, print the lookup. expected output: `Floor 2`.",
+  ],
+
+  deflections: [
+    "focus. build the guard map first.",
+    "not now — i need the roster confirmed. map the guards.",
+  ],
+};
+
+// Chapter 04: Step 2 — Clear Floors
+const ch04ClearfloorsBank: StepBank = {
+  intro:
+    "the roster's built. now find the gap — which floor has no guards right now.\n\ncollect the occupied floors, then check 1 through 4. print any that are clear.\n\nexpected output: Floor 4 is clear",
+
+  conceptFAQ: [
+    {
+      keywords: ["range", "iterate", "loop map"],
+      response:
+        "`for _, floor := range guards` iterates the map values. use it to collect which floors are occupied.",
+    },
+    {
+      keywords: ["occupied", "track", "set"],
+      response:
+        "`occupied := map[string]bool{}` — go's set pattern. add each floor as you iterate: `occupied[floor] = true`.",
+    },
+    {
+      keywords: ["check", "member", "exists"],
+      response:
+        "`if !occupied[floor]` — a missing key in a bool map returns `false`. so `!occupied[key]` is true when the floor is unoccupied.",
+    },
+    {
+      keywords: ["Sprintf", "format", "build string"],
+      response:
+        "`fmt.Sprintf(\"Floor %d\", i)` creates the string `\"Floor 1\"`, `\"Floor 2\"`, etc. use it as the key to check occupied.",
+    },
+    {
+      keywords: ["bool", "map bool"],
+      response:
+        "`map[string]bool{}` is go's set pattern. keys present = in the set. missing key returns `false` automatically.",
+    },
+    {
+      keywords: ["!", "negation", "not"],
+      response:
+        "`!occupied[key]` is true when the key is missing — meaning that floor has no guard. that's the one you print.",
+    },
+    {
+      keywords: ["how many floors", "1-4", "floors", "four"],
+      response:
+        "four floors total. the guard roster covers some of them. loop `for i := 1; i <= 4; i++` and check which ones are empty.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "find which floor has no guards. build an occupied set from the map values, then check floors 1-4. expected output: `Floor 4 is clear`.",
+    },
+    {
+      keywords: ["clear", "empty", "unguarded", "gap"],
+      response:
+        "a clear floor is one with no guards assigned. after building the occupied set, any floor not in it is clear. expected output: `Floor 4 is clear`.",
+    },
+    {
+      keywords: ["print", "println", "output", "format"],
+      response:
+        "`fmt.Println(name, \"is clear\")` — where name is the floor string like `\"Floor 4\"`. expected output: `Floor 4 is clear`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
+        return lines.filter((l) => l.toLowerCase().includes("is clear")).length > 1;
+      },
+      response:
+        "only Floor 4 should be clear. check your guard map — are all 5 guards accounted for? expected output: `Floor 4 is clear`.",
+    },
+    {
+      match: (output) => {
+        const lower = output.trim().toLowerCase();
+        return lower.includes("floor 4") && !lower.includes("is clear");
+      },
+      response:
+        "close — but the format should be `Floor 4 is clear`. check your Println/Printf format string. expected output: `Floor 4 is clear`.",
+    },
+    {
+      match: (output) => {
+        const trimmed = output.trim();
+        return /^4$/.test(trimmed) || /^[0-9]+$/.test(trimmed);
+      },
+      response:
+        "print the full message: `Floor 4 is clear`, not just the number. expected output: `Floor 4 is clear`.",
+    },
+    {
+      match: (output) => output.trim().length === 0,
+      response:
+        "nothing printed. after building the occupied map, loop 1-4 and check: `if !occupied[name] { fmt.Println(name, \"is clear\") }`. expected output: `Floor 4 is clear`.",
+    },
+    {
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
+        return lines.length > 1 && lines.some((l) => l.toLowerCase().includes("floor"));
+      },
+      response:
+        "too many lines. only floors with no guards should print. expected output: `Floor 4 is clear`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const hasRange = code.includes("range");
+        const hasBoolMap = code.includes("map[string]bool");
+        const hasSprintf = code.includes("Sprintf") || code.includes("fmt.Sprintf");
+        const hasClear = code.includes("is clear");
+        return hasRange && hasBoolMap && (hasSprintf || code.includes("Floor")) && hasClear;
+      },
+      response:
+        "floor 4 is clear. that's our window. forty minutes.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => {
+        const hasGuards = code.includes("map[string]string");
+        const noBoolMap = !code.includes("map[string]bool");
+        return hasGuards && noBoolMap;
+      },
+      response:
+        "you have the roster. now track which floors are taken: `occupied := map[string]bool{}`. expected output: `Floor 4 is clear`.",
+    },
+    {
+      match: (code) => {
+        const hasBoolMap = code.includes("map[string]bool");
+        const noCheckLoop = !(/for\s+\w+\s*:=\s*1/.test(code));
+        return hasBoolMap && noCheckLoop;
+      },
+      response:
+        "build the occupied set, then loop `for i := 1; i <= 4; i++` to check each floor. expected output: `Floor 4 is clear`.",
+    },
+  ],
+
+  correctResponse:
+    "floor 4 is clear. that's our window. forty minutes.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. collect occupied floors, then check 1-4 for gaps. expected output: `Floor 4 is clear`.",
+    "wrong output. build an occupied set from the guard map, then find the empty floor. expected output: `Floor 4 is clear`.",
+  ],
+
+  rushDialogue: [
+    "reeves is waiting. find the clear floor. now.",
+    "the window is closing. which floor is empty?",
+  ],
+
+  stuckResponses: [
+    "loop the map values into `occupied := map[string]bool{}`. then `for i := 1; i <= 4; i++` — check `!occupied[fmt.Sprintf(\"Floor %d\", i)]` and print it.",
+    "three steps: build occupied set from guard map, loop floors 1-4, print any not in the set. expected output: `Floor 4 is clear`.",
+  ],
+
+  deflections: [
+    "focus. find the unguarded floor.",
+    "not now — i need to know which floor is clear.",
+  ],
+};
+
 // ── Registry ──
 
 const BANKS: Record<string, StepBank> = {
@@ -1319,6 +1710,9 @@ const BANKS: Record<string, StepBank> = {
   "chapter-03:scaffold": ch03ScaffoldBank,
   "chapter-03:sumfunc": ch03SumBank,
   "chapter-03:validate": ch03ValidateBank,
+  "chapter-04:scaffold": ch04ScaffoldBank,
+  "chapter-04:guardmap": ch04GuardmapBank,
+  "chapter-04:clearfloors": ch04ClearfloorsBank,
   "boss-01:scaffold": boss01ScaffoldBank,
   "boss-01:predict": boss01PredictBank,
 };

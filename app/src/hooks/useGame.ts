@@ -420,6 +420,8 @@ export function useGame(
   // Rush expired — check if main timer still has time
   const handleRushExpire = useCallback(() => {
     setInRush(false);
+    // Sync the ref immediately so handleTimerExpire doesn't early-return
+    inRushRef.current = false;
     const step = challenge.steps[stepIndex];
     if (step?.rushMode) {
       fireJeopardy(step.rushMode.onExpiry);

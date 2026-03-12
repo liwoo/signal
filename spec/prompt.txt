@@ -1,4 +1,4 @@
 lets use all the @.claude/skills/ we have to build the next level (I believe its
-  @../spec/levels/chapter-03-shaft.md)? including the correct zen references, animations and
+  @../spec/levels/chapter-04-guard-roster.md)? including the correct zen references, animations and
   sounds (download new if you have to) make sure that tutorials before this level incorporate the zen code for this round, to make it easier for the player to write the best code possible. it all starts with the lesson
 don't forget to allow multiple submissions for the round, including the necessary scaffold submission (we need the player to understand and practice how to scaffold go programs and functions/structs)

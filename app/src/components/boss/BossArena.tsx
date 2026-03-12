@@ -401,19 +401,21 @@ export function BossArena({
     const bossFrames = paintBossFrames(bossAnim, 3, state.bossHP);
 
     let frame = 0;
-    let lastFrameTime = 0;
+    let lastFrameTime = -1;
     const FRAME_MS = 180;
     const anim = animRef.current;
 
     const draw = (time: number) => {
+      // First frame: seed lastFrameTime so dt is near-zero (not huge)
+      if (lastFrameTime < 0) lastFrameTime = time;
       const dt = time - lastFrameTime;
       if (dt > FRAME_MS) {
         frame = (frame + 1) % bossFrames.length;
         lastFrameTime = time;
       }
 
-      // Advance animation timers
-      const dtSec = dt / 1000 || 0.016;
+      // Advance animation timers — clamp dtSec to avoid jumps on effect re-mount
+      const dtSec = Math.min(dt / 1000, 0.1) || 0.016;
       anim.weaponProgress = (anim.weaponProgress + dtSec * 0.5) % 1;
       anim.telegraphProgress = (anim.telegraphProgress + dtSec * 0.3) % 1;
 

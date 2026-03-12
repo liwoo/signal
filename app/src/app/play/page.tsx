@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
+import { chapter04, chapter04Twist } from "@/data/challenges/chapter-04";
 import { boss01, boss01Config } from "@/data/challenges/boss-01";
 import { useGame } from "@/hooks/useGame";
 import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
@@ -33,6 +34,8 @@ import {
   CHAPTER_03_COMPLETE_SCENES,
   BOSS_01_INTRO_SCENES,
   BOSS_01_COMPLETE_SCENES,
+  CHAPTER_04_INTRO_SCENES,
+  CHAPTER_04_COMPLETE_SCENES,
 } from "@/lib/sprites/scenes";
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
@@ -160,6 +163,22 @@ const CHAPTERS: ChapterConfig[] = [
       "everything you've learned — functions, loops, logic. 90 seconds. prove you're ready.",
     ],
     ctaLabel: "FACE THE LOCKMASTER",
+  },
+  {
+    challenge: chapter04,
+    twist: chapter04Twist,
+    introScenes: CHAPTER_04_INTRO_SCENES,
+    completeScenes: CHAPTER_04_COMPLETE_SCENES,
+    introTitle: "CHAPTER 4",
+    introSubtitle: "GUARD ROSTER",
+    completeTitle: "CHAPTER 4 COMPLETE",
+    completeSubtitle: "ROSTER DECODED",
+    tagline: "▸ FLOOR 1-3 · SURVEILLANCE",
+    storyLines: [
+      "dr. reeves photographed the guard schedule. five guards, four floors.",
+      "maps. range. find the gap. one floor goes clear in the next window.",
+    ],
+    ctaLabel: "START CHAPTER",
   },
 ];
 

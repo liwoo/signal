@@ -806,6 +806,81 @@ const namedVariables: ZenRule = {
   suggestion: "use descriptive names: `delta` or `diff` instead of `d` or `x`. go values clarity.",
 };
 
+// Ch04: Guard Map
+const mapCompositeLiteral: ZenRule = {
+  id: "map_composite_literal",
+  principle: "composite literal initialization",
+  check: (code) => {
+    // Look for map[string]string{ with at least one key-value pair inside
+    // (has a " before the closing }), distinguishing from empty literal + assignments
+    const match = code.match(/map\[string\]string\{([\s\S]*?)\}/);
+    if (!match) return false;
+    return /"/.test(match[1]);
+  },
+  bonusXP: 10,
+  jolt: "...the pattern. composite literals.\n\nyou declared the map with all its data in one expression — `map[string]string{...}`. that's how go does it. one declaration, one place to look. my advisor called it 'declarative intent' — you state what the data IS, not how to build it piece by piece.",
+  suggestion: "try declaring all guard entries in one map literal: `guards := map[string]string{\"Chen\": \"Floor 1\", ...}` — all data in one place, not assigned line by line.",
+};
+
+const descriptiveMapName: ZenRule = {
+  id: "descriptive_map_name",
+  principle: "meaningful map names",
+  check: (code) => {
+    const mainBody = extractFuncBody(code, "main");
+    if (!mainBody) return false;
+    const decls = collectDeclarations(mainBody);
+    const hasDescriptive = decls.some(n => n.length >= 5);
+    const hasMap = /map\[string\]/.test(code);
+    return hasDescriptive && hasMap;
+  },
+  bonusXP: 5,
+  jolt: "`guards`... not `m`. not `mp`.\n\nin go, variable names are documentation. your map name tells anyone reading this code exactly what it holds — a guard roster. short names for short scopes. descriptive names for everything else.",
+  suggestion: "try naming your map something descriptive — `guards` or `roster` instead of `m`. in go, names are documentation.",
+};
+
+const trailingCommaInLiteral: ZenRule = {
+  id: "trailing_comma_literal",
+  principle: "trailing comma in literals",
+  isRelevant: (code) => /map\[string\]string\{/.test(code),
+  check: (code) => {
+    // Trailing comma after last entry before }
+    return /",\s*\n\s*\}/.test(code) || /",\s*\}/.test(code);
+  },
+  bonusXP: 3,
+  jolt: "the trailing comma... go requires it when the closing brace is on its own line. but even when it's not required, it's convention — add a new entry later and the diff is one line, not two.\n\nmy encryption library... every struct literal had trailing commas. clean diffs, clean reviews.",
+  suggestion: "add a trailing comma after the last map entry — `\"Santos\": \"Floor 1\",` before the closing `}`. go requires it when `}` is on the next line.",
+};
+
+// Ch04: Clear Floors
+const rangeOverMap: ZenRule = {
+  id: "range_over_map",
+  principle: "range for map iteration",
+  check: (code) => /for\s+[\w_]+\s*,\s*[\w_]+\s*:=\s*range\s+\w+/.test(code),
+  bonusXP: 10,
+  jolt: "...range over a map. key and value, each iteration.\n\nno index arithmetic. no manual lookups. range walks the structure for you. the go team calls it 'let the language do the bookkeeping.' my thesis was full of these — range over channels, range over slices, range over maps. always range.",
+  suggestion: "use `for _, floor := range guards` to iterate the map — range gives you key and value automatically.",
+};
+
+const boolMapSetPattern: ZenRule = {
+  id: "bool_map_set",
+  principle: "bool map as set",
+  isRelevant: (code) => /range/.test(code),
+  check: (code) => /map\[string\]bool|map\[int\]bool/.test(code),
+  bonusXP: 10,
+  jolt: "the bool map... go's set pattern.\n\n`map[string]bool{}` — you only care about the keys. checking a missing key returns `false`, which is exactly what you want for 'not present.' no imports, no special types. just a map.\n\nmy advisor would say: 'go gives you maps. use them as sets. it's not a hack, it's the idiom.'",
+  suggestion: "try using `occupied := map[string]bool{}` to track which floors have guards — it's go's set pattern. `occupied[floor] = true` to mark, `!occupied[key]` to check.",
+};
+
+const sprintfForDynamicKeys: ZenRule = {
+  id: "sprintf_dynamic_keys",
+  principle: "Sprintf for key construction",
+  isRelevant: (code) => /for/.test(code) && (/occupied|clear|Floor/.test(code)),
+  check: (code) => /fmt\.Sprintf/.test(code),
+  bonusXP: 5,
+  jolt: "Sprintf to build the key... clean.\n\nyou didn't hardcode `\"Floor 1\"`, `\"Floor 2\"`, `\"Floor 3\"`, `\"Floor 4\"`. you built the string dynamically from the loop counter. if the building adds a fifth floor tomorrow, you change one number.\n\neffective go: 'format strings are the backbone of go's string handling.'",
+  suggestion: "try `fmt.Sprintf(\"Floor %d\", i)` to build floor names dynamically — avoids hardcoding each floor string.",
+};
+
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
@@ -817,6 +892,9 @@ const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-03:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "chapter-03:sumfunc": [shortVarInLoop, underscoreUnused, singlePurposeFunc],
   "chapter-03:validate": [directBoolReturn, reuseFunctions],
+  "chapter-04:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-04:guardmap": [mapCompositeLiteral, descriptiveMapName, trailingCommaInLiteral],
+  "chapter-04:clearfloors": [rangeOverMap, boolMapSetPattern, sprintfForDynamicKeys],
   "boss-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
 };
