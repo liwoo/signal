@@ -121,7 +121,7 @@ export function ChatPanel({
           return (
             <div
               key={m.id}
-              className="msg-enter text-[11.5px] leading-[1.65] transition-opacity duration-700"
+              className="msg-enter text-[17px] leading-[1.65] transition-opacity duration-700"
               style={{ opacity }}
             >
               <div className="flex gap-1.5 mb-px">
@@ -213,30 +213,52 @@ export function ChatPanel({
 
       {/* Input */}
       <div
-        className="shrink-0 px-2.5 py-1.5 flex gap-2 items-center"
+        className="shrink-0 px-3 py-2.5 flex flex-col gap-1.5"
         style={{
-          borderTop: "1px solid #0a1820",
-          background: "#04090f",
+          borderTop: "2px solid rgba(122,184,216,.2)",
+          background: "rgba(4,9,15,.8)",
         }}
       >
-        <span className="text-[#0a3a2a] text-[11px]">▸</span>
-        <input
-          value={chatInput}
-          onChange={(e) => onChatChange(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSend()}
-          placeholder="ask maya..."
-          disabled={busy}
-          className="flex-1 bg-transparent border-0 border-b border-b-[#0a1820] text-[var(--color-player)] text-[11px] py-0.5 focus:outline-none placeholder:text-[#0a3a4a] disabled:opacity-40"
-        />
-        <button
-          onClick={onSend}
-          disabled={busy || !chatInput.trim()}
-          className="bg-transparent border border-[#0a3a4a] text-[#0a5a6a] text-[8px] px-2.5 py-1
-                     tracking-[1px] hover:border-[var(--color-player)] hover:text-[var(--color-player)]
-                     transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+        <div
+          className="text-[8px] tracking-[3px]"
+          style={{ color: "var(--color-player)", opacity: 0.5 }}
         >
-          TX
-        </button>
+          ▸ ASK MAYA ANYTHING
+        </div>
+        <div className="flex gap-2 items-center">
+          <input
+            value={chatInput}
+            onChange={(e) => onChatChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSend()}
+            placeholder="type a question or ask for a hint..."
+            disabled={busy}
+            className="flex-1 bg-transparent text-[var(--color-player)] text-[14px] py-1 focus:outline-none placeholder:text-[rgba(122,184,216,.25)] disabled:opacity-40"
+            style={{
+              border: "none",
+              borderBottom: "1px solid rgba(122,184,216,.15)",
+            }}
+          />
+          <button
+            onClick={onSend}
+            disabled={busy || !chatInput.trim()}
+            className="bg-transparent text-[9px] px-3.5 py-1.5
+                       tracking-[2px] transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
+            style={{
+              border: "1px solid rgba(122,184,216,.25)",
+              color: "var(--color-player)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--color-player)";
+              e.currentTarget.style.background = "rgba(122,184,216,.08)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "rgba(122,184,216,.25)";
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            SEND
+          </button>
+        </div>
       </div>
     </div>
   );

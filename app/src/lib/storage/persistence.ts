@@ -72,6 +72,7 @@ export const DEFAULTS: PersistedState = {
     soundEnabled: true,
     beginnerMode: true,
     chatWidthPercent: 42,
+    tutorialFontScale: 2,
   },
   library: { entries: [] },
 };

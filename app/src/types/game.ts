@@ -130,6 +130,8 @@ export interface PlayerSettings {
   soundEnabled: boolean;
   beginnerMode: boolean;
   chatWidthPercent: number;
+  /** Tutorial text size multiplier (1 = original 11px, 2 = default 22px) */
+  tutorialFontScale: number;
 }
 
 // ── Chat ──

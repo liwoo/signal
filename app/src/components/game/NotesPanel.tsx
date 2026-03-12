@@ -4,9 +4,15 @@ import { useState } from "react";
 import { getBeginnerNotes, type BeginnerNotes, type NoteBlock } from "@/data/beginner-notes";
 import { tokenize, type Token } from "@/lib/go/tokenizer";
 
+const SCALE_MIN = 1;
+const SCALE_MAX = 3;
+const SCALE_STEP = 0.5;
+
 interface NotesPanelProps {
   currentChapterId: string;
   completedChapterIds: string[];
+  fontScale: number;
+  onFontScaleChange: (scale: number) => void;
 }
 
 /** Collects beginner notes for current + completed chapters. */
@@ -34,7 +40,7 @@ function collectNotes(
   return result;
 }
 
-export function NotesPanel({ currentChapterId, completedChapterIds }: NotesPanelProps) {
+export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, onFontScaleChange }: NotesPanelProps) {
   const allNotes = collectNotes(currentChapterId, completedChapterIds);
   const [expandedChapter, setExpandedChapter] = useState<string>(currentChapterId);
 
@@ -55,6 +61,36 @@ export function NotesPanel({ currentChapterId, completedChapterIds }: NotesPanel
 
   return (
     <div className="p-3 overflow-y-auto h-full">
+      {/* Font scale controls */}
+      <div className="flex items-center justify-end gap-1 mb-2">
+        <button
+          onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))}
+          disabled={fontScale <= SCALE_MIN}
+          className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
+                     hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+          style={{
+            color: "var(--color-dim)",
+            border: "1px solid rgba(110,255,160,.1)",
+          }}
+        >
+          A−
+        </button>
+        <span className="text-[7px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
+          {fontScale}x
+        </span>
+        <button
+          onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))}
+          disabled={fontScale >= SCALE_MAX}
+          className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
+                     hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+          style={{
+            color: "var(--color-dim)",
+            border: "1px solid rgba(110,255,160,.1)",
+          }}
+        >
+          A+
+        </button>
+      </div>
       {allNotes.map(({ chapterId, notes }) => {
         const isExpanded = expandedChapter === chapterId;
         const isCurrent = chapterId === currentChapterId;
@@ -112,7 +148,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds }: NotesPanel
                 }}
               >
                 {notes.blocks.map((block, i) => (
-                  <NoteBlockView key={i} block={block} />
+                  <NoteBlockView key={i} block={block} fontScale={fontScale} />
                 ))}
               </div>
             )}
@@ -123,12 +159,14 @@ export function NotesPanel({ currentChapterId, completedChapterIds }: NotesPanel
   );
 }
 
-function NoteBlockView({ block }: { block: NoteBlock }) {
+function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: number }) {
+  const textSize = `${Math.round(10 * fontScale)}px`;
+
   if (block.type === "text") {
     return (
       <div
-        className="text-[10px] leading-[1.7] mb-2"
-        style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+        className="leading-[1.7] mb-2"
+        style={{ fontSize: textSize, color: "var(--color-foreground)", opacity: 0.8 }}
       >
         {block.content}
       </div>
@@ -139,8 +177,9 @@ function NoteBlockView({ block }: { block: NoteBlock }) {
   return (
     <div className="mb-2">
       <pre
-        className="text-[10px] leading-[1.5] p-2.5 overflow-x-auto font-[family-name:var(--font-mono)]"
+        className="leading-[1.5] p-2.5 overflow-x-auto font-[family-name:var(--font-mono)]"
         style={{
+          fontSize: textSize,
           background: "rgba(4,8,16,.6)",
           border: "1px solid rgba(110,255,160,.06)",
           tabSize: 4,

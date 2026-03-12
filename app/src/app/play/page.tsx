@@ -360,6 +360,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     return (
       <BeginnerOverlay
         notes={beginnerNotes}
+        fontScale={settings.tutorialFontScale ?? 2}
+        onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
         onReady={() => {
           setShowBeginner(false);
           trackBeginnerComplete(challenge.id, 0);
@@ -782,6 +784,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               <NotesPanel
                 currentChapterId={challenge.id}
                 completedChapterIds={completedChapterIds}
+                fontScale={settings.tutorialFontScale ?? 2}
+                onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
               />
             )}
           </div>

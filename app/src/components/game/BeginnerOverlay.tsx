@@ -6,14 +6,20 @@ import { getSectionCount } from "@/data/beginner-notes";
 
 const HOTSPOT_XP = 5;
 
+const SCALE_MIN = 1;
+const SCALE_MAX = 3;
+const SCALE_STEP = 0.5;
+
 interface BeginnerOverlayProps {
   notes: BeginnerNotes;
+  fontScale: number;
+  onFontScaleChange: (scale: number) => void;
   onReady: () => void;
   onDisable: () => void;
   onHotspotXP: (amount: number) => void;
 }
 
-export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
+export function BeginnerOverlay({ notes, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
   const totalSections = getSectionCount(notes);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionDone, setSectionDone] = useState(false);
@@ -121,14 +127,46 @@ export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: Begi
             <div className="text-[7px] tracking-[4px]" style={{ color: "var(--color-dim)" }}>
               ▸ BEGINNER BRIEFING
             </div>
-            {earnedXP > 0 && (
-              <div
-                className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]"
-                style={{ color: "var(--color-signal)" }}
-              >
-                +{earnedXP} XP
+            <div className="flex items-center gap-3">
+              {/* Font scale controls */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))}
+                  disabled={fontScale <= SCALE_MIN}
+                  className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
+                             hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                  style={{
+                    color: "var(--color-dim)",
+                    border: "1px solid rgba(110,255,160,.1)",
+                  }}
+                >
+                  A−
+                </button>
+                <span className="text-[7px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
+                  {fontScale}x
+                </span>
+                <button
+                  onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))}
+                  disabled={fontScale >= SCALE_MAX}
+                  className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
+                             hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                  style={{
+                    color: "var(--color-dim)",
+                    border: "1px solid rgba(110,255,160,.1)",
+                  }}
+                >
+                  A+
+                </button>
               </div>
-            )}
+              {earnedXP > 0 && (
+                <div
+                  className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]"
+                  style={{ color: "var(--color-signal)" }}
+                >
+                  +{earnedXP} XP
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-baseline gap-3 mt-1">
             <div
@@ -181,6 +219,7 @@ export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: Begi
               interactive={false}
               clickedHotspots={clickedHotspots}
               onHotspotClick={handleHotspotClick}
+              fontScale={fontScale}
             />
           ))}
 
@@ -204,6 +243,7 @@ export function BeginnerOverlay({ notes, onReady, onDisable, onHotspotXP }: Begi
                 interactive={sectionDone}
                 clickedHotspots={clickedHotspots}
                 onHotspotClick={handleHotspotClick}
+                fontScale={fontScale}
               />
             );
           })}
@@ -287,6 +327,7 @@ function BlockRenderer({
   interactive,
   clickedHotspots,
   onHotspotClick,
+  fontScale,
 }: {
   block: NoteBlock;
   text: string;
@@ -295,7 +336,11 @@ function BlockRenderer({
   interactive: boolean;
   clickedHotspots: Set<string>;
   onHotspotClick: (hotspotText: string) => void;
+  fontScale: number;
 }) {
+  const textSize = `${Math.round(11 * fontScale)}px`;
+  const codeSize = `${Math.round(11 * fontScale)}px`;
+
   if (block.type === "code") {
     const hasHotspots = interactive && block.hotspots && block.hotspots.length > 0;
 
@@ -305,8 +350,9 @@ function BlockRenderer({
         style={{ opacity: dimmed ? 0.4 : 1 }}
       >
         <pre
-          className="text-[11px] leading-[1.7] px-3 py-2.5 overflow-x-auto"
+          className="leading-[1.7] px-3 py-2.5 overflow-x-auto"
           style={{
+            fontSize: codeSize,
             background: "var(--color-code-bg)",
             border: "1px solid rgba(110,255,160,.08)",
             color: "var(--color-signal)",
@@ -319,6 +365,7 @@ function BlockRenderer({
               hotspots={block.hotspots!}
               clickedHotspots={clickedHotspots}
               onHotspotClick={onHotspotClick}
+              fontScale={fontScale}
             />
           ) : (
             text
@@ -331,8 +378,9 @@ function BlockRenderer({
 
   return (
     <p
-      className="text-[11px] leading-[1.8] transition-opacity duration-300"
+      className="leading-[1.8] transition-opacity duration-300"
       style={{
+        fontSize: textSize,
         color: "var(--color-foreground)",
         opacity: dimmed ? 0.4 : 1,
       }}
@@ -350,11 +398,13 @@ function CodeWithHotspots({
   hotspots,
   clickedHotspots,
   onHotspotClick,
+  fontScale,
 }: {
   code: string;
   hotspots: Hotspot[];
   clickedHotspots: Set<string>;
   onHotspotClick: (hotspotText: string) => void;
+  fontScale: number;
 }) {
   const [activeTip, setActiveTip] = useState<{ text: string; tip: string } | null>(null);
   const [xpFlash, setXpFlash] = useState(false);
@@ -431,8 +481,9 @@ function CodeWithHotspots({
             )}
           </span>
           <span
-            className="block text-[11px] leading-[1.8]"
+            className="block leading-[1.8]"
             style={{
+              fontSize: `${Math.round(11 * fontScale)}px`,
               color: "var(--color-foreground)",
               fontFamily: "var(--font-mono)",
             }}

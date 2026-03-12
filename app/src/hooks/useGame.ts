@@ -50,6 +50,7 @@ import {
   trackZenBonus,
   trackHeartBuy,
 } from "@/lib/analytics";
+import { logChatMessage } from "@/lib/supabase/chat-log";
 
 export interface InitialPersistedState {
   xp: number;
@@ -491,6 +492,14 @@ export function useGame(
       attempts
     );
     addMayaChunked("MAYA", reply, "maya");
+    logChatMessage({
+      step_id: currentStep.id,
+      kind: "chat",
+      user_message: msg,
+      maya_reply: reply,
+      is_complete: false,
+      attempt: attempts,
+    });
   }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked]);
 
   const submitCode = useCallback(async () => {
@@ -513,6 +522,15 @@ export function useGame(
         ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput }
         : undefined
     );
+
+    logChatMessage({
+      step_id: currentStep.id,
+      kind: "code",
+      user_message: code,
+      maya_reply: reply,
+      is_complete: isComplete,
+      attempt: attempts + 1,
+    });
 
     if (isComplete) {
       // Stop step-scoped events/rush
