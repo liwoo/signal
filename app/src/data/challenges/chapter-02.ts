@@ -19,6 +19,7 @@ export const chapter02: Challenge = {
 // TODO: import the fmt package
 
 // TODO: write func main()
+// put fmt.Println("ready") inside so the import is used
 // the keypad cycles codes 1 through 10
 // you'll need to loop through them
 `,
@@ -162,7 +163,7 @@ func main() {
 \t//
 \t// Print: code number then label (e.g. 1 DENY)
 \tfor i := 1; i <= 10; i++ {
-\t\t// classify here
+\t\tfmt.Println(i, "TODO") // replace "TODO" with the right label
 \t}
 }
 `,

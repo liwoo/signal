@@ -79,12 +79,13 @@ describe("ch01 scaffold — concept FAQ", () => {
 });
 
 describe("ch01 scaffold — code evaluation", () => {
-  it("accepts valid scaffold with package + import + func main", () => {
+  it("accepts valid scaffold with package + import + func main + fmt usage", () => {
     const code = `package main
 
 import "fmt"
 
 func main() {
+    fmt.Println("I'm in")
 }`;
     const r = call("chapter-01:scaffold", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -99,9 +100,22 @@ import (
 )
 
 func main() {
+    fmt.Println("ready")
 }`;
     const r = call("chapter-01:scaffold", code, { isCode: true });
     expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects scaffold with import fmt but no fmt usage", () => {
+    const code = `package main
+
+import "fmt"
+
+func main() {
+}`;
+    const r = call("chapter-01:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("fmt");
   });
 
   it("rejects code without package main", () => {
@@ -131,7 +145,7 @@ import "fmt"`;
   it("strips ||COMPLETE|| from reply", () => {
     const code = `package main
 import "fmt"
-func main() {}`;
+func main() { fmt.Println("hi") }`;
     const r = call("chapter-01:scaffold", code, { isCode: true });
     expect(r.reply).not.toContain("||COMPLETE||");
     expect(r.isComplete).toBe(true);

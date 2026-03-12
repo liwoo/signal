@@ -66,13 +66,14 @@ function minify(code: string): string {
     .toLowerCase();
 }
 
-/** Returns true if code is a valid Go scaffold (package + import fmt + func main). */
+/** Returns true if code is a valid Go scaffold (package + import fmt + func main + uses fmt). */
 export function isValidScaffold(code: string): boolean {
   const m = minify(code);
   const hasPackage = m.includes("packagemain");
   const hasImport = m.includes('import"fmt"') || m.includes('import("fmt")');
   const hasMain = m.includes("funcmain(){");
-  return hasPackage && hasImport && hasMain;
+  const usesFmt = m.includes("fmt.print") || m.includes("fmt.sprint") || m.includes("fmt.fprint");
+  return hasPackage && hasImport && hasMain && usesFmt;
 }
 
 // ── Step Banks ──
@@ -116,7 +117,7 @@ const ch01ScaffoldBank: StepBank = {
     {
       keywords: ["skeleton", "scaffold", "structure", "setup"],
       response:
-        "three parts: `package main` at the top, `import \"fmt\"` for later, `func main() { }` for the entry point.",
+        "four parts: `package main` at the top, `import \"fmt\"`, `func main() { }`, and `fmt.Println(\"I'm in\")` inside main — go won't compile if you import something and don't use it.",
     },
   ],
 
@@ -147,27 +148,35 @@ const ch01ScaffoldBank: StepBank = {
       response:
         "package and import are set. now add `func main() { }` — the entry point.",
     },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
+      },
+      response:
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"I'm in\")` inside main.",
+    },
   ],
 
   correctResponse:
     "structure checks out. package, import, main — the terminal accepted it.\n\nnow i need you to actually print something.\n\n||COMPLETE||",
 
   genericWrong: [
-    "the terminal can't parse that. i need: package main, import, func main().",
+    "the terminal can't parse that. i need: package main, import, func main(), and use fmt inside.",
     "not a valid go program. start with `package main` on the first line.",
-    "missing pieces. a go program needs package, import, and func main().",
+    "missing pieces. a go program needs package, import, func main(), and a fmt.Println inside.",
   ],
 
   rushDialogue: [
-    "the signal's degrading. just get the skeleton in. package, import, main.",
-    "hurry — three lines is all i need. package main, import fmt, func main.",
+    "the signal's degrading. just get the skeleton in. package, import, main, println.",
+    "hurry — four lines is all i need. package main, import fmt, func main, fmt.Println.",
     "losing you. scaffold. now.",
   ],
 
   stuckResponses: [
-    "three things, in order:\n1. `package main`\n2. `import \"fmt\"`\n3. `func main() { }`",
-    "every go program has the same shape. package at top, imports, then func main. that's it.",
-    "just write `package main` then `import \"fmt\"` then `func main() { }`. submit that.",
+    "four things, in order:\n1. `package main`\n2. `import \"fmt\"`\n3. `func main() {`\n4. `fmt.Println(\"I'm in\")`\n5. `}`",
+    "every go program has the same shape. package at top, imports, then func main with a print inside. go won't compile if you import something unused.",
+    "just write:\n```\npackage main\nimport \"fmt\"\nfunc main() {\n  fmt.Println(\"I'm in\")\n}\n```",
   ],
 
   deflections: [
@@ -343,7 +352,7 @@ const ch02ScaffoldBank: StepBank = {
     {
       keywords: ["skeleton", "scaffold", "structure", "setup"],
       response:
-        "three parts: package main, import fmt, func main. same skeleton every time.",
+        "same skeleton every time: package main, import fmt, func main, and a fmt.Println inside so the import is used.",
     },
   ],
 
@@ -373,6 +382,14 @@ const ch02ScaffoldBank: StepBank = {
       },
       response:
         "almost. add `func main() { }` — the entry point.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
+      },
+      response:
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"ready\")` inside main.",
     },
   ],
 
@@ -753,6 +770,14 @@ const ch03ScaffoldBank: StepBank = {
       },
       response:
         "package and import are set. add `func main() { }` — the entry point.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
+      },
+      response:
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"ready\")` inside main.",
     },
   ],
 

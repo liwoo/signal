@@ -15,10 +15,11 @@ export const chapter01: Challenge = {
       brief:
         "Every Go program starts the same way. Set up the skeleton: package declaration, import, and main function. Maya's terminal needs a valid Go program before it can run anything.",
       starterCode: `// write a valid Go program skeleton
-// every .go file needs three things:
+// every .go file needs four things:
 // 1. package declaration
 // 2. import statement (we need "fmt")
 // 3. func main() { }
+// 4. fmt.Println("I'm in") inside main
 `,
       expectedBehavior: "valid-go-scaffold",
       hints: [
@@ -34,7 +35,7 @@ export const chapter01: Challenge = {
         },
         {
           level: 3,
-          text: "then `func main() { }` — that's the entry point. all your code goes inside.",
+          text: "then `func main() { fmt.Println(\"I'm in\") }` — the entry point. go won't compile if you import fmt but don't use it.",
           energyCost: 20,
         },
       ],

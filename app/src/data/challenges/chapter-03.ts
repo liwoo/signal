@@ -19,6 +19,7 @@ export const chapter03: Challenge = {
 // TODO: import the fmt package
 
 // TODO: write func main()
+// put fmt.Println("ready") inside so the import is used
 // the shaft junctions need computed codes
 // you'll write functions to process them
 `,

@@ -67,6 +67,12 @@ func main() {
         content:
           "func main() is the entry point. when you run the program, go starts here. everything inside the curly braces runs top to bottom.",
       },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "important: go won't compile if you import a package but don't use it. if you write import \"fmt\", you must use fmt somewhere (like fmt.Println). this keeps go code clean.",
+      },
 
       // Section 2: Variables & constants
       {

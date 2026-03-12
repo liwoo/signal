@@ -78,8 +78,23 @@ type AcContext =
   | { type: "pkg"; pkg: string; partial: string; start: number }
   | { type: "symbol"; partial: string; start: number };
 
+function isInsideString(code: string, pos: number): boolean {
+  let inDouble = false;
+  let inBack = false;
+  for (let i = 0; i < pos; i++) {
+    const ch = code[i];
+    if (ch === "\\" && (inDouble || inBack)) { i++; continue; }
+    if (ch === '"' && !inBack) inDouble = !inDouble;
+    else if (ch === "`" && !inDouble) inBack = !inBack;
+  }
+  return inDouble || inBack;
+}
+
 function detectAutocomplete(code: string, pos: number): AcContext | null {
   const before = code.slice(0, pos);
+
+  // No completions inside string literals
+  if (isInsideString(code, pos)) return null;
 
   // Check for pkg.partial pattern first — only if the package is actually imported
   const pkgMatch = before.match(/(\w+)\.(\w*)$/);
@@ -124,6 +139,43 @@ export function CodeEditor({
   const [acStart, setAcStart] = useState(0);
   const [acVisible, setAcVisible] = useState(false);
   const [acPos, setAcPos] = useState({ x: 0, y: 0 });
+
+  // Undo/redo history
+  const undoStackRef = useRef<string[]>([]);
+  const redoStackRef = useRef<string[]>([]);
+  const lastPushRef = useRef(code);
+
+  const codeChangeWithUndo = useCallback((newCode: string) => {
+    if (newCode === lastPushRef.current) return;
+    const stack = undoStackRef.current;
+    if (stack.length === 0 || stack[stack.length - 1] !== lastPushRef.current) {
+      stack.push(lastPushRef.current);
+      if (stack.length > 200) stack.shift();
+    }
+    redoStackRef.current = [];
+    lastPushRef.current = newCode;
+    onCodeChange(newCode);
+  }, [onCodeChange]);
+
+  const undo = useCallback(() => {
+    const stack = undoStackRef.current;
+    if (stack.length === 0) return;
+    redoStackRef.current.push(code);
+    const prev = stack.pop()!;
+    lastPushRef.current = prev;
+
+    onCodeChange(prev);
+  }, [code, onCodeChange]);
+
+  const redo = useCallback(() => {
+    const stack = redoStackRef.current;
+    if (stack.length === 0) return;
+    undoStackRef.current.push(code);
+    const next = stack.pop()!;
+    lastPushRef.current = next;
+
+    onCodeChange(next);
+  }, [code, onCodeChange]);
 
   // Font size / zoom
   const [fontSize, setFontSize] = useState(11.5);
@@ -195,7 +247,7 @@ export function CodeEditor({
     const before = code.slice(0, acStart);
     const after = code.slice(cursorPos);
     const newCode = before + item.label + after;
-    onCodeChange(newCode);
+    codeChangeWithUndo(newCode);
     setAcVisible(false);
     const newPos = acStart + item.label.length;
     requestAnimationFrame(() => {
@@ -204,7 +256,7 @@ export function CodeEditor({
         setCursorPos(newPos);
       }
     });
-  }, [code, acStart, cursorPos, onCodeChange]);
+  }, [code, acStart, cursorPos, codeChangeWithUndo]);
 
   // Update block cursor position
   const updateCursorOverlay = useCallback(() => {
@@ -300,6 +352,24 @@ export function CodeEditor({
         }
       }
 
+      // Cmd+Z / Ctrl+Z → undo, Cmd+Shift+Z / Ctrl+Shift+Z → redo
+      if (e.key === "z" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
+      // Cmd+Y / Ctrl+Y → redo (Windows convention)
+      if (e.key === "y" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
       // Cmd+Enter (Mac) / Ctrl+Enter (other) → submit
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -308,7 +378,7 @@ export function CodeEditor({
       }
 
       // Let vim handle first
-      if (vimActions.handleKeyDown(e, code, onCodeChange)) {
+      if (vimActions.handleKeyDown(e, code, codeChangeWithUndo)) {
         requestAnimationFrame(trackCursor);
         return;
       }
@@ -338,7 +408,7 @@ export function CodeEditor({
         if (s !== end) {
           const selected = code.slice(s, end);
           const next = code.slice(0, s) + open + selected + close + code.slice(end);
-          onCodeChange(next);
+          codeChangeWithUndo(next);
           requestAnimationFrame(() => {
             target.selectionStart = s + 1;
             target.selectionEnd = end + 1;
@@ -346,7 +416,7 @@ export function CodeEditor({
           });
         } else {
           const next = code.slice(0, s) + open + close + code.slice(s);
-          onCodeChange(next);
+          codeChangeWithUndo(next);
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = s + 1;
             setCursorPos(s + 1);
@@ -373,7 +443,7 @@ export function CodeEditor({
         if (before in PAIRS && PAIRS[before] === after) {
           e.preventDefault();
           const next = code.slice(0, s - 1) + code.slice(s + 1);
-          onCodeChange(next);
+          codeChangeWithUndo(next);
           requestAnimationFrame(() => {
             target.selectionStart = target.selectionEnd = s - 1;
             setCursorPos(s - 1);
@@ -387,7 +457,7 @@ export function CodeEditor({
       if (e.key === "Tab") {
         e.preventDefault();
         const next = code.slice(0, s) + "    " + code.slice(end);
-        onCodeChange(next);
+        codeChangeWithUndo(next);
         requestAnimationFrame(() => {
           target.selectionStart = target.selectionEnd = s + 4;
           trackCursor();
@@ -396,12 +466,12 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, onCodeChange, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete]
+    [code, onCodeChange, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newCode = e.target.value;
-    onCodeChange(newCode);
+    codeChangeWithUndo(newCode);
     requestAnimationFrame(() => {
       if (textareaRef.current) {
         const pos = textareaRef.current.selectionStart;
@@ -409,7 +479,7 @@ export function CodeEditor({
         updateAutocomplete(newCode, pos);
       }
     });
-  }, [onCodeChange, updateAutocomplete]);
+  }, [codeChangeWithUndo, updateAutocomplete]);
 
   const lineCount = code.split("\n").length;
 
