@@ -54,7 +54,7 @@ export const chapter02: Challenge = {
       id: "chapter-02:loop",
       title: "LOOP",
       brief:
-        "the keypad cycles codes 1-10. write a for loop that prints each code number.",
+        "the keypad cycles codes 1-10. write a for loop that prints each number on its own line. just the numbers — nothing else.\n\nexpected output:\n1\n2\n3\n...\n10",
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "loop-1-to-10",
       hints: [
@@ -88,7 +88,7 @@ export const chapter02: Challenge = {
       id: "chapter-02:classify",
       title: "CLASSIFY",
       brief:
-        "now classify each code. the keypad assigns access levels based on the code number:\n\ncodes 1-3 → DENY (restricted zones)\ncodes 4-6 → WARN (caution zones)\ncodes 7-9 → GRANT (cleared zones)\ncode 10 → OVERRIDE (master key)\n\nprint each code followed by its label, e.g. `1 DENY`, `2 DENY`, ... `10 OVERRIDE`.",
+        "now modify your loop to classify each code. print the number followed by its access level — separated by a space.\n\n1-3 → DENY\n4-6 → WARN\n7-9 → GRANT\n10 → OVERRIDE\n\nexact output:\n1 DENY\n2 DENY\n...\n10 OVERRIDE",
       starterCode: null, // carry forward from loop
       expectedBehavior:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",

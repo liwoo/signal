@@ -15,9 +15,11 @@ interface ZenRule {
   id: string;              // snake_case, unique across all rules
   principle: string;       // short label, e.g. "grouped imports"
   check: (code: string) => boolean;  // heuristic — regex or string ops
+  isRelevant?: (code: string) => boolean;  // skip rule if irrelevant to player's code
   bonusXP: number;         // 5-15 per rule
   jolt: string;            // Maya's memory returning (player followed the rule)
   suggestion: string;      // Maya's hint (player didn't follow the rule)
+  getSuggestion?: (code: string) => string;  // context-aware suggestion (overrides static suggestion)
 }
 ```
 
@@ -124,6 +126,32 @@ suggestion: "you should think about how go handles increments."
 // BAD suggestion — doesn't start with action verb
 suggestion: "your increment could be more idiomatic."
 ```
+
+## Context-Aware Suggestions (`getSuggestion`)
+
+Static `suggestion` strings can mislead players. If a player declared `const cell = "B-09"` but didn't reference it in their print call, the suggestion "try declaring named values" is confusing — they already did. Use `getSuggestion` to inspect the player's code and return the right message.
+
+```typescript
+// BAD — static suggestion that assumes the player did nothing
+suggestion: "try declaring named values — `cell := \"B-09\"` instead of hardcoding."
+
+// GOOD — context-aware, diagnoses what's actually wrong
+getSuggestion: (code) => {
+  const decls = collectDeclarations(code);
+  if (decls.length > 0) {
+    return "you declared variables — now use them in your print call. the whole point of a name is to use it.";
+  }
+  return "try declaring named values — `cell := \"B-09\"` instead of hardcoding.";
+},
+```
+
+### When to use `getSuggestion`
+
+- The rule has **multiple failure modes** (didn't declare vs. declared-but-unused)
+- The static suggestion would **contradict what the player already did**
+- The rule checks a **compound condition** (A AND B) where the player might have A but not B
+
+When `getSuggestion` is defined, `analyzeZen` uses it instead of the static `suggestion`. The static `suggestion` field is still required (used as fallback in library recording and content quality tests).
 
 ## XP Budget
 

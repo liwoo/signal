@@ -30,6 +30,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ## Common Mistakes
 
+- **Ambiguous briefs that don't show expected output.** Players should never have to guess the exact output format. If the step expects `1\n2\n3`, show it. If it expects `1 DENY\n2 DENY`, show it. Include a truncated example in the brief: `"expected output:\n1 DENY\n2 DENY\n...\n10 OVERRIDE"`. This is the #1 cause of player drop-off — unclear expectations make the game feel broken.
+
 - **Hints that give away the answer.** Level 1 should be a nudge ("think about how range works"). Level 2 is directional ("use a for-range loop over the slice"). Level 3 is nearly-there ("for _, v := range items { sum += v }"). Never paste the full solution.
 
 - **Events that fire too early.** Players need 8+ seconds to read the brief. First event at 8-18s. Rush trigger 2-5s after a narrative interrupt.
@@ -37,6 +39,18 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 - **Twists that don't advance the plot.** Every twist must reveal something new about the story or characters. "Maya is scared" is not a twist. "Maya recognizes the guard's voice — it's her lab partner" is.
 
 - **Forgetting the `||COMPLETE||` token.** Maya's AI response must contain `||COMPLETE||` when the player's code is correct. This is how the game detects success. The `expectedBehavior` field describes what correct output looks like for the evaluator.
+
+## Brief Writing Rules
+
+Briefs are the player's primary instruction. If they're ambiguous, the player fails repeatedly without understanding why — this kills retention.
+
+1. **Always show expected output format.** Include a truncated example of exact output in the brief. "Print the numbers 1-10" is ambiguous. "Print each number on its own line. Just the numbers — nothing else.\n\nexpected output:\n1\n2\n3\n...\n10" is clear.
+
+2. **Explicitly state what NOT to include** when the next step builds on this one. If step 2 is "loop prints numbers" and step 3 is "add labels", the step 2 brief must say "just the numbers — nothing else" to prevent players from jumping ahead.
+
+3. **When output has a specific format** (e.g. `number label`), show multiple concrete examples: "each line: the code number, a space, then the label. e.g. `1 DENY`, `4 WARN`, `10 OVERRIDE`."
+
+4. **Multi-step carry-forward clarity.** When `starterCode` is null, the brief must tell players what to modify in their existing code, not just what the output should be.
 
 ## Challenge Structure Example
 

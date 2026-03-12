@@ -86,6 +86,26 @@ The prompt changes based on game state. These are conditional — only include t
 - **Breaking character for technical accuracy.** If the trade-off is between a technically precise explanation and staying in character, stay in character. The hints system handles structured help.
 - **Prompt too long for Nano.** Test your prompt at 500 tokens. If it doesn't fit, cut the least important state modifier — not the code evaluation rules.
 - **Forgetting to handle [CODE] prefix.** Player code submissions are prefixed with `[CODE]\n`. The prompt must tell Maya to evaluate these differently from chat messages.
+- **Vague error feedback that doesn't show expected format.** This is the #1 cause of player drop-off. When a player fails, Maya's response must make it obvious what's wrong AND what the correct output looks like. See "Error Feedback Rules" below.
+
+## Error Feedback Rules (Critical for Retention)
+
+When players submit wrong code and keep failing, they drop off. Every wrong-answer response must follow these rules:
+
+1. **Always show the expected output format in error messages.** Don't say "not right, check your loop." Say "not quite — each line should be just the number: `1`, `2`, `3`... up to `10`. no labels yet." The player must understand what "correct" looks like.
+
+2. **Diagnose the specific mistake.** Use `outputPatterns` to detect common wrong outputs and give targeted feedback:
+   - Player prints labels when only numbers expected → "just the numbers for now, no labels"
+   - Player prints numbers but missing the label → "each line needs both: `fmt.Println(i, \"DENY\")`"
+   - Player has right pieces but wrong format → show the exact format with an example line
+
+3. **`genericWrong` is the last resort, not the norm.** Write enough `outputPatterns` and `codePatterns` to catch common mistakes. If a player is seeing `genericWrong` repeatedly, you haven't written enough patterns. Aim for 3-5 output patterns per step.
+
+4. **`genericWrong` messages must still show format.** Even fallback messages should include the expected output shape: "the output should be exactly 10 lines: the numbers 1 through 10. nothing else on each line."
+
+5. **Order output patterns from most specific to least specific.** The engine returns the first match, so "labels without numbers" should come before "has some labels" which should come before the catch-all "you're printing but not classifying."
+
+6. **Anticipate premature solutions.** When multi-step challenges build on each other (loop → classify → rewrite), add an output pattern that detects when the player jumps ahead (e.g. prints labels in the loop step) and explicitly tells them to hold off.
 
 ## Testing Prompts
 

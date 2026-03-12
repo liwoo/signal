@@ -465,7 +465,7 @@ const ch02ScaffoldBank: StepBank = {
 // Chapter 02: Step 2 — Loop
 const ch02LoopBank: StepBank = {
   intro:
-    "good, you're still here.\n\nthe keypad on my door cycles codes 1 through 10. first step — write a loop that prints each number. we'll classify them next.",
+    "good, you're still here.\n\nthe keypad on my door cycles codes 1 through 10. write a loop that prints each number on its own line — just the raw numbers, nothing else. 1, 2, 3... up to 10. we'll classify them next.",
 
   conceptFAQ: [
     {
@@ -519,15 +519,25 @@ const ch02LoopBank: StepBank = {
     {
       match: (output) => {
         const lines = output.trim().split("\n").filter(Boolean);
+        if (lines.length === 0) return false;
+        // Detect if user is printing labels already (e.g. "1 DENY")
+        return lines.some((l) => /^\d+\s+\w+/.test(l.trim()));
+      },
+      response:
+        "hold on — just the numbers for now, no labels. `fmt.Println(i)` gives you the raw number. we classify in the next step.",
+    },
+    {
+      match: (output) => {
+        const lines = output.trim().split("\n").filter(Boolean);
         return lines.length > 0 && lines.length < 10;
       },
       response:
-        "you're printing, but not all 10 codes. check your loop bounds — 1 through 10.",
+        "you're printing, but not all 10. check your loop bounds — start at 1, go through 10. output should be 10 lines: just `1`, `2`, ... `10`.",
     },
     {
       match: (output) => output.trim().length === 0,
       response:
-        "nothing came through. are you printing inside the loop? `fmt.Println(i)`.",
+        "nothing came through. are you printing inside the loop? `fmt.Println(i)` prints the current number.",
     },
   ],
 
@@ -559,8 +569,8 @@ const ch02LoopBank: StepBank = {
     "loop confirmed. the keypad's cycling. now i need you to classify each code.\n\n||COMPLETE||",
 
   genericWrong: [
-    "not right. i need a for loop that prints 1 through 10.",
-    "the keypad needs all 10 numbers. check your loop bounds.",
+    "not quite. i need each number on its own line — just `1`, `2`, `3`... up to `10`. no labels yet, just numbers.",
+    "the output should be exactly 10 lines: the numbers 1 through 10. nothing else on each line — we'll add labels in the next step.",
   ],
 
   rushDialogue: [],
@@ -575,7 +585,7 @@ const ch02LoopBank: StepBank = {
 // Chapter 02: Step 2 — Classify
 const ch02ClassifyBank: StepBank = {
   intro:
-    "the keypad's cycling. now modify your loop — for each code 1-10, print the action.\n\n1-3: DENY\n4-6: WARN\n7-9: GRANT\n10: OVERRIDE",
+    "the keypad's cycling. now modify your loop — for each code, print the number and its access level separated by a space.\n\n1-3: DENY\n4-6: WARN\n7-9: GRANT\n10: OVERRIDE\n\nso line 1 should be `1 DENY`, line 4 should be `4 WARN`... you get it.",
 
   conceptFAQ: [
     {
@@ -623,6 +633,15 @@ const ch02ClassifyBank: StepBank = {
   outputPatterns: [
     {
       match: (output) => {
+        // Labels but no numbers (e.g. just "DENY\nDENY\n...")
+        const lines = output.trim().split("\n").filter(Boolean);
+        return lines.length > 0 && lines.every((l) => /^(DENY|WARN|GRANT|OVERRIDE)$/i.test(l.trim()));
+      },
+      response:
+        "you're printing labels but not the code numbers. each line needs both: `fmt.Println(i, \"DENY\")` gives `1 DENY`.",
+    },
+    {
+      match: (output) => {
         // Has all 4 labels but wrong mapping (e.g. wrong ranges)
         const lower = output.toLowerCase();
         return (
@@ -633,7 +652,7 @@ const ch02ClassifyBank: StepBank = {
         );
       },
       response:
-        "all four labels are there, but the mapping is off. check: 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
+        "all four labels are there, but the mapping is off. each line should be like `1 DENY`. check: 1-3 DENY, 4-6 WARN, 7-9 GRANT, 10 OVERRIDE.",
     },
     {
       match: (output) => {
@@ -642,12 +661,12 @@ const ch02ClassifyBank: StepBank = {
         return hasAny;
       },
       response:
-        "some labels are there but not all. i need DENY, WARN, GRANT, and OVERRIDE.",
+        "some labels are there but not all. i need DENY, WARN, GRANT, and OVERRIDE. format: `1 DENY`, `4 WARN`, etc.",
     },
     {
       match: (output) => output.trim().length > 0,
       response:
-        "you're printing numbers but not classifying. add switch or if/else for the ranges.",
+        "you're printing numbers but not classifying. add switch or if/else inside your loop. output should be `1 DENY`, `2 DENY`... `10 OVERRIDE`.",
     },
   ],
 
