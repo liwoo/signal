@@ -89,7 +89,7 @@ export default function PrivacyPage() {
             {
               title: "YOUR RIGHTS",
               content:
-                "you can request a copy of all data we hold about you, request deletion of your account and data, or opt out of analytics. contact us at privacy@playsignal.com for any data requests. we respond within 14 days.",
+                "you can request a copy of all data we hold about you, request deletion of your account and data, or opt out of analytics. contact us at jeremiah@chienda.com for any data requests. we respond within 14 days.",
             },
             {
               title: "CHILDREN",
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
             className="text-[11px]"
             style={{ color: "var(--color-signal)" }}
           >
-            privacy@playsignal.com
+            jeremiah@chienda.com
           </div>
         </div>
 

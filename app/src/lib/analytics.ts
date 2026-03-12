@@ -6,8 +6,16 @@ import { getFirebaseAnalytics } from "./firebase";
 type EventParams = Record<string, string | number | boolean>;
 
 async function track(name: string, params?: EventParams) {
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Analytics] ${name}`, params ?? "");
+  }
   const analytics = await getFirebaseAnalytics();
-  if (!analytics) return;
+  if (!analytics) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[Analytics] Dropped event "${name}" — analytics not available`);
+    }
+    return;
+  }
   logEvent(analytics, name, params);
 }
 
@@ -118,6 +126,32 @@ export function trackZenBonus(chapterId: string, stepId: string, bonusXP: number
 
 export function trackHeartBuy(currentHearts: number, xpSpent: number) {
   track("heart_buy", { hearts_after: currentHearts, xp_spent: xpSpent });
+}
+
+// ── Purchase funnel ──
+
+export function trackPaywallView(source: string) {
+  track("paywall_view", { source });
+}
+
+export function trackPurchaseCtaClick(plan: "single" | "team", price: string) {
+  track("purchase_cta_click", { plan, price });
+}
+
+export function trackConsentModalView(plan: "single" | "team", price: string) {
+  track("consent_modal_view", { plan, price });
+}
+
+export function trackConsentAccepted(plan: "single" | "team", price: string) {
+  track("consent_accepted", { plan, price });
+}
+
+export function trackConsentDismissed(plan: "single" | "team", price: string) {
+  track("consent_dismissed", { plan, price });
+}
+
+export function trackPurchaseStart(plan: "single" | "team", price: string) {
+  track("purchase_start", { plan, price });
 }
 
 // ── Navigation ──

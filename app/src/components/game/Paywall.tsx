@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { PromoLoop } from "@/components/promo/PromoLoop";
+import {
+  trackPurchaseCtaClick,
+  trackConsentModalView,
+  trackConsentAccepted,
+  trackConsentDismissed,
+  trackPurchaseStart,
+} from "@/lib/analytics";
 
 interface PaywallProps {
   playerXP?: number;
@@ -205,6 +212,30 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [showCurriculum, setShowCurriculum] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"single" | "team">("single");
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showConsent, setShowConsent] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
+
+  const activePrice = selectedPlan === "single" ? PRICE_SINGLE : PRICE_TEAM;
+
+  const handleGoogleClick = useCallback(() => {
+    trackPurchaseCtaClick(selectedPlan, activePrice);
+    setConsentChecked(false);
+    setShowConsent(true);
+    trackConsentModalView(selectedPlan, activePrice);
+  }, [selectedPlan, activePrice]);
+
+  const handleConsentProceed = useCallback(() => {
+    trackConsentAccepted(selectedPlan, activePrice);
+    trackPurchaseStart(selectedPlan, activePrice);
+    setShowConsent(false);
+    // TODO: trigger Google OAuth + Stripe checkout
+  }, [selectedPlan, activePrice]);
+
+  const handleConsentDismiss = useCallback(() => {
+    trackConsentDismissed(selectedPlan, activePrice);
+    setShowConsent(false);
+  }, [selectedPlan, activePrice]);
 
   if (showCurriculum) {
     return (
@@ -419,8 +450,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
     );
   }
 
-  const [soundEnabled, setSoundEnabled] = useState(true);
-
   return (
     <div
       className="fixed inset-0 z-[950] overflow-y-auto"
@@ -569,6 +598,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
 
               {/* Continue with Google — primary CTA */}
               <button
+                onClick={handleGoogleClick}
                 className="w-full py-3 cursor-pointer text-[11px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
                 style={{
                   border: "2px solid var(--color-signal)",
@@ -703,6 +733,162 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           ))}
         </div>
       </div>
+
+      {/* ── Consent modal ── */}
+      {showConsent && (
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center"
+          style={{ background: "rgba(2,4,6,.92)" }}
+          onClick={handleConsentDismiss}
+        >
+          <div
+            className="relative w-full max-w-[420px] mx-4"
+            style={{
+              background: "#060a10",
+              border: "1px solid rgba(110,255,160,.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              className="px-5 py-3 flex items-center justify-between"
+              style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
+            >
+              <span
+                className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold"
+                style={{ color: "var(--color-signal)" }}
+              >
+                CONFIRM PURCHASE
+              </span>
+              <button
+                onClick={handleConsentDismiss}
+                className="bg-transparent border-0 cursor-pointer text-[14px]"
+                style={{ color: "var(--color-dim)" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-5">
+              {/* Plan summary */}
+              <div
+                className="px-4 py-3 mb-5"
+                style={{
+                  background: "rgba(110,255,160,.03)",
+                  border: "1px solid rgba(110,255,160,.08)",
+                }}
+              >
+                <div className="flex justify-between items-baseline">
+                  <span
+                    className="text-[9px] tracking-[2px]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                  >
+                    {selectedPlan === "single" ? "INDIVIDUAL LICENSE" : `TEAM LICENSE · ${TEAM_SEATS} SEATS`}
+                  </span>
+                  <span
+                    className="font-[family-name:var(--font-display)] font-bold text-[18px]"
+                    style={{ color: "var(--color-signal)" }}
+                  >
+                    ${activePrice}
+                  </span>
+                </div>
+                <div
+                  className="text-[9px] mt-1"
+                  style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                >
+                  one-time payment · lifetime access · all 24 chapters
+                </div>
+              </div>
+
+              {/* Legal text */}
+              <p
+                className="text-[10px] leading-[1.8] mb-5"
+                style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+              >
+                By proceeding, you authorize Chienda Ltd to charge ${activePrice} USD
+                to your payment method via Stripe. Your purchase grants lifetime access
+                to all SIGNAL content. Refund requests may be submitted within 14 days
+                of purchase to{" "}
+                <a
+                  href="mailto:jeremiah@chienda.com"
+                  style={{ color: "var(--color-signal)", textDecoration: "none" }}
+                >
+                  jeremiah@chienda.com
+                </a>.
+              </p>
+
+              {/* Privacy checkbox */}
+              <label
+                className="flex items-start gap-3 cursor-pointer mb-6"
+                style={{ userSelect: "none" }}
+              >
+                <div
+                  className="shrink-0 mt-0.5 w-[18px] h-[18px] flex items-center justify-center cursor-pointer"
+                  style={{
+                    border: `1px solid ${consentChecked ? "var(--color-signal)" : "rgba(110,255,160,.2)"}`,
+                    background: consentChecked ? "rgba(110,255,160,.1)" : "transparent",
+                    transition: "all 150ms",
+                  }}
+                >
+                  {consentChecked && (
+                    <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>✓</span>
+                  )}
+                </div>
+                <input
+                  type="checkbox"
+                  checked={consentChecked}
+                  onChange={(e) => setConsentChecked(e.target.checked)}
+                  className="sr-only"
+                />
+                <span
+                  className="text-[10px] leading-[1.7]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+                >
+                  I have read and agree to the{" "}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "var(--color-signal)", textDecoration: "underline", textUnderlineOffset: "3px" }}
+                  >
+                    Privacy Policy
+                  </a>{" "}
+                  and authorize the charge described above.
+                </span>
+              </label>
+
+              {/* Proceed button */}
+              <button
+                onClick={handleConsentProceed}
+                disabled={!consentChecked}
+                className="w-full py-3 cursor-pointer text-[11px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)] disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  border: `2px solid ${consentChecked ? "var(--color-signal)" : "rgba(110,255,160,.15)"}`,
+                  color: consentChecked ? "var(--color-signal)" : "var(--color-dim)",
+                  background: "transparent",
+                }}
+              >
+                <GoogleIcon size={16} />
+                <span>SIGN IN &amp; PAY ${activePrice}</span>
+              </button>
+
+              {/* Cancel */}
+              <button
+                onClick={handleConsentDismiss}
+                className="w-full mt-2 py-2 bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
+                style={{
+                  border: "none",
+                  color: "var(--color-foreground)",
+                  opacity: 0.5,
+                }}
+              >
+                cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

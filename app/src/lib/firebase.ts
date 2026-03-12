@@ -15,13 +15,39 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 let analyticsInstance: Analytics | null = null;
+let initPromise: Promise<Analytics | null> | null = null;
 
 /** Resolves the analytics instance (browser-only, lazy). */
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   if (analyticsInstance) return analyticsInstance;
   if (typeof window === "undefined") return null;
-  const supported = await isSupported();
-  if (!supported) return null;
-  analyticsInstance = getAnalytics(app);
-  return analyticsInstance;
+  // Deduplicate concurrent init calls
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    try {
+      const supported = await isSupported();
+      if (!supported) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[Firebase] Analytics not supported in this environment");
+        }
+        return null;
+      }
+      analyticsInstance = getAnalytics(app);
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Firebase] Analytics initialized", analyticsInstance);
+      }
+      return analyticsInstance;
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[Firebase] Analytics init failed:", err);
+      }
+      return null;
+    }
+  })();
+  return initPromise;
+}
+
+/** Eagerly initialize analytics — call once on app mount. */
+export function initFirebaseAnalytics(): void {
+  getFirebaseAnalytics();
 }
