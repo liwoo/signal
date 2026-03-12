@@ -32,6 +32,8 @@ export const boss01: Challenge = {
   title: "LOCKMASTER",
   location: "SERVER ROOM · SUBLEVEL 3",
   concepts: [
+    "packages & imports",
+    "exported functions",
     "program structure",
     "functions",
     "multiple returns",
@@ -76,7 +78,9 @@ export const boss01Config: BossFightConfig = {
       functionSignature: "func Aim(sector int) (int, int)",
       // Corrupted: "in" instead of "int", missing sector 3 case,
       // switch on wrong variable, missing closing brace
-      starterCode: `// WEAPON TARGETING SYSTEM
+      starterCode: `package weapon
+
+// WEAPON TARGETING SYSTEM
 // Sectors map to grid coordinates:
 //   1=(128,160)  2=(256,160)  3=(384,160)
 //   4=(128,320)  5=(256,320)  6=(384,320)
@@ -110,7 +114,9 @@ func Aim(sector in) (int, int) {
       functionSignature: "func Load(threat string) []string",
       // Corrupted: "sting" instead of "string", broken slice literal,
       // wrong loop syntax, variable name mismatch
-      starterCode: `// AMMO LOADING SYSTEM
+      starterCode: `package weapon
+
+// AMMO LOADING SYSTEM
 // Threat types:
 //   "shield"  -> 3x "pierce"
 //   "armor"   -> 2x "blast"
@@ -146,7 +152,9 @@ func Load(threat sting) []string {
       functionSignature: "func Fire(x, y int, ammo []string) string",
       // Corrupted: const Hit="FIRE" (should be "HIT"), && instead of ||,
       // missing closing brace on first if block
-      starterCode: `// WEAPON FIRE CONTROL
+      starterCode: `package weapon
+
+// WEAPON FIRE CONTROL
 
 const (
 \tHit      = "FIRE"
@@ -169,9 +177,20 @@ func Fire(x, y int, ammo []string) string {
       filename: "main.go",
       label: "COMBO",
       functionSignature: "func Combo(shots ...string) string",
-      // Empty — player writes from scratch using tutorial knowledge
-      starterCode: `// COMBO SYSTEM
-// Chain multiple shots into one devastating barrage.
+      // Player writes from scratch — package main imports weapon package
+      starterCode: `package main
+
+import (
+\t"fmt"
+\t"strings"
+\t"weapon"
+)
+
+// COMBO SYSTEM
+// The weapon package (aim.go, load.go, fire.go) provides:
+//   weapon.Aim(sector) → (x, y int)
+//   weapon.Load(threat) → []string
+//   weapon.Fire(x, y, ammo) → string
 //
 // Write a function called Combo that:
 //   - takes any number of strings (variadic: ...string)
@@ -283,13 +302,13 @@ func Fire(x, y int, ammo []string) string {
       missEffect: "terminal-spark",
     },
 
-    // ── Turn 6: Kill shot — fix Combo variadic + chain 3 shots ──
-    // Fix main.go: "sting" → "string", " + " → " | "
+    // ── Turn 6: Kill shot — write Combo in main.go from scratch ──
+    // Player writes func Combo(shots ...string) string { return strings.Join(shots, " | ") }
     // All 4 files must be correct for the final barrage
     {
       id: 6,
       telegraph: "LOCKMASTER CRITICAL — all defenses down!",
-      hint: "fix Combo in main.go — wrong type and wrong separator. then fire three shots at once.",
+      hint: "write the Combo function in main.go — variadic ...string, return strings.Join with \" | \" separator.",
       activeTab: "main",
       windowSeconds: 18,
       damage: 20,

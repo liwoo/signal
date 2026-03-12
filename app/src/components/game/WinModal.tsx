@@ -5,6 +5,7 @@ import type { LibraryState } from "@/lib/game/library";
 import { getLibraryStats } from "@/lib/game/library";
 import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { GameMap } from "@/components/game/GameMap";
+import { trackWinModalTab } from "@/lib/analytics";
 
 type WinTab = "library" | "missions" | "map" | "store";
 
@@ -93,7 +94,7 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
           {TABS.map(([t, label]) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => { setTab(t); trackWinModalTab(t); }}
               className="bg-transparent text-[7px] tracking-[2px] px-3 py-1.5 cursor-pointer transition-colors"
               style={{
                 color: tab === t ? "var(--color-signal)" : "var(--color-dim)",

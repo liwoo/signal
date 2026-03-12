@@ -23,6 +23,8 @@ import {
   drawBloodSplatters,
   drawScreenShatter,
   drawDodgeStreak,
+  drawDefeatSequence,
+  generateDefeatExplosions,
   getShakeOffset,
 } from "@/lib/sprites/weapon-painter";
 
@@ -69,6 +71,12 @@ interface AnimState {
   dodgeTargetX: number; // where the dodged shot was aimed
   dodgeTargetY: number;
   totalAttacks: number; // how many attacks fired so far (affects dodge chance)
+  // Maya voice callouts
+  lastCalloutMs: number; // performance.now() of last hurry-up/keep-coding callout
+  // Victory defeat sequence
+  victoryTime: number; // seconds since victory started (-1 = inactive)
+  victoryExplosions: { x: number; y: number; delay: number; size: number }[];
+  victoryFade: number; // 0-1 fade to black
 }
 
 function randomAttackTarget(): { x: number; y: number } {
@@ -109,6 +117,10 @@ function createAnimState(): AnimState {
     dodgeTargetX: 0.5,
     dodgeTargetY: 0.5,
     totalAttacks: 0,
+    lastCalloutMs: 0,
+    victoryTime: -1,
+    victoryExplosions: [],
+    victoryFade: 0,
   };
 }
 
@@ -122,6 +134,28 @@ function shouldDodge(totalAttacks: number): boolean {
 // Semi-randomized attack interval (8-14 seconds) — gives player time to code between hits
 function nextAttackInterval(): number {
   return 8000 + Math.random() * 6000;
+}
+
+function VictoryXPBreakdown({ xp, isVictory }: { xp: { hitXP: number; defeatBonus: number; flawlessBonus: number; speedBonus: number; total: number }; isVictory: boolean }) {
+  return (
+    <div className="text-left inline-block" style={{ minWidth: 200 }}>
+      {([
+        ["HITS", `+${xp.hitXP} XP`],
+        [isVictory ? "DEFEAT BONUS" : "SURVIVAL", `+${xp.defeatBonus} XP`],
+        ...(xp.flawlessBonus > 0 ? [["FLAWLESS", `+${xp.flawlessBonus} XP`]] : []),
+        ...(xp.speedBonus > 0 ? [["SPEED BONUS", `+${xp.speedBonus} XP`]] : []),
+      ] as [string, string][]).map(([label, val]) => (
+        <div key={label} className="flex justify-between py-0.5">
+          <span className="text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>{label}</span>
+          <span className="text-[9px] tracking-[1px]" style={{ color: "#ffaa00" }}>{val}</span>
+        </div>
+      ))}
+      <div className="flex justify-between pt-1 mt-1" style={{ borderTop: "1px solid #201010" }}>
+        <span className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]" style={{ color: "#ff6e6e" }}>TOTAL</span>
+        <span className="text-[11px] font-bold font-[family-name:var(--font-display)]" style={{ color: "#ffaa00" }}>+{xp.total} XP</span>
+      </div>
+    </div>
+  );
 }
 
 const AUTO_CONTINUE_SECONDS = 7;
@@ -252,16 +286,44 @@ export function BossArena({
     }
 
     if (curr === "victory" || curr === "boss_retreats") {
-      audio.playSfx("handshake-confirm", 0.7);
       audio.stopLoop("heartbeat-fast", 1500);
       audio.stopLoop("tension-drone", 2000);
-      // Music eases back — triumph
-      audio.setLoopVolume("boss-loop", 0.3, 3000);
+
+      if (curr === "victory") {
+        // Dramatic defeat sequence audio — timed to match the animation
+        audio.playSfx("laser-fire", 0.6);
+        audio.playSfx("weapon-charge", 0.5);
+        // Chain explosion sounds
+        setTimeout(() => audio.playSfx("explosion-small", 0.6), 300);
+        setTimeout(() => audio.playSfx("explosion-small", 0.5), 800);
+        setTimeout(() => audio.playSfx("boss-hit", 0.55), 500);
+        setTimeout(() => audio.playSfx("explosion-small", 0.55), 1500);
+        setTimeout(() => audio.playSfx("explosion-small", 0.65), 2200);
+        setTimeout(() => audio.playSfx("shield-break", 0.6), 2800);
+        // Big final explosion
+        setTimeout(() => audio.playSfx("explosion-small", 0.7), 3000);
+        // Confirmation after the dust settles
+        setTimeout(() => audio.playSfx("handshake-confirm", 0.7), 5000);
+        // Maya: "we did it!"
+        setTimeout(() => audio.playSfx("we-did-it", 0.7), 5500);
+        // Music fades during destruction, then swells back on triumph
+        audio.setLoopVolume("boss-loop", 0.7, 800);
+        setTimeout(() => audio.setLoopVolume("boss-loop", 0.15, 2000), 3000);
+        setTimeout(() => audio.setLoopVolume("boss-loop", 0.5, 2000), 5500);
+
+        // Initialize defeat animation
+        animRef.current.victoryTime = 0;
+      } else {
+        audio.playSfx("handshake-confirm", 0.7);
+        audio.setLoopVolume("boss-loop", 0.3, 3000);
+      }
     }
 
     if (curr === "gameover") {
       audio.playSfx("captured-impact", 0.7);
       setTimeout(() => audio.playSfx("game-over-slam", 0.6), 300);
+      // Maya: dying cry
+      setTimeout(() => audio.playSfx("dying", 0.65), 500);
       audio.stopLoop("heartbeat-fast", 1500);
       audio.stopLoop("tension-drone", 2000);
       // Music drops to ominous undertone
@@ -281,6 +343,8 @@ export function BossArena({
       audio.playSfx("laser-fire", 0.5);
       setTimeout(() => audio.playSfx("explosion-small", 0.4), 400);
       setTimeout(() => audio.playSfx("hit-confirm", 0.3), 600);
+      // Maya: "next one!" after the hit confirms
+      setTimeout(() => audio.playSfx("next-one", 0.6), 900);
       animRef.current.hitBeamProgress = 0;
       animRef.current.explosionProgress = -1;
       if (state.bossHP <= 30) {
@@ -369,6 +433,20 @@ export function BossArena({
         anim.shakeIntensity = Math.max(0, anim.shakeIntensity - dtSec * 3);
       }
 
+      // Maya hurry-up callouts — every 15-25s during player_window
+      if (state.phase === "player_window") {
+        if (anim.lastCalloutMs === 0) {
+          // First frame in player_window — schedule first callout 15-25s from now
+          anim.lastCalloutMs = time + 15000 + Math.random() * 10000;
+        }
+        if (time > anim.lastCalloutMs) {
+          // Schedule next callout 15-25s from now
+          anim.lastCalloutMs = time + 15000 + Math.random() * 10000;
+          const urgeCalls = ["hurry-up", "keep-coding"] as const;
+          audioRef.current.playSfx(urgeCalls[Math.floor(Math.random() * 2)], 0.55);
+        }
+      }
+
       // Boss periodic attacks during player_window (semi-randomized)
       if (state.phase === "player_window" && !anim.bossAttackActive) {
         if (time - anim.lastBossAttackMs > anim.nextAttackIntervalMs) {
@@ -430,6 +508,11 @@ export function BossArena({
             setTimeout(() => {
               audioRef.current.playSfx(hitGrunts[Math.floor(Math.random() * 3)], 0.55);
             }, 80);
+            // Maya voice callout on hit — delayed so it follows the grunt
+            const hitCallouts = ["taking-fire", "hit"] as const;
+            setTimeout(() => {
+              audioRef.current.playSfx(hitCallouts[Math.floor(Math.random() * 2)], 0.65);
+            }, 400);
           }
         }
         if (anim.bossAttackProgress >= 1) {
@@ -457,6 +540,22 @@ export function BossArena({
       if (anim.dodgeTime >= 0) {
         anim.dodgeTime += dtSec;
         if (anim.dodgeTime > 1.6) anim.dodgeTime = -1; // done after ~1.6s
+      }
+
+      // Advance victory defeat sequence timer
+      if (anim.victoryTime >= 0) {
+        anim.victoryTime += dtSec;
+        // Generate explosions on first frame
+        if (anim.victoryExplosions.length === 0) {
+          const bf = bossFrames[0];
+          anim.victoryExplosions = generateDefeatExplosions(vpX, vpY, bf.width, bf.height);
+        }
+        // Escalating shake during destruction
+        if (anim.victoryTime < 3.5) {
+          anim.shakeIntensity = Math.min(1.5, 0.3 + anim.victoryTime * 0.35);
+        } else if (anim.victoryTime < 5) {
+          anim.shakeIntensity = Math.max(0, 1.5 - (anim.victoryTime - 3.5) * 1.0);
+        }
       }
 
       // ── Draw ──
@@ -516,8 +615,19 @@ export function BossArena({
       ctx.drawImage(bg, 0, 0);
 
       // Boss at vanishing point (scaled up for FPS feel)
+      // Hide boss sprite once the white flash peaks in defeat sequence
       const bf = bossFrames[frame % bossFrames.length];
-      ctx.drawImage(bf, vpX - bf.width / 2, vpY - bf.height * 0.6);
+      if (anim.victoryTime < 0 || anim.victoryTime < 3.5) {
+        // During defeat, boss shakes violently before disappearing
+        let bossShakeX = 0;
+        let bossShakeY = 0;
+        if (anim.victoryTime >= 0 && anim.victoryTime < 3.5) {
+          const intensity = Math.min(1, anim.victoryTime * 0.6);
+          bossShakeX = (Math.random() - 0.5) * 20 * intensity;
+          bossShakeY = (Math.random() - 0.5) * 12 * intensity;
+        }
+        ctx.drawImage(bf, vpX - bf.width / 2 + bossShakeX, vpY - bf.height * 0.6 + bossShakeY);
+      }
 
       // ── Phase-specific overlays ──
 
@@ -617,6 +727,11 @@ export function BossArena({
         ctx.globalCompositeOperation = "source-over";
       }
 
+      // ── Victory defeat sequence — layered on top of everything ──
+      if (anim.victoryTime >= 0) {
+        drawDefeatSequence(ctx, W, H, vpX, vpY, anim.victoryTime, anim.victoryExplosions);
+      }
+
       ctx.restore();
 
       animFrameRef.current = requestAnimationFrame(draw);
@@ -640,8 +755,17 @@ export function BossArena({
   }, [state.lastOutcome, state.phase, actions]);
 
   // ── Handle terminal phases ──
+  // Victory: show FPS defeat animation for 8s, then show XP overlay, then transition
+  const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
   useEffect(() => {
-    if (state.phase === "victory" || state.phase === "boss_retreats") {
+    if (state.phase === "victory") {
+      // Show XP overlay after defeat animation fades to black (~6.5s)
+      const overlayTimer = setTimeout(() => setShowVictoryOverlay(true), 6500);
+      // Transition out after player has seen XP breakdown
+      const exitTimer = setTimeout(onVictory, 11000);
+      return () => { clearTimeout(overlayTimer); clearTimeout(exitTimer); };
+    }
+    if (state.phase === "boss_retreats") {
       const timer = setTimeout(onVictory, 4000);
       return () => clearTimeout(timer);
     }
@@ -745,6 +869,8 @@ export function BossArena({
                 "boss-hit", "target-lock", "hit-confirm", "countdown-tick",
                 "grunt-hit-1", "grunt-hit-2", "grunt-hit-3",
                 "grunt-dodge-1", "grunt-dodge-2",
+                "hurry-up", "keep-coding", "taking-fire", "hit",
+                "we-did-it", "next-one", "dying",
               ]);
             }}
             className="bg-transparent px-8 py-3 cursor-pointer font-[family-name:var(--font-display)] text-[11px] tracking-[4px] transition-colors"
@@ -765,41 +891,22 @@ export function BossArena({
     );
   }
 
-  // ── Victory overlay ──
-  if (state.phase === "victory" || state.phase === "boss_retreats") {
+  // ── Victory overlay (boss_retreats: immediate, victory: after defeat animation) ──
+  if (state.phase === "boss_retreats") {
     return (
       <div className="h-dvh flex items-center justify-center" style={{ background: "#0a0408" }}>
         <div className="text-center">
           <div
             className="font-[family-name:var(--font-display)] text-[28px] tracking-[6px] font-bold mb-2"
-            style={{
-              color: state.phase === "victory" ? "#ffaa00" : "#ff6e6e",
-              textShadow: `0 0 20px ${state.phase === "victory" ? "rgba(255,170,0,.3)" : "rgba(255,64,64,.3)"}`,
-            }}
+            style={{ color: "#ff6e6e", textShadow: "0 0 20px rgba(255,64,64,.3)" }}
           >
-            {state.phase === "victory" ? "BOSS DEFEATED" : "BOSS RETREATS"}
+            BOSS RETREATS
           </div>
           <div className="text-[9px] tracking-[2px] mb-4" style={{ color: "var(--color-dim)" }}>
-            {state.phase === "victory" ? "lockmaster systems offline" : "lockmaster damaged — retreating to sublevel 2"}
+            lockmaster damaged — retreating to sublevel 2
           </div>
           {state.xpBreakdown && (
-            <div className="text-left inline-block" style={{ minWidth: 200 }}>
-              {([
-                ["HITS", `+${state.xpBreakdown.hitXP} XP`],
-                [state.phase === "victory" ? "DEFEAT BONUS" : "SURVIVAL", `+${state.xpBreakdown.defeatBonus} XP`],
-                ...(state.xpBreakdown.flawlessBonus > 0 ? [["FLAWLESS", `+${state.xpBreakdown.flawlessBonus} XP`]] : []),
-                ...(state.xpBreakdown.speedBonus > 0 ? [["SPEED BONUS", `+${state.xpBreakdown.speedBonus} XP`]] : []),
-              ] as [string, string][]).map(([label, val]) => (
-                <div key={label} className="flex justify-between py-0.5">
-                  <span className="text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>{label}</span>
-                  <span className="text-[9px] tracking-[1px]" style={{ color: "#ffaa00" }}>{val}</span>
-                </div>
-              ))}
-              <div className="flex justify-between pt-1 mt-1" style={{ borderTop: "1px solid #201010" }}>
-                <span className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]" style={{ color: "#ff6e6e" }}>TOTAL</span>
-                <span className="text-[11px] font-bold font-[family-name:var(--font-display)]" style={{ color: "#ffaa00" }}>+{state.xpBreakdown.total} XP</span>
-              </div>
-            </div>
+            <VictoryXPBreakdown xp={state.xpBreakdown} isVictory={false} />
           )}
         </div>
       </div>
@@ -821,7 +928,7 @@ export function BossArena({
             weapon systems offline — lockmaster countermeasures overwhelmed maya
           </div>
           <button
-            onClick={() => { actions.retryFight(); onRetry(); }}
+            onClick={() => { setShowIntro(false); actions.retryFight(); onRetry(); }}
             className="bg-transparent px-6 py-2.5 cursor-pointer font-[family-name:var(--font-display)] text-[10px] tracking-[3px] transition-colors"
             style={{ color: "#ff6e6e", border: "1px solid rgba(255,64,64,.3)" }}
           >
@@ -832,14 +939,15 @@ export function BossArena({
     );
   }
 
-  // ── MAIN COMBAT: Full-screen canvas with overlay panels ──
+  // ── MAIN COMBAT / VICTORY: Full-screen canvas with overlay panels ──
+  const isVictoryPhase = state.phase === "victory";
   return (
     <div
       className="h-dvh w-full relative overflow-hidden"
       style={{ background: "#0a0408" }}
       data-boss="true"
     >
-      {/* Full-screen combat canvas */}
+      {/* Full-screen combat canvas — stays during victory for defeat animation */}
       <canvas
         ref={canvasRef}
         width={canvasSize.w}
@@ -848,8 +956,33 @@ export function BossArena({
         style={{ objectFit: "cover" }}
       />
 
-      {/* ── HUD overlay (top) ── */}
-      <div className="absolute top-0 left-0 right-0 z-10">
+      {/* ── Victory overlay fades in after defeat animation ── */}
+      {isVictoryPhase && showVictoryOverlay && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center"
+          style={{
+            animation: "cinematic-fade-in 1.5s ease-out forwards",
+          }}
+        >
+          <div className="text-center">
+            <div
+              className="font-[family-name:var(--font-display)] text-[28px] tracking-[6px] font-bold mb-2"
+              style={{ color: "#ffaa00", textShadow: "0 0 20px rgba(255,170,0,.3)" }}
+            >
+              BOSS DEFEATED
+            </div>
+            <div className="text-[9px] tracking-[2px] mb-4" style={{ color: "var(--color-dim)" }}>
+              lockmaster systems offline
+            </div>
+            {state.xpBreakdown && (
+              <VictoryXPBreakdown xp={state.xpBreakdown} isVictory />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── HUD overlay (top) — hidden during victory ── */}
+      {!isVictoryPhase && <div className="absolute top-0 left-0 right-0 z-10">
         <BossHUD
           bossName={config.bossName}
           bossHP={state.bossHP}
@@ -860,8 +993,10 @@ export function BossArena({
           turnIndex={state.turnIndex}
           turnTotal={state.turnTotal}
         />
-      </div>
+      </div>}
 
+      {/* ── Combat overlays — hidden during victory defeat animation ── */}
+      {!isVictoryPhase && <>
       {/* ── Maya comms overlay (bottom-left) ── */}
       <div
         className="absolute bottom-0 left-0 z-10"
@@ -972,6 +1107,8 @@ export function BossArena({
           />
         </div>
       </div>
+
+      </>}
 
       {/* Scanline effect */}
       <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">

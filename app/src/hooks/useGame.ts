@@ -42,6 +42,14 @@ import {
   splitMayaMessage,
   type PauseState,
 } from "@/lib/game/pause";
+import {
+  trackCodeSubmit,
+  trackStepComplete,
+  trackChapterComplete,
+  trackGameOver,
+  trackZenBonus,
+  trackHeartBuy,
+} from "@/lib/analytics";
 
 export interface InitialPersistedState {
   xp: number;
@@ -400,6 +408,7 @@ export function useGame(
       setHearts(newHearts);
       setPhase("gameover");
       setTimerStopped(true);
+      trackGameOver(challenge.id, "timer_expired");
       onSaveRef.current?.({ xp: xpRef.current, level: levelRef.current, hearts: newHearts, library: libraryRef.current });
     } else {
       fireJeopardy("energy_drain");
@@ -491,6 +500,7 @@ export function useGame(
     setAttempts((a) => a + 1);
     setBusy(true);
     addMsg("YOU", `[ transmitting · ${currentStep.title} · attempt ${attempts + 1} ]`, "dim");
+    trackCodeSubmit(challenge.id, stepIndex, attempts + 1, false); // success updated below if complete
 
     const { reply, isComplete } = await callMayaEngineAsync(
       currentStep.id,
@@ -550,6 +560,12 @@ export function useGame(
           }))
         )
       );
+
+      trackCodeSubmit(challenge.id, stepIndex, attempts + 1, true);
+      trackStepComplete(challenge.id, stepIndex, currentStep.id, totalEarned);
+      if (zenResult.bonusXP > 0) {
+        trackZenBonus(challenge.id, currentStep.id, zenResult.bonusXP, zenResult.jolts.length);
+      }
 
       spawnXP(totalEarned);
       setXp((prev) => {
@@ -621,6 +637,7 @@ export function useGame(
       } else {
         // All steps complete — chapter done
         showStreak("CHAPTER CLEAR!");
+        trackChapterComplete(challenge.id, challenge.chapter, totalEarned, Date.now() - startTimeRef.current);
 
         // Queue missed zen tips reinforcement before chapter-complete transition
         // Compute from current library + this step's results (setLibrary hasn't flushed yet)
@@ -713,6 +730,7 @@ export function useGame(
     if (result) {
       setHearts(result.hearts);
       setXp(result.xp);
+      trackHeartBuy(result.hearts, HEART_COST_XP);
     }
   }, [hearts, xp]);
 

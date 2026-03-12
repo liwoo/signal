@@ -946,3 +946,166 @@ export function drawTelegraphWarning(
   ctx.globalAlpha = 1;
   ctx.restore();
 }
+
+// ── Boss defeat sequence — multi-phase destruction animation ──
+
+/** Generate chain explosion positions around the boss (called once at victory start) */
+export function generateDefeatExplosions(
+  vpX: number,
+  vpY: number,
+  bossW: number,
+  bossH: number,
+): { x: number; y: number; delay: number; size: number }[] {
+  const explosions: { x: number; y: number; delay: number; size: number }[] = [];
+  // Initial big explosion at center
+  explosions.push({ x: vpX, y: vpY, delay: 0, size: 120 });
+  // Chain explosions rippling outward
+  for (let i = 0; i < 14; i++) {
+    const angle = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
+    const dist = 30 + Math.random() * bossW * 0.8;
+    explosions.push({
+      x: vpX + Math.cos(angle) * dist,
+      y: vpY - bossH * 0.3 + Math.sin(angle) * dist * 0.6,
+      delay: 0.3 + i * 0.12 + Math.random() * 0.15,
+      size: 40 + Math.random() * 60,
+    });
+  }
+  // Late big eruptions
+  explosions.push({ x: vpX - bossW * 0.3, y: vpY - bossH * 0.5, delay: 2.2, size: 100 });
+  explosions.push({ x: vpX + bossW * 0.3, y: vpY - bossH * 0.2, delay: 2.5, size: 90 });
+  explosions.push({ x: vpX, y: vpY - bossH * 0.6, delay: 2.8, size: 140 });
+  return explosions;
+}
+
+/** Draw the defeat sequence overlays — call every frame during victory phase */
+export function drawDefeatSequence(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  vpX: number,
+  vpY: number,
+  t: number, // seconds since victory started
+  explosions: { x: number; y: number; delay: number; size: number }[],
+) {
+  ctx.save();
+
+  // Phase 1 (0-1.2s): Kill beams converging on boss from multiple angles
+  if (t < 1.5) {
+    const beamProgress = Math.min(1, t / 0.8);
+    const beamAlpha = t < 1.0 ? 1 : Math.max(0, 1 - (t - 1.0) / 0.5);
+
+    const beamOrigins = [
+      { x: w * 0.1, y: h * 0.8 },
+      { x: w * 0.5, y: h * 0.95 },
+      { x: w * 0.9, y: h * 0.75 },
+    ];
+    ctx.shadowBlur = 20 + beamProgress * 30;
+    ctx.shadowColor = "#ffaa00";
+
+    for (const origin of beamOrigins) {
+      const endX = origin.x + (vpX - origin.x) * beamProgress;
+      const endY = origin.y + (vpY - origin.y) * beamProgress;
+
+      ctx.globalAlpha = beamAlpha * 0.9;
+      ctx.lineWidth = 3 + beamProgress * 4;
+      ctx.strokeStyle = `rgba(255,220,100,${beamAlpha})`;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+
+      ctx.lineWidth = 8 + beamProgress * 10;
+      ctx.strokeStyle = `rgba(255,170,0,${beamAlpha * 0.3})`;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    ctx.lineWidth = 1;
+  }
+
+  // Phase 2 (0.3-3.5s): Chain explosions across boss body
+  ctx.globalAlpha = 1;
+  for (const exp of explosions) {
+    const localT = t - exp.delay;
+    if (localT < 0 || localT > 1.8) continue;
+    const progress = localT / 1.8;
+    drawExplosion(ctx, exp.x, exp.y, exp.size, progress);
+  }
+
+  // Sparks raining down (0.8-5s)
+  if (t > 0.8 && t < 5) {
+    const sparkAlpha = t < 4 ? Math.min(1, (t - 0.8) / 0.5) : Math.max(0, 1 - (t - 4));
+    ctx.globalAlpha = sparkAlpha;
+    const sparkCount = Math.min(40, Math.floor((t - 0.8) * 15));
+    for (let i = 0; i < sparkCount; i++) {
+      const seed = i * 137.5 + t * 0.3;
+      const sx = vpX + Math.sin(seed * 3.7) * w * 0.35;
+      const baseY = vpY - 60 + Math.cos(seed * 2.3) * 40;
+      const fallDist = ((t - 0.8 + Math.sin(seed) * 0.3) * 120) % (h * 0.6);
+      const sy = baseY + fallDist;
+      if (sy > h) continue;
+      const sparkSize = 1 + Math.random() * 2;
+      const colors = ["#ffcc00", "#ff8800", "#ff4400", "#ffeeaa"];
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fillRect(sx, sy, sparkSize, sparkSize + Math.random() * 3);
+    }
+  }
+
+  // Phase 3 (2.5-4.5s): Scanline dissolution of boss area
+  if (t > 2.5 && t < 4.5) {
+    const tearProgress = Math.min(1, (t - 2.5) / 2.0);
+    const tearHeight = Math.floor(h * 0.4 * tearProgress);
+    const tearTop = Math.floor(vpY - h * 0.2);
+
+    ctx.globalAlpha = 0.7;
+    for (let row = 0; row < tearHeight; row += 3) {
+      const y = tearTop + row;
+      if (y < 0 || y > h) continue;
+      const dx = (Math.sin(row * 0.8 + t * 12) * 30) * (1 - tearProgress);
+      ctx.fillStyle = `rgba(255,255,255,${0.1 + Math.random() * 0.15})`;
+      ctx.fillRect(vpX - 100 + dx, y, 200, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Phase 4 (3-5s): White flash expanding from boss center
+  if (t > 3.0 && t < 5.0) {
+    const flashT = (t - 3.0) / 2.0;
+    const flashIntensity = flashT < 0.4
+      ? flashT / 0.4
+      : Math.max(0, 1 - (flashT - 0.4) / 0.6);
+
+    const radius = 50 + flashT * w * 0.8;
+    const grad = ctx.createRadialGradient(vpX, vpY, 0, vpX, vpY, radius);
+    grad.addColorStop(0, `rgba(255,255,240,${flashIntensity * 0.85})`);
+    grad.addColorStop(0.3, `rgba(255,220,150,${flashIntensity * 0.5})`);
+    grad.addColorStop(0.6, `rgba(255,140,40,${flashIntensity * 0.2})`);
+    grad.addColorStop(1, "rgba(255,100,0,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Phase 5 (4.5-7s): Fade to black with lingering amber glow
+  if (t > 4.5) {
+    const fadeT = Math.min(1, (t - 4.5) / 2.5);
+
+    if (fadeT < 0.8) {
+      const glowAlpha = (1 - fadeT / 0.8) * 0.3;
+      const glowR = 60 + fadeT * 40;
+      const grad = ctx.createRadialGradient(vpX, vpY, 0, vpX, vpY, glowR);
+      grad.addColorStop(0, `rgba(255,170,0,${glowAlpha})`);
+      grad.addColorStop(1, "rgba(255,100,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(vpX - glowR, vpY - glowR, glowR * 2, glowR * 2);
+    }
+
+    ctx.globalAlpha = fadeT;
+    ctx.fillStyle = "#0a0408";
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}

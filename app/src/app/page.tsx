@@ -39,6 +39,7 @@ import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { MobileGate } from "@/components/game/MobileGate";
+import { Paywall } from "@/components/game/Paywall";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -49,6 +50,21 @@ import {
 } from "@/lib/storage/persistence";
 import type { Challenge, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
+import {
+  trackChapterStart,
+  trackChapterComplete,
+  trackCinematicStart,
+  trackCinematicSkip,
+  trackBeginnerStart,
+  trackBeginnerComplete,
+  trackBeginnerDisable,
+  trackBossStart,
+  trackBossVictory,
+  trackGameOver,
+  trackRetry,
+  trackSettingChange,
+  trackChapterSelect,
+} from "@/lib/analytics";
 
 // ── Cam-feed scene mapping — where Maya actually is per chapter ──
 
@@ -194,6 +210,9 @@ function GameRouter() {
   }, []);
 
   const handleSaveSettings = useCallback((partial: Partial<PlayerSettings>) => {
+    for (const [key, value] of Object.entries(partial)) {
+      if (value !== undefined) trackSettingChange(key, value as string | boolean);
+    }
     setPersisted((prev) => {
       if (!prev) return prev;
       const updated: PersistedState = {
@@ -266,6 +285,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [showBeginner, setShowBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
   // Resizable split
@@ -308,6 +328,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       onStart={() => {
         audio.startLoop("dark-drone-1", 0.08, 5000);
         setShowCinematic(true);
+        trackChapterStart(challenge.id, challenge.chapter);
+        trackCinematicStart(challenge.id, "intro");
       }}
     />;
   }
@@ -321,6 +343,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onComplete={() => {
           setShowCinematic(false);
           if (settings.beginnerMode && beginnerNotes) {
+            trackBeginnerStart(challenge.id);
             setShowBeginner(true);
           } else if (config.bossFightConfig) {
             // Defer one frame — let PixiJS WebGL context fully release
@@ -339,6 +362,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         notes={beginnerNotes}
         onReady={() => {
           setShowBeginner(false);
+          trackBeginnerComplete(challenge.id, 0);
           if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {
@@ -348,6 +372,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onDisable={() => {
           onSaveSettings({ beginnerMode: false });
           setShowBeginner(false);
+          trackBeginnerDisable(challenge.id);
           if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {
@@ -357,6 +382,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onHotspotXP={actions.addXP}
       />
     );
+  }
+
+  // ── Paywall ──
+  if (showPaywall) {
+    return <Paywall playerXP={initialState.xp} playerLevel={initialState.level} />;
   }
 
   // ── Boss Arena ──
@@ -382,12 +412,13 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onVictory={() => {
           setShowBossArena(false);
           setBossVictory(true);
+          trackBossVictory(challenge.id, 0, 0);
         }}
         onGameOver={() => {
-          // Game over handled internally by BossArena (retry button)
+          trackGameOver(challenge.id, "boss_attack");
         }}
         onRetry={() => {
-          // Retry handled internally by BossArena
+          trackRetry(challenge.id);
         }}
       />
     );
@@ -418,7 +449,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowWinCinematic(false);
           setShowBossArena(true);
         }}
-        onContinue={hasNextChapter ? onNextChapter : () => {}}
+        onContinue={hasNextChapter ? onNextChapter : () => setShowPaywall(true)}
       />
     );
   }
@@ -426,7 +457,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   if (state.phase === "gameover") {
     return (
       <GameOver
-        onRetry={actions.retryFromCheckpoint}
+        onRetry={() => { trackRetry(challenge.id); actions.retryFromCheckpoint(); }}
         onBuyHeart={actions.purchaseHeart}
         hearts={state.hearts}
         canBuyHeart={state.canBuyHeart}
@@ -458,7 +489,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowWinCinematic(false);
           actions.retryFromCheckpoint();
         }}
-        onContinue={hasNextChapter ? onNextChapter : () => {}}
+        onContinue={hasNextChapter ? onNextChapter : () => setShowPaywall(true)}
       />
     );
   }

@@ -52,6 +52,15 @@ const SFX = {
   "grunt-dodge-1": "/audio/sfx/grunt-dodge-1.ogg",
   "grunt-dodge-2": "/audio/sfx/grunt-dodge-2.ogg",
 
+  // Maya voice callouts (boss fight)
+  "hurry-up": "/audio/sfx/hurry-up.wav",
+  "keep-coding": "/audio/sfx/keep-coding.wav",
+  "taking-fire": "/audio/sfx/taking-fire.wav",
+  "hit": "/audio/sfx/hit.wav",
+  "we-did-it": "/audio/sfx/we-did-it.wav",
+  "next-one": "/audio/sfx/next-one.wav",
+  "dying": "/audio/sfx/dying.wav",
+
   // Boss fight weapon
   "weapon-charge": "/audio/sfx/weapon-charge.ogg",
   "laser-fire": "/audio/sfx/laser-fire.ogg",

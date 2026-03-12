@@ -163,16 +163,10 @@ export function resolveTurnHit(
   const newHP = Math.max(0, state.bossHP - turn.damage);
   const nextIndex = state.turnIndex + 1;
 
-  let phase: BossCombatPhase = "hit";
-  // Check if boss is defeated after this hit
-  if (newHP <= 0) {
-    phase = "victory";
-  }
-
   return {
     state: {
       ...state,
-      phase,
+      phase: "hit",
       bossHP: newHP,
       turnIndex: nextIndex,
       turnResults: [...state.turnResults, result],
@@ -219,6 +213,11 @@ export function advanceAfterResult(
 ): BossCombatState {
   // Already in victory
   if (state.phase === "victory") return state;
+
+  // Boss defeated (HP dropped to 0 during last hit)
+  if (state.bossHP <= 0) {
+    return { ...state, phase: "victory" };
+  }
 
   // Check game over (hearts depleted)
   if (currentHearts <= 0) {

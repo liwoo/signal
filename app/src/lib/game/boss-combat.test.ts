@@ -240,18 +240,23 @@ describe("resolveTurnHit", () => {
     expect(next.turnResults[0].damageDealt).toBe(20);
   });
 
-  test("sets victory when boss HP reaches 0", () => {
+  test("sets hit phase when boss HP reaches 0 (victory comes from advanceAfterResult)", () => {
     const state = { ...createBossCombatState(CONFIG), bossHP: 15 };
     const { state: next } = resolveTurnHit(CONFIG, state, TURNS[1], 2000);
     expect(next.bossHP).toBe(0);
-    expect(next.phase).toBe("victory");
+    expect(next.phase).toBe("hit");
+    // advanceAfterResult detects HP=0 and transitions to victory
+    const advanced = advanceAfterResult(CONFIG, next, 3);
+    expect(advanced.phase).toBe("victory");
   });
 
-  test("sets victory when overkill", () => {
+  test("sets hit phase when overkill (victory comes from advanceAfterResult)", () => {
     const state = { ...createBossCombatState(CONFIG), bossHP: 5 };
     const { state: next } = resolveTurnHit(CONFIG, state, TURNS[0], 2000);
     expect(next.bossHP).toBe(0); // clamped
-    expect(next.phase).toBe("victory");
+    expect(next.phase).toBe("hit");
+    const advanced = advanceAfterResult(CONFIG, next, 3);
+    expect(advanced.phase).toBe("victory");
   });
 });
 

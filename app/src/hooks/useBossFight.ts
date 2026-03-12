@@ -22,6 +22,13 @@ import {
 import { loseHeart } from "@/lib/game/hearts";
 import { calculateLevel } from "@/lib/game/xp";
 import { compileGo } from "@/lib/go/playground";
+import {
+  trackBossStart,
+  trackBossTurnResult,
+  trackBossVictory,
+  trackBossDefeat,
+  trackBossRetry,
+} from "@/lib/analytics";
 
 // ── Maya comms messages ──
 
@@ -34,8 +41,8 @@ export interface BossMessage {
 // Maya intro (typed before the fight begins — gives narrative context)
 const MAYA_INTRO: string[] = [
   "i just got in... i can see the lockmaster's core from here.",
-  "the weapon system's online but the malware mangled the code. types are wrong, braces missing, variables renamed...",
-  "i need you to debug each file — aim.go, load.go, fire.go — while i keep us alive.",
+  "the weapon system's split into two packages. aim.go, load.go, fire.go are in package weapon — but the malware mangled them. types are wrong, braces missing, variables renamed...",
+  "i need you to debug the weapon files while i keep us alive. then write the combo function in main.go to chain the final kill shot.",
   "the lockmaster will shoot back. every hit takes me down. fix the code fast.",
 ];
 
@@ -46,7 +53,7 @@ const MAYA_TELEGRAPH: Record<number, string> = {
   2: "fire.go next. missing closing brace, wrong operator, and it returns the wrong string. fix all three.",
   3: "all three files should work now. this turn wires them together — aim, load, fire. the output has to match exactly.",
   4: "it rerouted the whole grid. every coordinate in aim.go just shifted +64 on both axes. update them all.",
-  5: "last shot. fix the Combo function in main.go — wrong type and wrong separator. then everything fires together.",
+  5: "last shot. write the Combo function in main.go — it takes variadic strings and joins them with \" | \". check the comments for the signature.",
 };
 
 const MAYA_HIT: string[] = [
@@ -230,6 +237,7 @@ export function useBossFight(
   // ── Start the fight (show first intro message, wait for continue) ──
 
   const startFight = useCallback(() => {
+    trackBossStart(config.bossName);
     introIndexRef.current = 0;
     addMsg("MAYA", MAYA_INTRO[0]);
     // Brief delay before showing continue button (let player read)
@@ -340,6 +348,7 @@ export function useBossFight(
       turnRetryRef.current += 1;
       setLastOutcome("malfunction");
       setLastFeedback(`MALFUNCTION — ${firstError}`);
+      trackBossTurnResult(config.bossName, state.turnIndex + 1, "malfunction");
       addMsg("SYS", `⚠ COMPILE ERROR`);
       addMsg("MAYA", msg);
       setBusy(false);
@@ -355,6 +364,7 @@ export function useBossFight(
       setCombat(nextState);
       setLastOutcome("hit");
       setLastFeedback("DIRECT HIT");
+      trackBossTurnResult(config.bossName, state.turnIndex + 1, "hit");
       addMsg("SYS", `▸ HIT — ${turn.damage} DMG`);
       addMsg("MAYA", MAYA_HIT[state.turnIndex % MAYA_HIT.length]);
       setBusy(false);
@@ -367,6 +377,7 @@ export function useBossFight(
       turnRetryRef.current += 1;
       setLastOutcome("miss");
       setLastFeedback(output === "__OFFLINE__" ? "MISS — offline mode" : `MISS — got: ${output.trim().slice(0, 60)}`);
+      trackBossTurnResult(config.bossName, state.turnIndex + 1, "miss");
       addMsg("SYS", `✕ MISS`);
       addMsg("MAYA", msg);
       setBusy(false);
@@ -401,10 +412,13 @@ export function useBossFight(
 
       if (advanced.phase === "victory") {
         addMsg("MAYA", "it's down. lockmaster offline. we did it.");
+        trackBossVictory(config.bossName, breakdown.total, heartsRef.current < Math.max(5, initialHearts) ? Math.max(5, initialHearts) - heartsRef.current : 0);
       } else if (advanced.phase === "boss_retreats") {
         addMsg("MAYA", "it's damaged enough — retreating to sublevel 2. we're through.");
+        trackBossVictory(config.bossName, breakdown.total, Math.max(5, initialHearts) - heartsRef.current);
       } else if (advanced.phase === "gameover") {
         addMsg("MAYA", "systems overwhelmed. we'll have to try again.");
+        trackBossDefeat(config.bossName, advanced.turnIndex + 1, Math.max(5, initialHearts) - heartsRef.current);
       }
       return;
     }
@@ -463,6 +477,7 @@ export function useBossFight(
   // ── Retry (after game over) ──
 
   const retryFight = useCallback(() => {
+    trackBossRetry(config.bossName);
     setCombat(createBossCombatState(config));
     setLastOutcome(null);
     setLastFeedback("");

@@ -196,6 +196,13 @@ describe("full boss-01 fight — miss one turn", () => {
 });
 
 describe("tab starter code quality", () => {
+  test("weapon tabs have package weapon", () => {
+    for (const tabId of ["aim", "load", "fire"]) {
+      const tab = boss01Config.tabs.find((t) => t.id === tabId)!;
+      expect(tab.starterCode).toContain("package weapon");
+    }
+  });
+
   test("aim.go has sector grid in comments", () => {
     const aimTab = boss01Config.tabs.find((t) => t.id === "aim")!;
     expect(aimTab.starterCode).toContain("1=(128,160)");
@@ -209,16 +216,23 @@ describe("tab starter code quality", () => {
     expect(loadTab.starterCode).toContain('"exposed"');
   });
 
-  test("fire.go has validation logic", () => {
+  test("fire.go has const group and validation logic", () => {
     const fireTab = boss01Config.tabs.find((t) => t.id === "fire")!;
+    expect(fireTab.starterCode).toContain("const (");
     expect(fireTab.starterCode).toContain("NO TARGET");
     expect(fireTab.starterCode).toContain("NO AMMO");
+    // Corrupted: Hit = "FIRE" instead of "HIT"
+    expect(fireTab.starterCode).toContain('Hit      = "FIRE"');
   });
 
-  test("main.go has Combo function", () => {
+  test("main.go has package main + import weapon + Combo instructions", () => {
     const mainTab = boss01Config.tabs.find((t) => t.id === "main")!;
+    expect(mainTab.starterCode).toContain("package main");
+    expect(mainTab.starterCode).toContain('"weapon"');
     expect(mainTab.starterCode).toContain("Combo");
     expect(mainTab.starterCode).toContain("strings.Join");
+    // Starter has package/import but no func keyword — player writes from scratch
+    expect(mainTab.starterCode).not.toContain("func ");
   });
 
   test("every turn has a non-empty test harness", () => {

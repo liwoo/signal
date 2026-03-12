@@ -481,16 +481,57 @@ if total > 100 {
     title: "WEAPON SYSTEMS",
     subtitle: "GO SURVIVAL GUIDE FOR THE LOCKMASTER",
     blocks: [
-      // Section 0: := vs = (the #1 gotcha)
+      // Section 0: Packages & imports
       {
         type: "text",
         section: 0,
+        content:
+          "the weapon system is split into two packages — just like a real go project. aim.go, load.go, and fire.go are in package weapon. main.go is package main and imports weapon to use its functions.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `// weapon files (aim.go, load.go, fire.go):
+package weapon
+
+func Aim(sector int) (int, int) { ... }
+func Load(threat string) []string { ... }
+func Fire(x, y int, ammo []string) string { ... }
+
+// main.go:
+package main
+
+import "weapon"
+
+func main() {
+    x, y := weapon.Aim(5)
+    ammo := weapon.Load("shield")
+    result := weapon.Fire(x, y, ammo)
+}`,
+        hotspots: [
+          { text: "package weapon", tip: "declares these files as part of the weapon package. any file can be in any package — the package name groups them." },
+          { text: `import "weapon"`, tip: "brings the weapon package into scope. now you can call weapon.Aim(), weapon.Load(), weapon.Fire()." },
+          { text: "weapon.Aim(5)", tip: "the package name + dot + function name. in go, exported functions (capitalized) are visible from other packages." },
+          { text: "func Aim(", tip: "capitalized name = exported. other packages can call weapon.Aim(). a lowercase name like \"aim\" would be private." },
+        ],
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "in go, capitalized names are exported (visible to other packages). lowercase names are private. all the weapon functions — Aim, Load, Fire — are capitalized, so main.go can call them.",
+      },
+
+      // Section 1: := vs = (the #1 gotcha)
+      {
+        type: "text",
+        section: 1,
         content:
           "the corrupted weapon code has bugs you need to fix. but be careful — go has rules that will trip you up if you don't know them. first rule: := declares a NEW variable. = reassigns an EXISTING one.",
       },
       {
         type: "code",
-        section: 0,
+        section: 1,
         content: `count := 0          // declares count
 
 count = 5            // reassigns count (correct)
@@ -510,16 +551,16 @@ case "shield":
         ],
       },
 
-      // Section 1: && vs || (logical operators)
+      // Section 2: && vs || (logical operators)
       {
         type: "text",
-        section: 1,
+        section: 2,
         content:
           "second rule: && means AND (both must be true). || means OR (either one is true). the weapon code uses these to validate inputs — getting them backwards means your conditions are wrong.",
       },
       {
         type: "code",
-        section: 1,
+        section: 2,
         content: `// || means OR — true if EITHER side is true
 if x == 0 || y == 0 {
     // fires when x is zero OR y is zero
@@ -537,16 +578,16 @@ if x == 0 && y == 0 {
         ],
       },
 
-      // Section 2: Grouped parameters + types
+      // Section 3: Grouped parameters + corrupted types
       {
         type: "text",
-        section: 2,
+        section: 3,
         content:
           "third rule: when function parameters share a type, go lets you group them. \"x, y int\" means both x and y are int. the weapon code uses this — and the corrupted version has type names misspelled.",
       },
       {
         type: "code",
-        section: 2,
+        section: 3,
         content: `// grouped parameters — x and y are both int
 func Fire(x, y int, ammo []string) string
 
@@ -566,17 +607,51 @@ func Load(threat string) []string // RIGHT: "string"`,
         ],
       },
 
-      // Section 3: Variadic functions + strings.Join
+      // Section 4: Const groups
       {
         type: "text",
-        section: 3,
+        section: 4,
         content:
-          "the final weapon — Combo — uses a variadic function. the \"...\" before the type means \"zero or more arguments\". inside the function, it's a regular slice. strings.Join connects slice elements with a separator.",
+          "fourth rule: go uses const groups to define named values. fire.go uses a const group for its return strings — but the malware corrupted one of the values. const values can't be changed after declaration, so you fix them in the const block, not in the function.",
       },
       {
         type: "code",
-        section: 3,
-        content: `// variadic: accepts any number of strings
+        section: 4,
+        content: `// const group — named values
+const (
+    Hit      = "HIT"
+    NoTarget = "NO TARGET"
+    NoAmmo   = "NO AMMO"
+)
+
+// use the const names in your code:
+func Fire(x, y int, ammo []string) string {
+    if x == 0 || y == 0 {
+        return NoTarget
+    }
+    if len(ammo) == 0 {
+        return NoAmmo
+    }
+    return Hit
+}`,
+        hotspots: [
+          { text: "const (", tip: "a const group — declares multiple constants together. cleaner than separate const lines." },
+          { text: `Hit      = "HIT"`, tip: "the malware changed this to \"FIRE\". the test expects \"HIT\" — fix the value, not the function." },
+          { text: "return Hit", tip: "this returns whatever Hit is set to in the const block. if Hit = \"FIRE\", the function returns \"FIRE\" — wrong." },
+        ],
+      },
+
+      // Section 5: Variadic functions — write from scratch
+      {
+        type: "text",
+        section: 5,
+        content:
+          "the combo tab is where you write your own code. main.go imports the weapon package and needs a Combo function. a variadic function uses \"...\" before the type to accept any number of arguments. inside the function, it's a regular slice.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `// you will write this yourself in the COMBO tab:
 func Combo(shots ...string) string {
     return strings.Join(shots, " | ")
 }
@@ -586,26 +661,26 @@ Combo("HIT")                  // "HIT"
 Combo("HIT", "HIT", "HIT")   // "HIT | HIT | HIT"
 
 // strings.Join(slice, separator)
-// joins all elements with the separator between them`,
+// joins all elements with separator between them`,
         hotspots: [
-          { text: "...string", tip: "the three dots make this variadic — you can pass any number of strings. inside the function, shots is a []string." },
-          { text: `strings.Join(shots, " | ")`, tip: "Join takes a slice and a separator. it puts the separator between each element. no separator at the start or end." },
-          { text: `Combo("HIT", "HIT", "HIT")`, tip: "three arguments become a []string{\"HIT\", \"HIT\", \"HIT\"} inside the function. Join returns \"HIT | HIT | HIT\"." },
+          { text: "...string", tip: "three dots make this variadic — pass any number of strings. inside the function, shots is a []string." },
+          { text: `strings.Join(shots, " | ")`, tip: "Join takes a slice and a separator string. it puts \" | \" between each element." },
+          { text: `Combo("HIT", "HIT", "HIT")`, tip: "three arguments become []string{\"HIT\", \"HIT\", \"HIT\"}. Join returns \"HIT | HIT | HIT\"." },
         ],
       },
 
-      // Section 4: Combat overview
+      // Section 6: Combat summary
       {
         type: "text",
-        section: 4,
+        section: 6,
         content:
-          "the lockmaster attacks in 6 turns. each turn it telegraphs which tab to focus on — aim, load, fire, or combo. the weapon code is corrupted with misspelled types, wrong operators, and missing braces. fix the bugs, hit RUN, and deal damage.",
+          "the lockmaster attacks in 6 turns. each turn tells you which tab to fix. aim.go, load.go, and fire.go are corrupted weapon package files — misspelled types, wrong operators, missing braces, and a wrong const value. main.go is your package main — you write the Combo function yourself.",
       },
       {
         type: "text",
-        section: 4,
+        section: 6,
         content:
-          "halfway through, the sector grid shifts +64 on each axis — you'll need to update every coordinate in aim.go. the final turn uses Combo to chain three shots together. remember: = not :=, || not &&, int not in, string not sting. good luck.",
+          "halfway through, the sector grid shifts +64 on each axis — update every coordinate in aim.go. remember: = not :=, || not &&, int not in, string not sting, Hit not \"FIRE\". good luck.",
       },
     ],
   },

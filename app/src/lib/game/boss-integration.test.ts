@@ -143,12 +143,14 @@ describe("corrupted starter code — all tabs fail to compile", () => {
     expect(result.success).toBe(false);
   }, 15_000);
 
-  it("main.go starter has 'sting' instead of 'string' → MALFUNCTION", async () => {
+  it("main.go starter has no func (comments only) → MALFUNCTION", async () => {
     let state = createBossCombatState(boss01Config);
     state = updateTabCode(state, "aim", CORRECT_AIM_SHIFTED);
     state = updateTabCode(state, "load", CORRECT_LOAD);
     state = updateTabCode(state, "fire", CORRECT_FIRE);
-    // Leave main.go corrupted
+    // Leave main.go as starter (package/import/comments, no func Combo)
+    // Turn 6 activeTab is "main" so player code is used directly (no stub)
+    // Comments-only code means Combo is undefined → compile error
     const { result } = await compileBossTurn(state, 5);
     expect(result.success).toBe(false);
   }, 15_000);
@@ -601,9 +603,8 @@ describe("full fight: flawless victory (6/6 hits)", () => {
       state = startPlayerWindow(state, Date.now());
       const { state: nextState } = resolveTurnHit(boss01Config, state, turn, 3000);
       state = nextState;
-
-      if (state.phase === "victory") break;
       state = advanceAfterResult(boss01Config, state, hearts);
+      if (state.phase === "victory") break;
     }
 
     // Turn 5-6: shifted grid
@@ -623,10 +624,7 @@ describe("full fight: flawless victory (6/6 hits)", () => {
       state = startPlayerWindow(state, Date.now());
       const { state: nextState } = resolveTurnHit(boss01Config, state, turn, 3000);
       state = nextState;
-
-      if (state.phase !== "victory") {
-        state = advanceAfterResult(boss01Config, state, hearts);
-      }
+      state = advanceAfterResult(boss01Config, state, hearts);
     }
 
     // Damage: 15+15+15+20+15+20 = 100
@@ -671,9 +669,8 @@ describe("full fight: total failure (never fixes code)", () => {
         }
       }
 
-      if (state.phase === "victory") break;
       state = advanceAfterResult(boss01Config, state, hearts);
-      if (state.phase === "gameover") break;
+      if (state.phase === "victory" || state.phase === "gameover") break;
     }
 
     expect(state.phase).toBe("gameover");
@@ -715,8 +712,8 @@ describe("full fight: miss turn 1, fix all, hit remaining 5 → boss retreats", 
       state = startPlayerWindow(state, Date.now());
       const { state: hitState } = resolveTurnHit(boss01Config, state, turn, 4000);
       state = hitState;
-      if (state.phase === "victory") break;
       state = advanceAfterResult(boss01Config, state, hearts);
+      if (state.phase === "victory") break;
     }
 
     // Fix aim for shifted grid (turns 5-6)
@@ -735,9 +732,7 @@ describe("full fight: miss turn 1, fix all, hit remaining 5 → boss retreats", 
       state = startPlayerWindow(state, Date.now());
       const { state: hitState } = resolveTurnHit(boss01Config, state, turn, 4000);
       state = hitState;
-      if (state.phase !== "victory") {
-        state = advanceAfterResult(boss01Config, state, hearts);
-      }
+      state = advanceAfterResult(boss01Config, state, hearts);
     }
 
     // Missed turn 1 (0 dmg), hit turns 2-6: 15+15+20+15+20 = 85 dmg

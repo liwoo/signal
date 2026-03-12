@@ -280,13 +280,23 @@ export function CinematicScene({
 
       {/* Credits */}
       <div
-        className="absolute bottom-16 text-[7px] tracking-[2px] opacity-0"
+        className="absolute bottom-16 text-[12px] tracking-[3px] opacity-0"
         style={{
-          color: "rgba(110,255,160,.15)",
+          color: "rgba(110,255,160,.5)",
           animation: "intro-in 1s ease 1.5s forwards",
         }}
       >
-        crafted with ❤️ by chienda.com
+        crafted with ❤️ by{" "}
+        <a
+          href="https://chienda.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-4"
+          style={{ color: "var(--color-signal)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          chienda.com
+        </a>
       </div>
 
       {/* Skip prompt */}
