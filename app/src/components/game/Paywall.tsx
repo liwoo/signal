@@ -435,13 +435,13 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         }}
       />
 
-      {/* Side-by-side layout */}
+      {/* Responsive layout — stacked on mobile, side-by-side on desktop */}
       <div className="relative min-h-dvh flex flex-col">
-        <div className="flex-1 flex items-center justify-center px-6 py-8">
-          <div className="flex gap-6 max-w-[1200px] w-full items-center">
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-8">
+          <div className="flex flex-col lg:flex-row gap-6 max-w-[1200px] w-full lg:items-center">
 
-            {/* Left: Promo video — takes more space */}
-            <div className="flex-[3] min-w-0">
+            {/* Promo video — full width on mobile */}
+            <div className="w-full lg:flex-[3] lg:min-w-0">
               <div className="relative" style={{ aspectRatio: "16 / 9" }}>
                 <PromoLoop soundEnabled={soundEnabled} />
                 <button
@@ -460,8 +460,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               </div>
             </div>
 
-            {/* Right: Details — compact */}
-            <div className="w-[340px] shrink-0">
+            {/* Details — full width on mobile, fixed on desktop */}
+            <div className="w-full lg:w-[340px] lg:shrink-0">
               {/* Header */}
               <div className="mb-5">
                 <div
@@ -592,7 +592,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   color: hovered === "play-free" ? "var(--color-signal)" : "var(--color-foreground)",
                   background: hovered === "play-free" ? "rgba(110,255,160,.06)" : "transparent",
                   textDecoration: "none",
-                  display: "flex",
                 }}
                 onMouseEnter={() => setHovered("play-free")}
                 onMouseLeave={() => setHovered(null)}
