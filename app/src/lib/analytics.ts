@@ -6,14 +6,9 @@ import { getFirebaseAnalytics } from "./firebase";
 type EventParams = Record<string, string | number | boolean>;
 
 async function track(name: string, params?: EventParams) {
-  if (process.env.NODE_ENV === "development") {
-    console.log(`[Analytics] ${name}`, params ?? "");
-  }
   const analytics = await getFirebaseAnalytics();
   if (!analytics) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn(`[Analytics] Dropped event "${name}" — analytics not available`);
-    }
+    console.warn(`[Analytics] Dropped "${name}" — analytics not available`);
     return;
   }
   logEvent(analytics, name, params);

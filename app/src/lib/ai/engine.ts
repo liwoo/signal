@@ -119,6 +119,31 @@ const ch01ScaffoldBank: StepBank = {
       response:
         "four parts: `package main` at the top, `import \"fmt\"`, `func main() { }`, and `fmt.Println(\"I'm in\")` inside main — go won't compile if you import something and don't use it.",
     },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "what next", "where do i start", "start"],
+      response:
+        "write the go skeleton. four lines: `package main`, `import \"fmt\"`, `func main() {`, `fmt.Println(\"I'm in\")`, then `}`. transmit it.",
+    },
+    {
+      keywords: ["curly brace", "curly bracket", "opening brace", "closing brace", "where does the {"],
+      response:
+        "opening brace `{` must be on the same line as `func main()`. go is strict about that. closing `}` goes on its own line.",
+    },
+    {
+      keywords: ["error", "wrong", "not working", "doesn't work", "broken", "fail"],
+      response:
+        "check the order: `package main` first, then `import \"fmt\"`, then `func main() { }` with a `fmt.Println` inside. every piece matters.",
+    },
+    {
+      keywords: ["semicolon", ";"],
+      response:
+        "go doesn't use semicolons at the end of lines. the compiler adds them automatically. just write the code without them.",
+    },
+    {
+      keywords: ["capital", "uppercase", "Println", "case sensitive"],
+      response:
+        "go is case-sensitive. it's `Println` with a capital P, not `println`. same for `Printf`, `Print`.",
+    },
   ],
 
   codePatterns: [
@@ -221,6 +246,31 @@ const ch01LocationBank: StepBank = {
       keywords: ["newline", "\\n", "line break"],
       response:
         "Println adds a newline automatically. Printf doesn't — add \\n at the end if you need one.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "print my location: CELL B-09 · SUBLEVEL 3. use variables or constants if you want, but the output needs to match.",
+    },
+    {
+      keywords: ["dot", "·", "middle dot", "special character", "unicode"],
+      response:
+        "the `·` is a middle dot. you can copy it directly into your string, or skip it — i'll accept the output as long as B-09 and SUBLEVEL 3 are both there.",
+    },
+    {
+      keywords: ["concat", "concatenat", "combine", "join", "+"],
+      response:
+        "go doesn't use `+` to join strings in Println. just pass multiple args: `fmt.Println(cell, \"·\", sublevel)`. or use Printf with format verbs.",
+    },
+    {
+      keywords: ["sprint", "Sprintf"],
+      response:
+        "`fmt.Sprintf` builds a string without printing. `fmt.Printf` prints directly. either works — just make sure the output has B-09 and SUBLEVEL 3.",
+    },
+    {
+      keywords: ["example", "show me", "sample", "template"],
+      response:
+        "here's one way:\n```\ncell := \"B-09\"\nfmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cell, 3)\n```\nbut there are many valid approaches.",
     },
   ],
 
@@ -438,6 +488,31 @@ const ch02LoopBank: StepBank = {
       response:
         "go doesn't use semicolons at end of lines. and opening braces must be on the same line.",
     },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "write a for loop that prints numbers 1 through 10, one per line. `for i := 1; i <= 10; i++ { fmt.Println(i) }`.",
+    },
+    {
+      keywords: ["while", "do while", "until"],
+      response:
+        "go has no while keyword. use `for` — it covers everything. `for i := 1; i <= 10; i++` is go's while loop.",
+    },
+    {
+      keywords: ["range", "slice"],
+      response:
+        "you can use range for slices, but here you just need a counter: `for i := 1; i <= 10; i++`. no slice needed.",
+    },
+    {
+      keywords: ["++", "increment", "i++"],
+      response:
+        "`i++` increments by 1. it's a statement in go, not an expression — can't use it inside other expressions.",
+    },
+    {
+      keywords: ["off by one", "starts at 0", "zero", "0"],
+      response:
+        "the keypad codes start at 1, not 0. use `i := 1` as your starting value, and `i <= 10` as your condition.",
+    },
   ],
 
   outputPatterns: [
@@ -522,6 +597,26 @@ const ch02ClassifyBank: StepBank = {
       keywords: ["override", "default", "10"],
       response:
         "10 is special — OVERRIDE. use `default:` in your switch.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "modify your loop. for each code 1-10, print the number and its label. 1-3: DENY, 4-6: WARN, 7-9: GRANT, 10: OVERRIDE.",
+    },
+    {
+      keywords: ["fallthrough", "fall through", "need break"],
+      response:
+        "go's switch doesn't fall through by default — no `break` needed. each case runs only its own block.",
+    },
+    {
+      keywords: ["how many", "how many case", "how many conditions"],
+      response:
+        "four groups: `case i <= 3` for DENY, `case i <= 6` for WARN, `case i <= 9` for GRANT, and `default` for OVERRIDE.",
+    },
+    {
+      keywords: ["print both", "number and label", "format output"],
+      response:
+        "`fmt.Println(i, \"DENY\")` — prints the number and label separated by a space. do this for each category.",
     },
   ],
 
@@ -634,6 +729,16 @@ const ch02RewriteBank: StepBank = {
       keywords: ["same", "output", "what"],
       response:
         "same as before: 1 DENY, 2 DENY, 3 DENY, 4 WARN, 5 WARN, 6 WARN, 7 GRANT, 8 GRANT, 9 GRANT, 10 OVERRIDE.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "why rewrite"],
+      response:
+        "the redundancy protocol requires the same classification written differently. if you used switch, rewrite with if/else. if you used if/else, use switch/case.",
+    },
+    {
+      keywords: ["difference between", "switch vs", "if vs", "which is better", "compare"],
+      response:
+        "both produce the same result. switch is cleaner for multiple ranges. if/else is more familiar. the point is knowing both approaches.",
     },
   ],
 
@@ -805,14 +910,24 @@ const ch03SumBank: StepBank = {
 
   conceptFAQ: [
     {
-      keywords: ["function", "func", "define"],
-      response:
-        "`func name(params) returnType { ... }` — func keyword, name, params, return type.",
-    },
-    {
       keywords: ["variadic", "...", "dots", "any number"],
       response:
         "`func f(nums ...int)` — three dots mean any number of ints. inside, nums is a slice.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "write `func sumCodes(codes ...int) int` — it takes any number of ints and returns their sum. loop with range, accumulate into a total, return it.",
+    },
+    {
+      keywords: ["how to call", "call sumCodes", "invoke", "use sumCodes"],
+      response:
+        "in main: `result := sumCodes(10, 20, 30, 45, 10)` then `fmt.Println(result)`. pass the junction codes directly.",
+    },
+    {
+      keywords: ["function", "func", "define"],
+      response:
+        "`func name(params) returnType { ... }` — func keyword, name, params, return type.",
     },
     {
       keywords: ["range", "iterate", "loop", "for"],
@@ -823,6 +938,21 @@ const ch03SumBank: StepBank = {
       keywords: ["sum", "add", "total"],
       response:
         "start total at 0. loop with range. add each value. return total.",
+    },
+    {
+      keywords: ["return type", "int", "return value"],
+      response:
+        "the return type goes after the params: `func sumCodes(codes ...int) int`. the `int` at the end means it returns an integer.",
+    },
+    {
+      keywords: ["underscore", "_", "blank identifier"],
+      response:
+        "`_` is the blank identifier — it discards a value. `for _, v := range codes` ignores the index and gives you each value as `v`.",
+    },
+    {
+      keywords: ["+=", "plus equals", "accumulate"],
+      response:
+        "`total += v` adds v to total. same as `total = total + v` but shorter.",
     },
   ],
 
@@ -876,12 +1006,22 @@ const ch03ValidateBank: StepBank = {
 
   conceptFAQ: [
     {
+      keywords: ["reuse", "call sumCodes", "use sumCodes"],
+      response:
+        "call sumCodes inside validateCode: `total := sumCodes(codes...)`. the `...` spreads the variadic parameter to the other function.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "write `func validateCode(codes ...int) (int, bool)`. inside, call `sumCodes(codes...)` to get the total, then `return total, total > 100`.",
+    },
+    {
       keywords: ["return", "multiple return", "two values"],
       response:
         "`func f() (int, bool) { return 42, true }` — both types in parens.",
     },
     {
-      keywords: ["bool", "boolean", "true", "false", "valid"],
+      keywords: ["bool", "boolean", "true", "false"],
       response:
         "`total > 100` gives you a bool. return it directly.",
     },
@@ -889,6 +1029,21 @@ const ch03ValidateBank: StepBank = {
       keywords: ["call", "pass", "spread", "codes..."],
       response:
         "to pass variadic to another function: `sumCodes(codes...)` — dots spread it.",
+    },
+    {
+      keywords: ["tuple", "pair", "two things", "multiple values"],
+      response:
+        "go functions can return multiple values. declare them in parens: `(int, bool)`. assign both: `total, valid := validateCode(10, 20, 30)`.",
+    },
+    {
+      keywords: ["comparison", ">", "greater than", "greater"],
+      response:
+        "`total > 100` is a boolean expression — evaluates to true or false. return it directly as the second value.",
+    },
+    {
+      keywords: ["why 100", "threshold", "what number"],
+      response:
+        "100 is the threshold. if the sum of junction codes exceeds 100, the gate validates. `total > 100` gives you the bool.",
     },
   ],
 

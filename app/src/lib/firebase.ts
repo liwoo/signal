@@ -11,8 +11,10 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+const hasConfig = !!(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId && firebaseConfig.measurementId);
+
 // Lazy singleton — only initialise once
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const app = hasConfig && getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0] ?? null;
 
 let analyticsInstance: Analytics | null = null;
 let initPromise: Promise<Analytics | null> | null = null;
@@ -21,26 +23,25 @@ let initPromise: Promise<Analytics | null> | null = null;
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   if (analyticsInstance) return analyticsInstance;
   if (typeof window === "undefined") return null;
+  if (!hasConfig || !app) {
+    console.warn("[Firebase] Missing config — check NEXT_PUBLIC_FIREBASE_* env vars",
+      { apiKey: !!firebaseConfig.apiKey, projectId: !!firebaseConfig.projectId, appId: !!firebaseConfig.appId, measurementId: !!firebaseConfig.measurementId });
+    return null;
+  }
   // Deduplicate concurrent init calls
   if (initPromise) return initPromise;
   initPromise = (async () => {
     try {
       const supported = await isSupported();
       if (!supported) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[Firebase] Analytics not supported in this environment");
-        }
+        console.warn("[Firebase] Analytics not supported in this environment");
         return null;
       }
       analyticsInstance = getAnalytics(app);
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Firebase] Analytics initialized", analyticsInstance);
-      }
+      console.log("[Firebase] Analytics initialized ✓", { measurementId: firebaseConfig.measurementId });
       return analyticsInstance;
     } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[Firebase] Analytics init failed:", err);
-      }
+      console.error("[Firebase] Analytics init failed:", err);
       return null;
     }
   })();

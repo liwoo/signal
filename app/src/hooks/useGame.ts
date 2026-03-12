@@ -572,7 +572,7 @@ export function useGame(
             id: r.id,
             principle: r.principle,
             jolt: r.jolt,
-            suggestion: r.suggestion,
+            suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
             bonusXP: r.bonusXP,
             passed: r.check(code),
           }))

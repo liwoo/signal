@@ -18,6 +18,8 @@ export interface ZenRule {
   bonusXP: number;
   jolt: string;            // Maya's memory returning (when followed)
   suggestion: string;      // Maya's hint (when not followed)
+  /** If defined, overrides `suggestion` with a code-aware message. */
+  getSuggestion?: (code: string) => string;
 }
 
 export interface ZenResult {
@@ -554,6 +556,15 @@ const useNamedValues: ZenRule = {
   bonusXP: 10,
   jolt: "...the gas is clearing.\n\nyou gave things names — variables, not raw strings buried in a print call. that's intent. anyone reading this code knows what \"B-09\" means because you told them.\n\nzen of go: make your intent visible. `const` locks it down at compile time. `:=` is good too — it's short, clear, declared right where it's used.",
   suggestion: "try declaring named values — `cell := \"B-09\"` or `const cell = \"B-09\"` — instead of hardcoding strings directly in the print call. names are documentation.",
+  // Dynamic suggestion: if they already declared variables but didn't use them in print,
+  // tell them to reference those variables instead of suggesting they declare them again.
+  getSuggestion: (code) => {
+    const decls = collectDeclarations(code);
+    if (decls.length > 0) {
+      return "you declared variables — now use them in your print call. `fmt.Println(cell)` instead of hardcoding the value again. the whole point of a name is to use it.";
+    }
+    return "try declaring named values — `cell := \"B-09\"` or `const cell = \"B-09\"` — instead of hardcoding strings directly in the print call. names are documentation.";
+  },
 };
 
 const usePrintfFormat: ZenRule = {
@@ -841,8 +852,9 @@ export function analyzeZen(
     if (rule.check(code)) {
       bonusXP += rule.bonusXP;
       jolts.push(rule.jolt);
-    } else if (rule.suggestion) {
-      suggestions.push(rule.suggestion);
+    } else {
+      const msg = rule.getSuggestion ? rule.getSuggestion(code) : rule.suggestion;
+      if (msg) suggestions.push(msg);
     }
   }
 
