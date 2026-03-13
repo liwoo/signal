@@ -42,7 +42,6 @@ import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { MobileGate } from "@/components/game/MobileGate";
-import { Paywall } from "@/components/game/Paywall";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -304,7 +303,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [showBeginner, setShowBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
   // Resizable split
@@ -405,11 +403,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     );
   }
 
-  // ── Paywall ──
-  if (showPaywall) {
-    return <Paywall playerXP={initialState.xp} playerLevel={initialState.level} />;
-  }
-
   // ── Boss Arena ──
   if (showBossArena && config.bossFightConfig) {
     return (
@@ -445,7 +438,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     );
   }
 
-  // ── Boss Victory Path ──
+  // ── Boss Victory Path — always redirect to / after boss (Act I paywall) ──
   if (bossVictory) {
     if (!showWinCinematic) {
       return (
@@ -470,7 +463,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowWinCinematic(false);
           setShowBossArena(true);
         }}
-        onContinue={hasNextChapter ? onNextChapter : () => setShowPaywall(true)}
+        onContinue={() => { window.location.href = "/"; }}
       />
     );
   }
@@ -510,7 +503,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowWinCinematic(false);
           actions.retryFromCheckpoint();
         }}
-        onContinue={hasNextChapter ? onNextChapter : () => setShowPaywall(true)}
+        onContinue={hasNextChapter ? onNextChapter : () => { window.location.href = "/"; }}
       />
     );
   }

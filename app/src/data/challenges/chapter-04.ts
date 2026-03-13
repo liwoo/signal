@@ -3,7 +3,7 @@ import type { Challenge } from "@/types/game";
 export const chapter04: Challenge = {
   id: "chapter-04",
   act: 2,
-  chapter: 4,
+  chapter: 5,
   title: "GUARD ROSTER",
   location: "FLOOR 1-3 · SURVEILLANCE",
   concepts: ["Arrays", "Slices", "Maps", "Range"],

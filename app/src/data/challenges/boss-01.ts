@@ -28,7 +28,7 @@ export const SECTOR_GRID_SHIFTED: Record<number, [number, number]> = {
 export const boss01: Challenge = {
   id: "boss-01",
   act: 1,
-  chapter: 3,
+  chapter: 4,
   title: "LOCKMASTER",
   location: "SERVER ROOM · SUBLEVEL 3",
   concepts: [
