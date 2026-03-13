@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { PromoLoop } from "@/components/promo/PromoLoop";
 import {
   trackPurchaseCtaClick,
@@ -15,8 +15,8 @@ interface PaywallProps {
   playerLevel?: number;
 }
 
-const PRICE_SINGLE = process.env.NEXT_PUBLIC_PRICE_SINGLE || "19.99";
-const PRICE_TEAM = process.env.NEXT_PUBLIC_PRICE_TEAM || "149.99";
+const PRICE_SINGLE = process.env.NEXT_PUBLIC_PRICE_SINGLE || "9.99";
+const PRICE_TEAM = process.env.NEXT_PUBLIC_PRICE_TEAM || "69.99";
 const TEAM_SEATS = process.env.NEXT_PUBLIC_TEAM_SEATS || "10";
 
 // ── Curriculum data ──
@@ -58,7 +58,7 @@ const CURRICULUM: Act[] = [
       },
       {
         name: "DOOR CODE",
-        description: "crack a keypad sequence by classifying numbers 1–10",
+        description: "crack a keypad sequence by classifying numbers 1\u201310",
         concepts: ["for loops", "if/else", "switch", "modulo operator"],
       },
       {
@@ -81,6 +81,11 @@ const CURRICULUM: Act[] = [
     status: "locked",
     chapters: [
       {
+        name: "GUARD ROSTER",
+        description: "decode patrol schedules using maps and the bool-set pattern",
+        concepts: ["map[K]V", "composite literals", "range", "Sprintf"],
+      },
+      {
         name: "STRUCTS",
         description: "model security clearance badges as structured data",
         concepts: ["struct types", "field access", "methods", "value receivers"],
@@ -99,16 +104,6 @@ const CURRICULUM: Act[] = [
         name: "ERROR HANDLING",
         description: "handle cascading system failures without crashing",
         concepts: ["error type", "fmt.Errorf", "error wrapping", "sentinel errors"],
-      },
-      {
-        name: "MAPS",
-        description: "decode a facility directory mapping room codes to locations",
-        concepts: ["map[K]V", "make()", "comma-ok pattern", "range over maps"],
-      },
-      {
-        name: "FILE I/O",
-        description: "extract guard rotation schedules from encrypted log files",
-        concepts: ["os.Open", "bufio.Scanner", "defer", "os.ReadFile"],
       },
       {
         name: "GATEKEEPER",
@@ -145,9 +140,9 @@ const CURRICULUM: Act[] = [
         concepts: ["http.HandleFunc", "request handlers", "middleware", "routing"],
       },
       {
-        name: "JSON",
+        name: "JSON & I/O",
         description: "parse and forge security credentials in structured data",
-        concepts: ["encoding/json", "struct tags", "Marshal/Unmarshal", "streaming decode"],
+        concepts: ["encoding/json", "struct tags", "Marshal/Unmarshal", "file I/O"],
       },
       {
         name: "TESTING",
@@ -189,24 +184,100 @@ const CURRICULUM: Act[] = [
         concepts: ["os.Args", "flag package", "cobra patterns", "stdin/stdout pipes"],
       },
       {
-        name: "REFLECTION",
-        description: "dynamically inspect and modify unknown facility protocol types",
-        concepts: ["reflect package", "type inspection", "dynamic dispatch", "struct tags"],
-      },
-      {
         name: "MODULES",
         description: "structure the full escape toolkit as a production Go project",
         concepts: ["go.mod", "semantic versioning", "dependencies", "workspaces"],
       },
       {
         name: "FINAL SIGNAL",
-        description: "broadcast the signal — everything you've learned in one final mission",
+        description: "broadcast the signal \u2014 everything you've learned in one final mission",
         concepts: ["the full language", "production architecture", "real-world Go"],
         boss: true,
       },
     ],
   },
 ];
+
+// ── Feature highlights ──
+
+interface Feature {
+  label: string;
+  detail: string;
+  color: string;
+}
+
+const FEATURES: Feature[] = [
+  {
+    label: "REAL GO COMPILER",
+    detail: "your code compiles on the official Go Playground. real errors, real output, real learning.",
+    color: "var(--color-signal)",
+  },
+  {
+    label: "AI TUTOR",
+    detail: "maya adapts to your mistakes. she doesn't solve it for you \u2014 she pushes you in the right direction.",
+    color: "var(--color-info)",
+  },
+  {
+    label: "BOSS FIGHTS",
+    detail: "multi-file debugging challenges under fire. fix corrupted code while the clock ticks down.",
+    color: "var(--color-danger)",
+  },
+  {
+    label: "ZEN SYSTEM",
+    detail: "write idiomatic Go and earn bonus XP. build a personal library of Go best practices.",
+    color: "var(--color-alert)",
+  },
+];
+
+// ── What you'll learn checkpoints ──
+
+interface Checkpoint {
+  act: string;
+  label: string;
+  detail: string;
+}
+
+const CHECKPOINTS: Checkpoint[] = [
+  { act: "I", label: "Write your first Go program", detail: "variables, loops, functions, slices" },
+  { act: "II", label: "Build with structs and interfaces", detail: "maps, pointers, error handling" },
+  { act: "III", label: "Go concurrent and networked", detail: "goroutines, channels, HTTP, JSON, testing" },
+  { act: "IV", label: "Ship production Go", detail: "generics, context, databases, CLI tools, modules" },
+];
+
+// ── Typing effect for the tagline ──
+
+function useTypingEffect(text: string, speed = 40, delay = 800) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    let timeout: NodeJS.Timeout;
+
+    const startTyping = () => {
+      timeout = setInterval(() => {
+        i++;
+        setDisplayed(text.slice(0, i));
+        if (i >= text.length) {
+          clearInterval(timeout);
+          setDone(true);
+        }
+      }, speed);
+    };
+
+    const delayTimeout = setTimeout(startTyping, delay);
+    return () => {
+      clearTimeout(delayTimeout);
+      clearInterval(timeout);
+    };
+  }, [text, speed, delay]);
+
+  return { displayed, done };
+}
+
+// ══════════════════════════════════════════════════════════════
+// Component
+// ══════════════════════════════════════════════════════════════
 
 export function Paywall({ playerXP, playerLevel }: PaywallProps) {
   const [hovered, setHovered] = useState<string | null>(null);
@@ -215,8 +286,11 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
 
   const activePrice = selectedPlan === "single" ? PRICE_SINGLE : PRICE_TEAM;
+
+  const tagline = useTypingEffect("learn go by escaping.", 50, 600);
 
   const handleGoogleClick = useCallback(() => {
     trackPurchaseCtaClick(selectedPlan, activePrice);
@@ -237,13 +311,13 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
     setShowConsent(false);
   }, [selectedPlan, activePrice]);
 
+  // ── Curriculum page ──
   if (showCurriculum) {
     return (
       <div
         className="fixed inset-0 z-[950] overflow-y-auto"
         style={{ background: "rgba(2,4,6,.98)" }}
       >
-        {/* Scan lines */}
         <div
           className="fixed inset-0 pointer-events-none"
           style={{
@@ -253,7 +327,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         />
 
         <div className="relative max-w-[640px] mx-auto px-4 py-10">
-          {/* Back button */}
           <button
             onClick={() => setShowCurriculum(false)}
             className="bg-transparent cursor-pointer text-[10px] tracking-[2px] mb-8 transition-colors"
@@ -265,7 +338,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             onMouseEnter={() => setHovered("back")}
             onMouseLeave={() => setHovered(null)}
           >
-            ◂ BACK
+            &#9666; BACK
           </button>
 
           <div className="text-center mb-10">
@@ -279,35 +352,13 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               className="text-[12px] mb-2"
               style={{ color: "var(--color-foreground)", opacity: 0.7 }}
             >
-              4 acts · 24 chapters · 4 boss fights
+              4 acts &middot; 22 chapters &middot; 4 boss fights
             </div>
             <div
               className="text-[11px]"
-              style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+              style={{ color: "var(--color-foreground)", opacity: 0.5 }}
             >
               from &quot;hello world&quot; to production Go
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="mb-10">
-            <div className="flex justify-between mb-2">
-              <span className="text-[9px] tracking-[1px]" style={{ color: "var(--color-signal)" }}>
-                YOUR PROGRESS
-              </span>
-              <span className="text-[9px] tracking-[1px]" style={{ color: "var(--color-foreground)", opacity: 0.7 }}>
-                4 / 24 CHAPTERS
-              </span>
-            </div>
-            <div className="w-full h-[3px]" style={{ background: "rgba(110,255,160,.08)" }}>
-              <div
-                className="h-full"
-                style={{
-                  width: `${(4 / 24) * 100}%`,
-                  background: "var(--color-signal)",
-                  boxShadow: "0 0 8px rgba(110,255,160,.3)",
-                }}
-              />
             </div>
           </div>
 
@@ -315,7 +366,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             const diff = DIFFICULTY_STYLES[act.difficulty];
             return (
               <div key={act.act} className="mb-10">
-                {/* Act header */}
                 <div className="flex items-center gap-3 mb-4">
                   <div
                     className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold"
@@ -324,7 +374,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                       opacity: act.status === "complete" ? 1 : 0.9,
                     }}
                   >
-                    ACT {act.act} — {act.title}
+                    ACT {act.act} &mdash; {act.title}
                   </div>
                   <span
                     className="text-[7px] tracking-[1px] px-2 py-0.5 font-[family-name:var(--font-display)]"
@@ -337,7 +387,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                       className="text-[7px] tracking-[1px] px-2 py-0.5"
                       style={{ background: "rgba(110,255,160,.15)", color: "var(--color-signal)" }}
                     >
-                      CLEARED
+                      FREE
                     </span>
                   )}
                 </div>
@@ -366,18 +416,12 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                             BOSS
                           </span>
                         ) : act.status === "complete" ? (
-                          <span
-                            className="text-[10px]"
-                            style={{ color: "var(--color-signal)" }}
-                          >
-                            ✓
+                          <span className="text-[10px]" style={{ color: "var(--color-signal)" }}>
+                            &#10003;
                           </span>
                         ) : (
-                          <span
-                            className="text-[10px]"
-                            style={{ color: "var(--color-foreground)", opacity: 0.4 }}
-                          >
-                            ▸
+                          <span className="text-[10px]" style={{ color: "var(--color-foreground)", opacity: 0.4 }}>
+                            &#9656;
                           </span>
                         )}
                         <span
@@ -386,14 +430,11 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                             color: ch.boss
                               ? (act.status === "complete" ? "var(--color-signal)" : "#ff6e6e")
                               : "var(--color-foreground)",
-                            opacity: 1,
                           }}
                         >
                           {ch.name}
                         </span>
                       </div>
-
-                      {/* Description */}
                       <div
                         className="text-[10px] leading-[1.6] mb-2 pl-5"
                         style={{
@@ -403,8 +444,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                       >
                         {ch.description}
                       </div>
-
-                      {/* Concept tags */}
                       <div className="flex flex-wrap gap-1.5 pl-5">
                         {ch.concepts.map((c) => (
                           <span
@@ -429,7 +468,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             );
           })}
 
-          {/* Bottom CTA */}
           <div className="text-center mt-4 mb-10">
             <button
               onClick={() => setShowCurriculum(false)}
@@ -450,6 +488,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
     );
   }
 
+  // ── Main landing page ──
   return (
     <div
       className="fixed inset-0 z-[950] overflow-y-auto"
@@ -464,277 +503,459 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         }}
       />
 
-      {/* Responsive layout — stacked on mobile, side-by-side on desktop */}
-      <div className="relative min-h-dvh flex flex-col">
-        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-8">
-          <div className="flex flex-col lg:flex-row gap-6 max-w-[1200px] w-full lg:items-center">
+      <div className="relative">
+        {/* ═══════════ HERO ═══════════ */}
+        <section className="min-h-dvh flex flex-col items-center justify-center px-4 sm:px-6 relative">
+          {/* Title */}
+          <div
+            className="font-[family-name:var(--font-display)] font-black tracking-[8px] mb-3"
+            style={{
+              fontSize: "clamp(36px, 8vw, 64px)",
+              color: "var(--color-signal)",
+              textShadow: "0 0 60px rgba(110,255,160,.25), 0 0 120px rgba(110,255,160,.1)",
+              animation: "cinematic-fade-in 1s ease forwards",
+            }}
+          >
+            SIGNAL
+          </div>
 
-            {/* Promo video — full width on mobile */}
-            <div className="w-full lg:flex-[3] lg:min-w-0">
-              <div className="relative" style={{ aspectRatio: "16 / 9" }}>
-                <PromoLoop soundEnabled={soundEnabled} />
-                <button
-                  onClick={() => setSoundEnabled((s) => !s)}
-                  className="absolute bottom-3 right-3 bg-transparent cursor-pointer text-[9px] tracking-[1px] px-2 py-1 transition-colors"
-                  style={{
-                    color: soundEnabled ? "var(--color-signal)" : "var(--color-foreground)",
-                    opacity: soundEnabled ? 1 : 0.5,
-                    border: "1px solid",
-                    borderColor: soundEnabled ? "rgba(110,255,160,.3)" : "rgba(255,255,255,.1)",
-                    background: soundEnabled ? "rgba(110,255,160,.08)" : "rgba(0,0,0,.6)",
-                  }}
-                >
-                  {soundEnabled ? "♪ ON" : "♪ OFF"}
-                </button>
-              </div>
-            </div>
-
-            {/* Details — full width on mobile, fixed on desktop */}
-            <div className="w-full lg:w-[340px] lg:shrink-0">
-              {/* Header */}
-              <div className="mb-5">
-                <div
-                  className="font-[family-name:var(--font-display)] font-black tracking-[5px] mb-2"
-                  style={{
-                    fontSize: "28px",
-                    color: "var(--color-signal)",
-                    textShadow: "0 0 40px rgba(110,255,160,.2)",
-                  }}
-                >
-                  SIGNAL
-                </div>
-                <div
-                  className="text-[11px] leading-[1.8] mb-3"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  complete this game and become a professional software engineer. guaranteed!
-                </div>
-                <div
-                  className="text-[10px] leading-[1.8]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.55 }}
-                >
-                  4 acts · 24 chapters · 4 boss fights · full Go curriculum
-                </div>
-              </div>
-
-              {/* Pricing toggle */}
-              <div className="flex gap-2 mb-4">
-                {/* Individual */}
-                <button
-                  onClick={() => setSelectedPlan("single")}
-                  className="flex-1 bg-transparent p-2.5 text-left cursor-pointer transition-all"
-                  style={{
-                    border: selectedPlan === "single"
-                      ? "2px solid var(--color-signal)"
-                      : "1px solid rgba(110,255,160,.1)",
-                    background: selectedPlan === "single"
-                      ? "rgba(110,255,160,.04)"
-                      : "rgba(4,8,16,.4)",
-                  }}
-                >
-                  <div
-                    className="text-[7px] tracking-[2px] mb-1"
-                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
-                  >
-                    INDIVIDUAL
-                  </div>
-                  <div className="flex items-baseline gap-1 mb-1">
-                    <span
-                      className="font-[family-name:var(--font-display)] font-black text-[22px]"
-                      style={{ color: selectedPlan === "single" ? "var(--color-signal)" : "var(--color-foreground)" }}
-                    >
-                      ${PRICE_SINGLE}
-                    </span>
-                  </div>
-                  <div
-                    className="text-[8px] leading-[1.6]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.65 }}
-                  >
-                    lifetime access
-                  </div>
-                </button>
-
-                {/* Team */}
-                <button
-                  onClick={() => setSelectedPlan("team")}
-                  className="flex-1 bg-transparent p-2.5 text-left cursor-pointer transition-all relative"
-                  style={{
-                    border: selectedPlan === "team"
-                      ? "2px solid var(--color-signal)"
-                      : "1px solid rgba(110,255,160,.1)",
-                    background: selectedPlan === "team"
-                      ? "rgba(110,255,160,.04)"
-                      : "rgba(4,8,16,.4)",
-                  }}
-                >
-                  <div
-                    className="absolute top-0 right-0 px-1.5 py-0.5 text-[6px] tracking-[1px] font-[family-name:var(--font-display)] font-bold"
-                    style={{ background: "var(--color-signal)", color: "var(--color-background)" }}
-                  >
-                    SAVE {Math.round((1 - (parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)) / parseFloat(PRICE_SINGLE)) * 100)}%
-                  </div>
-                  <div
-                    className="text-[7px] tracking-[2px] mb-1"
-                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
-                  >
-                    TEAM · {TEAM_SEATS} SEATS
-                  </div>
-                  <div className="flex items-baseline gap-1 mb-0.5">
-                    <span
-                      className="font-[family-name:var(--font-display)] font-black text-[22px]"
-                      style={{ color: selectedPlan === "team" ? "var(--color-signal)" : "var(--color-foreground)" }}
-                    >
-                      ${PRICE_TEAM}
-                    </span>
-                  </div>
-                  <div
-                    className="text-[8px] mb-0.5"
-                    style={{ color: "var(--color-signal)", opacity: 0.7 }}
-                  >
-                    ${(parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)).toFixed(2)}/seat
-                  </div>
-                </button>
-              </div>
-
-              {/* Continue with Google — primary CTA */}
-              <button
-                onClick={handleGoogleClick}
-                className="w-full py-3 cursor-pointer text-[11px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
-                style={{
-                  border: "2px solid var(--color-signal)",
-                  color: hovered === "google" ? "var(--color-background)" : "var(--color-signal)",
-                  background: hovered === "google" ? "var(--color-signal)" : "transparent",
-                  textShadow: hovered === "google" ? "none" : "0 0 12px rgba(110,255,160,.2)",
-                }}
-                onMouseEnter={() => setHovered("google")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                <GoogleIcon size={16} />
-                <span>CONTINUE WITH GOOGLE</span>
-              </button>
-
-              {/* Play Act I Free — prominent secondary CTA */}
-              <a
-                href="/play"
-                className="w-full mt-2.5 py-2.5 flex items-center justify-center text-[10px] tracking-[2px] transition-all font-[family-name:var(--font-display)]"
-                style={{
-                  border: "1px solid rgba(110,255,160,.2)",
-                  color: hovered === "play-free" ? "var(--color-signal)" : "var(--color-foreground)",
-                  background: hovered === "play-free" ? "rgba(110,255,160,.06)" : "transparent",
-                  textDecoration: "none",
-                }}
-                onMouseEnter={() => setHovered("play-free")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                ▸ PLAY ACT I FREE
-              </a>
-
-              {/* View curriculum link */}
-              <div className="text-center mt-3">
-                <button
-                  onClick={() => setShowCurriculum(true)}
-                  className="bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
-                  style={{
-                    color: hovered === "curriculum" ? "var(--color-signal)" : "var(--color-foreground)",
-                    opacity: hovered === "curriculum" ? 1 : 0.5,
-                    border: "none",
-                    borderBottom: "1px solid",
-                    borderColor: hovered === "curriculum" ? "var(--color-signal)" : "rgba(110,255,160,.2)",
-                    paddingBottom: "2px",
-                  }}
-                  onMouseEnter={() => setHovered("curriculum")}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  view full curriculum — 4 acts, 24 chapters
-                </button>
-              </div>
-
-              {/* Player stats footer — only shown for returning players */}
-              {playerXP != null && playerLevel != null && (
-                <div className="flex justify-center gap-5 mt-5">
-                  <div className="text-center">
-                    <div
-                      className="text-[7px] tracking-[2px] mb-1"
-                      style={{ color: "var(--color-foreground)", opacity: 0.6 }}
-                    >
-                      YOUR XP
-                    </div>
-                    <div
-                      className="font-[family-name:var(--font-display)] text-[16px] font-bold"
-                      style={{ color: "var(--color-signal)" }}
-                    >
-                      {playerXP.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className="text-[7px] tracking-[2px] mb-1"
-                      style={{ color: "var(--color-foreground)", opacity: 0.6 }}
-                    >
-                      LEVEL
-                    </div>
-                    <div
-                      className="font-[family-name:var(--font-display)] text-[16px] font-bold"
-                      style={{ color: "var(--color-signal)" }}
-                    >
-                      {playerLevel}
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className="text-[7px] tracking-[2px] mb-1"
-                      style={{ color: "var(--color-foreground)", opacity: 0.6 }}
-                    >
-                      CHAPTERS
-                    </div>
-                    <div
-                      className="font-[family-name:var(--font-display)] text-[16px] font-bold"
-                      style={{ color: "var(--color-signal)" }}
-                    >
-                      4/24
-                    </div>
-                  </div>
-                </div>
+          {/* Typing tagline */}
+          <div className="h-[24px] mb-6">
+            <span
+              className="text-[14px] sm:text-[16px] tracking-[1px]"
+              style={{ color: "var(--color-dim)" }}
+            >
+              {tagline.displayed}
+              {!tagline.done && (
+                <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>_</span>
               )}
+            </span>
+          </div>
+
+          {/* Promo video */}
+          <div className="w-full max-w-[720px] mb-8 relative" style={{ aspectRatio: "16 / 9" }}>
+            <PromoLoop soundEnabled={soundEnabled} />
+            <button
+              onClick={() => setSoundEnabled((s) => !s)}
+              className="absolute bottom-3 right-3 bg-transparent cursor-pointer text-[9px] tracking-[1px] px-2 py-1 transition-colors"
+              style={{
+                color: soundEnabled ? "var(--color-signal)" : "var(--color-foreground)",
+                opacity: soundEnabled ? 1 : 0.5,
+                border: "1px solid",
+                borderColor: soundEnabled ? "rgba(110,255,160,.3)" : "rgba(255,255,255,.1)",
+                background: soundEnabled ? "rgba(110,255,160,.08)" : "rgba(0,0,0,.6)",
+              }}
+            >
+              {soundEnabled ? "\u266A ON" : "\u266A OFF"}
+            </button>
+          </div>
+
+          {/* Primary CTA */}
+          <a
+            href="/play"
+            className="py-3.5 px-10 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
+            style={{
+              border: "2px solid var(--color-signal)",
+              color: hovered === "hero-play" ? "var(--color-background)" : "var(--color-signal)",
+              background: hovered === "hero-play" ? "var(--color-signal)" : "transparent",
+              textDecoration: "none",
+              textShadow: hovered === "hero-play" ? "none" : "0 0 12px rgba(110,255,160,.3)",
+            }}
+            onMouseEnter={() => setHovered("hero-play")}
+            onMouseLeave={() => setHovered(null)}
+          >
+            PLAY FREE
+          </a>
+          <div
+            className="text-[9px] tracking-[1px] mt-3"
+            style={{ color: "var(--color-foreground)", opacity: 0.4 }}
+          >
+            act I &middot; no account required
+          </div>
+
+          {/* Scroll indicator */}
+          <div
+            className="absolute bottom-8 text-[10px] tracking-[2px]"
+            style={{ color: "var(--color-dim)", animation: "glow-pulse 3s ease-in-out infinite" }}
+          >
+            &#9660;
+          </div>
+        </section>
+
+        {/* ═══════════ THE PITCH ═══════════ */}
+        <section className="max-w-[640px] mx-auto px-4 sm:px-6 py-16 sm:py-24">
+          <div
+            className="text-[13px] sm:text-[14px] leading-[2] mb-12"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+          >
+            maya chen is a cryptography researcher trapped in a locked-down facility.
+            the only way out is through the terminal. you write real Go code to open
+            doors, decode schedules, hijack comm relays, and fight your way past
+            security systems. every chapter teaches new Go concepts. every line you write
+            compiles on the real Go Playground. by the end, you know Go.
+          </div>
+
+          {/* Feature grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-16">
+            {FEATURES.map((f) => (
+              <div
+                key={f.label}
+                className="px-4 py-4"
+                style={{
+                  border: "1px solid rgba(255,255,255,.04)",
+                  background: "rgba(4,8,16,.6)",
+                }}
+              >
+                <div
+                  className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px] font-bold mb-2"
+                  style={{ color: f.color }}
+                >
+                  {f.label}
+                </div>
+                <div
+                  className="text-[11px] leading-[1.8]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.65 }}
+                >
+                  {f.detail}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* What you'll learn */}
+          <div className="mb-16">
+            <div
+              className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px] font-bold mb-6"
+              style={{ color: "var(--color-signal)" }}
+            >
+              WHAT YOU&apos;LL LEARN
+            </div>
+            <div className="flex flex-col gap-4">
+              {CHECKPOINTS.map((cp) => (
+                <div key={cp.act} className="flex gap-4">
+                  <div className="shrink-0 w-[28px]">
+                    <div
+                      className="font-[family-name:var(--font-display)] text-[11px] font-bold text-center"
+                      style={{ color: "var(--color-dim)" }}
+                    >
+                      {cp.act}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="text-[12px] mb-0.5"
+                      style={{ color: "var(--color-foreground)" }}
+                    >
+                      {cp.label}
+                    </div>
+                    <div
+                      className="text-[10px]"
+                      style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                    >
+                      {cp.detail}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
 
-        {/* Footer links */}
-        <div className="relative flex items-center justify-center gap-5 pb-6">
-          {([
-            { label: "faq", href: "/faq" },
-            { label: "why go", href: "/why-go" },
-            { label: "privacy", href: "/privacy" },
-          ] as const).map((link, i) => (
-            <span key={link.label} className="flex items-center gap-5">
-              {i > 0 && (
-                <span
-                  className="text-[9px]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.25 }}
+          {/* Social proof placeholder */}
+          <div
+            className="px-5 py-5 mb-16"
+            style={{
+              borderLeft: "2px solid var(--color-signal)",
+              background: "rgba(110,255,160,.02)",
+            }}
+          >
+            <div
+              className="text-[12px] leading-[1.9] mb-3"
+              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+            >
+              &quot;i tried three Go tutorials before this. SIGNAL is the first one where I
+              actually looked forward to the next lesson.&quot;
+            </div>
+            <div
+              className="text-[10px]"
+              style={{ color: "var(--color-dim)" }}
+            >
+              &mdash; early access player
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════ PRICING ═══════════ */}
+        <section
+          className="py-16 sm:py-24"
+          style={{ borderTop: "1px solid rgba(110,255,160,.06)" }}
+        >
+          <div className="max-w-[540px] mx-auto px-4 sm:px-6">
+            <div className="text-center mb-3">
+              <div
+                className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-2"
+                style={{ fontSize: "20px", color: "var(--color-signal)" }}
+              >
+                UNLOCK THE FULL GAME
+              </div>
+              <div
+                className="text-[11px] leading-[1.8]"
+                style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+              >
+                act I is free. unlock acts II\u2013IV for the complete Go curriculum.
+              </div>
+            </div>
+
+            {/* Free tier callout */}
+            <div
+              className="px-4 py-3 mb-5 flex items-center justify-between"
+              style={{
+                border: "1px solid rgba(110,255,160,.15)",
+                background: "rgba(110,255,160,.03)",
+              }}
+            >
+              <div>
+                <div
+                  className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold mb-0.5"
+                  style={{ color: "var(--color-signal)" }}
                 >
-                  |
-                </span>
-              )}
+                  ACT I &mdash; FREE
+                </div>
+                <div
+                  className="text-[9px]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                >
+                  4 chapters + 1 boss fight &middot; no account needed
+                </div>
+              </div>
               <a
-                href={link.href}
-                className="text-[10px] tracking-[1.5px] transition-colors"
+                href="/play"
+                className="text-[9px] tracking-[1px] px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
                 style={{
-                  color: hovered === link.label ? "var(--color-signal)" : "var(--color-foreground)",
-                  opacity: hovered === link.label ? 1 : 0.6,
+                  border: "1px solid rgba(110,255,160,.3)",
+                  color: "var(--color-signal)",
                   textDecoration: "none",
+                  background: hovered === "free-cta" ? "rgba(110,255,160,.08)" : "transparent",
                 }}
-                onMouseEnter={() => setHovered(link.label)}
+                onMouseEnter={() => setHovered("free-cta")}
                 onMouseLeave={() => setHovered(null)}
               >
-                {link.label}
+                PLAY
               </a>
-            </span>
-          ))}
-        </div>
+            </div>
+
+            {/* Pricing cards */}
+            <div className="flex gap-2 mb-5">
+              {/* Individual */}
+              <button
+                onClick={() => setSelectedPlan("single")}
+                className="flex-1 bg-transparent p-3 text-left cursor-pointer transition-all"
+                style={{
+                  border: selectedPlan === "single"
+                    ? "2px solid var(--color-signal)"
+                    : "1px solid rgba(110,255,160,.1)",
+                  background: selectedPlan === "single"
+                    ? "rgba(110,255,160,.04)"
+                    : "rgba(4,8,16,.4)",
+                }}
+              >
+                <div
+                  className="text-[7px] tracking-[2px] mb-2"
+                  style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                >
+                  INDIVIDUAL
+                </div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span
+                    className="font-[family-name:var(--font-display)] font-black text-[24px]"
+                    style={{ color: selectedPlan === "single" ? "var(--color-signal)" : "var(--color-foreground)" }}
+                  >
+                    ${PRICE_SINGLE}
+                  </span>
+                </div>
+                <div
+                  className="text-[8px] leading-[1.6]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.55 }}
+                >
+                  one-time &middot; lifetime access
+                </div>
+              </button>
+
+              {/* Team */}
+              <button
+                onClick={() => setSelectedPlan("team")}
+                className="flex-1 bg-transparent p-3 text-left cursor-pointer transition-all relative"
+                style={{
+                  border: selectedPlan === "team"
+                    ? "2px solid var(--color-signal)"
+                    : "1px solid rgba(110,255,160,.1)",
+                  background: selectedPlan === "team"
+                    ? "rgba(110,255,160,.04)"
+                    : "rgba(4,8,16,.4)",
+                }}
+              >
+                <div
+                  className="absolute top-0 right-0 px-1.5 py-0.5 text-[6px] tracking-[1px] font-[family-name:var(--font-display)] font-bold"
+                  style={{ background: "var(--color-signal)", color: "var(--color-background)" }}
+                >
+                  SAVE {Math.round((1 - (parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)) / parseFloat(PRICE_SINGLE)) * 100)}%
+                </div>
+                <div
+                  className="text-[7px] tracking-[2px] mb-2"
+                  style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                >
+                  TEAM &middot; {TEAM_SEATS} SEATS
+                </div>
+                <div className="flex items-baseline gap-1 mb-0.5">
+                  <span
+                    className="font-[family-name:var(--font-display)] font-black text-[24px]"
+                    style={{ color: selectedPlan === "team" ? "var(--color-signal)" : "var(--color-foreground)" }}
+                  >
+                    ${PRICE_TEAM}
+                  </span>
+                </div>
+                <div
+                  className="text-[8px] mb-0.5"
+                  style={{ color: "var(--color-signal)", opacity: 0.7 }}
+                >
+                  ${(parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)).toFixed(2)}/seat
+                </div>
+              </button>
+            </div>
+
+            {/* What's included */}
+            <div
+              className="px-4 py-3 mb-5"
+              style={{
+                background: "rgba(4,8,16,.6)",
+                border: "1px solid rgba(255,255,255,.04)",
+              }}
+            >
+              <div
+                className="text-[8px] tracking-[2px] mb-2"
+                style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+              >
+                INCLUDES
+              </div>
+              {[
+                "22 chapters + 4 boss fights across 4 acts",
+                "full Go curriculum: basics through production",
+                "real compiler \u2014 code runs on Go Playground",
+                "AI tutor adapts to your mistakes",
+                "zen library of idiomatic Go patterns",
+                "lifetime access \u2014 no subscription",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-2 mb-1.5">
+                  <span className="text-[9px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
+                  <span
+                    className="text-[10px] leading-[1.6]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                  >
+                    {item}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Purchase CTA */}
+            <button
+              onClick={handleGoogleClick}
+              className="w-full py-3.5 cursor-pointer text-[12px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
+              style={{
+                border: "2px solid var(--color-signal)",
+                color: hovered === "google" ? "var(--color-background)" : "var(--color-signal)",
+                background: hovered === "google" ? "var(--color-signal)" : "transparent",
+                textShadow: hovered === "google" ? "none" : "0 0 12px rgba(110,255,160,.2)",
+              }}
+              onMouseEnter={() => setHovered("google")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <GoogleIcon size={16} />
+              <span>UNLOCK ALL ACTS &mdash; ${activePrice}</span>
+            </button>
+
+            <div className="text-center mt-3 mb-2">
+              <button
+                onClick={() => setShowCurriculum(true)}
+                className="bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
+                style={{
+                  color: hovered === "curriculum" ? "var(--color-signal)" : "var(--color-foreground)",
+                  opacity: hovered === "curriculum" ? 1 : 0.5,
+                  border: "none",
+                  borderBottom: "1px solid",
+                  borderColor: hovered === "curriculum" ? "var(--color-signal)" : "rgba(110,255,160,.2)",
+                  paddingBottom: "2px",
+                }}
+                onMouseEnter={() => setHovered("curriculum")}
+                onMouseLeave={() => setHovered(null)}
+              >
+                view full curriculum
+              </button>
+            </div>
+
+            {/* Returning player stats */}
+            {playerXP != null && playerLevel != null && (
+              <div
+                className="flex justify-center gap-5 mt-8 pt-5"
+                style={{ borderTop: "1px solid rgba(110,255,160,.06)" }}
+              >
+                <div className="text-center">
+                  <div className="text-[7px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.6 }}>YOUR XP</div>
+                  <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
+                    {playerXP.toLocaleString()}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[7px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.6 }}>LEVEL</div>
+                  <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
+                    {playerLevel}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ═══════════ FOOTER ═══════════ */}
+        <footer
+          className="py-8"
+          style={{ borderTop: "1px solid rgba(110,255,160,.04)" }}
+        >
+          <div className="flex items-center justify-center gap-5 mb-4">
+            {([
+              { label: "faq", href: "/faq" },
+              { label: "why go", href: "/why-go" },
+              { label: "privacy", href: "/privacy" },
+            ] as const).map((link, i) => (
+              <span key={link.label} className="flex items-center gap-5">
+                {i > 0 && (
+                  <span className="text-[9px]" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
+                )}
+                <a
+                  href={link.href}
+                  className="text-[10px] tracking-[1.5px] transition-colors"
+                  style={{
+                    color: hovered === link.label ? "var(--color-signal)" : "var(--color-foreground)",
+                    opacity: hovered === link.label ? 1 : 0.6,
+                    textDecoration: "none",
+                  }}
+                  onMouseEnter={() => setHovered(link.label)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  {link.label}
+                </a>
+              </span>
+            ))}
+          </div>
+          <div
+            className="text-center text-[8px] tracking-[1px]"
+            style={{ color: "var(--color-foreground)", opacity: 0.25 }}
+          >
+            CHIENDA LTD &middot; 2026
+          </div>
+        </footer>
       </div>
 
-      {/* ── Consent modal ── */}
+      {/* ═══════════ CONSENT MODAL ═══════════ */}
       {showConsent && (
         <div
           className="fixed inset-0 z-[1000] flex items-center justify-center"
@@ -749,7 +970,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div
               className="px-5 py-3 flex items-center justify-between"
               style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
@@ -765,13 +985,11 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 className="bg-transparent border-0 cursor-pointer text-[14px]"
                 style={{ color: "var(--color-dim)" }}
               >
-                ✕
+                &#10005;
               </button>
             </div>
 
-            {/* Body */}
             <div className="px-5 py-5">
-              {/* Plan summary */}
               <div
                 className="px-4 py-3 mb-5"
                 style={{
@@ -784,7 +1002,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                     className="text-[9px] tracking-[2px]"
                     style={{ color: "var(--color-foreground)", opacity: 0.7 }}
                   >
-                    {selectedPlan === "single" ? "INDIVIDUAL LICENSE" : `TEAM LICENSE · ${TEAM_SEATS} SEATS`}
+                    {selectedPlan === "single" ? "INDIVIDUAL LICENSE" : `TEAM LICENSE \u00B7 ${TEAM_SEATS} SEATS`}
                   </span>
                   <span
                     className="font-[family-name:var(--font-display)] font-bold text-[18px]"
@@ -797,11 +1015,10 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   className="text-[9px] mt-1"
                   style={{ color: "var(--color-foreground)", opacity: 0.5 }}
                 >
-                  one-time payment · lifetime access · all 24 chapters
+                  one-time payment &middot; lifetime access &middot; all 22 chapters
                 </div>
               </div>
 
-              {/* Legal text */}
               <p
                 className="text-[10px] leading-[1.8] mb-5"
                 style={{ color: "var(--color-foreground)", opacity: 0.6 }}
@@ -818,7 +1035,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 </a>.
               </p>
 
-              {/* Privacy checkbox */}
               <label
                 className="flex items-start gap-3 cursor-pointer mb-6"
                 style={{ userSelect: "none" }}
@@ -832,7 +1048,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   }}
                 >
                   {consentChecked && (
-                    <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>✓</span>
+                    <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>&#10003;</span>
                   )}
                 </div>
                 <input
@@ -858,7 +1074,6 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 </span>
               </label>
 
-              {/* Proceed button */}
               <button
                 onClick={handleConsentProceed}
                 disabled={!consentChecked}
@@ -873,15 +1088,10 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <span>SIGN IN &amp; PAY ${activePrice}</span>
               </button>
 
-              {/* Cancel */}
               <button
                 onClick={handleConsentDismiss}
                 className="w-full mt-2 py-2 bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
-                style={{
-                  border: "none",
-                  color: "var(--color-foreground)",
-                  opacity: 0.5,
-                }}
+                style={{ border: "none", color: "var(--color-foreground)", opacity: 0.5 }}
               >
                 cancel
               </button>

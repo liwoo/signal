@@ -52,6 +52,10 @@ Briefs are the player's primary instruction. If they're ambiguous, the player fa
 
 4. **Multi-step carry-forward clarity.** When `starterCode` is null, the brief must tell players what to modify in their existing code, not just what the output should be.
 
+5. **Use code syntax, not English algorithms.** Players are learning to code — they need to see the exact Go syntax to use. "collect the occupied floors and check which are missing" is useless. "create `occupied := map[string]bool{}`, loop with `for _, floor := range guards`, set `occupied[floor] = true`" gives them the building blocks. Show the variable names, the types, the function calls — in backticks. The brief is a recipe with ingredients, not a description of a meal.
+
+6. **Name every variable and type.** Don't say "create a map". Say "declare `guards := map[string]string{ }`". Don't say "loop through the values". Say "use `for _, floor := range guards`". The player should be able to read the brief and know exactly what to type, even if they need to figure out how to assemble the pieces.
+
 ## Challenge Structure Example
 
 ```typescript

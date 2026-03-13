@@ -843,7 +843,50 @@ export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
 // ── CHAPTER 4 INTRO SCENES ──────────────────────────────────────
 
 export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
-  // Scene 1: Maya in corridor near surveillance room — studying a photograph
+  // Scene 1: Aftermath — server room still smoking from lockmaster fight
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 50, time: 0 },
+      { x: 120, y: 60, time: 3500 },
+    ],
+    durationMs: 3500,
+    location: "SUBLEVEL 3 · SERVER ROOM",
+    caption: "lockmaster down. the server room is still humming. circuits fried, but the door is open.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.08, fadeMs: 1500 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+      { atMs: 2000, action: "sfx", sound: "terminal-beep", volume: 0.15 },
+    ],
+  },
+  // Scene 2: Maya climbs out of sublevel 3 — moving up through the facility
+  {
+    background: "corridor",
+    actors: [
+      {
+        type: "maya",
+        x: 80,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 600, y: 310, duration: 3000 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 250, y: 10, time: 3000 },
+    ],
+    durationMs: 3500,
+    location: "STAIRWELL · SUBLEVEL 3 → FLOOR 1",
+    caption: "she found reeves on sublevel 2. reeves handed her a photograph before the alarms hit.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 8, intervalMs: 380, volume: 0.3 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.08, fadeMs: 1500 },
+      { atMs: 2500, action: "sfx", sound: "door-slide", volume: 0.35 },
+    ],
+  },
+  // Scene 3: Maya studying the photograph — guard schedule
   {
     background: "corridor",
     actors: [
@@ -855,14 +898,14 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
     ],
     durationMs: 4500,
     location: "FLOOR 1-3 · SURVEILLANCE CORRIDOR",
-    caption: "reeves gave her a photograph. guard schedule. names, floors, shift windows.",
+    caption: "guard schedule. five names, four floors, shift windows. she needs to find the gap.",
     audio: [
-      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 1500 },
       { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.04, fadeMs: 1000 },
       { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+      { atMs: 3000, action: "sfx", sound: "maya-typing", volume: 0.2 },
     ],
   },
-  // Scene 2: Maya walks along the corridor past surveillance monitors
+  // Scene 4: Maya walks past surveillance monitors — tension building
   {
     background: "corridor",
     actors: [
@@ -880,13 +923,13 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
     ],
     durationMs: 3500,
     location: "FLOOR 1-3 · SURVEILLANCE",
-    caption: "five guards. four floors. one window where a floor goes clear.",
+    caption: "but something else is watching. the facility knows she passed the lockmaster.",
     audio: [
       { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.25 },
-      { atMs: 2800, action: "sfx", sound: "maya-typing", volume: 0.2 },
+      { atMs: 2200, action: "sfx", sound: "warning-beep", volume: 0.2 },
     ],
   },
-  // Scene 3: Static shot — surveillance monitor glow. GHOST's broadcast.
+  // Scene 5: GHOST's broadcast — acknowledges the lockmaster, raises the stakes
   {
     background: "server",
     actors: [],
@@ -895,8 +938,8 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
       { x: 120, y: 50, time: 4000 },
     ],
     durationMs: 4000,
-    location: "FLOOR 1-3 · SURVEILLANCE",
-    caption: "[GHOST]: you have twelve hours. then the building burns.",
+    location: "FACILITY BROADCAST",
+    caption: "[GHOST]: impressive. you beat the lockmaster. you have twelve hours. then the building burns.",
     audio: [
       { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
       { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 800 },

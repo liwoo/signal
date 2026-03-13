@@ -1417,7 +1417,7 @@ const ch04ScaffoldBank: StepBank = {
 // Chapter 04: Step 1 — Guard Map
 const ch04GuardmapBank: StepBank = {
   intro:
-    "good. now build the guard roster. create a map — map[string]string — with each guard's name as the key and their floor as the value. print guards[\"Volkov\"] to verify.\n\nexpected output: Floor 2",
+    "good. now declare `guards := map[string]string{ }` with five entries — Chen: Floor 1, Alvarez: Floor 2, Volkov: Floor 2, Park: Floor 3, Santos: Floor 1. then `fmt.Println(guards[\"Volkov\"])`.\n\nexpected output: Floor 2",
 
   conceptFAQ: [
     {
@@ -1547,7 +1547,7 @@ const ch04GuardmapBank: StepBank = {
 // Chapter 04: Step 2 — Clear Floors
 const ch04ClearfloorsBank: StepBank = {
   intro:
-    "the roster's built. now find the gap — which floor has no guards right now.\n\ncollect the occupied floors, then check 1 through 4. print any that are clear.\n\nexpected output: Floor 4 is clear",
+    "roster confirmed. now add three things:\n\n1. `occupied := map[string]bool{}`\n2. `for _, floor := range guards { occupied[floor] = true }`\n3. loop `for i := 1; i <= 4; i++` — build the name with `fmt.Sprintf(\"Floor %d\", i)`, check `if !occupied[name]`, print it with \"is clear\".\n\nexpected output: Floor 4 is clear",
 
   conceptFAQ: [
     {

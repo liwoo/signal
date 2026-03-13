@@ -17,10 +17,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const description =
-  "SIGNAL is a narrative coding game where you teach yourself Go by helping Maya Chen — a cryptography researcher trapped in a research facility — escape through code. Every challenge is a real Go problem. Every line you write matters.";
+  "Learn Go by escaping. SIGNAL is a narrative coding game where you write real Go to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free.";
 
 export const metadata: Metadata = {
-  title: "SIGNAL — Learn Go by keeping someone alive",
+  title: "SIGNAL — Learn Go by escaping",
   description,
   manifest: "/manifest.json",
   openGraph: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SIGNAL — Learn Go by keeping someone alive",
+    title: "SIGNAL — Learn Go by escaping",
     description,
     images: ["/og.jpg"],
   },

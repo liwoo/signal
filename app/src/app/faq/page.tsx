@@ -25,8 +25,12 @@ const FAQS: FAQItem[] = [
     a: "Act I (4 chapters + 1 boss fight) is completely free with no account required. this covers variables, loops, conditionals, functions, slices, and multi-return values.",
   },
   {
+    q: "What does the full game cost?",
+    a: "$9.99 one-time for the full game — 4 acts, 22 chapters, and 4 boss fights. lifetime access, no subscription. team licenses ($69.99 for 10 seats) are available for bootcamps and engineering teams.",
+  },
+  {
     q: "What does the full game include?",
-    a: "4 acts, 24 chapters, and 4 boss fights covering the full Go language — from hello world to goroutines, channels, HTTP servers, generics, and production architecture. lifetime access, no subscription.",
+    a: "4 acts covering the full Go language — from hello world to goroutines, channels, HTTP servers, generics, and production architecture. 22 chapters, 4 boss fights, an AI tutor, and a zen library of idiomatic Go patterns.",
   },
   {
     q: "How long does the full game take?",
