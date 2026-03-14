@@ -132,6 +132,7 @@ export interface PlayerSettings {
   chatWidthPercent: number;
   /** Tutorial text size multiplier (1 = original 11px, 2 = default 22px) */
   tutorialFontScale: number;
+  tourCompleted: boolean;
 }
 
 // ── Chat ──

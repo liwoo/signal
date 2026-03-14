@@ -95,6 +95,20 @@ export function trackBeginnerDisable(chapterId: string) {
   track("beginner_disable", { chapter_id: chapterId });
 }
 
+export function trackBeginnerHotspot(chapterId: string, hotspotText: string) {
+  track("beginner_hotspot", { chapter_id: chapterId, hotspot: hotspotText.slice(0, 80) });
+}
+
+// ── Chat ──
+
+export function trackChatAsk(chapterId: string, stepId: string, message: string) {
+  track("chat_ask", { chapter_id: chapterId, step_id: stepId, message: message.slice(0, 120) });
+}
+
+export function trackChatExplain(chapterId: string, stepId: string) {
+  track("chat_explain", { chapter_id: chapterId, step_id: stepId });
+}
+
 // ── Settings ──
 
 export function trackSettingChange(setting: string, value: string | boolean) {
@@ -157,4 +171,56 @@ export function trackChapterSelect(chapterId: string) {
 
 export function trackWinModalTab(tab: string) {
   track("win_modal_tab", { tab_name: tab });
+}
+
+// ── Mobile gate ──
+
+export function trackMobileEmailCapture(email: string) {
+  // Hash the email to a domain-only string for privacy — never log full addresses
+  const domain = email.includes("@") ? email.split("@")[1] : "unknown";
+  track("mobile_email_capture", { email_domain: domain });
+}
+
+// ── Warmup ──
+
+export function trackWarmupStart() {
+  track("warmup_start");
+}
+
+export function trackWarmupComplete(skipped: boolean) {
+  track("warmup_complete", { skipped });
+}
+
+export function trackWarmupExercise(exercise: number, attempts: number, timeMs: number) {
+  track("warmup_exercise", { exercise_number: exercise, attempts, time_ms: timeMs });
+}
+
+export function trackWarmupError(exercise: number, input: string) {
+  track("warmup_error", { exercise_number: exercise, input: input.slice(0, 100) });
+}
+
+export function trackWarmupSkipExercise(exercise: number) {
+  track("warmup_skip", { at_exercise: exercise });
+}
+
+export function trackWarmupFontScale(scale: number) {
+  track("warmup_font_scale", { scale });
+}
+
+// ── Guided tour ──
+
+export function trackTourStart() {
+  track("tour_start");
+}
+
+export function trackTourStep(stepIndex: number, stepTarget: string) {
+  track("tour_step", { step_index: stepIndex, step_target: stepTarget });
+}
+
+export function trackTourSkip(atStep: number) {
+  track("tour_skip", { at_step: atStep });
+}
+
+export function trackTourComplete() {
+  track("tour_complete");
 }

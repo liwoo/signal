@@ -57,16 +57,6 @@ export const chapter04: Challenge = {
         'declare a variable `guards` using `map[string]string{ }` with these key-value pairs:\n\n"Chen": "Floor 1"\n"Alvarez": "Floor 2"\n"Volkov": "Floor 2"\n"Park": "Floor 3"\n"Santos": "Floor 1"\n\nthen print the value for key "Volkov" using `fmt.Println(guards["Volkov"])`.\n\nexpected output:\nFloor 2',
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "Floor 2",
-      testHarness: `func main() {
-	guards := map[string]string{
-		"Chen": "Floor 1",
-		"Alvarez": "Floor 2",
-		"Volkov": "Floor 2",
-		"Park": "Floor 3",
-		"Santos": "Floor 1",
-	}
-	fmt.Println(guards["Volkov"])
-}`,
       expectedOutput: "Floor 2",
       hints: [
         {
@@ -101,25 +91,6 @@ export const chapter04: Challenge = {
         'add these three things after your guards map:\n\n1. create a bool map: `occupied := map[string]bool{}`\n2. loop over guards with `for _, floor := range guards` and set `occupied[floor] = true`\n3. loop `for i := 1; i <= 4; i++` — build each floor name with `fmt.Sprintf("Floor %d", i)`, then check `if !occupied[name]` and print it with "is clear"\n\nexpected output:\nFloor 4 is clear',
       starterCode: null, // carry forward
       expectedBehavior: "Floor 4 is clear",
-      testHarness: `func main() {
-	guards := map[string]string{
-		"Chen": "Floor 1",
-		"Alvarez": "Floor 2",
-		"Volkov": "Floor 2",
-		"Park": "Floor 3",
-		"Santos": "Floor 1",
-	}
-	occupied := map[string]bool{}
-	for _, floor := range guards {
-		occupied[floor] = true
-	}
-	for i := 1; i <= 4; i++ {
-		name := fmt.Sprintf("Floor %d", i)
-		if !occupied[name] {
-			fmt.Printf("%s is clear\\n", name)
-		}
-	}
-}`,
       expectedOutput: "Floor 4 is clear",
       hints: [
         {

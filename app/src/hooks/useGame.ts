@@ -49,6 +49,8 @@ import {
   trackGameOver,
   trackZenBonus,
   trackHeartBuy,
+  trackChatAsk,
+  trackChatExplain,
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
 
@@ -484,6 +486,7 @@ export function useGame(
     const msg = chatInput.trim();
     setChatInput("");
     addMsg("YOU", msg, "you");
+    trackChatAsk(challenge.id, currentStep.id, msg);
 
     const { reply } = callMayaEngine(
       currentStep.id,
@@ -806,6 +809,7 @@ export function useGame(
     if (!result) return;
     syncPauseState(result.state);
     setXp(result.newXP);
+    trackChatExplain(challenge.id, currentStep.id);
 
     addMsg("YOU", "explain again", "you");
     const { reply } = callMayaEngine(

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { BeginnerNotes, NoteBlock, Hotspot } from "@/data/beginner-notes";
 import { getSectionCount } from "@/data/beginner-notes";
+import { trackBeginnerHotspot } from "@/lib/analytics";
 
 const HOTSPOT_XP = 5;
 
@@ -12,6 +13,7 @@ const SCALE_STEP = 0.5;
 
 interface BeginnerOverlayProps {
   notes: BeginnerNotes;
+  chapterId: string;
   fontScale: number;
   onFontScaleChange: (scale: number) => void;
   onReady: () => void;
@@ -19,7 +21,7 @@ interface BeginnerOverlayProps {
   onHotspotXP: (amount: number) => void;
 }
 
-export function BeginnerOverlay({ notes, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
+export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
   const totalSections = getSectionCount(notes);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionDone, setSectionDone] = useState(false);
@@ -44,7 +46,8 @@ export function BeginnerOverlay({ notes, fontScale, onFontScaleChange, onReady, 
     setClickedHotspots((prev) => new Set(prev).add(hotspotText));
     setEarnedXP((prev) => prev + HOTSPOT_XP);
     onHotspotXP(HOTSPOT_XP);
-  }, [clickedHotspots, onHotspotXP]);
+    trackBeginnerHotspot(chapterId, hotspotText);
+  }, [clickedHotspots, onHotspotXP, chapterId]);
 
   useEffect(() => {
     if (!currentTypingBlock) {
@@ -120,7 +123,7 @@ export function BeginnerOverlay({ notes, fontScale, onFontScaleChange, onReady, 
       className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{ background: "rgba(4,8,16,.92)" }}
     >
-      <div className="max-w-[580px] w-full mx-4 flex flex-col" style={{ maxHeight: "80dvh" }}>
+      <div className="max-w-[860px] w-full mx-6 flex flex-col" style={{ maxHeight: "85dvh" }}>
         {/* Header */}
         <div className="shrink-0 mb-4">
           <div className="flex items-center justify-between">
@@ -203,10 +206,10 @@ export function BeginnerOverlay({ notes, fontScale, onFontScaleChange, onReady, 
         {/* Notebook content */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto pr-2 space-y-3"
+          className="flex-1 overflow-y-auto pr-4 space-y-4"
           style={{
             borderLeft: "2px solid rgba(110,255,160,.15)",
-            paddingLeft: 16,
+            paddingLeft: 24,
           }}
         >
           {completedBlocks.map((block, i) => (
@@ -338,8 +341,8 @@ function BlockRenderer({
   onHotspotClick: (hotspotText: string) => void;
   fontScale: number;
 }) {
-  const textSize = `${Math.round(11 * fontScale)}px`;
-  const codeSize = `${Math.round(11 * fontScale)}px`;
+  const textSize = `${Math.round(12 * fontScale)}px`;
+  const codeSize = `${Math.round(12 * fontScale)}px`;
 
   if (block.type === "code") {
     const hasHotspots = interactive && block.hotspots && block.hotspots.length > 0;
@@ -350,7 +353,7 @@ function BlockRenderer({
         style={{ opacity: dimmed ? 0.4 : 1 }}
       >
         <pre
-          className="leading-[1.7] px-3 py-2.5 overflow-x-auto"
+          className="leading-[1.7] px-5 py-4 overflow-x-auto"
           style={{
             fontSize: codeSize,
             background: "var(--color-code-bg)",
@@ -483,7 +486,7 @@ function CodeWithHotspots({
           <span
             className="block leading-[1.8]"
             style={{
-              fontSize: `${Math.round(11 * fontScale)}px`,
+              fontSize: `${Math.round(12 * fontScale)}px`,
               color: "var(--color-foreground)",
               fontFamily: "var(--font-mono)",
             }}

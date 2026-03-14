@@ -19,6 +19,8 @@ interface CodeEditorProps {
   onVimToggle?: (enabled: boolean) => void;
   disabled?: boolean;
   aiButton?: React.ReactNode;
+  fontSize?: number;
+  onFontSizeChange?: (size: number) => void;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -125,6 +127,8 @@ export function CodeEditor({
   onVimToggle,
   disabled,
   aiButton,
+  fontSize: fontSizeProp,
+  onFontSizeChange,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -178,7 +182,13 @@ export function CodeEditor({
   }, [code, onCodeChange]);
 
   // Font size / zoom
-  const [fontSize, setFontSize] = useState(11.5);
+  const [fontSizeLocal, setFontSizeLocal] = useState(fontSizeProp ?? 15);
+  const fontSize = fontSizeProp ?? fontSizeLocal;
+  const setFontSize = useCallback((updater: (prev: number) => number) => {
+    const next = updater(fontSize);
+    setFontSizeLocal(next);
+    onFontSizeChange?.(next);
+  }, [fontSize, onFontSizeChange]);
   const lineHeight = Math.round(fontSize * 1.4);
 
   const isBlockCursor = vim.enabled && vim.mode === "normal";
@@ -735,6 +745,7 @@ export function CodeEditor({
           )}
         </div>
         <button
+          data-tour="transmit-btn"
           onClick={onSubmit}
           disabled={busy || disabled || !code.trim()}
           className="py-1.5 px-5 text-[9px] tracking-[2px] cursor-pointer

@@ -65,11 +65,12 @@ const DEFAULT_UNLOCKS: PlayerUnlocks = {
 
 const DEFAULT_SETTINGS: PlayerSettings = {
   vimModeEnabled: false,
-  fontSize: 12,
+  fontSize: 15,
   soundEnabled: true,
   beginnerMode: true,
   chatWidthPercent: 42,
   tutorialFontScale: 2,
+  tourCompleted: false,
 };
 
 // ── Helpers ──

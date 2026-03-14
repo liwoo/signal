@@ -60,7 +60,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
   }
 
   return (
-    <div className="p-3 overflow-y-auto h-full">
+    <div className="p-5 overflow-y-auto h-full">
       {/* Font scale controls */}
       <div className="flex items-center justify-end gap-1 mb-2">
         <button
@@ -100,7 +100,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
             {/* Chapter header — collapsible */}
             <button
               onClick={() => setExpandedChapter(isExpanded ? "" : chapterId)}
-              className="w-full bg-transparent text-left px-2.5 py-2 cursor-pointer transition-colors flex items-center gap-2"
+              className="w-full bg-transparent text-left px-4 py-2.5 cursor-pointer transition-colors flex items-center gap-2"
               style={{
                 border: `1px solid ${isCurrent ? "rgba(110,255,160,.15)" : "rgba(110,255,160,.06)"}`,
                 background: isExpanded ? "rgba(110,255,160,.03)" : "transparent",
@@ -140,7 +140,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
             {/* Expanded content */}
             {isExpanded && (
               <div
-                className="px-2.5 py-2"
+                className="px-4 py-3"
                 style={{
                   borderLeft: "1px solid rgba(110,255,160,.06)",
                   borderRight: "1px solid rgba(110,255,160,.06)",
@@ -160,12 +160,14 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
 }
 
 function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: number }) {
-  const textSize = `${Math.round(10 * fontScale)}px`;
+  const textSize = `${Math.round(12 * fontScale)}px`;
+  // Code stays readable at smaller sizes — scale less aggressively
+  const codeSize = `${Math.round(11 * Math.max(1, fontScale * 0.65))}px`;
 
   if (block.type === "text") {
     return (
       <div
-        className="leading-[1.7] mb-2"
+        className="leading-[1.7] mb-3"
         style={{ fontSize: textSize, color: "var(--color-foreground)", opacity: 0.8 }}
       >
         {block.content}
@@ -177,9 +179,9 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
   return (
     <div className="mb-2">
       <pre
-        className="leading-[1.5] p-2.5 overflow-x-auto font-[family-name:var(--font-mono)]"
+        className="leading-[1.7] p-4 overflow-x-auto font-[family-name:var(--font-mono)]"
         style={{
-          fontSize: textSize,
+          fontSize: codeSize,
           background: "rgba(4,8,16,.6)",
           border: "1px solid rgba(110,255,160,.06)",
           tabSize: 4,

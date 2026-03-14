@@ -41,7 +41,9 @@ import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
+import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGate } from "@/components/game/MobileGate";
+import { Warmup } from "@/components/game/Warmup";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { useGameAudio } from "@/hooks/useGameAudio";
@@ -192,15 +194,21 @@ export default function PlayPage() {
 function GameRouter() {
   const [persisted, setPersisted] = useState<PersistedState | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
+  const [warmupDone, setWarmupDone] = useState(false);
 
   // Load persisted state from IndexedDB on mount
   useEffect(() => {
+    // Skip warmup for returning players
+    const didWarmup = sessionStorage.getItem("signal:warmup-done");
+    if (didWarmup) setWarmupDone(true);
+
     loadPersistedState().then((state) => {
       setPersisted(state);
       // Resume from last completed chapter
       const completedCount = state.progress.completedChapters.length;
       if (completedCount > 0 && completedCount < CHAPTERS.length) {
         setChapterIndex(completedCount);
+        setWarmupDone(true); // returning players skip warmup
       }
     });
   }, []);
@@ -260,6 +268,20 @@ function GameRouter() {
     );
   }
 
+  // Show warmup for first-time players before chapter 1
+  if (!warmupDone && chapterIndex === 0) {
+    return (
+      <Warmup
+        fontScale={persisted.settings.tutorialFontScale ?? 2}
+        onFontScaleChange={(scale) => handleSaveSettings({ tutorialFontScale: scale })}
+        onComplete={() => {
+          sessionStorage.setItem("signal:warmup-done", "1");
+          setWarmupDone(true);
+        }}
+      />
+    );
+  }
+
   const config = CHAPTERS[chapterIndex];
   const initialState: InitialPersistedState = {
     xp: persisted.stats.xp,
@@ -303,6 +325,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [showBeginner, setShowBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
+  const [showTour, setShowTour] = useState(!settings.tourCompleted);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
   // Resizable split
@@ -377,6 +400,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     return (
       <BeginnerOverlay
         notes={beginnerNotes}
+        chapterId={challenge.id}
         fontScale={settings.tutorialFontScale ?? 2}
         onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
         onReady={() => {
@@ -510,6 +534,16 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   return (
     <>
+      {/* Guided tour for first-time players */}
+      {showTour && state.phase === "playing" && (
+        <GuidedTour
+          onComplete={() => {
+            setShowTour(false);
+            onSaveSettings({ tourCompleted: true });
+          }}
+        />
+      )}
+
       {/* Overlay layers */}
       {state.particles.map((p) => (
         <XPBurst
@@ -567,6 +601,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           paddingBottom: state.inRush ? 58 : 0,
         }}
       >
+        <div data-tour="top-bar">
         <TopBar
           xp={state.xp}
           xpMax={300}
@@ -580,17 +615,19 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 startTimeMs={state.timerStartMs}
                 timeLimitSeconds={state.timerLimitSeconds}
                 bonusSeconds={state.timerBonusSeconds}
-                gameOverOnExpiry={state.timerGameOver}
+                gameOverOnExpiry={state.timerGameOver && !showTour}
                 onExpire={actions.handleTimerExpire}
-                stopped={state.timerStopped}
+                stopped={state.timerStopped || showTour}
               />
             )
           }
         />
+        </div>
 
         <div ref={containerRef} className="flex-1 flex overflow-hidden">
           {/* Left: Chat */}
           <div
+            data-tour="chat-panel"
             className="min-w-0 flex flex-col"
             style={{
               width: `${state.jeopardy.editorNarrow ? Math.max(chatWidth, 55) : chatWidth}%`,
@@ -635,6 +672,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             {/* Tabs */}
             <div
+              data-tour="tab-bar"
               className="flex shrink-0"
               style={{
                 background: "#04090f",
@@ -723,7 +761,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
             {/* Tab content */}
             {state.tab === "code" && (
-              <div className="relative flex-1 min-h-0 flex flex-col">
+              <div data-tour="code-editor" className="relative flex-1 min-h-0 flex flex-col">
                 {/* AI Suggest overlay */}
                 {state.aiSuggestOpen && state.aiSuggestions.length > 0 && (
                   <AISuggestPanel
@@ -743,6 +781,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   inRush={state.inRush}
                   baseXP={state.currentStep.xp.base}
                   rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
+                  fontSize={settings.fontSize ?? 15}
+                  onFontSizeChange={(size) => onSaveSettings({ fontSize: size })}
                   vimEnabled={settings.vimModeEnabled}
                   onVimToggle={(enabled) => onSaveSettings({ vimModeEnabled: enabled })}
                   camFeed={(() => {

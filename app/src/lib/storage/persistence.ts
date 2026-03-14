@@ -68,11 +68,12 @@ export const DEFAULTS: PersistedState = {
   },
   settings: {
     vimModeEnabled: false,
-    fontSize: 12,
+    fontSize: 15,
     soundEnabled: true,
     beginnerMode: true,
     chatWidthPercent: 42,
     tutorialFontScale: 2,
+    tourCompleted: false,
   },
   library: { entries: [] },
 };
