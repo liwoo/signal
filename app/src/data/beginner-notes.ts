@@ -16,6 +16,7 @@ export interface NoteBlock {
   content: string;
   section: number;
   hotspots?: Hotspot[]; // only for code blocks
+  important?: boolean;  // renders with accent border + icon for key concepts
 }
 
 export interface BeginnerNotes {
@@ -603,6 +604,7 @@ if occupied["Floor 4"] {
       {
         type: "text",
         section: 3,
+        important: true,
         content:
           "this is go's \"set\" pattern — a map[T]bool where you only care about the keys. checking a missing key returns false (the zero value for bool), which is exactly what we want.",
       },
@@ -611,8 +613,9 @@ if occupied["Floor 4"] {
       {
         type: "text",
         section: 4,
+        important: true,
         content:
-          "to check multiple floors, use a simple for loop. go's Sprintf function can build the floor string dynamically.",
+          "fmt.Sprintf works like Printf but returns the string instead of printing it. this is how you build strings dynamically in go — and you'll use it constantly.",
       },
       {
         type: "code",
@@ -629,18 +632,34 @@ if occupied["Floor 4"] {
         ],
       },
 
-      // Section 5: Zen recap
+      // Section 5: Functions that return maps
       {
         type: "text",
         section: 5,
         content:
-          "zen tips for this level: use a map composite literal (declare all entries at once, not one by one). use range to iterate maps — not manual key lookups. give your maps descriptive names — guards and occupied, not m and m2.",
+          "in this level, you'll write functions that return maps. the terminal tests your functions with different inputs — so your logic must work for any data, not just one specific case.",
       },
       {
-        type: "text",
+        type: "code",
         section: 5,
+        content: `func buildRoster() map[string]string {
+    return map[string]string{
+        "Chen":    "Floor 1",
+        "Alvarez": "Floor 2",
+    }
+}`,
+        hotspots: [
+          { text: "buildRoster() map[string]string", tip: "the return type is map[string]string — a function can return any type, including maps." },
+          { text: "return map[string]string{", tip: "you can return a composite literal directly — no need to assign it to a variable first." },
+        ],
+      },
+
+      // Section 6: Zen recap
+      {
+        type: "text",
+        section: 6,
         content:
-          "the expected final output is: Floor 4 is clear",
+          "zen tips for this level: use a map composite literal (declare all entries at once, not one by one). use range to iterate maps — not manual key lookups. give your maps descriptive names — guards and occupied, not m and m2.",
       },
     ],
   },

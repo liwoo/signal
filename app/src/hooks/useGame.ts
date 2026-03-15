@@ -524,7 +524,7 @@ export function useGame(
       inRush,
       attempts,
       currentStep.testHarness || currentStep.expectedOutput
-        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput }
+        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput, requiredCode: currentStep.requiredCode }
         : undefined
     );
 

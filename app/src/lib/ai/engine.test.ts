@@ -1290,10 +1290,10 @@ func main() {
     fmt.Println("test")
 }`;
 
-function mockCompile(output: string) {
+function mockCompile(output: string, errors?: string) {
   vi.spyOn(playground, "compileGo").mockResolvedValue({
-    success: true,
-    errors: "",
+    success: !errors,
+    errors: errors ?? "",
     output,
     vetErrors: "",
   });
@@ -1301,11 +1301,11 @@ function mockCompile(output: string) {
 
 async function callAsync(
   stepId: string,
-  opts: { inRush?: boolean; attempts?: number; stepTest?: StepTestConfig } = {}
+  opts: { code?: string; inRush?: boolean; attempts?: number; stepTest?: StepTestConfig } = {}
 ) {
   return callMayaEngineAsync(
     stepId,
-    VALID_GO,
+    opts.code ?? VALID_GO,
     true,
     false,
     opts.inRush ?? false,
@@ -1316,13 +1316,37 @@ async function callAsync(
 
 const ch02LoopTest: StepTestConfig = {
   expectedOutput: "1\n2\n3\n4\n5\n6\n7\n8\n9\n10",
+  requiredCode: ["for", "Println(i"],
 };
+
+const CH02_LOOP_CODE = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        fmt.Println(i)
+    }
+}`;
 
 describe("ch02 loop — exact output (async)", () => {
   it("accepts correct sequential output 1-10", async () => {
     mockCompile("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
-    const r = await callAsync("chapter-02:loop", { stepTest: ch02LoopTest });
+    const r = await callAsync("chapter-02:loop", { code: CH02_LOOP_CODE, stepTest: ch02LoopTest });
     expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects hardcoded Println without loop variable", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        fmt.Println("1")
+    }
+}`;
+    mockCompile("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n");
+    // code has "for" but not "Println(i" — uses string literal instead of variable
+    const r = await callAsync("chapter-02:loop", { code, stepTest: ch02LoopTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("Println(i");
   });
 
   it("rejects hardcoded single Println with all numbers", async () => {
@@ -1347,15 +1371,79 @@ describe("ch02 loop — exact output (async)", () => {
 const ch02ClassifyTest: StepTestConfig = {
   expectedOutput:
     "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+  requiredCode: ["for", "DENY", "WARN", "GRANT", "OVERRIDE"],
 };
 
+const CH02_CLASSIFY_CODE = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        switch {
+        case i <= 3:
+            fmt.Println(i, "DENY")
+        case i <= 6:
+            fmt.Println(i, "WARN")
+        case i <= 9:
+            fmt.Println(i, "GRANT")
+        default:
+            fmt.Println(i, "OVERRIDE")
+        }
+    }
+}`;
+
 describe("ch02 classify — exact output (async)", () => {
-  it("accepts correct mapping", async () => {
+  it("accepts correct mapping with switch", async () => {
     mockCompile(
       "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
     );
-    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    const r = await callAsync("chapter-02:classify", { code: CH02_CLASSIFY_CODE, stepTest: ch02ClassifyTest });
     expect(r.isComplete).toBe(true);
+  });
+
+  it("accepts correct mapping with if/else", async () => {
+    const ifElseCode = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        if i <= 3 {
+            fmt.Println(i, "DENY")
+        } else if i <= 6 {
+            fmt.Println(i, "WARN")
+        } else if i <= 9 {
+            fmt.Println(i, "GRANT")
+        } else {
+            fmt.Println(i, "OVERRIDE")
+        }
+    }
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { code: ifElseCode, stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects 10 hardcoded Println lines — missing for keyword", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println(1, "DENY")
+    fmt.Println(2, "DENY")
+    fmt.Println(3, "DENY")
+    fmt.Println(4, "WARN")
+    fmt.Println(5, "WARN")
+    fmt.Println(6, "WARN")
+    fmt.Println(7, "GRANT")
+    fmt.Println(8, "GRANT")
+    fmt.Println(9, "GRANT")
+    fmt.Println(10, "OVERRIDE")
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:classify", { code, stepTest: ch02ClassifyTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("for");
   });
 
   it("rejects hardcoded fmt.Println with all four labels on one line", async () => {
@@ -1400,7 +1488,7 @@ describe("ch02 classify — exact output (async)", () => {
     mockCompile(
       "1 GRANT\n2 DENY\n3 WARN\n4 OVERRIDE\n5 DENY\n6 WARN\n7 GRANT\n8 DENY\n9 WARN\n10 OVERRIDE\n"
     );
-    const r = await callAsync("chapter-02:classify", { stepTest: ch02ClassifyTest });
+    const r = await callAsync("chapter-02:classify", { code: CH02_CLASSIFY_CODE, stepTest: ch02ClassifyTest });
     expect(r.isComplete).toBe(false);
     expect(r.reply).toContain("mapping");
   });
@@ -1493,5 +1581,255 @@ describe("ch03 validate — test harness (async)", () => {
     mockCompile("Sum: 115\nResult: 115, Valid: true\n");
     const r = await callAsync("chapter-03:validate", { stepTest: ch03ValidateTest });
     expect(r.isComplete).toBe(false);
+  });
+});
+
+// ── Chapter 04 Tests ──
+
+describe("ch04 scaffold — code evaluation", () => {
+  it("accepts valid scaffold with package, import, and main", () => {
+    const code = `package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("ready")
+}`;
+    const r = call("chapter-04:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects code without package main", () => {
+    const code = `import "fmt"
+func main() {
+    fmt.Println("ready")
+}`;
+    const r = call("chapter-04:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("package main");
+  });
+
+  it("rejects code with package and import but no func main", () => {
+    const code = `package main
+import "fmt"`;
+    const r = call("chapter-04:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects code with package and main but unused import", () => {
+    const code = `package main
+import "fmt"
+func main() {
+}`;
+    const r = call("chapter-04:scaffold", code, { isCode: true });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toMatch(/fmt|use/i);
+  });
+
+  it("rejects completely empty code", () => {
+    const r = call("chapter-04:scaffold", "", { isCode: true });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+const ch04GuardmapTest: StepTestConfig = {
+  testHarness: `func main() {
+\tr := buildRoster()
+\tfmt.Println(r["Volkov"])
+\tfmt.Println(r["Chen"])
+\tfmt.Println(len(r))
+}`,
+  expectedOutput: "Floor 2\nFloor 1\n5",
+};
+
+describe("ch04 guardmap — test harness (async)", () => {
+  it("accepts correct buildRoster with all 5 entries", async () => {
+    mockCompile("Floor 2\nFloor 1\n5\n");
+    const r = await callAsync("chapter-04:guardmap", { stepTest: ch04GuardmapTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects missing entries — len check fails", async () => {
+    // Only 3 guards → len returns 3, not 5
+    mockCompile("Floor 2\nFloor 1\n3\n");
+    const r = await callAsync("chapter-04:guardmap", { stepTest: ch04GuardmapTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects wrong floor assignment — Volkov on Floor 1", async () => {
+    mockCompile("Floor 1\nFloor 1\n5\n");
+    const r = await callAsync("chapter-04:guardmap", { stepTest: ch04GuardmapTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects missing Chen — empty string from zero value", async () => {
+    mockCompile("Floor 2\n\n5\n");
+    const r = await callAsync("chapter-04:guardmap", { stepTest: ch04GuardmapTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects compile error — undefined buildRoster", async () => {
+    mockCompile("", "./prog.go:4:7: undefined: buildRoster");
+    const r = await callAsync("chapter-04:guardmap", { stepTest: ch04GuardmapTest });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+const ch04ClearfloorsTest: StepTestConfig = {
+  testHarness: `func main() {
+\tr := buildRoster()
+\tfmt.Println(findClearFloor(r, 4))
+\tg2 := map[string]string{"A": "Floor 1", "B": "Floor 3"}
+\tfmt.Println(findClearFloor(g2, 3))
+\tg3 := map[string]string{"X": "Floor 1", "Y": "Floor 2"}
+\tfmt.Println(findClearFloor(g3, 3))
+}`,
+  expectedOutput: "Floor 4\nFloor 2\nFloor 3",
+};
+
+describe("ch04 clearfloors — test harness (async)", () => {
+  it("accepts correct findClearFloor across all test cases", async () => {
+    mockCompile("Floor 4\nFloor 2\nFloor 3\n");
+    const r = await callAsync("chapter-04:clearfloors", { code: VALID_GO, stepTest: ch04ClearfloorsTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects hardcoded Floor 4 — second test case fails", async () => {
+    // Hardcoding "Floor 4" would fail test cases 2 and 3
+    mockCompile("Floor 4\nFloor 4\nFloor 4\n");
+    const r = await callAsync("chapter-04:clearfloors", { stepTest: ch04ClearfloorsTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects only handling first test case", async () => {
+    mockCompile("Floor 4\n");
+    const r = await callAsync("chapter-04:clearfloors", { stepTest: ch04ClearfloorsTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects wrong floor for second test case", async () => {
+    // g2 has Floor 1 and Floor 3 occupied → Floor 2 should be clear, not Floor 3
+    mockCompile("Floor 4\nFloor 3\nFloor 3\n");
+    const r = await callAsync("chapter-04:clearfloors", { stepTest: ch04ClearfloorsTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects compile error — undefined findClearFloor", async () => {
+    mockCompile("", "./prog.go:5:14: undefined: findClearFloor");
+    const r = await callAsync("chapter-04:clearfloors", { stepTest: ch04ClearfloorsTest });
+    expect(r.isComplete).toBe(false);
+  });
+});
+
+// ── Chapter 02 Rewrite Tests ──
+
+const ch02RewriteTest: StepTestConfig = {
+  expectedOutput:
+    "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+  requiredCode: ["for", "DENY", "WARN", "GRANT", "OVERRIDE"],
+};
+
+describe("ch02 rewrite — exact output + requiredCode (async)", () => {
+  it("accepts correct rewrite with if/else", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        if i <= 3 {
+            fmt.Println(i, "DENY")
+        } else if i <= 6 {
+            fmt.Println(i, "WARN")
+        } else if i <= 9 {
+            fmt.Println(i, "GRANT")
+        } else {
+            fmt.Println(i, "OVERRIDE")
+        }
+    }
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:rewrite", { code, stepTest: ch02RewriteTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("accepts correct rewrite with switch", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        switch {
+        case i <= 3:
+            fmt.Println(i, "DENY")
+        case i <= 6:
+            fmt.Println(i, "WARN")
+        case i <= 9:
+            fmt.Println(i, "GRANT")
+        default:
+            fmt.Println(i, "OVERRIDE")
+        }
+    }
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:rewrite", { code, stepTest: ch02RewriteTest });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects 10 hardcoded Println lines — no for loop", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    fmt.Println(1, "DENY")
+    fmt.Println(2, "DENY")
+    fmt.Println(3, "DENY")
+    fmt.Println(4, "WARN")
+    fmt.Println(5, "WARN")
+    fmt.Println(6, "WARN")
+    fmt.Println(7, "GRANT")
+    fmt.Println(8, "GRANT")
+    fmt.Println(9, "GRANT")
+    fmt.Println(10, "OVERRIDE")
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:rewrite", { code, stepTest: ch02RewriteTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("for");
+  });
+
+  it("rejects loop that prints TODO instead of labels", async () => {
+    const code = `package main
+import "fmt"
+func main() {
+    for i := 1; i <= 10; i++ {
+        fmt.Println(i, "TODO")
+    }
+}`;
+    mockCompile(
+      "1 TODO\n2 TODO\n3 TODO\n4 TODO\n5 TODO\n6 TODO\n7 TODO\n8 TODO\n9 TODO\n10 TODO\n"
+    );
+    const r = await callAsync("chapter-02:rewrite", { code, stepTest: ch02RewriteTest });
+    expect(r.isComplete).toBe(false);
+  });
+
+  it("rejects correct output but missing GRANT label in code", async () => {
+    // Sneaky: uses numeric comparison to print literal strings without the label keywords
+    const code = `package main
+import "fmt"
+func main() {
+    labels := []string{"", "DENY", "DENY", "DENY", "WARN", "WARN", "WARN", "skip", "skip", "skip", "OVERRIDE"}
+    for i := 1; i <= 10; i++ {
+        fmt.Println(i, labels[i])
+    }
+}`;
+    mockCompile(
+      "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE\n"
+    );
+    const r = await callAsync("chapter-02:rewrite", { code, stepTest: ch02RewriteTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("GRANT");
   });
 });

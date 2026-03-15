@@ -24,6 +24,12 @@ const STEPS: TourStep[] = [
     position: "left",
   },
   {
+    target: "fmt-btn",
+    title: "FORMAT",
+    description: "cleans up your code with gofmt before you submit. fixes spacing, indentation, and style so you can focus on logic, not formatting.",
+    position: "top",
+  },
+  {
     target: "transmit-btn",
     title: "TRANSMIT",
     description: "sends your code to the Go compiler. if it compiles and passes the challenge, maya moves forward. if not, she'll tell you what went wrong.",

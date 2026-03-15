@@ -165,6 +165,31 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
   const codeSize = `${Math.round(11 * Math.max(1, fontScale * 0.65))}px`;
 
   if (block.type === "text") {
+    if (block.important) {
+      return (
+        <div
+          className="flex gap-3 items-start leading-[1.7] mb-3 pl-3 py-2"
+          style={{
+            fontSize: textSize,
+            color: "var(--color-foreground)",
+            borderLeft: "2px solid var(--color-alert)",
+            background: "rgba(255,159,28,.04)",
+          }}
+        >
+          <span
+            className="shrink-0 text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[1px] mt-0.5 px-1.5 py-px"
+            style={{
+              color: "var(--color-alert)",
+              border: "1px solid rgba(255,159,28,.25)",
+              background: "rgba(255,159,28,.08)",
+            }}
+          >
+            KEY
+          </span>
+          <span>{block.content}</span>
+        </div>
+      );
+    }
     return (
       <div
         className="leading-[1.7] mb-3"

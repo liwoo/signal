@@ -1417,7 +1417,7 @@ const ch04ScaffoldBank: StepBank = {
 // Chapter 04: Step 1 — Guard Map
 const ch04GuardmapBank: StepBank = {
   intro:
-    "good. now declare `guards := map[string]string{ }` with five entries — Chen: Floor 1, Alvarez: Floor 2, Volkov: Floor 2, Park: Floor 3, Santos: Floor 1. then `fmt.Println(guards[\"Volkov\"])`.\n\nexpected output: Floor 2",
+    "good. write a function `buildRoster() map[string]string` above main. it should return a map with five guard assignments:\n\nChen → Floor 1, Alvarez → Floor 2, Volkov → Floor 2, Park → Floor 3, Santos → Floor 1.\n\nthe terminal will test it with multiple lookups.",
 
   conceptFAQ: [
     {
@@ -1428,12 +1428,17 @@ const ch04GuardmapBank: StepBank = {
     {
       keywords: ["how do i create", "declare", "initialize", "make", "literal"],
       response:
-        "composite literal: `guards := map[string]string{\"Chen\": \"Floor 1\", \"Volkov\": \"Floor 2\", ...}`. every entry needs a trailing comma.",
+        "return a composite literal: `return map[string]string{\"Chen\": \"Floor 1\", ...}`. every entry needs a trailing comma.",
+    },
+    {
+      keywords: ["function", "func", "return", "signature"],
+      response:
+        "`func buildRoster() map[string]string { }` — takes no args, returns a map. build the map inside and return it.",
     },
     {
       keywords: ["access", "lookup", "get", "value", "retrieve"],
       response:
-        "`guards[\"Volkov\"]` returns the value for that key — `\"Floor 2\"`. pass it to `fmt.Println`.",
+        "the harness calls `r[\"Volkov\"]` and `r[\"Chen\"]` on your returned map. make sure all 5 entries are correct.",
     },
     {
       keywords: ["key", "string"],
@@ -1443,7 +1448,7 @@ const ch04GuardmapBank: StepBank = {
     {
       keywords: [":=", "short", "var"],
       response:
-        "`:=` declares and initializes in one step. `guards := map[string]string{...}` creates the map and assigns it.",
+        "inside the function you can use `:=` or just return the literal directly: `return map[string]string{...}`.",
     },
     {
       keywords: ["comma", "trailing"],
@@ -1453,101 +1458,80 @@ const ch04GuardmapBank: StepBank = {
     {
       keywords: ["nil", "zero", "missing", "empty"],
       response:
-        "accessing a missing key returns the zero value — `\"\"` for strings. no error, just empty. that's why you need to add all guards.",
+        "accessing a missing key returns the zero value — `\"\"` for strings. the harness checks multiple keys, so all 5 must be present.",
     },
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
       response:
-        "create a map with guard names as keys and floor assignments as values. then print `guards[\"Volkov\"]`. expected output: `Floor 2`.",
+        "write `func buildRoster() map[string]string` above main. return the map with all 5 guard-floor pairs.",
     },
     {
       keywords: ["guard", "guards", "names", "who", "roster"],
       response:
-        "five guards on four floors. build the map with their assignments and print Volkov's floor to verify.",
+        "five guards: Chen (Floor 1), Alvarez (Floor 2), Volkov (Floor 2), Park (Floor 3), Santos (Floor 1).",
     },
     {
-      keywords: ["print", "println", "output"],
+      keywords: ["test", "harness", "automatic", "how is it tested"],
       response:
-        "`fmt.Println(guards[\"Volkov\"])` — prints the value for the key \"Volkov\". expected output: `Floor 2`.",
+        "the terminal replaces your main() with test code that calls buildRoster() and checks lookups + count. you just write the function.",
     },
   ],
 
-  outputPatterns: [
-    {
-      match: (output) => {
-        const trimmed = output.trim();
-        return /^[0-9]+$/.test(trimmed);
-      },
-      response:
-        "almost — print the full floor name. `guards[\"Volkov\"]` returns `\"Floor 2\"`, not just `2`. expected output: `Floor 2`.",
-    },
-    {
-      match: (output) => output.trim().length === 0,
-      response:
-        "nothing printed. after building the map, add `fmt.Println(guards[\"Volkov\"])`. expected output: `Floor 2`.",
-    },
-    {
-      match: (output) => {
-        const lines = output.trim().split("\n").filter(Boolean);
-        return lines.length > 1;
-      },
-      response:
-        "just print Volkov's floor for now — `fmt.Println(guards[\"Volkov\"])`. one line: `Floor 2`.",
-    },
-  ],
+  outputPatterns: [],
 
   codePatterns: [
     {
       match: (code) => {
-        const lower = code.toLowerCase();
-        return lower.includes("map[string]string") && lower.includes("volkov") && /fmt\.\w*[Pp]rint/.test(code);
+        return code.includes("buildRoster") && code.includes("map[string]string") && code.includes("return");
       },
       response:
-        "map confirmed. volkov is on floor 2. now we find the gaps.\n\n||COMPLETE||",
+        "map confirmed. the roster checks out.\n\n||COMPLETE||",
     },
     {
-      match: (code) => {
-        const lower = code.toLowerCase();
-        return lower.includes("map") && !(/fmt\.\w*[Pp]rint/.test(code));
-      },
+      match: (code) => !code.includes("buildRoster"),
       response:
-        "map looks good. now print Volkov's floor: `fmt.Println(guards[\"Volkov\"])`. expected output: `Floor 2`.",
+        "write a function called `buildRoster` — `func buildRoster() map[string]string { }`. return the map from inside it.",
     },
     {
-      match: (code) => !code.toLowerCase().includes("map"),
+      match: (code) => code.includes("buildRoster") && !code.includes("return"),
       response:
-        "you need a map. `guards := map[string]string{\"Chen\": \"Floor 1\", ...}`. expected output after printing Volkov's floor: `Floor 2`.",
+        "your function needs to return the map. add `return map[string]string{...}` inside buildRoster.",
+    },
+    {
+      match: (code) => !code.includes("map"),
+      response:
+        "you need a `map[string]string` with guard names as keys and floor names as values. return it from buildRoster.",
     },
   ],
 
   correctResponse:
-    "map confirmed. volkov is on floor 2. now we find the gaps.\n\n||COMPLETE||",
+    "map confirmed. the roster checks out.\n\n||COMPLETE||",
 
   genericWrong: [
-    "not matching. build a `map[string]string` with guard names and floors, then print `guards[\"Volkov\"]`. expected output: `Floor 2`.",
-    "wrong output. the map should give `Floor 2` when you look up Volkov.",
+    "not matching. write `func buildRoster() map[string]string` and return the map with all 5 guards.",
+    "the harness tests multiple lookups. make sure all 5 entries are correct.",
   ],
 
   rushDialogue: [
-    "we don't have long. build the roster map and look up volkov.",
-    "hurry — map the guards. print volkov's floor.",
+    "we don't have long. build the roster function.",
+    "hurry — write buildRoster and return the map.",
   ],
 
   stuckResponses: [
-    "`guards := map[string]string{\"Chen\": \"Floor 1\", \"Volkov\": \"Floor 2\", ...}` then `fmt.Println(guards[\"Volkov\"])`.",
-    "create the map, add guards with their floors, print the lookup. expected output: `Floor 2`.",
+    "`func buildRoster() map[string]string { return map[string]string{\"Chen\": \"Floor 1\", \"Volkov\": \"Floor 2\", ...} }`.",
+    "write the function above main. return a map literal with all 5 guard-floor pairs.",
   ],
 
   deflections: [
-    "focus. build the guard map first.",
-    "not now — i need the roster confirmed. map the guards.",
+    "focus. write the buildRoster function first.",
+    "not now — i need the roster confirmed. build the function.",
   ],
 };
 
 // Chapter 04: Step 2 — Clear Floors
 const ch04ClearfloorsBank: StepBank = {
   intro:
-    "roster confirmed. now add three things:\n\n1. `occupied := map[string]bool{}`\n2. `for _, floor := range guards { occupied[floor] = true }`\n3. loop `for i := 1; i <= 4; i++` — build the name with `fmt.Sprintf(\"Floor %d\", i)`, check `if !occupied[name]`, print it with \"is clear\".\n\nexpected output: Floor 4 is clear",
+    "roster confirmed. now write `func findClearFloor(guards map[string]string, maxFloor int) string` above main.\n\nbuild an occupied set from the map values using `range`, then loop from 1 to `maxFloor` (the parameter your function receives) and return the first unoccupied floor name.\n\nthe terminal will test it with different guard configs and floor counts.",
 
   conceptFAQ: [
     {
@@ -1578,99 +1562,59 @@ const ch04ClearfloorsBank: StepBank = {
     {
       keywords: ["!", "negation", "not"],
       response:
-        "`!occupied[key]` is true when the key is missing — meaning that floor has no guard. that's the one you print.",
+        "`!occupied[key]` is true when the key is missing — meaning that floor has no guard. return that floor name.",
     },
     {
-      keywords: ["how many floors", "1-4", "floors", "four"],
+      keywords: ["function", "func", "signature", "return"],
       response:
-        "four floors total. the guard roster covers some of them. loop `for i := 1; i <= 4; i++` and check which ones are empty.",
+        "`func findClearFloor(guards map[string]string, maxFloor int) string` — takes a guard map and floor count, returns the first clear floor name.",
     },
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
       response:
-        "find which floor has no guards. build an occupied set from the map values, then check floors 1-4. expected output: `Floor 4 is clear`.",
+        "write findClearFloor. build an occupied set from guard values, loop 1 to maxFloor, return the first floor not in the set.",
     },
     {
       keywords: ["clear", "empty", "unguarded", "gap"],
       response:
-        "a clear floor is one with no guards assigned. after building the occupied set, any floor not in it is clear. expected output: `Floor 4 is clear`.",
+        "a clear floor is one with no guards assigned. after building the occupied set, return the first floor not in it.",
     },
     {
-      keywords: ["print", "println", "output", "format"],
+      keywords: ["test", "harness", "automatic", "how is it tested"],
       response:
-        "`fmt.Println(name, \"is clear\")` — where name is the floor string like `\"Floor 4\"`. expected output: `Floor 4 is clear`.",
+        "the terminal tests your function with different guard maps — not just the original roster. your logic must work for any input.",
     },
   ],
 
-  outputPatterns: [
-    {
-      match: (output) => {
-        const lines = output.trim().split("\n").filter(Boolean);
-        return lines.filter((l) => l.toLowerCase().includes("is clear")).length > 1;
-      },
-      response:
-        "only Floor 4 should be clear. check your guard map — are all 5 guards accounted for? expected output: `Floor 4 is clear`.",
-    },
-    {
-      match: (output) => {
-        const lower = output.trim().toLowerCase();
-        return lower.includes("floor 4") && !lower.includes("is clear");
-      },
-      response:
-        "close — but the format should be `Floor 4 is clear`. check your Println/Printf format string. expected output: `Floor 4 is clear`.",
-    },
-    {
-      match: (output) => {
-        const trimmed = output.trim();
-        return /^4$/.test(trimmed) || /^[0-9]+$/.test(trimmed);
-      },
-      response:
-        "print the full message: `Floor 4 is clear`, not just the number. expected output: `Floor 4 is clear`.",
-    },
-    {
-      match: (output) => output.trim().length === 0,
-      response:
-        "nothing printed. after building the occupied map, loop 1-4 and check: `if !occupied[name] { fmt.Println(name, \"is clear\") }`. expected output: `Floor 4 is clear`.",
-    },
-    {
-      match: (output) => {
-        const lines = output.trim().split("\n").filter(Boolean);
-        return lines.length > 1 && lines.some((l) => l.toLowerCase().includes("floor"));
-      },
-      response:
-        "too many lines. only floors with no guards should print. expected output: `Floor 4 is clear`.",
-    },
-  ],
+  outputPatterns: [],
 
   codePatterns: [
     {
       match: (code) => {
-        const hasRange = code.includes("range");
-        const hasBoolMap = code.includes("map[string]bool");
-        const hasSprintf = code.includes("Sprintf") || code.includes("fmt.Sprintf");
-        const hasClear = code.includes("is clear");
-        return hasRange && hasBoolMap && (hasSprintf || code.includes("Floor")) && hasClear;
+        return code.includes("findClearFloor") && code.includes("map[string]bool") && code.includes("range") && code.includes("return");
       },
       response:
         "floor 4 is clear. that's our window. forty minutes.\n\n||COMPLETE||",
     },
     {
-      match: (code) => {
-        const hasGuards = code.includes("map[string]string");
-        const noBoolMap = !code.includes("map[string]bool");
-        return hasGuards && noBoolMap;
-      },
+      match: (code) => !code.includes("findClearFloor"),
       response:
-        "you have the roster. now track which floors are taken: `occupied := map[string]bool{}`. expected output: `Floor 4 is clear`.",
+        "write a function called `findClearFloor` — `func findClearFloor(guards map[string]string, maxFloor int) string`.",
     },
     {
-      match: (code) => {
-        const hasBoolMap = code.includes("map[string]bool");
-        const noCheckLoop = !(/for\s+\w+\s*:=\s*1/.test(code));
-        return hasBoolMap && noCheckLoop;
-      },
+      match: (code) => code.includes("findClearFloor") && !code.includes("map[string]bool"),
       response:
-        "build the occupied set, then loop `for i := 1; i <= 4; i++` to check each floor. expected output: `Floor 4 is clear`.",
+        "you need a bool map to track occupied floors: `occupied := map[string]bool{}`. fill it from the guards map.",
+    },
+    {
+      match: (code) => code.includes("findClearFloor") && !code.includes("range"),
+      response:
+        "use `for _, floor := range guards` to collect occupied floors into your bool map.",
+    },
+    {
+      match: (code) => code.includes("findClearFloor") && !code.includes("return"),
+      response:
+        "your function needs to return the first clear floor name as a string.",
     },
   ],
 
@@ -1678,22 +1622,22 @@ const ch04ClearfloorsBank: StepBank = {
     "floor 4 is clear. that's our window. forty minutes.\n\n||COMPLETE||",
 
   genericWrong: [
-    "not matching. collect occupied floors, then check 1-4 for gaps. expected output: `Floor 4 is clear`.",
-    "wrong output. build an occupied set from the guard map, then find the empty floor. expected output: `Floor 4 is clear`.",
+    "not matching. write findClearFloor — build an occupied set, loop floors, return the first gap.",
+    "the harness tests with different guard configs. make sure your logic works for any input, not just the original roster.",
   ],
 
   rushDialogue: [
-    "reeves is waiting. find the clear floor. now.",
-    "the window is closing. which floor is empty?",
+    "reeves is waiting. write findClearFloor. now.",
+    "the window is closing. finish the function.",
   ],
 
   stuckResponses: [
-    "loop the map values into `occupied := map[string]bool{}`. then `for i := 1; i <= 4; i++` — check `!occupied[fmt.Sprintf(\"Floor %d\", i)]` and print it.",
-    "three steps: build occupied set from guard map, loop floors 1-4, print any not in the set. expected output: `Floor 4 is clear`.",
+    "inside findClearFloor: `occupied := map[string]bool{}`, then `for _, f := range guards { occupied[f] = true }`, then loop 1 to maxFloor and return the first `!occupied[name]`.",
+    "build the set, check each floor. `return fmt.Sprintf(\"Floor %d\", i)` when you find one not in occupied.",
   ],
 
   deflections: [
-    "focus. find the unguarded floor.",
+    "focus. write the findClearFloor function.",
     "not now — i need to know which floor is clear.",
   ],
 };
@@ -1786,6 +1730,7 @@ export function callMayaEngine(
 export interface StepTestConfig {
   testHarness?: string;
   expectedOutput?: string;
+  requiredCode?: string[];
 }
 
 export async function callMayaEngineAsync(
@@ -1842,6 +1787,16 @@ export async function callMayaEngineAsync(
   // 6. Test harness — exact output comparison (the scalable path)
   if (stepTest?.expectedOutput) {
     if (compiled.output.trim() === stepTest.expectedOutput.trim()) {
+      // Check requiredCode — prevent hardcoding the answer
+      if (stepTest.requiredCode && stepTest.requiredCode.length > 0) {
+        const missing = stepTest.requiredCode.find((pat) => !userMessage.includes(pat));
+        if (missing) {
+          return {
+            reply: `output is correct but you're not using the right approach. your code must include \`${missing}\`.`,
+            isComplete: false,
+          };
+        }
+      }
       const reply = bank.correctResponse.replace("||COMPLETE||", "").trim();
       return { reply, isComplete: true };
     }

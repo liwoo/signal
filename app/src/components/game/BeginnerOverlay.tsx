@@ -379,6 +379,36 @@ function BlockRenderer({
     );
   }
 
+  if (block.important) {
+    return (
+      <div
+        className="flex gap-3 items-start leading-[1.8] pl-3 py-2 transition-opacity duration-300"
+        style={{
+          fontSize: textSize,
+          color: "var(--color-signal)",
+          opacity: dimmed ? 0.4 : 1,
+          borderLeft: "2px solid var(--color-alert)",
+          background: "rgba(255,159,28,.04)",
+        }}
+      >
+        <span
+          className="shrink-0 text-[10px] font-[family-name:var(--font-display)] font-bold tracking-[1px] mt-0.5 px-1.5 py-px"
+          style={{
+            color: "var(--color-alert)",
+            border: "1px solid rgba(255,159,28,.25)",
+            background: "rgba(255,159,28,.08)",
+          }}
+        >
+          KEY
+        </span>
+        <span style={{ color: "var(--color-foreground)" }}>
+          {text}
+          {isStreaming && <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>_</span>}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <p
       className="leading-[1.8] transition-opacity duration-300"

@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, useEffect } from "react";
 import { tokenize, type Token } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
+import { formatGo } from "@/lib/go/playground";
 
 interface CodeEditorProps {
   code: string;
@@ -190,6 +191,21 @@ export function CodeEditor({
     onFontSizeChange?.(next);
   }, [fontSize, onFontSizeChange]);
   const lineHeight = Math.round(fontSize * 1.4);
+
+  // Format
+  const [formatting, setFormatting] = useState(false);
+  const handleFormat = useCallback(async () => {
+    if (formatting || disabled || busy) return;
+    setFormatting(true);
+    try {
+      const result = await formatGo(code);
+      if (result.success && result.body !== code) {
+        onCodeChange(result.body);
+      }
+    } finally {
+      setFormatting(false);
+    }
+  }, [code, onCodeChange, formatting, disabled, busy]);
 
   const isBlockCursor = vim.enabled && vim.mode === "normal";
   const [isMac, setIsMac] = useState(false);
@@ -497,37 +513,59 @@ export function CodeEditor({
     <div className="flex flex-col h-full">
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
-        {/* Zoom controls */}
+        {/* Toolbar: format + zoom */}
         <div
-          className="absolute top-1.5 right-2.5 z-40 flex items-center gap-1"
-          style={{
-            background: "rgba(4,8,16,.85)",
-            border: "1px solid var(--color-border)",
-            padding: "2px 4px",
-          }}
+          className="absolute top-1.5 right-2.5 z-40 flex items-center gap-2"
         >
           <button
-            onClick={() => setFontSize((s) => Math.max(8, s - 1))}
-            className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
-            style={{ color: "var(--color-signal)" }}
-            title="Zoom out"
+            onClick={handleFormat}
+            disabled={formatting || disabled || busy}
+            className="bg-transparent border-0 cursor-pointer flex items-center gap-1 px-1.5 py-0.5 transition-opacity"
+            style={{
+              background: "rgba(4,8,16,.85)",
+              border: "1px solid var(--color-border)",
+              color: formatting ? "var(--color-dim)" : "var(--color-signal)",
+              fontFamily: "var(--font-mono)",
+              fontSize: "10px",
+              letterSpacing: "1px",
+              opacity: formatting || disabled ? 0.4 : 0.7,
+            }}
+            data-tour="fmt-btn"
+            title="Format code (gofmt)"
           >
-            −
+            {formatting ? "FMT..." : "FMT"}
           </button>
-          <span
-            className="text-[9px] tracking-[1px] tabular-nums min-w-[28px] text-center font-[family-name:var(--font-display)]"
-            style={{ color: "var(--color-dim)" }}
+          <div
+            className="flex items-center gap-1"
+            style={{
+              background: "rgba(4,8,16,.85)",
+              border: "1px solid var(--color-border)",
+              padding: "2px 4px",
+            }}
           >
-            {fontSize}
-          </span>
-          <button
-            onClick={() => setFontSize((s) => Math.min(24, s + 1))}
-            className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
-            style={{ color: "var(--color-signal)" }}
-            title="Zoom in"
-          >
-            +
-          </button>
+            <button
+              onClick={() => setFontSize((s) => Math.max(8, s - 1))}
+              className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
+              style={{ color: "var(--color-signal)" }}
+              title="Zoom out"
+            >
+              −
+            </button>
+            <span
+              className="text-[9px] tracking-[1px] tabular-nums min-w-[28px] text-center font-[family-name:var(--font-display)]"
+              style={{ color: "var(--color-dim)" }}
+            >
+              {fontSize}
+            </span>
+            <button
+              onClick={() => setFontSize((s) => Math.min(24, s + 1))}
+              className="bg-transparent border-0 cursor-pointer w-6 h-6 flex items-center justify-center text-[14px] font-bold transition-colors"
+              style={{ color: "var(--color-signal)" }}
+              title="Zoom in"
+            >
+              +
+            </button>
+          </div>
         </div>
         {/* Line numbers */}
         <div

@@ -8,6 +8,7 @@ import {
   wordForwardPos,
   wordBackPos,
   deleteLine,
+  findInnerRange,
   type VimInput,
   type VimOutput,
 } from "./engine";
@@ -1252,5 +1253,218 @@ func main() {
     const line = cursorLine(r);
     expect(line).toContain("func main()");
     expect(goCode[r.pos]).not.toBe("\n");
+  });
+});
+
+// ── s — substitute char ──
+
+describe("s — substitute char", () => {
+  test("deletes char under cursor and enters insert", () => {
+    const r = sim("hello", 2, "s");
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("helo");
+    expect(r.pos).toBe(2);
+    expect(r.codeChanged).toBe(true);
+  });
+  test("on newline enters insert without deleting", () => {
+    const code = "a\nb";
+    // pos 1 is \n — clampNormal would normally keep us off \n,
+    // but test the safety path
+    const r = processKey({
+      code, pos: 1, mode: "normal",
+      pending: "", yank: "", yankLinewise: false, undoStack: [], key: "s",
+    });
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("a\nb"); // unchanged
+  });
+  test("at end of line deletes last char", () => {
+    const r = sim("ab", 1, "s");
+    expect(r.code).toBe("a");
+    expect(r.mode).toBe("insert");
+    expect(r.pos).toBe(1);
+  });
+  test("s pushes undo", () => {
+    const r = sim("abc", 1, "s");
+    expect(r.undoStack.length).toBe(1);
+    expect(r.undoStack[0]).toBe("abc");
+  });
+});
+
+// ── w — word forward on non-word chars ──
+
+describe("w — word forward on non-word chars", () => {
+  test("w from quote into word", () => {
+    const code = `fmt.Println("hello")`;
+    const quotePos = code.indexOf('"');
+    const r = sim(code, quotePos, "w");
+    expect(code[r.pos]).toBe("h");
+  });
+  test("w from opening paren to next word", () => {
+    const code = "func(arg)";
+    const parenPos = code.indexOf("(");
+    const r = sim(code, parenPos, "w");
+    expect(code[r.pos]).toBe("a");
+  });
+  test("w from dot to next word", () => {
+    const code = "a.b";
+    const r = sim(code, 1, "w"); // pos 1 is '.'
+    expect(code[r.pos]).toBe("b");
+  });
+  test("w skips consecutive non-word chars", () => {
+    const code = "a := b";
+    const r = sim(code, 2, "w"); // pos 2 is ':'
+    // := is non-word group, skip it + space, land on 'b'
+    expect(code[r.pos]).toBe("b");
+  });
+  test("w still works for normal word-to-word", () => {
+    const r = sim("hello world", 0, "w");
+    expect(r.pos).toBe(6);
+  });
+  test("w from last word stays at end", () => {
+    const r = sim("hello", 0, "w");
+    expect(r.pos).toBe(4);
+  });
+  test("w from space to next word", () => {
+    const r = sim("a  b", 1, "w");
+    expect(r.pos).toBe(3);
+  });
+});
+
+// ── findInnerRange helper ──
+
+describe("findInnerRange", () => {
+  test("finds inner double quotes", () => {
+    const code = `fmt.Println("hello world")`;
+    const pos = code.indexOf("hello");
+    const range = findInnerRange(code, pos, '"');
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("hello world");
+  });
+  test("finds inner single quotes", () => {
+    const code = "x := 'a'";
+    const range = findInnerRange(code, 6, "'");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("a");
+  });
+  test("finds inner parens", () => {
+    const code = "foo(bar, baz)";
+    const range = findInnerRange(code, 5, "(");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("bar, baz");
+  });
+  test("finds inner braces", () => {
+    const code = "if x { return 1 }";
+    const range = findInnerRange(code, 10, "{");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe(" return 1 ");
+  });
+  test("finds inner brackets", () => {
+    const code = "arr[idx]";
+    const range = findInnerRange(code, 5, "[");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("idx");
+  });
+  test("handles nested brackets", () => {
+    const code = "a(b(c))";
+    // pos on 'c' (inner parens)
+    const range = findInnerRange(code, 4, "(");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("c");
+  });
+  test("closing bracket delimiter also works", () => {
+    const code = "foo(bar)";
+    const range = findInnerRange(code, 5, ")");
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("bar");
+  });
+  test("returns null when no match", () => {
+    expect(findInnerRange("hello", 2, '"')).toBeNull();
+    expect(findInnerRange("hello", 2, "(")).toBeNull();
+  });
+  test("cursor ON opening quote finds the pair", () => {
+    const code = '"hello"';
+    const range = findInnerRange(code, 0, '"');
+    expect(range).not.toBeNull();
+    expect(code.slice(range!.start, range!.end)).toBe("hello");
+  });
+});
+
+// ── ci — change inner text object ──
+
+describe("ci — change inner text object", () => {
+  test('ci" changes content inside double quotes', () => {
+    const code = `fmt.Println("hello world")`;
+    const pos = code.indexOf("hello");
+    const r = sim(code, pos, 'ci"');
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe('fmt.Println("")');
+    expect(r.yank).toBe("hello world");
+    expect(r.pos).toBe(code.indexOf('"') + 1);
+  });
+  test("ci( changes content inside parens", () => {
+    const code = "foo(bar, baz)";
+    const r = sim(code, 5, "ci(");
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("foo()");
+    expect(r.yank).toBe("bar, baz");
+  });
+  test("ci) also works (closing bracket)", () => {
+    const code = "foo(bar)";
+    const r = sim(code, 5, "ci)");
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("foo()");
+  });
+  test("ci{ changes content inside braces", () => {
+    const code = "if x { return 1 }";
+    const r = sim(code, 10, "ci{");
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("if x {}");
+  });
+  test("ci[ changes content inside brackets", () => {
+    const code = "arr[idx]";
+    const r = sim(code, 5, "ci[");
+    expect(r.mode).toBe("insert");
+    expect(r.code).toBe("arr[]");
+    expect(r.yank).toBe("idx");
+  });
+  test("ci with no match does nothing", () => {
+    const r = sim("hello", 2, 'ci"');
+    expect(r.code).toBe("hello");
+    expect(r.mode).toBe("normal");
+  });
+  test("ci pushes undo", () => {
+    const code = '"hello"';
+    const r = sim(code, 3, 'ci"');
+    expect(r.undoStack.length).toBe(1);
+    expect(r.undoStack[0]).toBe('"hello"');
+  });
+});
+
+// ── di — delete inner text object ──
+
+describe("di — delete inner text object", () => {
+  test('di" deletes content inside double quotes', () => {
+    const code = `fmt.Println("hello world")`;
+    const pos = code.indexOf("hello");
+    const r = sim(code, pos, 'di"');
+    expect(r.mode).toBe("normal");
+    expect(r.code).toBe('fmt.Println("")');
+    expect(r.yank).toBe("hello world");
+  });
+  test("di( deletes content inside parens", () => {
+    const code = "foo(bar, baz)";
+    const r = sim(code, 5, "di(");
+    expect(r.mode).toBe("normal");
+    expect(r.code).toBe("foo()");
+  });
+  test("di{ deletes content inside braces", () => {
+    const code = "if x { return 1 }";
+    const r = sim(code, 10, "di{");
+    expect(r.mode).toBe("normal");
+    expect(r.code).toBe("if x {}");
+  });
+  test("di with no match does nothing", () => {
+    const r = sim("hello", 2, 'di"');
+    expect(r.code).toBe("hello");
   });
 });

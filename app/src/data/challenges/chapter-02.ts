@@ -82,6 +82,7 @@ export const chapter02: Challenge = {
       },
       events: [],
       expectedOutput: "1\n2\n3\n4\n5\n6\n7\n8\n9\n10",
+      requiredCode: ["for", "Println(i"],
     },
     // ── Step 3: Classify ──
     {
@@ -139,6 +140,7 @@ export const chapter02: Challenge = {
       ],
       expectedOutput:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+      requiredCode: ["for", "DENY", "WARN", "GRANT", "OVERRIDE"],
     },
     // ── Step 4: Rewrite ──
     {
@@ -206,6 +208,7 @@ func main() {
       ],
       expectedOutput:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+      requiredCode: ["for", "DENY", "WARN", "GRANT", "OVERRIDE"],
     },
   ],
   events: [],

@@ -54,24 +54,30 @@ export const chapter04: Challenge = {
       id: "chapter-04:guardmap",
       title: "MAP",
       brief:
-        'declare a variable `guards` using `map[string]string{ }` with these key-value pairs:\n\n"Chen": "Floor 1"\n"Alvarez": "Floor 2"\n"Volkov": "Floor 2"\n"Park": "Floor 3"\n"Santos": "Floor 1"\n\nthen print the value for key "Volkov" using `fmt.Println(guards["Volkov"])`.\n\nexpected output:\nFloor 2',
+        'write a function `buildRoster() map[string]string` that returns a map with these key-value pairs:\n\n"Chen": "Floor 1"\n"Alvarez": "Floor 2"\n"Volkov": "Floor 2"\n"Park": "Floor 3"\n"Santos": "Floor 1"\n\nadd it above main. the terminal will test it automatically.',
       starterCode: null, // carry forward from scaffold
-      expectedBehavior: "Floor 2",
-      expectedOutput: "Floor 2",
+      expectedBehavior: "Floor 2\nFloor 1\n5",
+      testHarness: `func main() {
+\tr := buildRoster()
+\tfmt.Println(r["Volkov"])
+\tfmt.Println(r["Chen"])
+\tfmt.Println(len(r))
+}`,
+      expectedOutput: "Floor 2\nFloor 1\n5",
       hints: [
         {
           level: 1,
-          text: "declare a map with `guards := map[string]string{ }` and fill in the key-value pairs.",
+          text: "`func buildRoster() map[string]string { }` — declare the function above main. return a map literal.",
           energyCost: 8,
         },
         {
           level: 2,
-          text: 'inside the braces: `"Chen": "Floor 1",` — one entry per line. don\'t forget the trailing comma.',
+          text: 'inside the function: `return map[string]string{"Chen": "Floor 1", ...}` — one entry per line, trailing comma.',
           energyCost: 12,
         },
         {
           level: 3,
-          text: 'build the full map, then `fmt.Println(guards["Volkov"])` to print the value.',
+          text: 'return the full map with all 5 guards. the terminal tests multiple lookups — all entries must be correct.',
           energyCost: 20,
         },
       ],
@@ -88,24 +94,32 @@ export const chapter04: Challenge = {
       id: "chapter-04:clearfloors",
       title: "CLEAR",
       brief:
-        'add these three things after your guards map:\n\n1. create a bool map: `occupied := map[string]bool{}`\n2. loop over guards with `for _, floor := range guards` and set `occupied[floor] = true`\n3. loop `for i := 1; i <= 4; i++` — build each floor name with `fmt.Sprintf("Floor %d", i)`, then check `if !occupied[name]` and print it with "is clear"\n\nexpected output:\nFloor 4 is clear',
+        'write a function `findClearFloor(guards map[string]string, maxFloor int) string` that:\n\n1. builds `occupied := map[string]bool{}` from the guard map values using `range`\n2. loops from 1 to `maxFloor` (the function receives this as a parameter — use it in your loop condition)\n3. returns the first floor name not in the occupied set\n\nuse `fmt.Sprintf("Floor %d", i)` to build floor names. the terminal will test it with different guard configs and floor counts.',
       starterCode: null, // carry forward
-      expectedBehavior: "Floor 4 is clear",
-      expectedOutput: "Floor 4 is clear",
+      expectedBehavior: "Floor 4\nFloor 2\nFloor 3",
+      testHarness: `func main() {
+\tr := buildRoster()
+\tfmt.Println(findClearFloor(r, 4))
+\tg2 := map[string]string{"A": "Floor 1", "B": "Floor 3"}
+\tfmt.Println(findClearFloor(g2, 3))
+\tg3 := map[string]string{"X": "Floor 1", "Y": "Floor 2"}
+\tfmt.Println(findClearFloor(g3, 3))
+}`,
+      expectedOutput: "Floor 4\nFloor 2\nFloor 3",
       hints: [
         {
           level: 1,
-          text: "use `for _, floor := range guards` to collect all occupied floors into a separate map or slice.",
+          text: "`func findClearFloor(guards map[string]string, maxFloor int) string` — takes a guard map and floor count, returns the first clear floor.",
           energyCost: 8,
         },
         {
           level: 2,
-          text: 'build `occupied := map[string]bool{}` — set `occupied[floor] = true` for each guard\'s floor. then loop 1-4 and check.',
+          text: 'build `occupied := map[string]bool{}` then `for _, floor := range guards { occupied[floor] = true }`. loop 1 to maxFloor and check.',
           energyCost: 12,
         },
         {
           level: 3,
-          text: '`for i := 1; i <= 4; i++` — use `fmt.Sprintf("Floor %d", i)` to build the key, then `if !occupied[name]` to find the gap.',
+          text: '`for i := 1; i <= maxFloor; i++ { name := fmt.Sprintf("Floor %d", i); if !occupied[name] { return name } }` — return the first gap.',
           energyCost: 20,
         },
       ],
@@ -138,7 +152,7 @@ export const chapter04: Challenge = {
     },
   ],
   timer: {
-    timeLimitSeconds: 300,
+    timeLimitSeconds: 330,
     gameOverOnExpiry: true,
   },
   isBoss: false,

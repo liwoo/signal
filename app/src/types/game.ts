@@ -30,6 +30,8 @@ export interface ChallengeStep {
   testHarness?: string;
   /** Exact stdout the testHarness produces when the code is correct. */
   expectedOutput?: string;
+  /** Patterns the user's code must contain (even if output matches) to prevent hardcoding answers. */
+  requiredCode?: string[];
 }
 
 export interface Challenge {

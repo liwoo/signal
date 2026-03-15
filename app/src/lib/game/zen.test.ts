@@ -1038,45 +1038,50 @@ describe("chapter-04:guardmap — zen detection", () => {
     suggestionCount: number;
   }> = [
     {
-      name: "perfect: composite literal + descriptive name + trailing comma",
+      name: "perfect: direct return composite literal + descriptive func name + trailing comma",
       code: `package main
 import "fmt"
-func main() {
-  guards := map[string]string{
+func buildRoster() map[string]string {
+  return map[string]string{
     "Chen":    "Floor 1",
     "Alvarez": "Floor 2",
     "Volkov":  "Floor 2",
     "Park":    "Floor 3",
     "Santos":  "Floor 1",
   }
-  fmt.Println(guards["Volkov"])
+}
+func main() {
+  fmt.Println(buildRoster()["Volkov"])
 }`,
       expectedXP: 18,
       joltCount: 3,
       suggestionCount: 0,
     },
     {
-      name: "piecemeal assignment, short name, no trailing comma",
+      name: "piecemeal assignment in function, short variable name",
       code: `package main
 import "fmt"
-func main() {
+func buildRoster() map[string]string {
   m := map[string]string{}
   m["Chen"] = "Floor 1"
   m["Alvarez"] = "Floor 2"
   m["Volkov"] = "Floor 2"
   m["Park"] = "Floor 3"
   m["Santos"] = "Floor 1"
-  fmt.Println(m["Volkov"])
+  return m
+}
+func main() {
+  fmt.Println(buildRoster()["Volkov"])
 }`,
-      expectedXP: 0,
-      joltCount: 0,
-      suggestionCount: 3,
+      expectedXP: 5,
+      joltCount: 1,
+      suggestionCount: 2,
     },
     {
-      name: "composite literal + short name + trailing comma",
+      name: "composite literal + variable with short name + trailing comma",
       code: `package main
 import "fmt"
-func main() {
+func buildRoster() map[string]string {
   m := map[string]string{
     "Chen":    "Floor 1",
     "Alvarez": "Floor 2",
@@ -1084,40 +1089,68 @@ func main() {
     "Park":    "Floor 3",
     "Santos":  "Floor 1",
   }
-  fmt.Println(m["Volkov"])
+  return m
+}
+func main() {
+  fmt.Println(buildRoster()["Volkov"])
 }`,
-      expectedXP: 13,
-      joltCount: 2,
-      suggestionCount: 1,
+      expectedXP: 18,
+      joltCount: 3,
+      suggestionCount: 0,
     },
     {
-      name: "composite literal + descriptive name + NO trailing comma (last entry on same line as brace)",
+      name: "composite literal + descriptive variable + NO trailing comma",
       code: `package main
 import "fmt"
-func main() {
+func buildRoster() map[string]string {
   guards := map[string]string{
     "Chen":    "Floor 1",
     "Alvarez": "Floor 2",
     "Volkov":  "Floor 2",
     "Park":    "Floor 3",
     "Santos":  "Floor 1"}
-  fmt.Println(guards["Volkov"])
+  return guards
+}
+func main() {
+  fmt.Println(buildRoster()["Volkov"])
 }`,
       expectedXP: 15,
       joltCount: 2,
       suggestionCount: 1,
     },
     {
-      name: "composite literal inline (one-liner) + descriptive name",
+      name: "direct return inline literal",
       code: `package main
 import "fmt"
+func buildRoster() map[string]string {
+  return map[string]string{"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2", "Park": "Floor 3", "Santos": "Floor 1"}
+}
 func main() {
-  roster := map[string]string{"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2", "Park": "Floor 3", "Santos": "Floor 1"}
-  fmt.Println(roster["Volkov"])
+  fmt.Println(buildRoster()["Volkov"])
 }`,
       expectedXP: 15,
       joltCount: 2,
       suggestionCount: 1,
+    },
+    {
+      name: "direct return with space before brace + trailing comma",
+      code: `package main
+import "fmt"
+func buildRoster() map[string]string {
+  return map[string]string {
+    "Chen":    "Floor 1",
+    "Alvarez": "Floor 2",
+    "Volkov":  "Floor 2",
+    "Park":    "Floor 3",
+    "Santos":  "Floor 1",
+  }
+}
+func main() {
+  fmt.Println(buildRoster()["Volkov"])
+}`,
+      expectedXP: 18,
+      joltCount: 3,
+      suggestionCount: 0,
     },
   ];
 
@@ -1144,47 +1177,41 @@ describe("chapter-04:clearfloors — zen detection", () => {
     suggestionCount: number;
   }> = [
     {
-      name: "perfect: range + bool map + Sprintf + descriptive names",
+      name: "perfect: range + bool map + Sprintf in findClearFloor",
       code: `package main
 import "fmt"
-func main() {
-  guards := map[string]string{
-    "Chen":    "Floor 1",
-    "Alvarez": "Floor 2",
-    "Volkov":  "Floor 2",
-    "Park":    "Floor 3",
-    "Santos":  "Floor 1",
-  }
+func findClearFloor(guards map[string]string, maxFloor int) string {
   occupied := map[string]bool{}
   for _, floor := range guards {
     occupied[floor] = true
   }
-  for i := 1; i <= 4; i++ {
+  for i := 1; i <= maxFloor; i++ {
     name := fmt.Sprintf("Floor %d", i)
     if !occupied[name] {
-      fmt.Println(name, "is clear")
+      return name
     }
   }
+  return ""
+}
+func main() {
+  fmt.Println("ready")
 }`,
       expectedXP: 25,
       joltCount: 3,
       suggestionCount: 0,
     },
     {
-      name: "no range (manual iteration), no bool map, hardcoded floor checks",
+      name: "no range, no bool map, hardcoded floor checks",
       code: `package main
 import "fmt"
+func findClearFloor(guards map[string]string, maxFloor int) string {
+  if guards["Chen"] != "Floor 4" {
+    return "Floor 4"
+  }
+  return ""
+}
 func main() {
-  guards := map[string]string{
-    "Chen":    "Floor 1",
-    "Alvarez": "Floor 2",
-    "Volkov":  "Floor 2",
-    "Park":    "Floor 3",
-    "Santos":  "Floor 1",
-  }
-  if guards["Chen"] != "Floor 4" && guards["Alvarez"] != "Floor 4" && guards["Volkov"] != "Floor 4" && guards["Park"] != "Floor 4" && guards["Santos"] != "Floor 4" {
-    fmt.Println("Floor 4 is clear")
-  }
+  fmt.Println("ready")
 }`,
       expectedXP: 0,
       joltCount: 0,
@@ -1194,19 +1221,12 @@ func main() {
       name: "range + slice instead of bool map + Sprintf",
       code: `package main
 import "fmt"
-func main() {
-  guards := map[string]string{
-    "Chen":    "Floor 1",
-    "Alvarez": "Floor 2",
-    "Volkov":  "Floor 2",
-    "Park":    "Floor 3",
-    "Santos":  "Floor 1",
-  }
+func findClearFloor(guards map[string]string, maxFloor int) string {
   floors := []string{}
   for _, floor := range guards {
     floors = append(floors, floor)
   }
-  for i := 1; i <= 4; i++ {
+  for i := 1; i <= maxFloor; i++ {
     name := fmt.Sprintf("Floor %d", i)
     found := false
     for _, f := range floors {
@@ -1215,9 +1235,13 @@ func main() {
       }
     }
     if !found {
-      fmt.Println(name, "is clear")
+      return name
     }
   }
+  return ""
+}
+func main() {
+  fmt.Println("ready")
 }`,
       expectedXP: 15,
       joltCount: 2,
@@ -1227,30 +1251,27 @@ func main() {
       name: "range + bool map but hardcoded floor strings (no Sprintf)",
       code: `package main
 import "fmt"
-func main() {
-  guards := map[string]string{
-    "Chen":    "Floor 1",
-    "Alvarez": "Floor 2",
-    "Volkov":  "Floor 2",
-    "Park":    "Floor 3",
-    "Santos":  "Floor 1",
-  }
+func findClearFloor(guards map[string]string, maxFloor int) string {
   occupied := map[string]bool{}
   for _, floor := range guards {
     occupied[floor] = true
   }
   if !occupied["Floor 1"] {
-    fmt.Println("Floor 1 is clear")
+    return "Floor 1"
   }
   if !occupied["Floor 2"] {
-    fmt.Println("Floor 2 is clear")
+    return "Floor 2"
   }
   if !occupied["Floor 3"] {
-    fmt.Println("Floor 3 is clear")
+    return "Floor 3"
   }
   if !occupied["Floor 4"] {
-    fmt.Println("Floor 4 is clear")
+    return "Floor 4"
   }
+  return ""
+}
+func main() {
+  fmt.Println("ready")
 }`,
       expectedXP: 20,
       joltCount: 2,

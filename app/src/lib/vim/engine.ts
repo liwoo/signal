@@ -77,9 +77,22 @@ export function wordEndPos(code: string, pos: number): number {
 }
 
 export function wordForwardPos(code: string, pos: number): number {
-  const rest = code.slice(pos);
-  const m = rest.match(/^\w*\s*\S/) || rest.match(/^\W*\w/);
-  return m ? pos + m[0].length - 1 : pos;
+  if (pos >= code.length - 1) return pos;
+  let i = pos;
+  const ch = code[i];
+
+  if (/\w/.test(ch)) {
+    // Skip rest of current word
+    while (i < code.length && /\w/.test(code[i])) i++;
+  } else if (/\S/.test(ch)) {
+    // Skip rest of current non-word non-whitespace sequence
+    while (i < code.length && /\S/.test(code[i]) && !/\w/.test(code[i])) i++;
+  }
+
+  // Skip whitespace (including newlines)
+  while (i < code.length && /\s/.test(code[i])) i++;
+
+  return Math.min(i, code.length - 1);
 }
 
 export function wordBackPos(code: string, pos: number): number {
@@ -130,6 +143,74 @@ function pushUndo(stack: string[], code: string): string[] {
     if (next.length > 50) next.shift();
   }
   return next;
+}
+
+// ── Text object helpers ──
+
+const QUOTE_CHARS = new Set(['"', "'", "`"]);
+const BRACKET_PAIRS: Record<string, string> = {
+  "(": ")", ")": "(",
+  "{": "}", "}": "{",
+  "[": "]", "]": "[",
+};
+
+/** Find the inner range for a text object (ci", di(, etc.) */
+export function findInnerRange(code: string, pos: number, delim: string): { start: number; end: number } | null {
+  if (QUOTE_CHARS.has(delim)) {
+    // For quotes: find opening to the left (or at pos), closing to the right
+    let open = -1;
+    // If cursor is ON the quote, treat it as the opening
+    if (code[pos] === delim) {
+      open = pos;
+    } else {
+      for (let i = pos - 1; i >= 0; i--) {
+        if (code[i] === "\n") break;
+        if (code[i] === delim) { open = i; break; }
+      }
+    }
+    if (open === -1) return null;
+
+    let close = -1;
+    for (let i = open + 1; i < code.length; i++) {
+      if (code[i] === "\n") break;
+      if (code[i] === delim) { close = i; break; }
+    }
+    if (close === -1) return null;
+
+    return { start: open + 1, end: close };
+  }
+
+  // For brackets: handle nesting
+  // Normalize to open bracket
+  const openChar = BRACKET_PAIRS[delim] && ")}>]".includes(delim) ? BRACKET_PAIRS[delim] : delim;
+  const closeChar = BRACKET_PAIRS[openChar];
+  if (!closeChar) return null;
+
+  // Find opening bracket (scan left)
+  let depth = 0;
+  let open = -1;
+  for (let i = pos; i >= 0; i--) {
+    if (code[i] === closeChar && i !== pos) depth++;
+    if (code[i] === openChar) {
+      if (depth === 0) { open = i; break; }
+      depth--;
+    }
+  }
+  if (open === -1) return null;
+
+  // Find closing bracket (scan right from open)
+  depth = 0;
+  let close = -1;
+  for (let i = open + 1; i < code.length; i++) {
+    if (code[i] === openChar) depth++;
+    if (code[i] === closeChar) {
+      if (depth === 0) { close = i; break; }
+      depth--;
+    }
+  }
+  if (close === -1) return null;
+
+  return { start: open + 1, end: close };
 }
 
 // ── Main command processor ──
@@ -211,6 +292,16 @@ export function processKey(input: VimInput): VimOutput {
       code: code.slice(0, pos) + code.slice(le),
       pos, yank: code.slice(pos, le), yankLinewise: false, undoStack, codeChanged: true,
     };
+  }
+
+  // s — delete char under cursor and enter insert
+  if (pending === "s") {
+    undoStack = pushUndo(undoStack, code);
+    if (pos < code.length && code[pos] !== "\n") {
+      const newCode = code.slice(0, pos) + code.slice(pos + 1);
+      return { ...noop, mode: "insert", code: newCode, pos, undoStack, codeChanged: true };
+    }
+    return { ...noop, mode: "insert", undoStack };
   }
 
   // D — delete to end of line (stay in normal)
@@ -431,6 +522,23 @@ export function processKey(input: VimInput): VimOutput {
       yank: code.slice(start, pos), yankLinewise: false, undoStack, codeChanged: true,
     };
   }
+  // di — delete inner text object (pending "di", awaiting delimiter)
+  if (pending === "di") return { ...noop, pending: "di" };
+  if (pending.length === 3 && pending.startsWith("di")) {
+    const delim = pending[2];
+    const range = findInnerRange(code, pos, delim);
+    if (range) {
+      undoStack = pushUndo(undoStack, code);
+      const yanked = code.slice(range.start, range.end);
+      const newCode = code.slice(0, range.start) + code.slice(range.end);
+      return {
+        ...noop,
+        code: newCode, pos: clampNormal(newCode, range.start),
+        yank: yanked, yankLinewise: false, undoStack, codeChanged: true,
+      };
+    }
+    return noop;
+  }
 
   // cc — change line (linewise yank)
   if (pending === "c") return { ...noop, pending: "c" };
@@ -470,6 +578,23 @@ export function processKey(input: VimInput): VimOutput {
       code: code.slice(0, start) + code.slice(pos),
       pos: start, yank: code.slice(start, pos), yankLinewise: false, undoStack, codeChanged: true,
     };
+  }
+  // ci — change inner text object (pending "ci", awaiting delimiter)
+  if (pending === "ci") return { ...noop, pending: "ci" };
+  if (pending.length === 3 && pending.startsWith("ci")) {
+    const delim = pending[2];
+    const range = findInnerRange(code, pos, delim);
+    if (range) {
+      undoStack = pushUndo(undoStack, code);
+      const yanked = code.slice(range.start, range.end);
+      const newCode = code.slice(0, range.start) + code.slice(range.end);
+      return {
+        ...noop, mode: "insert",
+        code: newCode, pos: range.start,
+        yank: yanked, yankLinewise: false, undoStack, codeChanged: true,
+      };
+    }
+    return noop;
   }
 
   // yy — yank line (linewise)
