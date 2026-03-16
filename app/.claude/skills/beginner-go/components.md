@@ -138,7 +138,7 @@ function Worker({ w }) {
 
 **Worker object shape:**
 ```js
-{ id:"alice", emoji:"👩‍💻", label:"creating envelope", x:26, y:52, action:"create" }
+{ id:"zainab", emoji:"🧕🏿", label:"creating envelope", x:26, y:52, action:"create" }
 ```
 
 ---
@@ -235,7 +235,7 @@ function EnvChip({ env }) {
   type:   "string",        // "func" | "string" | "int" | "float64" | "bool"
   label:  "name",          // handwritten label text
   open:   false,           // flap open?
-  value:  '"Alice"',       // sticker content (shown when open:true)
+  value:  '"Zainab"',       // sticker content (shown when open:true)
   isNew:  true,            // triggers popIn animation
 }
 ```

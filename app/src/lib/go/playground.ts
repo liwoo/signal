@@ -46,12 +46,24 @@ export async function compileGo(source: string): Promise<CompileResult> {
     }
 
     const data = await res.json();
-    const errors: string = data.Errors || "";
+    let errors: string = data.Errors || "";
     const vetErrors: string = data.VetErrors || "";
-    const output = (data.Events || [])
+    const events = data.Events || [];
+    const output = events
       .filter((e: { Kind: string }) => e.Kind === "stdout")
       .map((e: { Message: string }) => e.Message)
       .join("");
+
+    // Runtime panics may arrive in stderr Events instead of Errors field
+    if (!errors) {
+      const stderr = events
+        .filter((e: { Kind: string }) => e.Kind === "stderr")
+        .map((e: { Message: string }) => e.Message)
+        .join("");
+      if (stderr.includes("panic") || stderr.includes("runtime error")) {
+        errors = stderr;
+      }
+    }
 
     return {
       success: errors === "",

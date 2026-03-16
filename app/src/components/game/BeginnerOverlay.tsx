@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { BeginnerNotes, NoteBlock, Hotspot } from "@/data/beginner-notes";
-import { getSectionCount } from "@/data/beginner-notes";
+import { getSectionCountFromBlocks } from "@/data/beginner-notes";
+import { ProgramBlueprint } from "./diagrams/ProgramBlueprint";
+import { GoAppliance } from "./diagrams/GoAppliance";
+import { DoorCodeMachine } from "./diagrams/DoorCodeMachine";
+import { ShaftFunctions } from "./diagrams/ShaftFunctions";
+import { GuardRoster } from "./diagrams/GuardRoster";
 import { trackBeginnerHotspot } from "@/lib/analytics";
 
 const HOTSPOT_XP = 5;
@@ -21,8 +26,13 @@ interface BeginnerOverlayProps {
   onHotspotXP: (amount: number) => void;
 }
 
+type BriefingTab = "beginner" | "expert";
+
 export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
-  const totalSections = getSectionCount(notes);
+  const hasBeginner = !!notes.beginnerBlocks && notes.beginnerBlocks.length > 0;
+  const [activeTab, setActiveTab] = useState<BriefingTab>(hasBeginner ? "beginner" : "expert");
+  const activeBlocks = activeTab === "beginner" && notes.beginnerBlocks ? notes.beginnerBlocks : notes.blocks;
+  const totalSections = getSectionCountFromBlocks(activeBlocks);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionDone, setSectionDone] = useState(false);
   const [typingBlockIndex, setTypingBlockIndex] = useState(0);
@@ -32,13 +42,17 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const sectionBlocks = notes.blocks.filter((b) => b.section === currentSection);
+  const sectionBlocks = activeBlocks.filter((b) => b.section === currentSection);
   const currentTypingBlock = typingBlockIndex < sectionBlocks.length ? sectionBlocks[typingBlockIndex] : null;
   const currentContent = currentTypingBlock?.content ?? "";
   const isLastSection = currentSection >= totalSections - 1;
 
+  // When the section is a single diagram, give it the full remaining height
+  // so its internal scroll + pinned controls work correctly
+  const isDiagramSection = sectionBlocks.length > 0 && sectionBlocks.every((b) => b.type === "diagram");
+
   const sectionHasHotspots = sectionBlocks.some(
-    (b) => b.type === "code" && b.hotspots && b.hotspots.length > 0
+    (b) => (b.type === "code" && b.hotspots && b.hotspots.length > 0) || b.type === "diagram"
   );
 
   const handleHotspotClick = useCallback((hotspotText: string) => {
@@ -52,6 +66,15 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
   useEffect(() => {
     if (!currentTypingBlock) {
       setSectionDone(true);
+      return;
+    }
+
+    // Diagram blocks render instantly — skip typing animation
+    if (currentTypingBlock.type === "diagram") {
+      setTimeout(() => {
+        setTypingBlockIndex((i) => i + 1);
+        setTypedChars(0);
+      }, 100);
       return;
     }
 
@@ -106,6 +129,19 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
     setSectionDone(false);
   }, [isLastSection, onReady]);
 
+  const switchTab = useCallback((tab: BriefingTab) => {
+    if (tab === activeTab) return;
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setActiveTab(tab);
+    setCurrentSection(0);
+    setTypingBlockIndex(0);
+    setTypedChars(0);
+    setSectionDone(false);
+  }, [activeTab]);
+
   // Allow Enter key to advance when section is done
   useEffect(() => {
     if (!sectionDone) return;
@@ -116,14 +152,14 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
     return () => window.removeEventListener("keydown", handler);
   }, [sectionDone, advanceSection]);
 
-  const completedBlocks = notes.blocks.filter((b) => b.section < currentSection);
+  const completedBlocks = activeBlocks.filter((b) => b.section < currentSection);
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{ background: "rgba(4,8,16,.92)" }}
     >
-      <div className="max-w-[860px] w-full mx-6 flex flex-col" style={{ maxHeight: "85dvh" }}>
+      <div className={`${isDiagramSection ? "max-w-[960px]" : "max-w-[860px]"} w-full mx-6 flex flex-col`} style={{ maxHeight: "90dvh", height: isDiagramSection ? "90dvh" : "auto" }}>
         {/* Header */}
         <div className="shrink-0 mb-4">
           <div className="flex items-center justify-between">
@@ -185,6 +221,28 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           <div className="text-[8px] tracking-[3px] mt-0.5" style={{ color: "var(--color-dim)" }}>
             {notes.subtitle}
           </div>
+
+          {/* Tab switcher — only shown when beginner blocks exist */}
+          {hasBeginner && (
+            <div className="flex gap-0 mt-3" style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}>
+              {(["beginner", "expert"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => switchTab(tab)}
+                  className="bg-transparent text-[8px] tracking-[2px] px-4 py-1.5 cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+                  style={{
+                    color: activeTab === tab ? "var(--color-signal)" : "var(--color-dim)",
+                    border: "none",
+                    borderBottom: activeTab === tab ? "2px solid var(--color-signal)" : "2px solid transparent",
+                    opacity: activeTab === tab ? 1 : 0.5,
+                  }}
+                >
+                  {tab === "beginner" ? "BEGINNER MODE" : "EXPERT MODE"}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-1.5 mt-2.5">
             {Array.from({ length: totalSections }, (_, i) => (
               <div
@@ -203,16 +261,16 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           </div>
         </div>
 
-        {/* Notebook content */}
+        {/* Notebook content — diagram sections get full height, text sections scroll */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto pr-4 space-y-4"
-          style={{
+          className={isDiagramSection ? "flex-1 min-h-0 flex flex-col" : "flex-1 overflow-y-auto pr-4 space-y-4"}
+          style={isDiagramSection ? {} : {
             borderLeft: "2px solid rgba(110,255,160,.15)",
             paddingLeft: 24,
           }}
         >
-          {completedBlocks.map((block, i) => (
+          {!isDiagramSection && completedBlocks.map((block, i) => (
             <BlockRenderer
               key={`prev-${i}`}
               block={block}
@@ -226,7 +284,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
             />
           ))}
 
-          {completedBlocks.length > 0 && (
+          {!isDiagramSection && completedBlocks.length > 0 && (
             <div className="h-px my-2" style={{ background: "rgba(110,255,160,.08)" }} />
           )}
 
@@ -234,7 +292,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
             if (i > typingBlockIndex) return null;
             const isTyping = i === typingBlockIndex;
             const text = isTyping ? currentContent.slice(0, typedChars) : block.content;
-            if (!text) return null;
+            if (!text && block.type !== "diagram") return null;
 
             return (
               <BlockRenderer
@@ -252,7 +310,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           })}
 
           {/* Hotspot prompt */}
-          {sectionDone && sectionHasHotspots && (
+          {!isDiagramSection && sectionDone && sectionHasHotspots && (
             <div
               className="text-[9px] tracking-[2px] mt-2 opacity-0"
               style={{
@@ -343,6 +401,84 @@ function BlockRenderer({
 }) {
   const textSize = `${Math.round(12 * fontScale)}px`;
   const codeSize = `${Math.round(12 * fontScale)}px`;
+
+  if (block.type === "diagram") {
+    return (
+      <div
+        className="transition-opacity duration-300 flex-1 min-h-0 flex flex-col"
+        style={{ opacity: dimmed ? 0.4 : 1 }}
+      >
+        {block.diagramId === "ch01-blueprint" && (
+          <ProgramBlueprint
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch01-animation" && (
+          <GoAppliance
+            view="animation"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch01-card" && (
+          <GoAppliance
+            view="card"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch01-appliance" && (
+          <GoAppliance
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch02-animation" && (
+          <DoorCodeMachine
+            view="animation"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch02-card" && (
+          <DoorCodeMachine
+            view="card"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch03-animation" && (
+          <ShaftFunctions
+            view="animation"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch03-card" && (
+          <ShaftFunctions
+            view="card"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch04-animation" && (
+          <GuardRoster
+            view="animation"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch04-card" && (
+          <GuardRoster
+            view="card"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (block.type === "code") {
     const hasHotspots = interactive && block.hotspots && block.hotspots.length > 0;

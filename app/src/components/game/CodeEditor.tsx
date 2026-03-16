@@ -396,6 +396,13 @@ export function CodeEditor({
         return;
       }
 
+      // Cmd+S (Mac) / Ctrl+S (Win) → go fmt
+      if (e.key === "s" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleFormat();
+        return;
+      }
+
       // Cmd+Enter (Mac) / Ctrl+Enter (other) → submit
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -492,7 +499,7 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, onCodeChange, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo]
+    [code, onCodeChange, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {

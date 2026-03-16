@@ -1664,16 +1664,39 @@ const BANKS: Record<string, StepBank> = {
 // ── Format Compile Errors ──
 
 function formatCompileError(errors: string, inRush: boolean): string {
+  const raw = errors.trim();
+  const prefix = inRush ? "no time for bugs. " : "";
+
+  // Runtime panics — give targeted feedback
+  if (raw.includes("assignment to entry in nil map")) {
+    return `${prefix}your map is nil — you declared it but never initialized it.\n\nuse \`occupied := map[string]bool{}\` (with the curly braces) to create an empty map. \`var m map[string]bool\` gives you nil, and writing to nil panics.`;
+  }
+  if (raw.includes("index out of range")) {
+    return `${prefix}index out of range — you're accessing a position that doesn't exist in the slice or string.`;
+  }
+  if (raw.includes("nil pointer dereference")) {
+    return `${prefix}nil pointer — you're using a variable that was never initialized.`;
+  }
+  if (raw.includes("divide by zero")) {
+    return `${prefix}division by zero. check your math.`;
+  }
+  if (raw.includes("goroutine") && raw.includes("panic")) {
+    const panicMatch = raw.match(/panic:\s*(.+)/);
+    if (panicMatch) {
+      return `${prefix}runtime panic: ${panicMatch[1].trim()}`;
+    }
+    return `${prefix}your code panicked at runtime. check for nil maps, out-of-range indices, or uninitialized variables.`;
+  }
+
   // Go compiler errors look like: ./prog.go:4:6: undefined: fmt.WriteLine
   // Strip the ./prog.go: prefix and take the first error
-  const lines = errors.trim().split("\n").filter((l) => l.trim());
+  const lines = raw.split("\n").filter((l) => l.trim());
   if (lines.length === 0) return "the terminal rejected that. check your code.";
 
   const first = lines[0]
     .replace(/^\.\/prog\.go:/, "")
     .trim();
 
-  const prefix = inRush ? "no time for bugs. " : "";
   return `${prefix}${first}`;
 }
 

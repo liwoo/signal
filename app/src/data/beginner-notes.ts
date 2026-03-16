@@ -12,17 +12,19 @@ export interface Hotspot {
 }
 
 export interface NoteBlock {
-  type: "text" | "code";
+  type: "text" | "code" | "diagram";
   content: string;
   section: number;
   hotspots?: Hotspot[]; // only for code blocks
   important?: boolean;  // renders with accent border + icon for key concepts
+  diagramId?: string;   // only for diagram blocks — maps to a diagram component
 }
 
 export interface BeginnerNotes {
   title: string;
   subtitle: string;
-  blocks: NoteBlock[];
+  blocks: NoteBlock[];                // "Expert Mode" — the original text-heavy notes
+  beginnerBlocks?: NoteBlock[];       // "Beginner Mode" — visual-first, analogy-driven (default when present)
 }
 
 const BEGINNER_NOTES: Record<string, BeginnerNotes> = {
@@ -148,6 +150,51 @@ fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
         section: 3,
         content:
           "Println adds a newline automatically. Printf lets you embed values using format verbs like %s (string) and %d (number). you control the exact output format.",
+      },
+    ],
+
+    // ── Beginner Mode: visual-first, analogy-driven ──
+    // Flow: Animation (section 0) → Package Card (section 1) → Code Recap (section 2) → Start Level
+    beginnerBlocks: [
+      // Section 0: Watch the program run — step-by-step animation
+      {
+        type: "diagram",
+        diagramId: "ch01-animation",
+        content: "",
+        section: 0,
+      },
+
+      // Section 1: The Package Card — interactive physical analogy
+      {
+        type: "diagram",
+        diagramId: "ch01-card",
+        content: "",
+        section: 1,
+      },
+
+      // Section 2: Recap — the full program with hotspots
+      {
+        type: "code",
+        section: 2,
+        content: `package main
+
+import "fmt"
+
+func main() {
+    const favLang = "Go"
+    name := "maya"
+    fmt.Println(favLang)
+    fmt.Println(name)
+}`,
+        hotspots: [
+          { text: "package main", tip: "the package label. tells go this is a runnable program." },
+          { text: `import "fmt"`, tip: "the address label. fetched from the shelf so zainab knows where to send envelopes." },
+          { text: "func main()", tip: "the main envelope. go reads every instruction inside, top to bottom." },
+          { text: `const favLang = "Go"`, tip: "sealed envelope. the sticker 🔤\"Go\" is locked inside forever." },
+          { text: `name := "maya"`, tip: "open envelope. sticker 🔤\"maya\" inside — can be peeled off and replaced later." },
+          { text: "fmt.Println(favLang)", tip: "uses the fmt address label to post favLang through the postal slot. jijo reads the sticker → output: Go" },
+          { text: "fmt.Println(name)", tip: "posts name to fmt. jijo reads the sticker → output: maya" },
+        ],
       },
     ],
   },
@@ -310,6 +357,66 @@ default:
         section: 4,
         content:
           "both if/else and switch are valid go. pick whichever reads clearest to you. the expected output is:\n\n1 DENY, 2 DENY, 3 DENY, 4 WARN, 5 WARN, 6 WARN, 7 GRANT, 8 GRANT, 9 GRANT, 10 OVERRIDE",
+      },
+    ],
+
+    // ── Beginner Mode: visual-first, analogy-driven ──
+    // Flow: Animation (section 0) → Card (section 1) → Code Recap (section 2) → Start Level
+    beginnerBlocks: [
+      // Section 0: Watch the keypad programme run — revolving door + sorting station
+      {
+        type: "diagram",
+        diagramId: "ch02-animation",
+        content: "",
+        section: 0,
+      },
+
+      // Section 1: The interactive card — sealed folder + revolving door + sorting station
+      {
+        type: "diagram",
+        diagramId: "ch02-card",
+        content: "",
+        section: 1,
+      },
+
+      // Section 2: Code recap with hotspots
+      {
+        type: "code",
+        section: 2,
+        content: `package main
+
+import "fmt"
+
+const (
+    deny     = "DENY"
+    warn     = "WARN"
+    grant    = "GRANT"
+    override = "OVERRIDE"
+)
+
+func main() {
+    for i := 1; i <= 10; i++ {
+        switch {
+        case i <= 3:
+            fmt.Println(i, deny)
+        case i <= 6:
+            fmt.Println(i, warn)
+        case i <= 9:
+            fmt.Println(i, grant)
+        default:
+            fmt.Println(i, override)
+        }
+    }
+}`,
+        hotspots: [
+          { text: "const (", tip: "opens the sealed folder. all name tags inside are locked forever. grouped constants — same pattern as grouped imports." },
+          { text: `deny     = "DENY"`, tip: "a name tag in the folder. use 'deny' in code instead of the raw string \"DENY\". one place to change it." },
+          { text: "for i := 1; i <= 10; i++", tip: "the revolving door. counter starts at 1, spins while i ≤ 10, ticks up each time. the worker passes through once per spin." },
+          { text: "switch {", tip: "the sorting station. no variable after switch — each case is a standalone condition. checks top to bottom, first true wins." },
+          { text: "case i <= 3:", tip: "first sorting lane. codes 1-3 get routed here → DENY." },
+          { text: "case i <= 6:", tip: "second lane. only reached if i > 3. codes 4-6 → WARN." },
+          { text: "default:", tip: "the catch-all lane. if no case matched → OVERRIDE. like else in if/else." },
+        ],
       },
     ],
   },
@@ -479,6 +586,65 @@ if total > 100 {
         hotspots: [
           { text: "return total, total > 100", tip: "the comparison already IS a bool. return it directly. go rewards brevity." },
           { text: "return total, true", tip: "this works but it's verbose. the if/else adds 4 lines for something that's a single expression." },
+        ],
+      },
+    ],
+
+    // ── Beginner Mode: visual-first, analogy-driven ──
+    // Flow: Animation (section 0) → Card (section 1) → Code Recap (section 2) → Start Level
+    beginnerBlocks: [
+      // Section 0: Watch the programme run — function envelopes, stretchy pouches, outbox slots
+      {
+        type: "diagram",
+        diagramId: "ch03-animation",
+        content: "",
+        section: 0,
+      },
+
+      // Section 1: The interactive card — function envelopes + pouches + outbox
+      {
+        type: "diagram",
+        diagramId: "ch03-card",
+        content: "",
+        section: 1,
+      },
+
+      // Section 2: Code recap with hotspots
+      {
+        type: "text",
+        section: 2,
+        content:
+          "functions are separate envelopes. each one does one job. the main envelope calls them by filling their pouch and reading the outbox.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `func sumCodes(codes ...int) int {
+    total := 0
+    for _, c := range codes {
+        total += c
+    }
+    return total
+}
+
+func validateCode(codes ...int) (int, bool) {
+    total := sumCodes(codes...)
+    return total, total > 100
+}
+
+func main() {
+    fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
+    s, v := validateCode(25, 30, 50, 10)
+    fmt.Printf("Result: %d, Valid: %v\\n", s, v)
+}`,
+        hotspots: [
+          { text: "codes ...int", tip: "the stretchy pouch. three dots = variadic. accepts any number of int stickers. inside, codes is a []int slice." },
+          { text: "for _, c := range codes", tip: "a revolving door that spins through the pouch — one sticker per spin. range walks the list automatically. _ discards the position; zainab only needs the values." },
+          { text: "return total", tip: "write the result in the outbox slot on the back of the envelope. one slot, one value. zainab takes it back to main." },
+          { text: "(int, bool)", tip: "two outbox slots on the back of the envelope. the worker fills both before sending it back." },
+          { text: "sumCodes(codes...)", tip: "composition — tip the pouch contents into another envelope's pouch. the ... spreads the slice back into individual stickers." },
+          { text: "total > 100", tip: "the comparison IS a bool. write it directly into the outbox slot. no if/else wrapping needed." },
+          { text: "s, v :=", tip: "read both outbox slots when the envelope comes back. s gets the int, v gets the bool." },
         ],
       },
     ],
@@ -660,6 +826,55 @@ if occupied["Floor 4"] {
         section: 6,
         content:
           "zen tips for this level: use a map composite literal (declare all entries at once, not one by one). use range to iterate maps — not manual key lookups. give your maps descriptive names — guards and occupied, not m and m2.",
+      },
+    ],
+    beginnerBlocks: [
+      // Section 0: Animation — office room walkthrough
+      { type: "diagram", diagramId: "ch04-animation", content: "", section: 0 },
+      // Section 1: Card — interactive package card
+      { type: "diagram", diagramId: "ch04-card", content: "", section: 1 },
+      // Section 2: Code recap with analogy hotspots
+      {
+        type: "text",
+        section: 2,
+        content:
+          "maps are open folders with labelled drawer slots inside. each slot has a name tag (the key) and a sticker (the value). you can add, change, or remove slots freely — unlike sealed folders (const), these stay open.\n\nrange is a revolving door — it spins once per slot in the map, handing you the name tag and sticker each spin.\n\na map[string]bool is a clipboard. check a name = mark it present. look it up later = is it checked?",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `func buildRoster() map[string]string {
+    return map[string]string{
+        "Chen":    "Floor 1",
+        "Alvarez": "Floor 2",
+        "Volkov":  "Floor 2",
+        "Park":    "Floor 3",
+        "Santos":  "Floor 1",
+    }
+}
+
+func findClearFloor(guards map[string]string, maxFloor int) string {
+    occupied := map[string]bool{}
+    for _, floor := range guards {
+        occupied[floor] = true
+    }
+    for i := 1; i <= maxFloor; i++ {
+        floor := fmt.Sprintf("Floor %d", i)
+        if !occupied[floor] {
+            return floor
+        }
+    }
+    return ""
+}`,
+        hotspots: [
+          { text: "map[string]string", tip: "the map envelope type — name tags are strings, stickers are strings. the key type goes in brackets, value type follows." },
+          { text: `"Chen":    "Floor 1"`, tip: "one labelled slot: name tag 'Chen', sticker 'Floor 1'. each slot is a key-value pair." },
+          { text: "map[string]bool{}", tip: "the clipboard pattern. an empty map where keys are names and values are true/false. go's version of a set." },
+          { text: "for _, floor := range guards", tip: "the revolving door spins through every slot in the map. each spin gives a name tag and sticker. _ discards the name tag — zainab only needs the floor sticker." },
+          { text: "occupied[floor] = true", tip: "check a name on the clipboard. after spinning through all guards, every occupied floor is marked." },
+          { text: `fmt.Sprintf("Floor %d", i)`, tip: "the sticker printer — feeds a number into a template, spits out a string. like Printf but returns the sticker instead of posting it." },
+          { text: "!occupied[floor]", tip: "is this floor NOT on the clipboard? missing keys return false (the zero value for bool), so !false = true. no special 'contains' needed." },
+        ],
       },
     ],
   },
@@ -878,8 +1093,12 @@ export function getBeginnerNotes(challengeId: string): BeginnerNotes | null {
 }
 
 export function getSectionCount(notes: BeginnerNotes): number {
+  return getSectionCountFromBlocks(notes.blocks);
+}
+
+export function getSectionCountFromBlocks(blocks: NoteBlock[]): number {
   let max = 0;
-  for (const block of notes.blocks) {
+  for (const block of blocks) {
     if (block.section > max) max = block.section;
   }
   return max + 1;

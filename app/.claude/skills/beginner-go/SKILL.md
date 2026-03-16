@@ -60,10 +60,10 @@ existing ones.
 | Green small envelope | `bool` variable | Yes/No stickers |
 | Sealed envelope (🔒) | `const` | Cannot be opened and restickered |
 | Sticker | Value / data | The content inside any small envelope |
-| Postal slot in dividing wall | Function call | Alice posts to Bob's dept. |
-| Reply through postal slot | Return value | Bob posts back to Alice |
-| MAIN dept. (left room) | Caller / `main()` scope | Alice's workspace |
-| FMT dept. (right room) | `fmt` package / called function | Bob's workspace |
+| Postal slot in dividing wall | Function call | Zainab posts to Jijo's dept. |
+| Reply through postal slot | Return value | Jijo posts back to Zainab |
+| MAIN dept. (left room) | Caller / `main()` scope | Zainab's workspace |
+| FMT dept. (right room) | `fmt` package / called function | Jijo's workspace |
 | New dept. (new right room) | Any new imported package | Add a new room to the right |
 | Display panel (bottom) | Terminal / `stdout` | Where printed output appears |
 | Red blinking button 🔴 | Programme running | Always blinks from start |
@@ -84,7 +84,7 @@ existing ones.
 | `nil` | An **empty envelope** with no sticker inside |
 | `pointer` | A **sticky note with a locker number** — not the sticker itself, but where to find it |
 | `defer` | A **"do this last" sticky note** pinned to the outside of the envelope |
-| `for` loop | Alice walking the **same path repeatedly**, once per item |
+| `for` loop | Zainab walking the **same path repeatedly**, once per item |
 | `if` / `else` | A **decision sign** on the floor — turn left or right |
 
 ---
@@ -136,7 +136,7 @@ The office is a fixed layout. Departments are added by extending to the right.
 ┌──────┬───────────────────────┬────────┬──────────────────┐
 │      │                       │        │                  │
 │ PKG  │    MAIN dept.         │ WALL   │   FMT dept.      │
-│ SLOT │    Alice 👩‍💻           │ (post) │   Bob 👨‍💻         │
+│ SLOT │    Zainab 🧕🏿           │ (post) │   Jijo 👨🏿‍💻         │
 │      │    worktable          │  slot  │   fmt table      │
 │      │    shelf              │   📪   │                  │
 │      │    🔴 button          │        │                  │
@@ -149,12 +149,12 @@ The office is a fixed layout. Departments are added by extending to the right.
 
 ```js
 const PA = {
-  DOOR:      { x:11, y:28 },   // package slot — Alice picks up package here
+  DOOR:      { x:11, y:28 },   // package slot — Zainab picks up package here
   SHELF:     { x:17, y:22 },   // attachments shelf
-  MAIN_DESK: { x:26, y:52 },   // Alice's worktable
-  WALL_SLOT: { x:48, y:47 },   // Alice posts through wall here
-  FMT_SLOT:  { x:62, y:47 },   // Bob receives / sends through wall here
-  FMT_DESK:  { x:74, y:47 },   // Bob's desk
+  MAIN_DESK: { x:26, y:52 },   // Zainab's worktable
+  WALL_SLOT: { x:48, y:47 },   // Zainab posts through wall here
+  FMT_SLOT:  { x:62, y:47 },   // Jijo receives / sends through wall here
+  FMT_DESK:  { x:74, y:47 },   // Jijo's desk
 };
 ```
 
@@ -197,7 +197,7 @@ Every animation is a sequence of named scenes. Each scene has this shape:
 
 **Rules for display panel:**
 - Only show `"$ go run main.go"` while running
-- Only show actual programme output (e.g. `"Alice"`) when produced
+- Only show actual programme output (e.g. `"Zainab"`) when produced
 - Never show internal log messages, fetch notices, or status text
 - Keep it to 2 lines maximum at any time
 
@@ -215,13 +215,13 @@ in the middle (marked ✦).
 
 ```
 1.  idle          — office empty, appliance dark, red button blinking
-2.  package_in    — package slides in, Alice reads label (highlight: package main)
-3.  check_attach  — Alice walks to shelf, collects required address labels (highlight: import)
-4.  open_main     — Alice opens main envelope at worktable (highlight: func main)
+2.  package_in    — package slides in, Zainab reads label (highlight: package main)
+3.  check_attach  — Zainab walks to shelf, collects required address labels (highlight: import)
+4.  open_main     — Zainab opens main envelope at worktable (highlight: func main)
   ✦ [concept scenes go here]
-N-2 alice_waiting — Alice back at desk, waiting, red button blinking
-N-1 fmt_sends     — Bob sends reply + result through slot, display lights up
-N   complete      — Reply arrives, button goes green ✅, Alice presses it
+N-2 zainab_waiting — Zainab back at desk, waiting, red button blinking
+N-1 fmt_sends     — Jijo sends reply + result through slot, display lights up
+N   complete      — Reply arrives, button goes green ✅, Zainab presses it
 ```
 
 ### The Red Button Rule
@@ -283,8 +283,8 @@ Write the scene array in plain English first. Each scene = one physical action.
 Keep scenes atomic — one thing happening per scene. Aim for 8–12 scenes total.
 
 The concept-specific scenes (✦) should show:
-1. Alice encountering the concept for the first time (finding it, reading it)
-2. Alice doing the work (creating, filling, posting)
+1. Zainab encountering the concept for the first time (finding it, reading it)
+2. Zainab doing the work (creating, filling, posting)
 3. Any cross-dept communication via the postal slot
 4. The result appearing on the display
 
@@ -351,7 +351,7 @@ Every animation is presented in two tabs:
 - ❌ Do not show code before the animation is complete
 - ❌ Do not use the terminal to log internal state ("fetching fmt...", "ready", etc.)
 - ❌ Do not make variable envelopes the same size as function envelopes
-- ❌ Do not animate the import step as posting — Alice goes to the shelf, not the slot
+- ❌ Do not animate the import step as posting — Zainab goes to the shelf, not the slot
 - ❌ Do not hide or remove the red button at any point
 - ❌ Do not invent new physical metaphors — extend the existing ones
 - ❌ Do not add a new concept without a corresponding card section

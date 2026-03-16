@@ -78,22 +78,31 @@ const TOKEN_COLORS: Record<string, string> = {
   punctuation: "var(--color-syn-punct)",
 };
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function highlightGo(code: string): string {
   try {
     const tokens: Token[] = tokenize(code);
-    return tokens
-      .map((t: Token) => {
-        const escaped = t.value
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        const color = TOKEN_COLORS[t.type];
-        if (color) {
-          return `<span style="color:${color}">${escaped}</span>`;
-        }
-        return escaped;
-      })
-      .join("");
+    let result = "";
+    let lastEnd = 0;
+
+    for (const t of tokens) {
+      // Fill gap (whitespace between tokens)
+      if (t.start > lastEnd) {
+        result += escapeHtml(code.slice(lastEnd, t.start));
+      }
+      const escaped = escapeHtml(t.value);
+      const color = TOKEN_COLORS[t.type];
+      result += color ? `<span style="color:${color}">${escaped}</span>` : escaped;
+      lastEnd = t.end;
+    }
+    // Trailing whitespace
+    if (lastEnd < code.length) {
+      result += escapeHtml(code.slice(lastEnd));
+    }
+    return result;
   } catch {
     return code
       .replace(/&/g, "&amp;")

@@ -4,7 +4,7 @@
 
 ## Go Concepts
 
-- `gorilla/mux` router
+- `gorilla/mux` router (use Fiber instead)
 - Named path parameters (`/agent/{id}`)
 - Method-based routing (GET, POST, DELETE)
 - Route-specific handlers
@@ -111,8 +111,8 @@ func main() {
 
 ## Timed Events
 
-| Time | Event |
-| --- | --- |
+| Time  | Event                                                 |
+| ----- | ----------------------------------------------------- |
 | T+20s | Rush Mode — "Unregistered agent scanning your routes" |
 
 ## Rush Mode
