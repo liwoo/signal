@@ -5,6 +5,7 @@ import { tokenize, type Token } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
 import { formatGo } from "@/lib/go/playground";
+import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
 
 interface CodeEditorProps {
   code: string;
@@ -199,6 +200,7 @@ export function CodeEditor({
     setFormatting(true);
     try {
       const result = await formatGo(code);
+      trackCodeFormat(result.success);
       if (result.success && result.body !== code) {
         onCodeChange(result.body);
       }
@@ -270,6 +272,7 @@ export function CodeEditor({
   }, []);
 
   const acceptCompletion = useCallback((item: Completion) => {
+    trackAutocomplete(item.label);
     const before = code.slice(0, acStart);
     const after = code.slice(cursorPos);
     const newCode = before + item.label + after;

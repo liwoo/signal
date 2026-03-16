@@ -51,6 +51,12 @@ import {
   trackHeartBuy,
   trackChatAsk,
   trackChatExplain,
+  trackAISuggestOpen,
+  trackAISuggestUse,
+  trackTimerExpire,
+  trackTimerBonus,
+  trackHeartLost,
+  trackJeopardy,
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
 
@@ -275,6 +281,7 @@ export function useGame(
   // Apply a jeopardy event
   const fireJeopardy = useCallback(
     (event: JeopardyEvent) => {
+      trackJeopardy(challenge.id, event);
       setJeopardy((prev) => {
         const result = applyJeopardyEvent(prev, event, Date.now());
         if (result.message) {
@@ -283,7 +290,7 @@ export function useGame(
         return result.jeopardy;
       });
     },
-    [addMsg]
+    [addMsg, challenge.id]
   );
 
   // Handle scramble effect
@@ -411,6 +418,8 @@ export function useGame(
       setHearts(newHearts);
       setPhase("gameover");
       setTimerStopped(true);
+      trackTimerExpire(challenge.id, "main");
+      trackHeartLost(challenge.id, newHearts, "timer_expired");
       trackGameOver(challenge.id, "timer_expired");
       onSaveRef.current?.({ xp: xpRef.current, level: levelRef.current, hearts: newHearts, library: libraryRef.current });
     } else {
@@ -424,6 +433,7 @@ export function useGame(
     setInRush(false);
     // Sync the ref immediately so handleTimerExpire doesn't early-return
     inRushRef.current = false;
+    trackTimerExpire(challenge.id, "rush");
     const step = challenge.steps[stepIndex];
     if (step?.rushMode) {
       fireJeopardy(step.rushMode.onExpiry);
@@ -543,6 +553,7 @@ export function useGame(
       if (wasRush) {
         setInRush(false);
         if (currentStep.rushMode) {
+          trackTimerBonus(challenge.id, currentStep.rushMode.bonusTimeSeconds);
           setTimerBonusSeconds((prev) => prev + currentStep.rushMode!.bonusTimeSeconds);
         }
       }
@@ -923,12 +934,16 @@ export function useGame(
     resumeFromPause,
     requestExplain,
     openAISuggest: () => {
-      if (canUseAI(aiTokens)) setAiSuggestOpen(true);
+      if (canUseAI(aiTokens)) {
+        trackAISuggestOpen(challenge.id, currentStep.id);
+        setAiSuggestOpen(true);
+      }
     },
     closeAISuggest: () => setAiSuggestOpen(false),
     useAISuggestion: (suggestion: AISuggestion) => {
       const newTokens = useToken(aiTokens);
       if (newTokens === null) return;
+      trackAISuggestUse(challenge.id, currentStep.id, suggestion.label, newTokens);
       setAiTokens(newTokens);
       // Insert snippet at cursor (append to code)
       setCode((prev) => {

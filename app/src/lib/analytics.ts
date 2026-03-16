@@ -207,6 +207,55 @@ export function trackWarmupFontScale(scale: number) {
   track("warmup_font_scale", { scale });
 }
 
+// ── Code formatting ──
+
+export function trackCodeFormat(success: boolean) {
+  track("code_format", { success });
+}
+
+// ── Autocomplete ──
+
+export function trackAutocomplete(label: string) {
+  track("autocomplete_accept", { label: label.slice(0, 60) });
+}
+
+// ── AI suggestions ──
+
+export function trackAISuggestOpen(chapterId: string, stepId: string) {
+  track("ai_suggest_open", { chapter_id: chapterId, step_id: stepId });
+}
+
+export function trackAISuggestUse(chapterId: string, stepId: string, label: string, tokensRemaining: number) {
+  track("ai_suggest_use", {
+    chapter_id: chapterId,
+    step_id: stepId,
+    suggestion: label.slice(0, 60),
+    tokens_remaining: tokensRemaining,
+  });
+}
+
+// ── Timer ──
+
+export function trackTimerExpire(chapterId: string, cause: "main" | "rush") {
+  track("timer_expire", { chapter_id: chapterId, cause });
+}
+
+export function trackTimerBonus(chapterId: string, bonusSeconds: number) {
+  track("timer_bonus", { chapter_id: chapterId, bonus_seconds: bonusSeconds });
+}
+
+// ── Hearts ──
+
+export function trackHeartLost(chapterId: string, heartsRemaining: number, cause: string) {
+  track("heart_lost", { chapter_id: chapterId, hearts_remaining: heartsRemaining, cause });
+}
+
+// ── Jeopardy ──
+
+export function trackJeopardy(chapterId: string, eventType: string) {
+  track("jeopardy", { chapter_id: chapterId, event_type: eventType });
+}
+
 // ── Guided tour ──
 
 export function trackTourStart() {
