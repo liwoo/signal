@@ -5,6 +5,7 @@ import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
 import { chapter04, chapter04Twist } from "@/data/challenges/chapter-04";
+import { chapter04_2, chapter04_2Twist } from "@/data/challenges/chapter-04.2";
 import { boss01, boss01Config } from "@/data/challenges/boss-01";
 import { useGame } from "@/hooks/useGame";
 import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
@@ -36,13 +37,15 @@ import {
   BOSS_01_COMPLETE_SCENES,
   CHAPTER_04_INTRO_SCENES,
   CHAPTER_04_COMPLETE_SCENES,
+  CHAPTER_04_2_INTRO_SCENES,
+  CHAPTER_04_2_COMPLETE_SCENES,
 } from "@/lib/sprites/scenes";
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { GuidedTour } from "@/components/game/GuidedTour";
-import { MobileGate } from "@/components/game/MobileGate";
+import { MobilePostWarmup } from "@/components/game/MobileGate";
 import { Warmup } from "@/components/game/Warmup";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
@@ -77,6 +80,7 @@ const CAM_FEED_CONFIG: Record<string, { scene: SceneType; animation: CharAnimati
   "chapter-02": { scene: "cell",   animation: "keypad",     rushAnimation: "walk-right" },
   "chapter-03": { scene: "vent",   animation: "crawl-right", rushAnimation: "crawl-right" },
   "boss-01":    { scene: "boss-arena", animation: "hack",  rushAnimation: "hack" },
+  "chapter-04.2": { scene: "server", animation: "hack", rushAnimation: "hack" },
 };
 
 const DEFAULT_CAM = { scene: "cell" as SceneType, animation: "hack" as CharAnimation, rushAnimation: "walk-right" as CharAnimation };
@@ -181,20 +185,45 @@ const CHAPTERS: ChapterConfig[] = [
     ],
     ctaLabel: "START CHAPTER",
   },
+  {
+    challenge: chapter04_2,
+    twist: chapter04_2Twist,
+    introScenes: CHAPTER_04_2_INTRO_SCENES,
+    completeScenes: CHAPTER_04_2_COMPLETE_SCENES,
+    introTitle: "CHAPTER 4.2",
+    introSubtitle: "CIPHER RELAY",
+    completeTitle: "CHAPTER 4.2 COMPLETE",
+    completeSubtitle: "RELAY ENCRYPTED",
+    tagline: "▸ FLOOR 2 · COMMS ROOM",
+    storyLines: [
+      "GHOST's keyword scanners intercept every outgoing message. plain text is death.",
+      "strings. runes. strconv. build the cipher. encrypt the relay. stay invisible.",
+    ],
+    ctaLabel: "START CHAPTER",
+  },
 ];
 
 export default function PlayPage() {
-  return (
-    <MobileGate>
-      <GameRouter />
-    </MobileGate>
-  );
+  return <GameRouter />;
 }
 
 function GameRouter() {
   const [persisted, setPersisted] = useState<PersistedState | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
   const [warmupDone, setWarmupDone] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileChecked, setMobileChecked] = useState(false);
+
+  // Mobile detection — runs on mount + resize
+  useEffect(() => {
+    function check() {
+      setIsMobile(window.innerWidth < 768);
+      setMobileChecked(true);
+    }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // Load persisted state from IndexedDB on mount
   useEffect(() => {
@@ -254,8 +283,8 @@ function GameRouter() {
     setChapterIndex((i) => Math.min(i + 1, CHAPTERS.length - 1));
   }, []);
 
-  // Show loading state while persistence loads
-  if (!persisted) {
+  // Show loading state while persistence + mobile check complete
+  if (!persisted || !mobileChecked) {
     return (
       <div
         className="h-dvh flex items-center justify-center"
@@ -268,7 +297,7 @@ function GameRouter() {
     );
   }
 
-  // Show warmup for first-time players before chapter 1
+  // Show warmup for first-time players before chapter 1 — works on all devices
   if (!warmupDone && chapterIndex === 0) {
     return (
       <Warmup
@@ -280,6 +309,11 @@ function GameRouter() {
         }}
       />
     );
+  }
+
+  // After warmup on mobile — upsell to continue on desktop
+  if (isMobile) {
+    return <MobilePostWarmup />;
   }
 
   const config = CHAPTERS[chapterIndex];

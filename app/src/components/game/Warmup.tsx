@@ -399,7 +399,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
 
         <div className="relative w-full max-w-[860px]">
           {/* Step indicator + font controls */}
-          <div className="absolute top-0 right-0 -translate-y-10 flex items-center gap-3">
+          <div className="absolute top-0 right-0 -translate-y-8 sm:-translate-y-10 flex items-center gap-3">
             <div className="flex items-center gap-1">
               <button
                 onClick={() => { const s = Math.max(FONT_SCALE_MIN, fontScale - FONT_SCALE_STEP); onFontScaleChange(s); trackWarmupFontScale(s); }}
@@ -581,7 +581,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
               RUN
             </button>
             <span
-              className="text-[8px] tracking-[2px] ml-3"
+              className="text-[8px] tracking-[2px] ml-3 hidden sm:inline"
               style={{ color: "var(--color-dim)" }}
             >
               {config.multiline ? "or ⌘+ENTER" : "or ENTER"}

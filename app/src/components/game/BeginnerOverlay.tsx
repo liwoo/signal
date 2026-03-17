@@ -8,6 +8,7 @@ import { GoAppliance } from "./diagrams/GoAppliance";
 import { DoorCodeMachine } from "./diagrams/DoorCodeMachine";
 import { ShaftFunctions } from "./diagrams/ShaftFunctions";
 import { GuardRoster } from "./diagrams/GuardRoster";
+import { CipherRelay } from "./diagrams/CipherRelay";
 import { trackBeginnerHotspot } from "@/lib/analytics";
 
 const HOTSPOT_XP = 5;
@@ -471,6 +472,20 @@ function BlockRenderer({
         )}
         {block.diagramId === "ch04-card" && (
           <GuardRoster
+            view="card"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch04.2-animation" && (
+          <CipherRelay
+            view="animation"
+            onHotspotClick={(id) => onHotspotClick(id)}
+            clickedIds={clickedHotspots}
+          />
+        )}
+        {block.diagramId === "ch04.2-card" && (
+          <CipherRelay
             view="card"
             onHotspotClick={(id) => onHotspotClick(id)}
             clickedIds={clickedHotspots}

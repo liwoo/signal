@@ -879,6 +879,232 @@ func findClearFloor(guards map[string]string, maxFloor int) string {
     ],
   },
 
+  "chapter-04.2": {
+    title: "CIPHER RELAY",
+    subtitle: "STRINGS, RUNES, AND TYPE CONVERSION",
+    blocks: [
+      // Section 0: Scaffold recap + strings intro
+      {
+        type: "text",
+        section: 0,
+        content:
+          "you know the skeleton: package main, import, func main(). this chapter needs three imports: fmt for printing, strings for splitting and joining words, and strconv for converting between numbers and strings.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import (
+    "fmt"
+    "strings"
+    "strconv"
+)`,
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "in go, a string is a read-only sequence of bytes. you can read it, pass it around, slice it — but you can't change individual characters in place. to manipulate characters safely, especially for unicode, you convert to a rune slice first.",
+      },
+
+      // Section 1: Strings as byte slices + []rune conversion
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a rune in go is a single unicode character (technically an int32). when you write []rune(s), you cut the string into individual character tiles. each tile is one rune — safe for any language, any emoji, any symbol.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `s := "hello"
+runes := []rune(s)
+// runes = ['h', 'e', 'l', 'l', 'o']
+// each element is one character
+
+// when you're done, seal back:
+result := string(runes)
+// result = "hello" (a new string)`,
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "string(runes) creates a NEW string. the original string was never modified. strings in go are immutable — read-only bytes under the hood.",
+      },
+
+      // Section 2: Reversing a rune slice (swap pattern)
+      {
+        type: "text",
+        section: 2,
+        content:
+          "to reverse a word, use two pointers: i starts at the beginning, j starts at the end. each step, swap runes[i] and runes[j], then move both inward. stop when i >= j (they've met in the middle).",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `func reverseWord(s string) string {
+    runes := []rune(s)
+    for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+        runes[i], runes[j] = runes[j], runes[i]
+    }
+    return string(runes)
+}
+// reverseWord("hello") = "olleh"`,
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "go's multi-assign (runes[i], runes[j] = runes[j], runes[i]) swaps both values in one statement. no temporary variable needed. the for loop also uses multi-assign for i and j — declaring two loop variables at once.",
+      },
+
+      // Section 3: strings.Fields + strings.Join
+      {
+        type: "text",
+        section: 3,
+        content:
+          "strings.Fields splits a string at every whitespace boundary and returns a slice of words. it handles multiple spaces cleanly — no empty strings in the result. this is better than strings.Split(s, \" \") which would leave empty entries for double spaces.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `words := strings.Fields("move to floor 4")
+// words = ["move", "to", "floor", "4"]
+
+// reverse each word, collect results:
+result := []string{}
+for _, w := range words {
+    result = append(result, reverseWord(w))
+}
+
+// tape them back together:
+encoded := strings.Join(result, " ")
+// encoded = "evom ot roolf 4"`,
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "strings.Join is the inverse of Fields — it sticks slice elements together with a separator. Join([]string{\"a\",\"b\",\"c\"}, \"-\") = \"a-b-c\". use Join instead of manual string concatenation in loops.",
+      },
+
+      // Section 4: strconv.Itoa and strconv.Atoi
+      {
+        type: "text",
+        section: 4,
+        content:
+          "strconv.Itoa converts an int to a string. the name means \"Integer TO Ascii\". it always succeeds — every number has a string representation.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `f := strconv.Itoa(3)    // f = "3"
+f = strconv.Itoa(42)    // f = "42"
+
+// the reverse: Atoi (Ascii TO Integer)
+c, err := strconv.Atoi("50")   // c = 50, err = nil
+c, err = strconv.Atoi("abc")   // c = 0, err = error`,
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "strconv.Atoi returns TWO values: the parsed integer and an error. if the string can't be parsed as a number, the error is non-nil. you must always check the error.",
+      },
+
+      // Section 5: Error handling with Atoi (err != nil pattern)
+      {
+        type: "text",
+        section: 5,
+        content:
+          "go doesn't have exceptions or try/catch. instead, functions return an error value. the pattern is: call the function, check if err != nil, handle the error case first, then continue with the success case.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `c, err := strconv.Atoi(code)
+if err != nil {
+    // code wasn't a valid number
+    return "F" + f + "-ERR"
+}
+// if we get here, c is a valid int
+return "F" + f + "-C" + strconv.Itoa(c*2)`,
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "always handle the error case first and return early. this keeps the happy path unindented and easy to read. in go, you'll see this pattern hundreds of times — it's the language's core philosophy.",
+      },
+
+      // Section 6: Zen recap
+      {
+        type: "text",
+        section: 6,
+        content:
+          "zen tips for this level: convert to []rune before manipulating characters — never index a string directly (bytes != characters for unicode). use strings.Fields over strings.Split for whitespace splitting. use strings.Join over manual concatenation in loops. always check the error from strconv.Atoi. compose functions — feed one function's output into another.",
+      },
+    ],
+    beginnerBlocks: [
+      // Section 0: Animation — office room walkthrough
+      { type: "diagram", diagramId: "ch04.2-animation", content: "", section: 0 },
+      // Section 1: Card — interactive package card
+      { type: "diagram", diagramId: "ch04.2-card", content: "", section: 1 },
+      // Section 2: Code recap with analogy hotspots
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a string is a sealed letter — read-only bytes. []rune cuts it into character tiles you can rearrange. strings.Fields is scissors (splits at spaces). strings.Join is tape (sticks tiles back together). strconv.Itoa is a number stamp (int to string). strconv.Atoi is a label reader (string to int, but it might fail — always check the error).",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `func reverseWord(s string) string {
+    runes := []rune(s)
+    for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+        runes[i], runes[j] = runes[j], runes[i]
+    }
+    return string(runes)
+}
+
+func encode(msg string) string {
+    words := strings.Fields(msg)
+    result := []string{}
+    for _, w := range words {
+        result = append(result, reverseWord(w))
+    }
+    return strings.Join(result, " ")
+}
+
+func relayHeader(floor int, code string) string {
+    f := strconv.Itoa(floor)
+    c, err := strconv.Atoi(code)
+    if err != nil {
+        return "F" + f + "-ERR"
+    }
+    return "F" + f + "-C" + strconv.Itoa(c*2)
+}`,
+        hotspots: [
+          { text: "[]rune(s)", tip: "cuts the sealed letter into individual character tiles. each tile is one unicode character (rune), safe for any language." },
+          { text: "runes[i], runes[j] = runes[j], runes[i]", tip: "the swap -- flip tiles from both ends. go's multi-assign moves both at once, no temp variable needed." },
+          { text: "string(runes)", tip: "seals the tiles back into a new letter. the original string wasn't changed (strings are read-only)." },
+          { text: "strings.Fields(msg)", tip: "scissors cutting the sentence at every space. returns a stack of word tiles. handles multiple spaces cleanly." },
+          { text: "append(result, reverseWord(w))", tip: "composition -- feeding each word tile through the reverseWord machine, collecting the results." },
+          { text: `strings.Join(result, " ")`, tip: "tape -- sticks the reversed word tiles back together with a space between each." },
+          { text: "strconv.Itoa(floor)", tip: "the number stamp -- stamps the number onto a string label. 3 becomes \"3\"." },
+          { text: "strconv.Atoi(code)", tip: "the label reader -- reads a string label and returns the number. but if the label says \"abc\"... error." },
+          { text: "if err != nil", tip: "go's error check. no exceptions, no try/catch. atoi returns (int, error). you check the error every time." },
+        ],
+      },
+    ],
+  },
+
   "boss-01": {
     title: "WEAPON SYSTEMS",
     subtitle: "GO SURVIVAL GUIDE FOR THE LOCKMASTER",

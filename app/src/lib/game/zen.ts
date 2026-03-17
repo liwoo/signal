@@ -906,6 +906,110 @@ const sprintfForDynamicKeys: ZenRule = {
   suggestion: "try `fmt.Sprintf(\"Floor %d\", i)` to build floor names dynamically — avoids hardcoding each floor string.",
 };
 
+// Ch04.2: Reverse Word
+const runeConversion: ZenRule = {
+  id: "rune_conversion",
+  principle: "[]rune for string manipulation",
+  check: (code) => minify(code).includes("[]rune"),
+  bonusXP: 10,
+  jolt: "[]rune... not []byte.\n\nyou converted the string to runes before reversing. in go, a string is bytes under the hood — but a rune is a unicode code point. one character, guaranteed. my professor drilled this: 'bytes for storage, runes for humans.'",
+  suggestion: "try `[]rune(s)` before reversing instead of working with raw bytes — it handles unicode correctly.",
+};
+
+const swapPattern: ZenRule = {
+  id: "swap_pattern",
+  principle: "two-pointer swap",
+  check: (code) => {
+    const m = minify(code);
+    // Go multi-assign swap: runes[i],runes[j]=runes[j],runes[i] (with any var names)
+    return /\w+\[\w+\],\w+\[\w+\]=\w+\[\w+\],\w+\[\w+\]/.test(m);
+  },
+  bonusXP: 5,
+  jolt: "the swap... `runes[i], runes[j] = runes[j], runes[i]`. go's multi-assign. no temp variable needed. one line, both sides update simultaneously. elegant.",
+  suggestion: "try go's multi-assign: `runes[i], runes[j] = runes[j], runes[i]` — swaps both values in one line, no temp variable.",
+};
+
+const descriptiveFuncNames042: ZenRule = {
+  id: "descriptive_func_names_042",
+  principle: "descriptive function names",
+  check: (code) => code.includes("reverseWord"),
+  bonusXP: 3,
+  jolt: "`reverseWord`... says exactly what it does. go convention: function names should read like verbs. reverse what? the word. no ambiguity.",
+  suggestion: "try naming your function `reverseWord` instead of something generic — it says exactly what it does. go favors clarity.",
+};
+
+// Ch04.2: Encode
+const fieldsOverSplit: ZenRule = {
+  id: "fields_over_split",
+  principle: "strings.Fields for whitespace splitting",
+  check: (code) => minify(code).includes("strings.Fields"),
+  bonusXP: 10,
+  jolt: "strings.Fields... not strings.Split.\n\nFields splits on any whitespace and ignores leading/trailing spaces. Split on \" \" would give you empty strings for double spaces. Fields is what you want 95% of the time.\n\nmy thesis code had both — Fields for human input, Split for structured data.",
+  suggestion: "use `strings.Fields(msg)` instead of `strings.Split(msg, \" \")` — Fields handles multiple spaces and trims whitespace automatically.",
+};
+
+const joinOverConcat: ZenRule = {
+  id: "join_over_concat",
+  principle: "strings.Join over manual concatenation",
+  isRelevant: (code) => code.includes("encode"),
+  check: (code) => minify(code).includes("strings.Join"),
+  bonusXP: 5,
+  jolt: "strings.Join... clean.\n\nyou didn't build the string by concatenating in a loop. in go, strings are immutable — every `+` creates a new string. Join allocates once. for small slices it doesn't matter, but the habit matters.",
+  suggestion: "try `strings.Join(result, \" \")` to combine words — cleaner than building the string with `+` in a loop.",
+};
+
+const compositionEncode: ZenRule = {
+  id: "composition_encode",
+  principle: "function composition",
+  isRelevant: (code) => code.includes("func encode"),
+  check: (code) => {
+    const body = extractFuncBody(code, "encode");
+    if (!body) return false;
+    return body.includes("reverseWord");
+  },
+  bonusXP: 5,
+  jolt: "you called reverseWord inside encode. composition — small functions that build on each other. this is the go way. one function does one thing. combine them for complex behavior.",
+  suggestion: "call `reverseWord(w)` inside your encode loop — compose small functions instead of duplicating the reverse logic.",
+};
+
+// Ch04.2: Relay Header
+const errorCheckAtoi: ZenRule = {
+  id: "error_check_atoi",
+  principle: "explicit error checking",
+  check: (code) => {
+    const m = minify(code);
+    return m.includes("err!=nil") || m.includes("err !=nil") || code.includes("err != nil");
+  },
+  bonusXP: 10,
+  jolt: "`if err != nil`... the go error pattern.\n\nno exceptions. no try/catch. every function that can fail returns an error. you check it explicitly. my advisor: 'errors are values in go. treat them like any other value — check them, wrap them, return them.'",
+  suggestion: "try checking the error from strconv.Atoi: `c, err := strconv.Atoi(code); if err != nil { ... }` instead of ignoring it — go's error pattern.",
+};
+
+const strconvBoth: ZenRule = {
+  id: "strconv_both",
+  principle: "strconv for type conversion",
+  check: (code) => {
+    const m = minify(code);
+    return m.includes("strconv.Itoa") && m.includes("strconv.Atoi");
+  },
+  bonusXP: 5,
+  jolt: "Itoa and Atoi... the bridge between strings and numbers. every go programmer memorizes these two. int to ASCII, ASCII to int. the names come from C's `atoi()` function — been around since 1972.",
+  suggestion: "use both `strconv.Itoa` (int→string) and `strconv.Atoi` (string→int) — go's standard string↔number bridge.",
+};
+
+const stringConcatHeader: ZenRule = {
+  id: "string_concat_header",
+  principle: "string concatenation for simple cases",
+  isRelevant: (code) => code.includes("relayHeader"),
+  check: (code) => {
+    return (code.includes('"F" +') || code.includes('"F"+')) &&
+           (code.includes('"-C"') || code.includes('"-ERR"'));
+  },
+  bonusXP: 3,
+  jolt: "string concatenation with `+`... for simple cases like headers, this is fine. clean and readable. Sprintf is the alternative but for two or three parts, `+` is idiomatic.",
+  suggestion: "try building the header with string concatenation: `\"F\" + f + \"-C\" + strconv.Itoa(c*2)` — simple and readable for short strings.",
+};
+
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
@@ -920,6 +1024,10 @@ const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-04:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "chapter-04:guardmap": [mapCompositeLiteral, descriptiveMapName, trailingCommaInLiteral],
   "chapter-04:clearfloors": [rangeOverMap, boolMapSetPattern, sprintfForDynamicKeys],
+  "chapter-04.2:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-04.2:reverseword": [runeConversion, swapPattern, descriptiveFuncNames042],
+  "chapter-04.2:encode": [fieldsOverSplit, joinOverConcat, compositionEncode],
+  "chapter-04.2:relayheader": [errorCheckAtoi, strconvBoth, stringConcatHeader],
   "boss-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
   "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
 };

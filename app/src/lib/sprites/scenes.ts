@@ -1016,3 +1016,127 @@ export const CHAPTER_04_COMPLETE_SCENES: SceneDefinition[] = [
     ],
   },
 ];
+
+// ── CHAPTER 4.2 INTRO SCENES ─────────────────────────────────────
+
+export const CHAPTER_04_2_INTRO_SCENES: SceneDefinition[] = [
+  // Scene 1: Maya reaches the comms room
+  {
+    background: "server",
+    actors: [
+      {
+        type: "maya",
+        x: 80,
+        y: 310,
+        animation: "walk-right",
+        path: [{ x: 450, y: 310, duration: 2500 }],
+      },
+    ],
+    camera: [
+      { x: 0, y: 10, time: 0 },
+      { x: 200, y: 10, time: 2500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 2 · COMMS ROOM",
+    caption: "floor 2. the comms room. relay equipment lines the walls — half of it still powered.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.06, fadeMs: 1500 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 420, volume: 0.3 },
+      { atMs: 2000, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+    ],
+  },
+  // Scene 2: Maya at terminal — Reeves explains the cipher
+  {
+    background: "server",
+    actors: [
+      { type: "maya", x: 450, y: 310, animation: "hack" },
+    ],
+    camera: [
+      { x: 200, y: 10, time: 0 },
+      { x: 180, y: 20, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "FLOOR 2 · COMMS ROOM",
+    caption: "reeves on the line: \"GHOST's scanners intercept plain text. reverse each word — they can't parse that.\"",
+    audio: [
+      { atMs: 200, action: "sfx", sound: "message-receive", volume: 0.35 },
+      { atMs: 1000, action: "sfx", sound: "maya-typing", volume: 0.2 },
+      { atMs: 2500, action: "sfx", sound: "terminal-beep", volume: 0.15 },
+    ],
+  },
+  // Scene 3: Keyword scanner sweep — tension
+  {
+    background: "server",
+    actors: [],
+    camera: [
+      { x: 100, y: 40, time: 0 },
+      { x: 120, y: 50, time: 3500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 2 · COMMS ROOM",
+    caption: "the keyword scanners check every 30 seconds. the cipher has to be ready before the next sweep.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "tension-drone", volume: 0.08, fadeMs: 2000 },
+      { atMs: 800, action: "sfx", sound: "warning-beep", volume: 0.25 },
+      { atMs: 2000, action: "sfx", sound: "alert-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 4.2 COMPLETE SCENES ──────────────────────────────────
+
+export const CHAPTER_04_2_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: First encoded message sent
+  {
+    background: "server",
+    actors: [
+      { type: "maya", x: 450, y: 310, animation: "hack" },
+    ],
+    camera: [
+      { x: 180, y: 10, time: 0 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 2 · COMMS ROOM",
+    caption: "first encoded message through the relay: \"evom ot roolf 4 — raelc\"",
+    audio: [
+      { atMs: 200, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 800, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 1500, action: "sfx", sound: "message-receive", volume: 0.3 },
+    ],
+  },
+  // Win 2: Reeves confirms — relay live
+  {
+    background: "server",
+    actors: [
+      { type: "maya", x: 450, y: 310, animation: "idle" },
+    ],
+    camera: [
+      { x: 200, y: 10, time: 0 },
+      { x: 220, y: 20, time: 3500 },
+    ],
+    durationMs: 3500,
+    location: "FLOOR 2 · COMMS ROOM",
+    caption: "reeves decoded it on his end. the relay is live. they have a secure channel.",
+    audio: [
+      { atMs: 200, action: "sfx", sound: "handshake-confirm", volume: 0.35 },
+      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.2 },
+    ],
+  },
+  // Win 3: Secure channel established
+  {
+    background: "corridor",
+    actors: [],
+    camera: [
+      { x: 100, y: 10, time: 0 },
+      { x: 120, y: 15, time: 3000 },
+    ],
+    durationMs: 3000,
+    location: "FLOOR 2 · SECURE RELAY",
+    caption: "encrypted. invisible to GHOST's scanners. now they can coordinate.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "tension-drone", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.08, fadeMs: 1500 },
+      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.15 },
+    ],
+  },
+];

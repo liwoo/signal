@@ -1642,6 +1642,441 @@ const ch04ClearfloorsBank: StepBank = {
   ],
 };
 
+// Chapter 04.2: Step 0 — Scaffold (3 imports)
+const ch04_2ScaffoldBank: StepBank = {
+  intro:
+    "the comms room. reeves needs an encrypted relay — keyword scanners check every 30 seconds. first, set up the terminal. three imports this time: fmt, strings, strconv.",
+
+  conceptFAQ: [
+    {
+      keywords: ["package", "package main"],
+      response:
+        "`package main` — first line. same as always.",
+    },
+    {
+      keywords: ["import", "imports", "group", "grouped"],
+      response:
+        "three imports this time: `import (\"fmt\" \"strings\" \"strconv\")`. grouped in parentheses, one per line.",
+    },
+    {
+      keywords: ["fmt"],
+      response:
+        "`fmt` — formatting and printing. you know this one.",
+    },
+    {
+      keywords: ["strings", "string package"],
+      response:
+        "`strings` — string manipulation. Fields, Join, Contains, Replace. we'll use it for splitting and joining words.",
+    },
+    {
+      keywords: ["strconv", "convert", "conversion"],
+      response:
+        "`strconv` — string conversions. Itoa converts int to string, Atoi converts string to int. we'll need both for relay headers.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start", "func", "main"],
+      response:
+        "write the skeleton: `package main`, then `import (\"fmt\" \"strings\" \"strconv\")`, then `func main() { fmt.Println(\"ready\") }`. use all three eventually — for now fmt is enough to compile.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const m = minify(code);
+        return isValidScaffold(code) && m.includes('"strings"') && m.includes('"strconv"');
+      },
+      response:
+        "relay terminal online. three packages loaded. now build the cipher.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !minify(code).includes("packagemain"),
+      response:
+        "every go file starts with `package main`. first line.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && !m.includes("import");
+      },
+      response:
+        "package is set. add your imports — three this time: fmt, strings, strconv. group them in parentheses.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("packagemain") && m.includes("import") && !m.includes("funcmain(){");
+      },
+      response:
+        "imports are in. add `func main() { }` — the entry point.",
+    },
+    {
+      match: (code) => {
+        const m = minify(code);
+        return m.includes("funcmain(){") && (!m.includes('"strings"') || !m.includes('"strconv"'));
+      },
+      response:
+        "you need all three imports: fmt, strings, strconv. group them: `import (\"fmt\" \"strings\" \"strconv\")`.",
+    },
+  ],
+
+  outputPatterns: [],
+
+  correctResponse:
+    "relay terminal online. three packages loaded. now build the cipher.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the terminal can't parse that. package main, three imports, func main().",
+    "not a valid program. start with `package main`, then import fmt, strings, strconv.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "three things: `package main`, `import (\"fmt\" \"strings\" \"strconv\")`, `func main() { fmt.Println(\"ready\") }`.",
+  ],
+
+  deflections: [
+    "just the skeleton for now. three imports: fmt, strings, strconv.",
+  ],
+};
+
+// Chapter 04.2: Step 1 — Reverse Word
+const ch04_2ReversewordBank: StepBank = {
+  intro:
+    "good. write `func reverseWord(s string) string` above main. convert the string to `[]rune` — that's a slice of unicode characters. reverse it, convert back.\n\na string in go is just bytes. to reverse safely, you need runes.",
+
+  conceptFAQ: [
+    {
+      keywords: ["rune", "runes", "what is a rune"],
+      response:
+        "a rune is a single unicode character. `'A'` is a rune, `'世'` is a rune. type `rune` is an alias for `int32`.",
+    },
+    {
+      keywords: ["[]rune", "rune slice", "why rune", "why not bytes", "bytes"],
+      response:
+        "strings are byte sequences. multi-byte characters (emoji, accents) get split if you index by bytes. `[]rune` gives you one element per character.",
+    },
+    {
+      keywords: ["convert", "string to rune", "cast"],
+      response:
+        "`runes := []rune(s)` — converts the string into a slice of runes. each element is one character.",
+    },
+    {
+      keywords: ["reverse", "how to reverse", "swap"],
+      response:
+        "swap from both ends: `for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 { runes[i], runes[j] = runes[j], runes[i] }`.",
+    },
+    {
+      keywords: ["i, j", "two variable", "multi variable", "for loop"],
+      response:
+        "go's for loop can init two variables: `i, j := 0, len(runes)-1`. update both in the post statement: `i, j = i+1, j-1`.",
+    },
+    {
+      keywords: ["string()", "convert back", "return"],
+      response:
+        "`return string(runes)` — converts the rune slice back to a string.",
+    },
+    {
+      keywords: ["slice", "what is a slice"],
+      response:
+        "a slice is a dynamic-length view over an array. `[]rune` is a slice of runes. you can index it, get its length, and modify elements in place.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "write `func reverseWord(s string) string` above main. inside: convert to []rune, swap from both ends, return string(runes).",
+    },
+    {
+      keywords: ["test", "tested", "how is it tested"],
+      response:
+        "the harness calls reverseWord with different strings — \"hello\", \"Go\", single characters. your logic must work for any input.",
+    },
+    {
+      keywords: ["immutable", "can't change", "string immutable"],
+      response:
+        "strings in go are immutable — you can't change individual characters. that's why you convert to []rune, modify the slice, then convert back.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        return code.includes("reverseWord") && code.includes("[]rune") && /runes?\[.*\].*=.*runes?\[/.test(code) && code.includes("return string(");
+      },
+      response:
+        "olleh... oG... the cipher works. one word at a time.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !code.includes("reverseWord"),
+      response:
+        "write the function: `func reverseWord(s string) string` above main.",
+    },
+    {
+      match: (code) => code.includes("reverseWord") && !code.includes("[]rune"),
+      response:
+        "strings are immutable. convert to `[]rune` first — `runes := []rune(s)`.",
+    },
+    {
+      match: (code) => code.includes("[]rune") && !/runes?\[.*\].*=.*runes?\[/.test(code),
+      response:
+        "now reverse it — swap from both ends. `for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 { runes[i], runes[j] = runes[j], runes[i] }`.",
+    },
+    {
+      match: (code) => code.includes("[]rune") && /runes?\[/.test(code) && !code.includes("return string("),
+      response:
+        "convert back: `return string(runes)`.",
+    },
+  ],
+
+  outputPatterns: [],
+
+  correctResponse:
+    "olleh... oG... the cipher works. one word at a time.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. reverseWord should convert to []rune, swap from both ends, return string(runes).",
+    "the harness tests with different words. make sure your swap loop covers all indices.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "inside reverseWord: `runes := []rune(s)`, then `for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 { runes[i], runes[j] = runes[j], runes[i] }`, then `return string(runes)`.",
+    "three steps. []rune(s) to convert. swap loop from both ends. string(runes) to convert back.",
+  ],
+
+  deflections: [
+    "focus. write the reverseWord function.",
+    "not now — i need the word cipher working.",
+  ],
+};
+
+// Chapter 04.2: Step 2 — Encode
+const ch04_2EncodeBank: StepBank = {
+  intro:
+    "single words work. now write `func encode(msg string) string` — split the message into words, reverse each one, join them back.\n\nuse `strings.Fields` to split and `strings.Join` to rejoin. the round-trip proof: encode(encode(x)) should return x.",
+
+  conceptFAQ: [
+    {
+      keywords: ["fields", "strings.Fields", "split"],
+      response:
+        "`strings.Fields(msg)` splits on any whitespace and drops empty entries. returns `[]string`.",
+    },
+    {
+      keywords: ["join", "strings.Join"],
+      response:
+        "`strings.Join(slice, \" \")` joins a string slice with a separator. space between words.",
+    },
+    {
+      keywords: ["append", "add to slice"],
+      response:
+        "`result = append(result, reversed)` — adds an element to the end of the slice.",
+    },
+    {
+      keywords: ["result", "[]string", "empty slice", "initialize"],
+      response:
+        "start with an empty slice: `result := []string{}`. append each reversed word to it.",
+    },
+    {
+      keywords: ["range", "loop", "iterate"],
+      response:
+        "`for _, word := range words { ... }` — loops over each word in the slice. underscore ignores the index.",
+    },
+    {
+      keywords: ["reverseWord", "call", "compose", "composition"],
+      response:
+        "call reverseWord inside the loop: `reversed := reverseWord(word)`. function composition — one function calls another.",
+    },
+    {
+      keywords: ["round trip", "encode twice", "why encode encode"],
+      response:
+        "reversing a reversed word gives you the original. so encode(encode(x)) returns x. reeves can decode by running encode again.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "write `func encode(msg string) string`. split with strings.Fields, reverse each word, join with strings.Join.",
+    },
+    {
+      keywords: ["test", "tested", "how is it tested"],
+      response:
+        "the harness tests encode with different messages and checks the round-trip: encode(encode(original)) must equal original.",
+    },
+    {
+      keywords: ["Fields vs Split", "difference", "Split"],
+      response:
+        "Fields splits on any whitespace and trims. Split needs an exact separator. Fields is safer for natural text.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        return code.includes("func encode(") && code.includes("strings.Fields") && code.includes("reverseWord") && code.includes("strings.Join") && code.includes("return");
+      },
+      response:
+        "roolf si raelc. encode works. and the round-trip checks out — encode(encode(x)) returns x. reeves can decode on his end.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !code.includes("func encode("),
+      response:
+        "write the function: `func encode(msg string) string` above main.",
+    },
+    {
+      match: (code) => code.includes("func encode(") && !code.includes("strings.Fields"),
+      response:
+        "use `strings.Fields(msg)` to split on whitespace. it returns a []string of words.",
+    },
+    {
+      match: (code) => code.includes("strings.Fields") && !code.includes("reverseWord"),
+      response:
+        "reverse each word — call reverseWord inside the loop.",
+    },
+    {
+      match: (code) => code.includes("reverseWord") && !code.includes("strings.Join"),
+      response:
+        "glue them back: `strings.Join(result, \" \")`.",
+    },
+  ],
+
+  outputPatterns: [],
+
+  correctResponse:
+    "roolf si raelc. encode works. and the round-trip checks out — encode(encode(x)) returns x. reeves can decode on his end.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. encode should split with Fields, reverse each word, join with Join.",
+    "the round-trip must work. encode(encode(x)) should return x. check your logic.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "inside encode: `words := strings.Fields(msg)`, then `result := []string{}`, then `for _, w := range words { result = append(result, reverseWord(w)) }`, then `return strings.Join(result, \" \")`.",
+    "split, reverse each, join. three operations. strings.Fields, reverseWord in a loop, strings.Join.",
+  ],
+
+  deflections: [
+    "focus. write the encode function.",
+    "not now — i need the full message cipher working.",
+  ],
+};
+
+// Chapter 04.2: Step 3 — Relay Header
+const ch04_2RelayheaderBank: StepBank = {
+  intro:
+    "cipher confirmed. last piece — relay headers. write `func relayHeader(floor int, code string) string`.\n\nconvert floor to string with `strconv.Itoa`. convert code to int with `strconv.Atoi`. Atoi returns two values — (int, error). check the error.\n\nformat: `\"F\" + floor + \"-C\" + strconv.Itoa(code*2)`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["itoa", "strconv.Itoa", "int to string"],
+      response:
+        "`strconv.Itoa(42)` returns `\"42\"`. integer to ASCII. it's the reverse of Atoi.",
+    },
+    {
+      keywords: ["atoi", "strconv.Atoi", "string to int"],
+      response:
+        "`strconv.Atoi(\"42\")` returns `(42, nil)`. if the string isn't a number, it returns `(0, error)`.",
+    },
+    {
+      keywords: ["error", "err", "error return", "two values", "multiple return"],
+      response:
+        "Atoi returns two values: the int and an error. `n, err := strconv.Atoi(code)`. if err is not nil, the conversion failed.",
+    },
+    {
+      keywords: ["err != nil", "nil", "check error", "error check"],
+      response:
+        "`if err != nil { return \"ERR\" }` — the standard go error check. if something can fail, check it.",
+    },
+    {
+      keywords: ["what is error", "error type"],
+      response:
+        "`error` is a built-in interface in go. nil means no error. anything else means something went wrong. always check it.",
+    },
+    {
+      keywords: ["concatenation", "+", "string concat"],
+      response:
+        "strings concatenate with `+`: `\"F\" + strconv.Itoa(floor) + \"-C\" + strconv.Itoa(n*2)`. all parts must be strings.",
+    },
+    {
+      keywords: ["why *2", "multiply", "times two"],
+      response:
+        "relay protocol doubles the code value as a checksum. the scanner expects it.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "write `func relayHeader(floor int, code string) string`. use Itoa for the floor, Atoi for the code (check err), return the formatted header.",
+    },
+    {
+      keywords: ["test", "tested", "how is it tested"],
+      response:
+        "the harness calls relayHeader with valid and invalid codes. your error handling must work for both cases.",
+    },
+    {
+      keywords: ["bad input", "invalid", "fail", "not a number"],
+      response:
+        "if code isn't a valid number, Atoi returns an error. return a header with \"ERR\" instead of the doubled value.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        return code.includes("relayHeader") && code.includes("strconv.Itoa") && code.includes("strconv.Atoi") && code.includes("err != nil") && code.includes("return");
+      },
+      response:
+        "F2-C100, F3-ERR, F1-C50. headers confirmed. the relay is live.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !code.includes("relayHeader"),
+      response:
+        "write the function: `func relayHeader(floor int, code string) string` above main.",
+    },
+    {
+      match: (code) => code.includes("relayHeader") && !code.includes("strconv.Itoa"),
+      response:
+        "use `strconv.Itoa(floor)` to convert the int to a string for the header.",
+    },
+    {
+      match: (code) => code.includes("strconv.Itoa") && !code.includes("strconv.Atoi"),
+      response:
+        "`strconv.Atoi(code)` parses the string to int. it returns (int, error).",
+    },
+    {
+      match: (code) => code.includes("strconv.Atoi") && !code.includes("err != nil"),
+      response:
+        "atoi can fail. check `if err != nil` — return the error format.",
+    },
+  ],
+
+  outputPatterns: [],
+
+  correctResponse:
+    "F2-C100, F3-ERR, F1-C50. headers confirmed. the relay is live.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. relayHeader needs strconv.Itoa for the floor, strconv.Atoi for the code, and an error check.",
+    "check your format: \"F\" + Itoa(floor) + \"-C\" + Itoa(n*2). and handle the error case.",
+  ],
+
+  rushDialogue: [
+    "scanner sweep in 30 seconds. finish the headers.",
+    "no time — strconv.Itoa for the floor, Atoi for the code. check the error.",
+  ],
+
+  stuckResponses: [
+    "inside relayHeader: `n, err := strconv.Atoi(code)`, then `if err != nil { return \"F\" + strconv.Itoa(floor) + \"-ERR\" }`, then `return \"F\" + strconv.Itoa(floor) + \"-C\" + strconv.Itoa(n*2)`.",
+    "two conversions: Itoa turns int to string, Atoi turns string to int. Atoi can fail — check err != nil.",
+  ],
+
+  deflections: [
+    "focus. write the relayHeader function.",
+    "not now — i need those headers formatted.",
+  ],
+};
+
 // ── Registry ──
 
 const BANKS: Record<string, StepBank> = {
@@ -1657,6 +2092,10 @@ const BANKS: Record<string, StepBank> = {
   "chapter-04:scaffold": ch04ScaffoldBank,
   "chapter-04:guardmap": ch04GuardmapBank,
   "chapter-04:clearfloors": ch04ClearfloorsBank,
+  "chapter-04.2:scaffold": ch04_2ScaffoldBank,
+  "chapter-04.2:reverseword": ch04_2ReversewordBank,
+  "chapter-04.2:encode": ch04_2EncodeBank,
+  "chapter-04.2:relayheader": ch04_2RelayheaderBank,
   "boss-01:scaffold": boss01ScaffoldBank,
   "boss-01:predict": boss01PredictBank,
 };
