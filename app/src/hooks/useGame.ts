@@ -30,7 +30,6 @@ import {
   type AISuggestion,
 } from "@/lib/game/ai-tokens";
 import {
-  EXPLAIN_COST_XP,
   createPauseState,
   isPaused,
   shouldQueueEvent,
@@ -59,6 +58,8 @@ import {
   trackJeopardy,
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
+import { clearGameDraft, loadGameDraft, saveGameDraft } from "@/lib/storage/local";
+import type { GameDraft } from "@/types/game";
 
 export interface InitialPersistedState {
   xp: number;
@@ -165,15 +166,22 @@ export function useGame(
   challenge: Challenge,
   twistData: TwistData | null,
   initial?: InitialPersistedState,
-  onSave?: (payload: SavePayload) => void
+  onSave?: (payload: SavePayload) => void,
+  timingScale = 1
 ): [GameState, GameActions] {
+  const [initialDraft] = useState(() => {
+    const draft = loadGameDraft(challenge.id);
+    if (!draft || draft.version !== 1) return null;
+    const step = challenge.steps[draft.stepIndex];
+    return step?.id === draft.stepId ? draft : null;
+  });
   const [phase, setPhase] = useState<GameState["phase"]>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [xp, setXp] = useState(initial?.xp ?? 0);
   const [level, setLevel] = useState(initial?.level ?? 1);
-  const [attempts, setAttempts] = useState(0);
+  const [attempts, setAttempts] = useState(initialDraft?.attempts ?? 0);
   const [tab, setTab] = useState<"code" | "mission" | "library" | "notes">("code");
   const [library, setLibrary] = useState<LibraryState>(
     () => initial?.library ?? createLibraryState()
@@ -184,13 +192,13 @@ export function useGame(
   onSaveRef.current = onSave;
 
   // Step tracking
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(initialDraft?.stepIndex ?? 0);
   const EMPTY_STEP: ChallengeStep = {
     id: "", title: "", brief: "", starterCode: "", expectedBehavior: "",
     hints: [], rushMode: null, xp: { base: 0, firstTryBonus: 0, parTimeSeconds: 0 }, events: [],
   };
   const currentStep = challenge.steps[stepIndex] ?? EMPTY_STEP;
-  const [code, setCode] = useState(currentStep.starterCode ?? "");
+  const [code, setCode] = useState(initialDraft?.code ?? currentStep.starterCode ?? "");
 
   const [inRush, setInRush] = useState(false);
   const [rushLabel, setRushLabel] = useState("");
@@ -213,6 +221,7 @@ export function useGame(
   const [timerStartMs, setTimerStartMs] = useState(0);
   const [timerBonusSeconds, setTimerBonusSeconds] = useState(0);
   const [timerStopped, setTimerStopped] = useState(true);
+  const effectiveTimeLimitSeconds = Math.round(challenge.timer.timeLimitSeconds * timingScale);
 
   // Refs for values needed in timer/rush callbacks to avoid stale closures
   const heartsRef = useRef(hearts);
@@ -223,6 +232,12 @@ export function useGame(
   levelRef.current = level;
   const inRushRef = useRef(inRush);
   inRushRef.current = inRush;
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const timerStoppedRef = useRef(timerStopped);
+  timerStoppedRef.current = timerStopped;
+  const backgroundPauseStartRef = useRef(0);
+  const resumeAfterBackgroundRef = useRef(false);
 
   // Maya typing → timer pause (mutable ref for synchronous reads)
   const pauseRef = useRef<PauseState>(createPauseState());
@@ -351,7 +366,7 @@ export function useGame(
   const handleEvent = useCallback(
     (event: TimedEvent) => {
       // Queue events while game is paused (Maya typing + continue wait)
-      if (shouldQueueEvent(pauseRef.current)) {
+      if (shouldQueueEvent(pauseRef.current) || backgroundPauseStartRef.current > 0) {
         queuedEventsRef.current.push(event);
         return;
       }
@@ -368,13 +383,13 @@ export function useGame(
         if (step?.rushMode) {
           setInRush(true);
           setRushLabel(step.rushMode.label);
-          setRushSeconds(step.rushMode.durationSeconds);
+          setRushSeconds(Math.round(step.rushMode.durationSeconds * timingScale));
         }
       } else if (event.type === "powercut") {
         setPowerCut(true);
       }
     },
-    [addMsg, challenge.steps, stepIndex]
+    [addMsg, challenge.steps, stepIndex, timingScale]
   );
 
   // Clean up schedulers on unmount
@@ -440,10 +455,10 @@ export function useGame(
     }
     // Check if main timer has already expired while rush was running
     if (startTimeRef.current > 0 &&
-        isMainTimerExpired(startTimeRef.current, Date.now(), challenge.timer.timeLimitSeconds, timerBonusSeconds)) {
+        isMainTimerExpired(startTimeRef.current, Date.now(), effectiveTimeLimitSeconds, timerBonusSeconds)) {
       handleTimerExpire();
     }
-  }, [challenge.steps, challenge.timer.timeLimitSeconds, stepIndex, timerBonusSeconds, fireJeopardy, handleTimerExpire]);
+  }, [challenge.steps, effectiveTimeLimitSeconds, stepIndex, timerBonusSeconds, fireJeopardy, handleTimerExpire]);
 
   const startGame = useCallback(() => {
     setPhase("playing");
@@ -563,7 +578,7 @@ export function useGame(
       const speedBonus = calculateSpeedXP(
         currentStep.xp.base,
         elapsed,
-        currentStep.xp.parTimeSeconds
+        currentStep.xp.parTimeSeconds * timingScale
       );
       const earned = calculateTotalXP(
         currentStep.xp.base,
@@ -709,6 +724,7 @@ export function useGame(
           type: "dim",
           animated: false,
           onShow: () => {
+            clearGameDraft(challenge.id);
             levelSchedulerRef.current.stop();
             setTimerStopped(true);
             if (twistData) {
@@ -744,6 +760,7 @@ export function useGame(
     currentStep,
     stepIndex,
     challenge,
+    timingScale,
     level,
     twistData,
     addMsg,
@@ -792,6 +809,63 @@ export function useGame(
     }
   }, [handleEvent]);
 
+  // Mobile browsers commonly suspend the page for calls, app switches, and
+  // lock-screen transitions. Compensate the level clock and defer events.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (phaseRef.current === "playing" && !timerStoppedRef.current) {
+          backgroundPauseStartRef.current = Date.now();
+          resumeAfterBackgroundRef.current = true;
+          setTimerStopped(true);
+        }
+        return;
+      }
+
+      const pausedAt = backgroundPauseStartRef.current;
+      if (pausedAt === 0) return;
+      backgroundPauseStartRef.current = 0;
+      setTimerBonusSeconds((prev) => prev + (Date.now() - pausedAt) / 1000);
+      if (resumeAfterBackgroundRef.current && !isPaused(pauseRef.current)) {
+        setTimerStopped(false);
+      }
+      resumeAfterBackgroundRef.current = false;
+      flushQueuedEvents();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [flushQueuedEvents]);
+
+  const latestDraftRef = useRef<GameDraft | null>(null);
+  latestDraftRef.current = phase === "playing" ? {
+    version: 1,
+    challengeId: challenge.id,
+    stepId: currentStep.id,
+    stepIndex,
+    code,
+    attempts,
+    updatedAt: Date.now(),
+  } : null;
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const timer = setTimeout(() => {
+      if (latestDraftRef.current) saveGameDraft(latestDraftRef.current);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [phase, challenge.id, currentStep.id, stepIndex, code, attempts]);
+
+  useEffect(() => {
+    const flushDraft = () => {
+      if (document.hidden && latestDraftRef.current) {
+        saveGameDraft(latestDraftRef.current);
+      }
+    };
+    document.addEventListener("visibilitychange", flushDraft);
+    return () => document.removeEventListener("visibilitychange", flushDraft);
+  }, []);
+
   const resumeFromPause = useCallback(() => {
     // Drain pending message chunks before actually resuming the timer
     if (pendingMsgRef.current.length > 0) {
@@ -836,6 +910,7 @@ export function useGame(
   }, [xp, currentStep, inRush, attempts, addMsg, addMayaChunked, syncPauseState]);
 
   const retryFromCheckpoint = useCallback(() => {
+    clearGameDraft(challenge.id);
     setPhase("intro");
     setMessages([]);
     setStepIndex(0);
@@ -870,7 +945,7 @@ export function useGame(
       }
       return carried;
     });
-  }, [challenge.steps]);
+  }, [challenge.id, challenge.steps]);
 
   const state: GameState = {
     phase,
@@ -891,7 +966,7 @@ export function useGame(
     streaks,
     tab,
     timerStartMs,
-    timerLimitSeconds: challenge.timer.timeLimitSeconds,
+    timerLimitSeconds: effectiveTimeLimitSeconds,
     timerBonusSeconds,
     timerGameOver: challenge.timer.gameOverOnExpiry,
     timerStopped,

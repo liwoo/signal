@@ -10,21 +10,22 @@ interface TopBarProps {
   busy: boolean;
   timerSlot?: ReactNode;
   hearts?: number;
+  compact?: boolean;
 }
 
-export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts }: TopBarProps) {
+export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, compact = false }: TopBarProps) {
   const pct = Math.min((xp / xpMax) * 100, 100);
 
   return (
     <div
-      className="h-10 px-3.5 flex items-center gap-3.5 shrink-0 transition-colors duration-500"
+      className={`h-10 flex items-center shrink-0 transition-colors duration-500 ${compact ? "gap-2 px-2" : "gap-3.5 px-3.5"}`}
       style={{
         background: "var(--color-panel)",
         borderBottom: `1px solid ${inRush ? "#3a1a0a" : "var(--color-border)"}`,
       }}
     >
       {/* Logo */}
-      <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[11px] tracking-[4px] shrink-0 glow-pulse">
+      <div className={`font-[family-name:var(--font-display)] text-[var(--color-signal)] shrink-0 glow-pulse ${compact ? "text-[9px] tracking-[2px]" : "text-[11px] tracking-[4px]"}`}>
         SIGNAL
       </div>
 
@@ -44,16 +45,24 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts }: To
             }}
           />
         </div>
-        <div
+        {!compact ? <div
           className="text-[var(--color-signal)] text-[9px] font-bold shrink-0"
           style={{ textShadow: "0 0 8px rgba(110,255,160,.5), 0 0 20px rgba(110,255,160,.2)" }}
         >
           {xp} XP
-        </div>
+        </div> : null}
       </div>
 
       {/* Hearts */}
-      {hearts !== undefined && (
+      {hearts !== undefined && (compact ? (
+        <span
+          className="shrink-0 text-[10px]"
+          aria-label={`${hearts} hearts remaining`}
+          style={{ color: "var(--color-danger)" }}
+        >
+          ♥{hearts}
+        </span>
+      ) : (
         <div className="flex items-center gap-0.5 shrink-0">
           {Array.from({ length: hearts }).map((_, i) => (
             <span
@@ -68,7 +77,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts }: To
             </span>
           ))}
         </div>
-      )}
+      ))}
 
       {/* Level Timer */}
       {timerSlot}
@@ -81,7 +90,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts }: To
           animation: inRush ? "blink .5s step-end infinite" : "none",
         }}
       >
-        ● {inRush ? "RUSH" : busy ? "TX" : "LIVE"}
+        {compact ? "●" : `● ${inRush ? "RUSH" : busy ? "TX" : "LIVE"}`}
       </span>
     </div>
   );

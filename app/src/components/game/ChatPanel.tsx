@@ -27,6 +27,7 @@ interface ChatPanelProps {
   explainUsed?: boolean;
   onContinue?: () => void;
   onExplain?: () => void;
+  compact?: boolean;
 }
 
 const MSG_COLORS: Record<string, string> = {
@@ -55,6 +56,7 @@ export function ChatPanel({
   explainUsed,
   onContinue,
   onExplain,
+  compact = false,
 }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const [typedIds, setTypedIds] = useState<Set<string>>(new Set());
@@ -67,8 +69,10 @@ export function ChatPanel({
   // Stable refs for callbacks
   const onStartRef = useRef(onMayaTypingStart);
   const onEndRef = useRef(onMayaTypingEnd);
-  onStartRef.current = onMayaTypingStart;
-  onEndRef.current = onMayaTypingEnd;
+  useEffect(() => {
+    onStartRef.current = onMayaTypingStart;
+    onEndRef.current = onMayaTypingEnd;
+  }, [onMayaTypingStart, onMayaTypingEnd]);
 
   const handleTypingStart = useCallback(() => {
     onStartRef.current?.();
@@ -83,7 +87,7 @@ export function ChatPanel({
     <div className="flex flex-col h-full">
       {/* Location bar */}
       <div
-        className="shrink-0 px-3 py-1.5"
+        className={`shrink-0 px-3 ${compact ? "py-2" : "py-1.5"}`}
         style={{
           background: "rgba(0,0,0,.3)",
           borderBottom: "1px solid #0a1820",
@@ -121,7 +125,7 @@ export function ChatPanel({
           return (
             <div
               key={m.id}
-              className="msg-enter text-[17px] leading-[1.65] transition-opacity duration-700"
+              className={`msg-enter leading-[1.65] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[17px]"}`}
               style={{ opacity }}
             >
               <div className="flex gap-1.5 mb-px">
@@ -181,13 +185,14 @@ export function ChatPanel({
             </div>
             <div className="flex gap-1.5">
               {onContinue && (
-                <ContinueButton onContinue={onContinue} />
+                <ContinueButton onContinue={onContinue} compact={compact} />
               )}
               {onExplain && !explainUsed && (
                 <button
                   onClick={onExplain}
-                  className="bg-transparent text-[9px] tracking-[1px] px-2.5 py-1
-                             cursor-pointer transition-colors"
+                  className={`bg-transparent text-[9px] tracking-[1px] px-2.5
+                             cursor-pointer transition-colors
+                             ${compact ? "min-h-11 py-2" : "py-1"}`}
                   style={{
                     border: "1px solid rgba(122,184,216,.15)",
                     color: "var(--color-player)",
@@ -232,7 +237,7 @@ export function ChatPanel({
             onKeyDown={(e) => e.key === "Enter" && onSend()}
             placeholder="type a question or ask for a hint..."
             disabled={busy}
-            className="flex-1 bg-transparent text-[var(--color-player)] text-[14px] py-1 focus:outline-none placeholder:text-[rgba(122,184,216,.25)] disabled:opacity-40"
+            className={`flex-1 bg-transparent text-[var(--color-player)] py-1 focus:outline-none placeholder:text-[rgba(122,184,216,.25)] disabled:opacity-40 ${compact ? "text-[16px]" : "text-[14px]"}`}
             style={{
               border: "none",
               borderBottom: "1px solid rgba(122,184,216,.15)",
@@ -241,8 +246,9 @@ export function ChatPanel({
           <button
             onClick={onSend}
             disabled={busy || !chatInput.trim()}
-            className="bg-transparent text-[9px] px-3.5 py-1.5
-                       tracking-[2px] transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
+            className={`bg-transparent text-[9px] px-3.5
+                       tracking-[2px] transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed
+                       ${compact ? "min-h-11 py-2" : "py-1.5"}`}
             style={{
               border: "1px solid rgba(122,184,216,.25)",
               color: "var(--color-player)",
@@ -267,7 +273,7 @@ export function ChatPanel({
 const AUTO_CONTINUE_SECONDS = 7;
 
 // Continue button with auto-countdown
-function ContinueButton({ onContinue }: { onContinue: () => void }) {
+function ContinueButton({ onContinue, compact = false }: { onContinue: () => void; compact?: boolean }) {
   const [remaining, setRemaining] = useState(AUTO_CONTINUE_SECONDS);
   const firedRef = useRef(false);
 
@@ -312,8 +318,8 @@ function ContinueButton({ onContinue }: { onContinue: () => void }) {
           onContinue();
         }
       }}
-      className="bg-transparent text-[9px] tracking-[1px] px-2.5 py-1
-                 cursor-pointer transition-colors"
+      className={`bg-transparent text-[9px] tracking-[1px] px-2.5
+                 cursor-pointer transition-colors ${compact ? "min-h-11 py-2" : "py-1"}`}
       style={{
         border: "1px solid rgba(110,255,160,.2)",
         color: "var(--color-signal)",

@@ -163,6 +163,16 @@ export interface EditorState {
   scrollTop: number;
 }
 
+export interface GameDraft {
+  version: 1;
+  challengeId: string;
+  stepId: string;
+  stepIndex: number;
+  code: string;
+  attempts: number;
+  updatedAt: number;
+}
+
 // ── Submission ──
 
 export interface SubmissionResult {

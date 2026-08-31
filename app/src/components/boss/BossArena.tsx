@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import type { BossFightConfig } from "@/types/game";
 import { useBossFight, type BossSavePayload } from "@/hooks/useBossFight";
 import { useAudio } from "@/hooks/useAudio";
@@ -40,6 +40,7 @@ interface BossArenaProps {
   onVictory: () => void;
   onGameOver: () => void;
   onRetry: () => void;
+  compact?: boolean;
 }
 
 // ── Animation state tracked outside React for 60fps performance ──
@@ -221,9 +222,17 @@ export function BossArena({
   onVictory,
   onGameOver,
   onRetry,
+  compact = false,
 }: BossArenaProps) {
+  const fightConfig = useMemo(() => compact ? {
+    ...config,
+    turns: config.turns.map((turn) => ({
+      ...turn,
+      windowSeconds: Math.round(turn.windowSeconds * 1.5),
+    })),
+  } : config, [compact, config]);
   const [state, actions] = useBossFight(
-    config,
+    fightConfig,
     chapterNumber,
     initialXP,
     initialLevel,
@@ -811,7 +820,7 @@ export function BossArena({
           </div>
           <div
             style={{
-              width: "clamp(360px, 55%, 600px)",
+              width: compact ? "calc(100vw - 24px)" : "clamp(360px, 55%, 600px)",
               background: "rgba(8,4,8,0.9)",
               border: "1px solid #201010",
             }}
@@ -986,6 +995,7 @@ export function BossArena({
       {/* ── HUD overlay (top) — hidden during victory ── */}
       {!isVictoryPhase && <div className="absolute top-0 left-0 right-0 z-10">
         <BossHUD
+          compact={compact}
           bossName={config.bossName}
           bossHP={state.bossHP}
           maxHP={config.bossHP}
@@ -1003,8 +1013,10 @@ export function BossArena({
       <div
         className="absolute bottom-0 left-0 z-10"
         style={{
-          width: "clamp(320px, 40%, 520px)",
-          maxHeight: "50%",
+          width: compact ? "100%" : "clamp(320px, 40%, 520px)",
+          maxHeight: compact ? "27%" : "50%",
+          bottom: compact ? "auto" : 0,
+          top: compact ? 40 : "auto",
         }}
       >
         <BossComms messages={state.messages} onNewMessage={playMayaSound} />
@@ -1062,8 +1074,8 @@ export function BossArena({
       <div
         className="absolute bottom-0 right-0 z-10 flex flex-col"
         style={{
-          width: "clamp(340px, 42%, 520px)",
-          height: "clamp(220px, 42%, 340px)",
+          width: compact ? "100%" : "clamp(340px, 42%, 520px)",
+          height: compact ? "68%" : "clamp(220px, 42%, 340px)",
           background: "rgba(8,4,8,0.92)",
           borderTop: "1px solid #201010",
           borderLeft: "1px solid #201010",
@@ -1079,7 +1091,7 @@ export function BossArena({
             <button
               key={tab.id}
               onClick={() => setSelectedTab(tab.id)}
-              className="bg-transparent text-[8px] tracking-[2px] px-3.5 py-1.5 cursor-pointer transition-colors"
+              className={`bg-transparent text-[8px] tracking-[2px] px-3.5 cursor-pointer transition-colors ${compact ? "min-h-11 py-2" : "py-1.5"}`}
               style={{
                 color: selectedTab === tab.id
                   ? tab.id === state.activeTab ? "#ffaa00" : "#ff6e6e"
@@ -1097,6 +1109,7 @@ export function BossArena({
         {/* Reuse the proven CodeEditor component */}
         <div className="flex-1 min-h-0">
           <CodeEditor
+            isMobile={compact}
             code={state.tabCode[selectedTab] ?? ""}
             onCodeChange={(code) => actions.setTabCode(selectedTab, code)}
             onSubmit={actions.execute}
