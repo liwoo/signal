@@ -15,10 +15,9 @@ interface CinematicSceneProps {
   skipLabel?: string;
 }
 
-/**
- * Full-screen cinematic with PixiJS 2D animation of Maya.
- * Cycles through scene definitions with typed captions.
- */
+type FadePhase = "in" | "playing" | "out";
+
+/** Full-screen, continuously rendered story sequence. */
 export function CinematicScene({
   scenes,
   title,
@@ -27,9 +26,9 @@ export function CinematicScene({
   skipLabel = "PRESS ANY KEY TO SKIP",
 }: CinematicSceneProps) {
   const [sceneIndex, setSceneIndex] = useState(0);
-  const [fadePhase, setFadePhase] = useState<"in" | "playing" | "out">("in");
-  const [captionKey, setCaptionKey] = useState(0);
+  const [fadePhase, setFadePhase] = useState<FadePhase>("in");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedRef = useRef(false);
   const cueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const audio = useAudio();
@@ -39,42 +38,37 @@ export function CinematicScene({
   const finish = useCallback(() => {
     if (completedRef.current) return;
     completedRef.current = true;
-    // Clear pending audio cues
-    for (const t of cueTimersRef.current) clearTimeout(t);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    for (const timer of cueTimersRef.current) clearTimeout(timer);
     cueTimersRef.current = [];
     audio.stopAllLoops(800);
     setFadePhase("out");
-    setTimeout(onComplete, 600);
-  }, [onComplete, audio]);
+    finishTimerRef.current = setTimeout(onComplete, 650);
+  }, [audio, onComplete]);
 
-  // Preload all sounds for this scene set on mount
   useEffect(() => {
     const names = new Set<string>();
     for (const scene of scenes) {
-      if (!scene.audio) continue;
-      for (const cue of scene.audio) {
+      for (const cue of scene.audio ?? []) {
         if (cue.sound) names.add(cue.sound);
       }
     }
     if (names.size > 0) {
       audio.preload([...names] as Parameters<typeof audio.preload>[0]);
     }
-  }, [scenes, audio]);
+  }, [audio, scenes]);
 
-  // Fade in on mount
   useEffect(() => {
-    const t = setTimeout(() => setFadePhase("playing"), 100);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFadePhase("playing"), 80);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Advance scenes on timer
   useEffect(() => {
-    if (fadePhase !== "playing") return;
+    if (fadePhase !== "playing" || !currentScene) return;
 
     timerRef.current = setTimeout(() => {
       if (sceneIndex < scenes.length - 1) {
-        setSceneIndex((i) => i + 1);
-        setCaptionKey((k) => k + 1);
+        setSceneIndex((index) => index + 1);
       } else {
         finish();
       }
@@ -83,16 +77,14 @@ export function CinematicScene({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [sceneIndex, fadePhase, currentScene.durationMs, scenes.length, finish]);
+  }, [currentScene, fadePhase, finish, sceneIndex, scenes.length]);
 
-  // Fire audio cues for current scene
   useEffect(() => {
-    if (fadePhase !== "playing") return;
+    if (fadePhase !== "playing" || !currentScene) return;
     const cues = currentScene.audio;
     if (!cues || cues.length === 0) return;
 
-    // Clear any cues from previous scene
-    for (const t of cueTimersRef.current) clearTimeout(t);
+    for (const timer of cueTimersRef.current) clearTimeout(timer);
     cueTimersRef.current = [];
 
     const fireCue = (cue: AudioCue) => {
@@ -102,21 +94,38 @@ export function CinematicScene({
           if (cue.sound) audio.playSfx(cue.sound as SfxName, cue.volume ?? 0.4);
           break;
         case "loop-start":
-          if (cue.sound)
+          if (cue.sound) {
             audio.startLoop(
               cue.sound as AmbienceName | MusicName,
               cue.volume ?? 0.2,
-              cue.fadeMs ?? 1500
+              cue.fadeMs ?? 1500,
             );
+          }
           break;
         case "loop-stop":
-          if (cue.sound) audio.stopLoop(cue.sound as AmbienceName | MusicName, cue.fadeMs ?? 1500);
+          if (cue.sound) {
+            audio.stopLoop(
+              cue.sound as AmbienceName | MusicName,
+              cue.fadeMs ?? 1500,
+            );
+          }
           break;
         case "loop-volume":
-          if (cue.sound) audio.setLoopVolume(cue.sound as AmbienceName | MusicName, cue.volume ?? 0.2, cue.fadeMs ?? 500);
+          if (cue.sound) {
+            audio.setLoopVolume(
+              cue.sound as AmbienceName | MusicName,
+              cue.volume ?? 0.2,
+              cue.fadeMs ?? 500,
+            );
+          }
           break;
         case "footsteps":
-          audio.playFootsteps(cue.count ?? 4, cue.intervalMs ?? 480, cue.volume ?? 0.3, cue.variant ?? "metal");
+          audio.playFootsteps(
+            cue.count ?? 4,
+            cue.intervalMs ?? 480,
+            cue.volume ?? 0.3,
+            cue.variant ?? "metal",
+          );
           break;
       }
     };
@@ -125,190 +134,182 @@ export function CinematicScene({
       if (cue.atMs <= 0) {
         fireCue(cue);
       } else {
-        const t = setTimeout(() => fireCue(cue), cue.atMs);
-        cueTimersRef.current.push(t);
+        const timer = setTimeout(() => fireCue(cue), cue.atMs);
+        cueTimersRef.current.push(timer);
       }
     }
 
     return () => {
-      for (const t of cueTimersRef.current) clearTimeout(t);
+      for (const timer of cueTimersRef.current) clearTimeout(timer);
       cueTimersRef.current = [];
     };
-  }, [sceneIndex, fadePhase, currentScene, audio]);
+  }, [audio, currentScene, fadePhase, sceneIndex]);
 
-  // Skip on keypress
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      e.preventDefault();
+    const handler = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      event.preventDefault();
       finish();
     };
-    const t = setTimeout(() => {
-      window.addEventListener("keydown", handler, { once: true });
-    }, 800);
+    const timer = setTimeout(() => window.addEventListener("keydown", handler), 800);
     return () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       window.removeEventListener("keydown", handler);
     };
   }, [finish]);
 
+  useEffect(() => {
+    return () => {
+      if (finishTimerRef.current) clearTimeout(finishTimerRef.current);
+    };
+  }, []);
+
+  if (!currentScene) return null;
+
   return (
     <div
-      className="fixed inset-0 z-[1000] flex flex-col items-center justify-center transition-opacity duration-700"
+      className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden transition-opacity duration-700"
       style={{
-        background: "#020406",
-        opacity: fadePhase === "in" ? 0 : fadePhase === "out" ? 0 : 1,
+        background: "var(--color-background)",
+        opacity: fadePhase === "playing" ? 1 : 0,
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title ? `${title} cinematic` : "Story cinematic"}
     >
-      {/* Grid overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(0,255,80,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,80,.03) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-          opacity: 0.4,
+            "linear-gradient(color-mix(in srgb, var(--color-signal) 3%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--color-signal) 3%, transparent) 1px, transparent 1px)",
+          backgroundSize: "40px 40px",
+          maskImage: "radial-gradient(ellipse at center, black, transparent 78%)",
         }}
       />
 
-      {/* Title */}
-      {title && (
-        <div
-          className="absolute top-[10%] text-center opacity-0"
-          style={{ animation: "intro-in .8s ease .3s forwards" }}
-        >
-          <div
-            className="font-[family-name:var(--font-display)] font-black tracking-[6px] leading-none glow-pulse"
-            style={{
-              fontSize: "clamp(28px, 6vw, 48px)",
-              color: "var(--color-signal)",
-            }}
-          >
-            {title}
-          </div>
-          {subtitle && (
-            <div
-              className="text-[9px] tracking-[5px] mt-2"
-              style={{ color: "var(--color-dim)" }}
-            >
-              {subtitle}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* PixiJS Scene — the main event */}
-      <div className="relative">
-        <div
-          className="border overflow-hidden"
-          style={{
-            borderColor: "rgba(110,255,160,.1)",
-            background: "#020406",
-          }}
-        >
-          {/* Location header */}
-          <div
-            className="flex items-center justify-between px-3 py-1.5"
-            style={{
-              background: "rgba(4,8,16,.95)",
-              borderBottom: "1px solid rgba(110,255,160,.06)",
-            }}
-          >
-            <div
-              className="text-[7px] tracking-[3px]"
-              style={{ color: "var(--color-dim)" }}
-            >
-              {`> ${currentScene.location}`}
-            </div>
-            <div
-              className="text-[6px] tracking-[2px] cursor-blink"
-              style={{ color: "rgba(255,64,64,.5)" }}
-            >
-              REC
-            </div>
-          </div>
-
-          <PixiScene
-            scene={currentScene}
-            width={640}
-            height={400}
-            crtEffect
-          />
-
-          {/* Progress bar */}
-          <div
-            className="flex items-center gap-1.5 px-3 py-1.5"
-            style={{
-              background: "rgba(4,8,16,.95)",
-              borderTop: "1px solid rgba(110,255,160,.06)",
-            }}
-          >
-            {scenes.map((_, i) => (
-              <div
-                key={i}
-                className="h-px transition-all duration-500"
-                style={{
-                  width: i === sceneIndex ? "24px" : "8px",
-                  background:
-                    i <= sceneIndex
-                      ? "var(--color-signal)"
-                      : "rgba(110,255,160,.15)",
-                  opacity: i === sceneIndex ? 1 : 0.4,
-                }}
-              />
-            ))}
-            <div
-              className="ml-auto text-[6px] tracking-[2px]"
-              style={{ color: "rgba(110,255,160,.2)" }}
-            >
-              {sceneIndex + 1}/{scenes.length}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Caption */}
-      <div className="mt-5 h-8 flex items-center justify-center">
-        {currentScene.caption && (
-          <TypeText
-            key={captionKey}
-            text={currentScene.caption}
-            speed={30}
-            className="text-[11px] leading-[1.8]"
-          />
-        )}
-      </div>
-
-      {/* Credits */}
-      <div
-        className="absolute bottom-16 text-[12px] tracking-[3px] opacity-0"
+      <section
+        className="cinematic-stage relative overflow-hidden border"
         style={{
-          color: "rgba(110,255,160,.5)",
-          animation: "intro-in 1s ease 1.5s forwards",
+          width: "min(94vw, 1200px, 118dvh)",
+          aspectRatio: "16 / 10",
+          borderColor: "color-mix(in srgb, var(--color-signal) 18%, transparent)",
+          background: "var(--color-background)",
         }}
+        aria-live="polite"
       >
-        crafted with ❤️ by{" "}
-        <a
-          href="https://chienda.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline underline-offset-4"
-          style={{ color: "var(--color-signal)" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          chienda.com
-        </a>
+        <PixiScene scene={currentScene} width={640} height={400} crtEffect />
+
+        <div
+          className="absolute inset-0 z-20 pointer-events-none"
+          style={{
+            background:
+              "linear-gradient(180deg, color-mix(in srgb, var(--color-background) 76%, transparent) 0%, transparent 28%, transparent 58%, color-mix(in srgb, var(--color-background) 88%, transparent) 100%)",
+          }}
+        />
+
+        <header className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-6 p-4 sm:p-6">
+          <div className="min-w-0 cinematic-title-in">
+            {title && (
+              <h1
+                className="font-[family-name:var(--font-display)] text-xl font-black leading-none tracking-[0.24em] sm:text-3xl lg:text-4xl"
+                style={{
+                  color: "var(--color-signal)",
+                  textShadow: "0 0 28px color-mix(in srgb, var(--color-signal) 42%, transparent)",
+                }}
+              >
+                {title}
+              </h1>
+            )}
+            {subtitle && (
+              <p
+                className="mt-2 text-[7px] tracking-[0.38em] sm:text-[9px]"
+                style={{ color: "color-mix(in srgb, var(--color-foreground) 62%, transparent)" }}
+              >
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          <div className="shrink-0 text-right">
+            <div
+              className="text-[6px] tracking-[0.28em] sm:text-[8px]"
+              style={{ color: "color-mix(in srgb, var(--color-foreground) 65%, transparent)" }}
+            >
+              {currentScene.location}
+            </div>
+            <div
+              className="mt-2 flex items-center justify-end gap-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
+              style={{ color: "color-mix(in srgb, var(--color-danger) 72%, transparent)" }}
+            >
+              <span
+                className="h-1.5 w-1.5 animate-pulse"
+                style={{ background: "var(--color-danger)" }}
+              />
+              LIVE FEED
+            </div>
+          </div>
+        </header>
+
+        <div className="absolute inset-x-0 bottom-0 z-30 p-4 sm:p-6">
+          <div className="flex items-end justify-between gap-6">
+            <div key={sceneIndex} className="cinematic-caption-in min-w-0 max-w-[78%]">
+              <div
+                className="mb-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
+                style={{ color: "color-mix(in srgb, var(--color-signal) 65%, transparent)" }}
+              >
+                SIGNAL LOG // {String(sceneIndex + 1).padStart(2, "0")}
+              </div>
+              {currentScene.caption && (
+                <TypeText
+                  text={currentScene.caption}
+                  speed={28}
+                  className="text-[10px] leading-relaxed sm:text-xs lg:text-sm"
+                />
+              )}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5" aria-label={`Scene ${sceneIndex + 1} of ${scenes.length}`}>
+              {scenes.map((scene, index) => (
+                <div
+                  key={`${scene.location}-${index}`}
+                  className="relative h-px w-3 overflow-hidden sm:w-6"
+                  style={{ background: "color-mix(in srgb, var(--color-signal) 18%, transparent)" }}
+                >
+                  {index < sceneIndex && (
+                    <div className="absolute inset-0" style={{ background: "var(--color-signal)" }} />
+                  )}
+                  {index === sceneIndex && (
+                    <div
+                      key={`progress-${sceneIndex}`}
+                      className="cinematic-progress absolute inset-0 origin-left"
+                      style={{
+                        background: "var(--color-signal)",
+                        animationDuration: `${currentScene.durationMs}ms`,
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div
+        className="absolute bottom-3 left-4 hidden text-[6px] tracking-[0.24em] sm:block"
+        style={{ color: "color-mix(in srgb, var(--color-foreground) 28%, transparent)" }}
+      >
+        crafted with ♥ by chienda.com
       </div>
 
-      {/* Skip prompt */}
-      <div
-        className="absolute bottom-8 text-[7px] tracking-[3px] opacity-0"
-        style={{
-          color: "rgba(110,255,160,.2)",
-          animation: "intro-in 1s ease 2s forwards",
-        }}
+      <button
+        type="button"
+        className="absolute bottom-3 right-4 border-0 bg-transparent p-2 text-[6px] tracking-[0.28em] transition-colors sm:text-[7px]"
+        style={{ color: "color-mix(in srgb, var(--color-foreground) 38%, transparent)" }}
+        onClick={finish}
       >
         {skipLabel}
-      </div>
+      </button>
     </div>
   );
 }

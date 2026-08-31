@@ -287,6 +287,48 @@ textarea {
   100% { opacity: 1; }
 }
 
+@keyframes cinematic-title-in {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes cinematic-caption-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes cinematic-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.cinematic-stage {
+  animation: cinematic-fade-in 700ms ease-out both;
+}
+
+.cinematic-title-in {
+  animation: cinematic-title-in 800ms cubic-bezier(.22, 1, .36, 1) 180ms both;
+}
+
+.cinematic-caption-in {
+  animation: cinematic-caption-in 560ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.cinematic-progress {
+  animation-name: cinematic-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-stage,
+  .cinematic-title-in,
+  .cinematic-caption-in {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}
+
 /* CRT flicker for ascii art */
 @keyframes crt-flicker {
   0%, 100% { opacity: 1; }
