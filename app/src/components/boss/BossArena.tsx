@@ -9,6 +9,7 @@ import { BossComms } from "./BossComms";
 import { CodeEditor } from "@/components/game/CodeEditor";
 import { paintBossFPS } from "@/lib/sprites/scene-painter";
 import { paintBossFrames, type BossAnimation } from "@/lib/sprites/boss-painter";
+import { C } from "@/lib/sprites/palette";
 import {
   drawTargetingGrid,
   drawAmmoRack,
@@ -407,7 +408,18 @@ export function BossArena({
     else if (state.bossHP <= 30 && state.bossHP > 0) bossAnim = "low-hp";
     else if (state.phase === "victory") bossAnim = "defeat";
 
-    const bossFrames = paintBossFrames(bossAnim, 3, state.bossHP);
+    const bossFrames = paintBossFrames(bossAnim, 4, state.bossHP);
+    const bossDepthFrames = bossFrames.map((bossFrame) => {
+      const depthFrame = document.createElement("canvas");
+      depthFrame.width = bossFrame.width;
+      depthFrame.height = bossFrame.height;
+      const depthContext = depthFrame.getContext("2d")!;
+      depthContext.drawImage(bossFrame, 0, 0);
+      depthContext.globalCompositeOperation = "source-in";
+      depthContext.fillStyle = C.void;
+      depthContext.fillRect(0, 0, depthFrame.width, depthFrame.height);
+      return depthFrame;
+    });
 
     let frame = 0;
     let lastFrameTime = -1;
@@ -628,6 +640,7 @@ export function BossArena({
       // Boss at vanishing point (scaled up for FPS feel)
       // Hide boss sprite once the white flash peaks in defeat sequence
       const bf = bossFrames[frame % bossFrames.length];
+      const depthFrame = bossDepthFrames[frame % bossDepthFrames.length];
       if (anim.victoryTime < 0 || anim.victoryTime < 3.5) {
         // During defeat, boss shakes violently before disappearing
         let bossShakeX = 0;
@@ -637,7 +650,16 @@ export function BossArena({
           bossShakeX = (Math.random() - 0.5) * 20 * intensity;
           bossShakeY = (Math.random() - 0.5) * 12 * intensity;
         }
-        ctx.drawImage(bf, vpX - bf.width / 2 + bossShakeX, vpY - bf.height * 0.6 + bossShakeY);
+        const bossX = vpX - bf.width / 2 + bossShakeX;
+        const bossY = vpY - bf.height * 0.6 + bossShakeY;
+        ctx.globalAlpha = 0.72;
+        ctx.drawImage(depthFrame, bossX + 9, bossY + 12);
+        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.shadowColor = C.dangerBright;
+        ctx.shadowBlur = 22;
+        ctx.drawImage(bf, bossX, bossY);
+        ctx.restore();
       }
 
       // ── Phase-specific overlays ──

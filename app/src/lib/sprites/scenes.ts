@@ -25,6 +25,8 @@ export interface Waypoint {
 export interface CameraKeyframe {
   x: number;
   y: number;
+  /** Optional cinematic push-in. 1 is the native scene scale. */
+  zoom?: number;
   time: number;           // ms from scene start
 }
 

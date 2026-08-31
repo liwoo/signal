@@ -1163,6 +1163,48 @@ function drawBossFPS(ctx: CanvasRenderingContext2D, w: number, h: number) {
     ctx.stroke();
   }
 
+  // ── Central combat lane — a readable runway from Maya to Lockmaster ──
+  ctx.fillStyle = "rgba(255,64,64,0.055)";
+  ctx.beginPath();
+  ctx.moveTo(w * 0.34, nearB);
+  ctx.lineTo(w * 0.66, nearB);
+  ctx.lineTo(vpX + farW * 0.18, farB);
+  ctx.lineTo(vpX - farW * 0.18, farB);
+  ctx.closePath();
+  ctx.fill();
+
+  // Hazard crossbars tighten toward the vanishing point.
+  for (let stripe = 0; stripe < 9; stripe++) {
+    const t = stripe / 9;
+    const tt = Math.pow(t, 1.45);
+    const y = nearB + (farB - nearB) * tt;
+    const left = w * 0.34 + (vpX - farW * 0.18 - w * 0.34) * tt;
+    const right = w * 0.66 + (vpX + farW * 0.18 - w * 0.66) * tt;
+    ctx.strokeStyle = stripe % 2 === 0
+      ? "rgba(255,176,48,0.46)"
+      : "rgba(255,64,64,0.28)";
+    ctx.lineWidth = Math.max(1, 4 * (1 - tt));
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(right, y);
+    ctx.stroke();
+  }
+
+  // Cyan power rails frame the combat lane and provide cool/warm contrast.
+  for (const side of [-1, 1]) {
+    const nearX = vpX + side * w * 0.23;
+    const farX = vpX + side * farW * 0.25;
+    ctx.strokeStyle = "rgba(0,212,255,0.22)";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.moveTo(nearX, nearB);
+    ctx.lineTo(farX, farB);
+    ctx.stroke();
+    ctx.strokeStyle = C.termBright;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
   // ── Ceiling pipes ──
   for (let pipe = 0; pipe < 3; pipe++) {
     const pipeFrac = [0.18, 0.5, 0.82][pipe];
@@ -1223,6 +1265,46 @@ function drawBossFPS(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillRect(farR - boltInset - 2, farT + boltInset, 2, 2);
   ctx.fillRect(farL + boltInset, farB - boltInset - 2, 2, 2);
   ctx.fillRect(farR - boltInset - 2, farB - boltInset - 2, 2, 2);
+
+  // Lockmaster cradle: layered armor and a red energy aperture behind the
+  // animated boss sprite make the far wall feel like a real machine bay.
+  const cradleW = farW * 0.7;
+  const cradleH = farH * 0.78;
+  const cradleX = vpX - cradleW / 2;
+  const cradleY = vpY - cradleH / 2;
+  ctx.fillStyle = C.guardDark;
+  ctx.fillRect(cradleX, cradleY, cradleW, cradleH);
+  ctx.fillStyle = C.guardMid;
+  ctx.fillRect(cradleX, cradleY, cradleW, 4);
+  ctx.fillRect(cradleX, cradleY, 4, cradleH);
+  ctx.fillStyle = C.guardAccent;
+  ctx.fillRect(cradleX - 8, cradleY + cradleH * 0.2, 12, 5);
+  ctx.fillRect(cradleX + cradleW - 4, cradleY + cradleH * 0.2, 12, 5);
+  ctx.fillRect(cradleX - 8, cradleY + cradleH * 0.7, 12, 5);
+  ctx.fillRect(cradleX + cradleW - 4, cradleY + cradleH * 0.7, 12, 5);
+
+  const coreGlow = ctx.createRadialGradient(vpX, vpY, 2, vpX, vpY, cradleW * 0.7);
+  coreGlow.addColorStop(0, "rgba(255,64,64,0.34)");
+  coreGlow.addColorStop(0.45, "rgba(255,32,32,0.12)");
+  coreGlow.addColorStop(1, "transparent");
+  ctx.fillStyle = coreGlow;
+  ctx.fillRect(cradleX - cradleW * 0.3, cradleY - cradleH * 0.3, cradleW * 1.6, cradleH * 1.6);
+
+  // Diagnostic screens on either side of the core.
+  for (const side of [-1, 1]) {
+    const screenW = farW * 0.2;
+    const screenH = farH * 0.28;
+    const screenX = side < 0 ? farL + 8 : farR - screenW - 8;
+    const screenY = farT + 10;
+    ctx.fillStyle = C.void;
+    ctx.fillRect(screenX, screenY, screenW, screenH);
+    ctx.fillStyle = side < 0 ? C.termBright : C.dangerBright;
+    for (let row = 0; row < 4; row++) {
+      ctx.globalAlpha = 0.35 + row * 0.1;
+      ctx.fillRect(screenX + 4, screenY + 5 + row * 5, screenW * (0.65 - row * 0.08), 2);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // ── Red alarm lights on ceiling ──
   for (let i = 0; i < 5; i++) {
