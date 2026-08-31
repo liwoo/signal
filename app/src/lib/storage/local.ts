@@ -5,6 +5,7 @@ import type {
   PlayerSettings,
   ChatMessage,
   EditorState,
+  GameDraft,
   JeopardyEvent,
 } from "@/types/game";
 
@@ -19,6 +20,8 @@ const KEYS = {
   syncQueue: "signal_sync_queue",
   chat: (challengeId: string) => `signal_chat_${challengeId}`,
   editor: (challengeId: string) => `signal_editor_${challengeId}`,
+  draft: (challengeId: string) => `signal_draft_${challengeId}`,
+  warmupCompleted: "signal_warmup_completed",
   jeopardy: "signal_jeopardy_active",
 } as const;
 
@@ -143,6 +146,30 @@ export function loadSettings(): PlayerSettings {
 
 export function saveSettings(settings: PlayerSettings): void {
   safeSet(KEYS.settings, settings);
+}
+
+export function hasCompletedWarmup(): boolean {
+  return safeGet(KEYS.warmupCompleted, false);
+}
+
+export function saveWarmupCompleted(): void {
+  safeSet(KEYS.warmupCompleted, true);
+}
+
+export function loadGameDraft(challengeId: string): GameDraft | null {
+  return safeGet<GameDraft | null>(KEYS.draft(challengeId), null);
+}
+
+export function saveGameDraft(draft: GameDraft): void {
+  safeSet(KEYS.draft(draft.challengeId), draft);
+}
+
+export function clearGameDraft(challengeId: string): void {
+  try {
+    localStorage.removeItem(KEYS.draft(challengeId));
+  } catch {
+    // Private browsing or unavailable storage — silently fail
+  }
 }
 
 // ── sessionStorage (ephemeral) ──

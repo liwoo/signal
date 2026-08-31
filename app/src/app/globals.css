@@ -31,6 +31,22 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-mono);
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+button,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (max-width: 767px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 /* Scrollbar styling */

@@ -9,6 +9,7 @@ interface LevelTimerProps {
   gameOverOnExpiry: boolean;
   onExpire: () => void;
   stopped: boolean;
+  compact?: boolean;
 }
 
 function pad(n: number): string {
@@ -22,6 +23,7 @@ export function LevelTimer({
   gameOverOnExpiry,
   onExpire,
   stopped,
+  compact = false,
 }: LevelTimerProps) {
   const [remaining, setRemaining] = useState(timeLimitSeconds + bonusSeconds);
   const expiredRef = useRef(false);
@@ -76,7 +78,7 @@ export function LevelTimer({
 
   return (
     <div className="flex items-center gap-1.5">
-      {gameOverOnExpiry && (
+      {gameOverOnExpiry && !compact && (
         <span
           className="text-[7px] tracking-[1px]"
           style={{
@@ -88,7 +90,7 @@ export function LevelTimer({
         </span>
       )}
       <span
-        className="font-[family-name:var(--font-display)] text-[13px] font-black tabular-nums min-w-[42px] text-right"
+        className={`font-[family-name:var(--font-display)] font-black tabular-nums text-right ${compact ? "min-w-[38px] text-[12px]" : "min-w-[42px] text-[13px]"}`}
         style={{
           color,
           textShadow: glow,
@@ -98,7 +100,7 @@ export function LevelTimer({
         {pad(mins)}:{pad(secs)}
       </span>
       {/* Tiny bar */}
-      <div
+      {!compact ? <div
         className="w-14 h-[4px] relative overflow-hidden"
         style={{ background: "rgba(255,255,255,.05)" }}
       >
@@ -110,7 +112,7 @@ export function LevelTimer({
             boxShadow: glow,
           }}
         />
-      </div>
+      </div> : null}
     </div>
   );
 }

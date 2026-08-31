@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect } from "react";
-import { tokenize, type Token } from "@/lib/go/tokenizer";
+import { tokenize } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
 import { formatGo } from "@/lib/go/playground";
@@ -23,6 +23,7 @@ interface CodeEditorProps {
   aiButton?: React.ReactNode;
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
+  isMobile?: boolean;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -131,6 +132,7 @@ export function CodeEditor({
   aiButton,
   fontSize: fontSizeProp,
   onFontSizeChange,
+  isMobile = false,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -502,7 +504,7 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, onCodeChange, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
+    [code, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -517,6 +519,41 @@ export function CodeEditor({
     });
   }, [codeChangeWithUndo, updateAutocomplete]);
 
+  const restoreSelection = useCallback((position: number, nextCode: string) => {
+    requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus({ preventScroll: true });
+      textarea.selectionStart = textarea.selectionEnd = position;
+      setCursorPos(position);
+      updateAutocomplete(nextCode, position);
+    });
+  }, [updateAutocomplete]);
+
+  const insertSnippet = useCallback((before: string, after = "") => {
+    if (disabled || busy) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = code.slice(start, end);
+    const next = code.slice(0, start) + before + selected + after + code.slice(end);
+    codeChangeWithUndo(next);
+    const position = selected
+      ? start + before.length + selected.length + after.length
+      : start + before.length;
+    restoreSelection(position, next);
+  }, [busy, code, codeChangeWithUndo, disabled, restoreSelection]);
+
+  const moveCursor = useCallback((delta: number) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const position = Math.max(0, Math.min(code.length, textarea.selectionStart + delta));
+    textarea.focus({ preventScroll: true });
+    textarea.selectionStart = textarea.selectionEnd = position;
+    setCursorPos(position);
+  }, [code.length]);
+
   const lineCount = code.split("\n").length;
 
   return (
@@ -524,13 +561,14 @@ export function CodeEditor({
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
         {/* Toolbar: format + zoom */}
-        <div
+        {!isMobile ? <div
           className="absolute top-1.5 right-2.5 z-40 flex items-center gap-2"
         >
           <button
+            type="button"
             onClick={handleFormat}
             disabled={formatting || disabled || busy}
-            className="bg-transparent border-0 cursor-pointer flex items-center gap-1 px-1.5 py-0.5 transition-opacity"
+            className={`bg-transparent border-0 cursor-pointer flex items-center justify-center gap-1 transition-opacity ${isMobile ? "min-h-11 min-w-11 px-2" : "px-1.5 py-0.5"}`}
             style={{
               background: "rgba(4,8,16,.85)",
               border: "1px solid var(--color-border)",
@@ -576,11 +614,11 @@ export function CodeEditor({
               +
             </button>
           </div>
-        </div>
+        </div> : null}
         {/* Line numbers */}
         <div
           ref={lineNumRef}
-          className="py-3 px-2 text-right select-none overflow-hidden shrink-0 min-w-[30px]"
+          className={`py-3 px-2 text-right select-none overflow-hidden shrink-0 min-w-[30px] ${isMobile ? "max-[374px]:hidden" : ""}`}
           style={{
             fontSize: `${Math.max(fontSize - 2, 8)}px`,
             lineHeight: `${lineHeight}px`,
@@ -600,7 +638,7 @@ export function CodeEditor({
           <pre
             ref={highlightRef}
             aria-hidden="true"
-            className="absolute inset-0 p-3 m-0 overflow-hidden pointer-events-none whitespace-pre-wrap break-words"
+            className={`absolute inset-0 p-3 m-0 overflow-hidden pointer-events-none ${isMobile ? "whitespace-pre" : "whitespace-pre-wrap break-words"}`}
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: `${fontSize}px`,
@@ -645,13 +683,14 @@ export function CodeEditor({
               }}
             >
               {acItems.map((item, i) => (
-                <div
+                <button
+                  type="button"
                   key={item.label}
-                  onMouseDown={(e) => {
+                  onPointerDown={(e) => {
                     e.preventDefault();
                     acceptCompletion(item);
                   }}
-                  className="px-2 py-0.5 cursor-pointer flex items-baseline gap-2"
+                  className={`w-full bg-transparent px-2 cursor-pointer flex items-baseline gap-2 text-left ${isMobile ? "min-h-11 py-2" : "py-0.5"}`}
                   style={{
                     background: i === acIndex ? "rgba(110,255,160,.1)" : "transparent",
                     borderLeft: i === acIndex ? "2px solid var(--color-signal)" : "2px solid transparent",
@@ -669,7 +708,7 @@ export function CodeEditor({
                   >
                     {item.detail}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -692,7 +731,7 @@ export function CodeEditor({
                 updateAutocomplete(code, textareaRef.current.selectionStart);
               }
             }}
-            onPaste={(e) => e.preventDefault()}
+            onPaste={isMobile ? undefined : (e) => e.preventDefault()}
             onScroll={syncScroll}
             spellCheck={false}
             className="absolute inset-0 w-full h-full bg-transparent border-0 text-transparent
@@ -703,16 +742,40 @@ export function CodeEditor({
               tabSize: 4,
               caretColor: disabled ? "transparent" : isBlockCursor ? "transparent" : "var(--color-signal)",
               fontFamily: "var(--font-mono)",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-all",
+              whiteSpace: isMobile ? "pre" : "pre-wrap",
+              wordBreak: isMobile ? "normal" : "break-all",
               opacity: disabled ? 0.5 : 1,
             }}
           />
         </div>
       </div>
 
+      {isMobile ? (
+        <div
+          className="flex shrink-0 items-center gap-1 overflow-x-auto px-1.5 py-1"
+          style={{
+            background: "#04090f",
+            borderTop: "1px solid var(--color-border)",
+            WebkitOverflowScrolling: "touch",
+          }}
+          aria-label="Code keyboard shortcuts"
+        >
+          <EditorAccessoryKey label={formatting ? "FMT…" : "FMT"} onPress={handleFormat} />
+          <EditorAccessoryKey label="TAB" onPress={() => insertSnippet("    ")} />
+          <EditorAccessoryKey label=":=" onPress={() => insertSnippet(" := ")} />
+          <EditorAccessoryKey label="{ }" onPress={() => insertSnippet("{", "}")} />
+          <EditorAccessoryKey label="( )" onPress={() => insertSnippet("(", ")")} />
+          <EditorAccessoryKey label={'" "'} onPress={() => insertSnippet('"', '"')} />
+          <EditorAccessoryKey label="←" ariaLabel="Move cursor left" onPress={() => moveCursor(-1)} />
+          <EditorAccessoryKey label="→" ariaLabel="Move cursor right" onPress={() => moveCursor(1)} />
+          <EditorAccessoryKey label="UNDO" onPress={undo} />
+          <EditorAccessoryKey label="REDO" onPress={redo} />
+          {aiButton}
+        </div>
+      ) : null}
+
       {/* Cam feed slot (above submit) */}
-      {camFeed && (
+      {camFeed && !isMobile && (
         <div
           className="shrink-0 flex justify-end px-2 py-1"
           style={{
@@ -726,13 +789,13 @@ export function CodeEditor({
 
       {/* Bottom bar */}
       <div
-        className="shrink-0 px-3 py-1.5 flex justify-between items-center"
+        className={`shrink-0 flex justify-between items-center ${isMobile ? "min-h-12 gap-2 px-2 py-1" : "px-3 py-1.5"}`}
         style={{
           borderTop: "1px solid #0a1820",
           background: "#04090f",
         }}
       >
-        <div className="flex gap-2.5 text-[8px] items-center">
+        <div className={`gap-2.5 text-[8px] items-center ${isMobile ? "hidden" : "flex"}`}>
           {/* Vim toggle + mode */}
           <button
             onClick={() => {
@@ -796,8 +859,8 @@ export function CodeEditor({
           data-tour="transmit-btn"
           onClick={onSubmit}
           disabled={busy || disabled || !code.trim()}
-          className="py-1.5 px-5 text-[9px] tracking-[2px] cursor-pointer
-                     transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2"
+          className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[9px] tracking-[2px] cursor-pointer
+                     transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
           style={{
             background: inRush ? "rgba(255,80,20,.1)" : "rgba(110,255,160,.06)",
             border: `1px solid ${inRush ? "#ff6a2a" : "var(--color-signal)"}`,
@@ -809,7 +872,7 @@ export function CodeEditor({
             : inRush
               ? `▸ HURRY · +${baseXP} XP`
               : `▸ SUBMIT · +${baseXP} XP`}
-          {!busy && (
+          {!busy && !isMobile && (
             <span
               className="text-[7px] tracking-[1px] opacity-40"
             >
@@ -819,5 +882,30 @@ export function CodeEditor({
         </button>
       </div>
     </div>
+  );
+}
+
+function EditorAccessoryKey({
+  label,
+  ariaLabel,
+  onPress,
+}: {
+  label: string;
+  ariaLabel?: string;
+  onPress: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel ?? label}
+      onPointerDown={(event) => {
+        event.preventDefault();
+        onPress();
+      }}
+      className="min-h-11 min-w-11 shrink-0 bg-transparent px-2 text-[10px] font-bold"
+      style={{ color: "var(--color-signal)", border: "1px solid var(--color-border)" }}
+    >
+      {label}
+    </button>
   );
 }

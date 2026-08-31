@@ -13,6 +13,7 @@ interface BossHUDProps {
   level: number;
   turnIndex: number;
   turnTotal: number;
+  compact?: boolean;
 }
 
 export function BossHUD({
@@ -24,6 +25,7 @@ export function BossHUD({
   level,
   turnIndex,
   turnTotal,
+  compact = false,
 }: BossHUDProps) {
   // Animate HP bar
   const [displayHP, setDisplayHP] = useState(bossHP);
@@ -37,7 +39,7 @@ export function BossHUD({
 
   return (
     <div
-      className="flex items-center justify-between px-4 py-2 shrink-0"
+      className={`flex items-center justify-between shrink-0 ${compact ? "gap-2 px-2 py-2" : "px-4 py-2"}`}
       style={{
         background: "rgba(10,4,8,0.75)",
         borderBottom: "1px solid rgba(32,16,16,0.6)",
@@ -96,27 +98,27 @@ export function BossHUD({
         </div>
 
         {/* XP / Level */}
-        <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+        {!compact ? <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
           L{level} · {xp.toLocaleString()} XP
-        </span>
+        </span> : null}
       </div>
 
       {/* Right: Boss info */}
       <div className="flex items-center gap-3">
         {/* Boss name */}
-        <span
+        {!compact ? <span
           className="text-[9px] tracking-[3px] font-[family-name:var(--font-display)]"
           style={{ color: "#ff6e6e" }}
         >
           {bossName}
-        </span>
+        </span> : null}
 
         {/* HP bar */}
         <div className="flex items-center gap-2">
           <div
             className="relative overflow-hidden"
             style={{
-              width: 120,
+              width: compact ? 70 : 120,
               height: 8,
               background: "#1a0808",
               border: "1px solid #301818",

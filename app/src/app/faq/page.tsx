@@ -50,7 +50,7 @@ const FAQS: FAQItem[] = [
   },
   {
     q: "Does it work on mobile?",
-    a: "SIGNAL requires a keyboard for the coding experience. it's designed for desktop/laptop browsers. a mobile companion for reviewing your zen library and progress is planned.",
+    a: "Yes. SIGNAL has a touch-first mobile layout with a coding keyboard, mobile-friendly timing, and persistent drafts. a hardware keyboard is optional, and desktop/laptop browsers remain supported.",
   },
   {
     q: "What browser do I need?",

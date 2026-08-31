@@ -6,18 +6,20 @@ interface RushBarProps {
   seconds: number;
   label: string;
   onExpire: () => void;
+  paused?: boolean;
+  compact?: boolean;
 }
 
 function pad(n: number): string {
   return String(Math.floor(n)).padStart(2, "0");
 }
 
-export function RushBar({ seconds, label, onExpire }: RushBarProps) {
+export function RushBar({ seconds, label, onExpire, paused = false, compact = false }: RushBarProps) {
   const [left, setLeft] = useState(seconds);
-  const total = useRef(seconds);
   const expiredRef = useRef(false);
 
   useEffect(() => {
+    if (paused) return;
     const iv = setInterval(() => {
       setLeft((p) => {
         if (p <= 1) {
@@ -28,7 +30,7 @@ export function RushBar({ seconds, label, onExpire }: RushBarProps) {
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, []);
+  }, [paused]);
 
   // Fire onExpire outside the state updater to avoid setState-in-render
   useEffect(() => {
@@ -38,13 +40,38 @@ export function RushBar({ seconds, label, onExpire }: RushBarProps) {
     }
   }, [left, onExpire]);
 
-  const pct = (left / total.current) * 100;
+  const pct = (left / seconds) * 100;
   const crit = left <= 10;
   const fillColor = crit
     ? "var(--color-danger)"
     : left <= 20
       ? "#ff6a20"
       : "var(--color-alert)";
+
+  if (compact) {
+    return (
+      <div
+        className="fixed bottom-0 left-0 right-0 z-[800] min-h-12 px-3 pt-1.5"
+        style={{
+          paddingBottom: "calc(6px + env(safe-area-inset-bottom))",
+          background: crit ? "#3a0a0a" : "#1a0a00",
+          borderTop: `1px solid color-mix(in srgb, ${fillColor} 25%, transparent)`,
+        }}
+      >
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className="truncate text-[8px] tracking-[2px]" style={{ color: fillColor }}>
+            ⚠ {label}
+          </span>
+          <span className="font-[family-name:var(--font-display)] text-[13px] font-black" style={{ color: fillColor }}>
+            {pad(left / 60)}:{pad(left % 60)}
+          </span>
+        </div>
+        <div className="h-[3px] overflow-hidden" style={{ background: "#0a0a0a" }}>
+          <div className="h-full transition-[width] duration-1000 ease-linear" style={{ width: `${pct}%`, background: fillColor }} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

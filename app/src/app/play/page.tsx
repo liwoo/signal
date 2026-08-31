@@ -45,11 +45,12 @@ import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
 import { GuidedTour } from "@/components/game/GuidedTour";
-import { MobilePostWarmup } from "@/components/game/MobileGate";
+import { MobileGameLayout } from "@/components/game/MobileGameLayout";
 import { Warmup } from "@/components/game/Warmup";
 import { AISuggestPanel } from "@/components/game/AISuggestPanel";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { useGameAudio } from "@/hooks/useGameAudio";
+import { useMobileViewport } from "@/hooks/useMobileViewport";
 import {
   loadPersistedState,
   savePersistedState,
@@ -57,20 +58,17 @@ import {
 } from "@/lib/storage/persistence";
 import type { Challenge, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
+import { hasCompletedWarmup, saveWarmupCompleted } from "@/lib/storage/local";
 import {
   trackChapterStart,
-  trackChapterComplete,
   trackCinematicStart,
-  trackCinematicSkip,
   trackBeginnerStart,
   trackBeginnerComplete,
   trackBeginnerDisable,
-  trackBossStart,
   trackBossVictory,
   trackGameOver,
   trackRetry,
   trackSettingChange,
-  trackChapterSelect,
 } from "@/lib/analytics";
 
 // ── Cam-feed scene mapping — where Maya actually is per chapter ──
@@ -214,27 +212,25 @@ function GameRouter() {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileChecked, setMobileChecked] = useState(false);
 
-  // Mobile detection — runs on mount + resize
+  // Compact gameplay uses a dedicated single-pane shell.
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
     function check() {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(media.matches);
       setMobileChecked(true);
     }
     check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    media.addEventListener("change", check);
+    return () => media.removeEventListener("change", check);
   }, []);
 
   // Load persisted state from IndexedDB on mount
   useEffect(() => {
-    // Skip warmup for returning players
-    const didWarmup = sessionStorage.getItem("signal:warmup-done");
-    if (didWarmup) setWarmupDone(true);
-
     loadPersistedState().then((state) => {
       setPersisted(state);
       // Resume from last completed chapter
       const completedCount = state.progress.completedChapters.length;
+      if (hasCompletedWarmup()) setWarmupDone(true);
       if (completedCount > 0 && completedCount < CHAPTERS.length) {
         setChapterIndex(completedCount);
         setWarmupDone(true); // returning players skip warmup
@@ -304,16 +300,11 @@ function GameRouter() {
         fontScale={persisted.settings.tutorialFontScale ?? 2}
         onFontScaleChange={(scale) => handleSaveSettings({ tutorialFontScale: scale })}
         onComplete={() => {
-          sessionStorage.setItem("signal:warmup-done", "1");
+          saveWarmupCompleted();
           setWarmupDone(true);
         }}
       />
     );
-  }
-
-  // After warmup on mobile — upsell to continue on desktop
-  if (isMobile) {
-    return <MobilePostWarmup />;
   }
 
   const config = CHAPTERS[chapterIndex];
@@ -334,6 +325,7 @@ function GameRouter() {
       onSave={handleSave}
       onSaveSettings={handleSaveSettings}
       settings={persisted.settings}
+      isMobile={isMobile}
       completedChapterIds={CHAPTERS.slice(0, chapterIndex).map((c) => c.challenge.id)}
     />
   );
@@ -348,18 +340,20 @@ interface GameScreenProps {
   onSaveSettings: (settings: Partial<PlayerSettings>) => void;
   completedChapterIds: string[];
   settings: PlayerSettings;
+  isMobile: boolean;
 }
 
-function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds }: GameScreenProps) {
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
-  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave);
+  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1);
   const audio = useGameAudio(state, settings.soundEnabled);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
-  const [showTour, setShowTour] = useState(!settings.tourCompleted);
+  const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile);
+  const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
   // Resizable split
@@ -472,6 +466,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         initialHearts={initialState.hearts}
         soundEnabled={settings.soundEnabled}
         vimEnabled={settings.vimModeEnabled}
+        compact={isMobile}
         onSave={(payload) => {
           onSave({
             xp: payload.xp,
@@ -566,10 +561,19 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     );
   }
 
+  let latestMayaMessage: string | undefined;
+  for (let i = state.messages.length - 1; i >= 0; i--) {
+    const message = state.messages[i];
+    if (message.type === "maya" || message.type === "win") {
+      latestMayaMessage = message.text;
+      break;
+    }
+  }
+
   return (
     <>
       {/* Guided tour for first-time players */}
-      {showTour && state.phase === "playing" && (
+      {showTour && !isMobile && state.phase === "playing" && (
         <GuidedTour
           onComplete={() => {
             setShowTour(false);
@@ -613,6 +617,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           seconds={state.rushSeconds}
           label={state.rushLabel}
           onExpire={actions.dismissRush}
+          paused={state.timerStopped}
+          compact={isMobile}
         />
       )}
 
@@ -628,6 +634,109 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       </div>
 
       {/* Main layout */}
+      {isMobile ? (
+        <MobileGameLayout
+          height={mobileViewportHeight}
+          inRush={state.inRush}
+          waitingForContinue={state.waitingForContinue}
+          latestMessage={latestMayaMessage}
+          topBar={
+            <TopBar
+              compact
+              xp={state.xp}
+              xpMax={300}
+              level={state.level}
+              inRush={state.inRush}
+              busy={state.busy}
+              hearts={state.hearts}
+              timerSlot={state.timerStartMs > 0 ? (
+                <LevelTimer
+                  compact
+                  startTimeMs={state.timerStartMs}
+                  timeLimitSeconds={state.timerLimitSeconds}
+                  bonusSeconds={state.timerBonusSeconds}
+                  gameOverOnExpiry={state.timerGameOver}
+                  onExpire={actions.handleTimerExpire}
+                  stopped={state.timerStopped}
+                />
+              ) : undefined}
+            />
+          }
+          chatPanel={
+            <ChatPanel
+              messages={state.messages}
+              busy={state.busy}
+              chatInput={state.chatInput}
+              onChatChange={actions.setChatInput}
+              onSend={actions.sendChat}
+              challengeTitle={`${challenge.title} · ${state.currentStep.title}`}
+              challengeConcepts={challenge.concepts.join(" · ")}
+              location={challenge.location}
+              onMayaTypingStart={actions.onMayaTypingStart}
+              onMayaTypingEnd={actions.onMayaTypingEnd}
+              waitingForContinue={state.waitingForContinue}
+              explainUsed={state.explainUsed}
+              onContinue={actions.resumeFromPause}
+              onExplain={actions.requestExplain}
+              compact
+            />
+          }
+          codePanel={
+            <div className="relative flex h-full min-h-0 flex-col">
+              {state.aiSuggestOpen && state.aiSuggestions.length > 0 ? (
+                <AISuggestPanel
+                  suggestions={state.aiSuggestions}
+                  tokens={state.aiTokens}
+                  onUseSuggestion={actions.useAISuggestion}
+                  onClose={actions.closeAISuggest}
+                />
+              ) : null}
+              <CodeEditor
+                isMobile
+                code={state.code}
+                onCodeChange={actions.setCode}
+                onSubmit={actions.submitCode}
+                busy={state.busy}
+                disabled={state.gamePaused}
+                attempts={state.attempts}
+                inRush={state.inRush}
+                baseXP={state.currentStep.xp.base}
+                rushBonus={state.currentStep.rushMode ? state.currentStep.xp.base : 0}
+                fontSize={Math.max(settings.fontSize ?? 15, 16)}
+                onFontSizeChange={(size) => onSaveSettings({ fontSize: size })}
+                vimEnabled={false}
+                aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={actions.openAISuggest}
+                    className="min-h-11 bg-transparent px-3 text-[9px] tracking-[1px]"
+                    style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
+                  >
+                    ◆ AI · {state.aiTokens}
+                  </button>
+                ) : undefined}
+              />
+            </div>
+          }
+          missionPanel={
+            <MissionPanel
+              challenge={challenge}
+              currentStep={state.currentStep}
+              currentStepIndex={state.currentStepIndex}
+              totalSteps={state.totalSteps}
+            />
+          }
+          libraryPanel={<LibraryPanel library={state.library} />}
+          notesPanel={
+            <NotesPanel
+              currentChapterId={challenge.id}
+              completedChapterIds={completedChapterIds}
+              fontScale={settings.tutorialFontScale ?? 2}
+              onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
+            />
+          }
+        />
+      ) : (
       <div
         className="h-dvh flex flex-col transition-colors duration-1000"
         style={{
@@ -877,6 +986,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }
