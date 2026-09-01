@@ -1,22 +1,56 @@
 # Boss — Kira (Allegiance Challenge)
 
-**Act III Boss**
+**Act III Boss · Server Room · Kira's Channel**
 
-## Go Concepts (Evaluation)
+## Go Concepts (Application)
 
-- Goroutines
-- Race conditions
-- Slice internals (shared backing array)
+- Slice internals — pointer/length/capacity headers, shared backing arrays (ch04.2's "strings are slices" reveal, taken to its dark conclusion)
+- In-place mutation through a slice (`data[i] ^= 0xFF`)
+- Channels carrying reference types — sending a slice sends the *header*, never the bytes (ch09)
+- Goroutines mutating data another goroutine holds — the anatomy of a data race (ch08)
+- `copy` + `make` as the aliasing fix
+- Reading code you didn't write, under someone else's smile
+
+Zero new graded concepts. The send-only parameter type `chan<- []byte` appears in Kira's code as read-only exposure — Maya explains it in one line during phase 1; it is never something the player must produce.
 
 ## Story Context
 
-Kira sends a function. It looks like it helps Maya. But the player must evaluate: does this goroutine introduce a data race?
+Bravo holds at dock 4. Forty minutes. Kira's encoder — `transmit.go`, six lines — is supposed to mask the thesis before it crosses Bravo's open frequency. Reeves ran it through a loopback on the dock relay and the receiver log came back wrong in a way only three people in this building could even see. Now everything reduces to one question Maya has dodged since Floor 3: what is Kira? This boss is not a fight and there is no countdown. It's a code review where the code's author is watching, the verdict sets Act IV's path, and being wrong means streaming Maya's life's work through a saboteur's hands.
 
 ## Mechanic
 
-This is NOT a coding challenge — it's an analysis challenge. The player reads code and writes an explanation.
+This is NOT a coding challenge — it is an analysis challenge, resolved in three phases: study, verdict, redemption. There are no hearts, no game over, and (uniquely among bosses) no kill-timer. The threat is being wrong.
 
-### Kira's Code (displayed, read-only)
+### Layout
+
+```
+┌──────────────────────────────────────────────────────────┐
+│        KIRA · ALLEGIANCE CHECK · KIRA'S CHANNEL           │
+├────────────────────────────┬─────────────────────────────┤
+│  TRANSMIT.GO (read-only)   │  YOUR ANALYSIS               │
+│                            │                             │
+│  func transmit(data        │  [phase 1: click to mark     │
+│    []byte, ch chan<-        │   suspect lines]             │
+│    []byte) {               │  [phase 2: prose textarea —  │
+│    for i := range data {   │   does this code corrupt     │
+│      data[i] ^= 0xFF      │   the stream? why?]          │
+│      ch <- data[i:]        │  [phase 3: editor — rewrite  │
+│    }                       │   transmit safely]           │
+│  }                        │                             │
+├────────────────────────────┤                             │
+│  RECEIVER LOG · DOCK 4     │                             │
+│  (loopback trace,          │                             │
+│   read-only, scrollable)   │                             │
+├────────────────────────────┴─────────────────────────────┤
+│           [ TRUST KIRA ]        [ REJECT KIRA ]           │
+└──────────────────────────────────────────────────────────┘
+```
+
+Mobile: vertical stack — code block, collapsible receiver log, then the phase's input surface; TRUST/REJECT as full-width buttons pinned at the bottom, disabled until phase 2.
+
+### Kira's Code (displayed read-only, WITHOUT annotations)
+
+The player sees the clean six lines above. The designer-annotated version (never shown — the comments are the answer):
 
 ```go
 func transmit(data []byte, ch chan<- []byte) {
@@ -27,83 +61,199 @@ func transmit(data []byte, ch chan<- []byte) {
 }
 ```
 
-### The Answer
+**The answer: yes — it corrupts the stream.** `ch <- data[i:]` sends a slice header pointing into the *same backing array* that the next iterations keep mutating. No `copy` is ever made, so every frame the receiver holds is rewritten under its feet by later `data[i] ^= 0xFF` flips. With a concurrent receiver this is a data race in the formal sense (`go run -race` flags it); even fully sequenced, the aliasing corrupts every frame except the last. It would garble the thesis mid-extraction — subtly, deniably.
 
-**Yes — it has a data race.** The function:
+### Phase 1 — Study the Evidence (untimed)
 
-1. Mutates `data` in-place (`data[i] ^= 0xFF`)
-2. Sends a slice of the same underlying array at each iteration (`data[i:]`)
-3. Every receiver sees mutated data from subsequent iterations
-4. The sent slices share the same backing array — no `copy` is made
-5. This would corrupt the escape transmission
-
-### Player Task
-
-Write a comment-only explanation (no code) identifying the race condition. Must identify:
-
-- Shared slice header / backing array
-- In-place mutation affecting previously sent slices
-- Missing `copy`
-
-### Evaluation
-
-Maya's AI (LLM) evaluates the explanation. The evaluation prompt checks for mention of:
-
-1. "shared" or "same" array/backing
-2. "mutation" or "modif" of original data
-3. "copy" as the fix or "no copy" as the problem
-
-Must hit at least 2 of 3 to pass.
-
-### Branching
-
-| Result | Path | Narrative |
-| --- | --- | --- |
-| Correct explanation | **Reject Kira** — she's sabotaging | Ending B path: Kira vanishes, harder navigation in Act IV |
-| Incorrect explanation | **Trust Kira** (wrongly) | Ending A path: Kira helps but with hidden cost, twist in finale |
-
-## Layout
-
-### Desktop
+The receiver log from Reeves' dock-4 loopback appears below the code. Payload `10 20 30 40`, XOR mask `FF`, checksums are byte-sums mod 256. This trace is generated by actually running Kira's code against a send-time snapshot (verified output):
 
 ```
-┌──────────────────────────────────────────────────┐
-│           KIRA · ALLEGIANCE CHECK                │
-├─────────────────────────┬────────────────────────┤
-│  KIRA'S CODE (read-only)│  YOUR ANALYSIS         │
-│                         │                        │
-│  func transmit(data     │  [prose textarea]      │
-│    []byte, ch chan<-     │                        │
-│    []byte) {            │  Explain: does this    │
-│    for i := range data {│  code have a data race?│
-│      data[i] ^= 0xFF   │  If so, what causes it?│
-│      ch <- data[i:]     │                        │
-│    }                    │                        │
-│  }                      │                        │
-├─────────────────────────┴────────────────────────┤
-│         [ TRUST KIRA ]    [ REJECT KIRA ]        │
-└──────────────────────────────────────────────────┘
+frame 0 sent as: EF 20 30 40   checksum 7F
+frame 1 sent as: DF 30 40      checksum 4F
+frame 2 sent as: CF 40         checksum 0F
+frame 3 sent as: BF            checksum BF
+--- receiver reads buffer ---
+frame 0 now:     EF DF CF BF   checksum 5C   MISMATCH
+frame 1 now:     DF CF BF      checksum 6D   MISMATCH
+frame 2 now:     CF BF         checksum 8E   MISMATCH
+frame 3 now:     BF            checksum BF   ok
 ```
 
-### Mobile
+Every frame changed *after it was sent* — except the last one, because nothing mutates the array after the final flip. Frame 3 is the tell.
 
-- Binary choice UI: `[ TRUST ]` / `[ REJECT ]`
-- Code snippet shown as non-editable code block above
-- Dedicated prose `<textarea>` replaces the code editor
+**Player task:** mark the two suspect lines in `transmit` — the line that mutates (`data[i] ^= 0xFF`) and the line that ships the alias (`ch <- data[i:]`). Marking both advances to phase 2.
+
+- Wrong marks cost nothing mechanical the first two attempts; from the third attempt each wrong mark costs −25 of this phase's XP (floor 50). Maya nudges after the second miss: "look at what the log says changed. then find who's still holding a pen on those bytes."
+- Maya's one-line syntax assist (free, automatic): "`chan<- []byte` just means send-only — a restriction, not a new machine."
+
+### Phase 2 — Verdict + Written Explanation (soft timer 300s)
+
+The prose textarea unlocks, along with TRUST / REJECT. The player writes a **comment-only explanation** (no code accepted — the input strips/rejects code blocks) answering: *does this code corrupt the stream, and if so, what causes it?* Then presses a verdict button. Explanation and verdict submit together.
+
+**AI evaluation.** Maya's AI (LLM) grades the explanation against three markers; it must hit **at least 2 of 3** to count as a correct read:
+
+1. **Shared backing array / slice header** — "shared", "same array", "same memory", "alias", "slice header points into", or equivalent
+2. **In-place mutation affecting already-sent frames** — "mutation"/"modifies" the original data such that *previously sent* slices change
+3. **Missing `copy`** — "no copy is made" as the flaw, or "copy into a new slice" as the fix
+
+Vocabulary must not be gameable: the evaluator accepts plain-language equivalents ("all the frames point at the same bytes, and she keeps flipping those bytes after sending") and rejects keyword salad that states no causal chain.
+
+**Outcome matrix:**
+
+| Explanation | Verdict | Result | Branch |
+| --- | --- | --- | --- |
+| Passes (≥2/3) | REJECT | **Informed rejection** — the correct read. Full bonus, +2 AI tokens. | Rejected (Ending B path) |
+| Passes (≥2/3) | TRUST | Contradiction — Maya challenges once: "you just proved she's rewriting frames after they're sent. and you still want her in the stream?" One free verdict switch. Confirmed TRUST = eyes-open gamble; base XP only. | Trusted (Ending A path) |
+| Fails (<2/3) | REJECT | Lucky guess — one revision allowed (−10 energy) to strengthen the explanation. Second fail: verdict locks as **unproven rejection**; no bonus, no tokens. | Rejected (Ending B path) |
+| Fails (<2/3) | TRUST | **The wrong read.** Kira's code enters the pipeline. Base XP only, no tokens. | Trusted (Ending A path) |
+
+**Soft timer:** no game over, ever. The +400 informed-verdict bonus is whole for 300s, then decays −50 XP per additional 60s (floor +200). The timer is invisible until 240s, then a dim clock fades in — pressure by suggestion, not klaxon.
+
+**Branch consequences (Act IV flavor, per design.md):** Trusted — Kira disables 3 cameras from inside; easier timing windows, harder code challenges. Rejected — Kira triggers a lockdown; harder navigation, simpler code, tighter time. Chapters 10–11 carry the differences in their `## Branch Variations` sections.
+
+### Phase 3 — Redemption Fix (optional · 180s)
+
+Offered on every outcome once the verdict resolves — Reeves: "Before we move — show me how it should have been written." The player rewrites `transmit` as `transmitSafe`, breaking the aliasing with an explicit copy.
+
+Reference solution:
+
+```go
+func transmitSafe(data []byte, ch chan<- []byte) {
+    for i := range data {
+        data[i] ^= 0xFF
+        frame := make([]byte, len(data)-i)
+        copy(frame, data[i:])
+        ch <- frame
+    }
+}
+```
+
+Test harness (the engine compiles this around the player's function):
+
+```go
+func main() {
+    data := []byte{0x10, 0x20, 0x30, 0x40}
+    ch := make(chan []byte, len(data))
+    transmitSafe(data, ch)
+    close(ch)
+    frames := [][]byte{}
+    for f := range ch {
+        frames = append(frames, f)
+    }
+    for i, f := range frames {
+        fmt.Printf("frame %d: % X\n", i, f)
+    }
+    if frames[0][1] == 0x20 && frames[0][2] == 0x30 && frames[0][3] == 0x40 {
+        fmt.Println("stream integrity: OK — frames froze at send time")
+    } else {
+        fmt.Println("stream integrity: CORRUPTED — frames mutated after send")
+    }
+}
+```
+
+Expected output (verified):
+```
+frame 0: EF 20 30 40
+frame 1: DF 30 40
+frame 2: CF 40
+frame 3: BF
+stream integrity: OK — frames froze at send time
+```
+
+The harness is a lie detector: pasting Kira's original body produces `frame 0: EF DF CF BF` and `stream integrity: CORRUPTED — frames mutated after send` (verified) — the buffered channel defers all reads until after every mutation, so aliasing is exposed deterministically with no scheduler involvement. Acceptance additionally pattern-checks `make(` + `copy(` (or an `append([]byte(nil), data[i:]...)` equivalent) so a hardcoded print of the expected frames fails.
+
+- **Timer:** 180s. Expiry closes the offer — no jeopardy, no penalty. Redemption missed is just XP missed.
+- **Retry:** one retry after a failed run (−10 energy). Second failure closes the offer.
+
+### Timer
+
+No encounter kill-timer. Phase 1 untimed · phase 2 soft 300s (bonus decay only) · phase 3 hard 180s (offer closes). This boss must *feel* like held breath, not a sprint — the only boss in the game where the clock is not the enemy.
+
+### Failure
+
+This boss cannot be failed out of — it cannot game-over, cost hearts, or be retried into a different verdict. Every path exits forward into Act IV; the "failure state" is living with the branch you chose. Verdicts are permanent for the run.
+
+### Victory
+
+Both branches clear the boss and award base XP. "Winning" in the full sense — informed rejection — requires seeing the sabotage *and* saying so with the mechanism named. The game never says "correct" or "wrong" at the moment of verdict; the twist display says it for you, and Act IV proves it.
 
 ## XP
 
-- **Base:** 600 XP
-- **Correct allegiance reading:** +400 XP bonus
-- **AI tokens earned:** +2 (correct), +0 (incorrect)
+- **Phase 1 (evidence study, both lines marked):** 100 base
+- **Phase 2 (verdict + explanation):** 500 base
+- **Informed-verdict bonus (explanation ≥2/3 AND reject):** +400 (decaying after 300s, floor +200)
+- **Phase 3 (redemption fix):** +150 bonus
+- **AI tokens:** +2 on informed verdict, +0 otherwise
+- **Total base:** 600 (per design.md §9) · **Total possible:** 1,150 + 2 tokens
 
-## No Timer
+## Timed Events
 
-This boss has no time pressure. It's a deliberate, thoughtful challenge.
+| Time | Event |
+| --- | --- |
+| Phase 1 start | Kira: "Six lines. Run the loopback if you don't believe me — oh. You already did." |
+| Phase 1, on opening the log | Reeves: "Frame three is the only honest frame in that log. Ask yourself why." |
+| Phase 1, second wrong mark | Maya: "look at what the log says changed. then find who's still holding a pen on those bytes." |
+| Phase 2 start | Maya: "she's listening on this channel. whatever i decide, she knows the moment i decide it." |
+| Phase 2 T+120s | Kira: "No clock this time. I wanted you thinking, not typing. Take your time — it's my code you're judging." |
+| Phase 2 T+240s | GHOST broadcast: "T-MINUS 8 HOURS. PERSONNEL AUDIT ONGOING: K. VOLKOV — RESOLUTION PENDING." |
+| Phase 2 T+300s | Reeves: "Maya. Bravo will not hold the dock forever. Whatever you see in it — say it." |
+| Phase 3 start | Reeves: "Before we move — show me how it should have been written." |
+| Phase 3 T-30s | System: "DOCK 4 WINDOW: FINAL CALL" |
+
+## Twist
+
+Two verdicts, two reveals. Both display in the terminal at 22ms/char.
+
+### Twist Display — Verdict: REJECT
+
+1. `> verdict transmitted: REJECT`
+2. `> kira: you actually read it. do you know how few people read?`
+3. `> kira: no hard feelings, maya. but the price just went up.`
+4. `> channel K.VOLKOV — closed from the far end`
+5. `> LOCKDOWN INITIATED — FLOORS 1–4 — EXIT CORRIDOR REROUTING`
+6. `> reeves: The code was a loyalty test with the polarity reversed. You passed by failing her.`
+7. `> maya: she never wanted to help the escape. she wanted to own the stream. we go the hard way.`
+
+### Twist Display — Verdict: TRUST
+
+1. `> verdict transmitted: TRUST`
+2. `> kira: smart. three cameras on the exit corridor just went dark. call it a down payment.`
+3. `> transmit.go deployed to extraction pipeline — encoder ACTIVE`
+4. `> [background] frame checksums drifting — 3 of 4 mismatch — logged, unread`
+5. `> reeves: I hope you understand what you have signed, Maya. She most certainly does.`
+6. `> maya: she's inside our stream now. i can feel it. but the cameras really are dark.`
+7. `> somewhere in the corrupted frames, something is being written. not by maya.`
 
 ## UI State
 
 - **Location label:** KIRA'S CHANNEL
-- **No rush mode, no jeopardy**
-- **Atmosphere:** Tense silence. Maya and Dr. Reeves are watching.
-- **Post-decision:** Cinematic reveal of consequences
+- **Concept label:** Allegiance Check
+- **Visual state:** Near-black screen, single amber channel-open indicator; the code pane lit like an interrogation table; marked lines glow red in phase 1; receiver log rows flip from "sent as" to "now" values on hover; TRUST/REJECT buttons desaturated until phase 2, then pulse faintly; verdict fires a single hard cut to black before the twist display
+- **Audio:** dark-drone-1 ambient, heartbeat-slow underneath phase 2 (no music — the only silent boss), maya-typing on textarea input, keypad-beep on line marks, a single captured-impact on verdict press, dread-sting on twist line 4 (either branch)
+- **No rush mode, no jeopardy, no hearts** — atmosphere is tense stillness; Maya and Reeves are watching the player think
+
+## Teaching Notes
+
+### The first judgment boss — a fourth boss grammar
+
+Every boss so far demanded *output*: the Lockmaster was combat (aim/load/fire tabs, hearts, projectiles), the Relay Interceptor was data processing (four timed waves of decode/filter/sort), Vasik I was debugging (find three planted bugs while wings shut down). This boss demands *judgment* — the player produces no passing program at all in phases 1–2; the graded artifact is prose. It is also the only boss with no kill-timer and no fail state, which is itself the mechanical signature: dread through permanence instead of countdown. Four bosses, four grammars.
+
+### Reading is the skill being graded
+
+Working engineers review far more code than they write, and the deadliest bugs pass every casual read — this one is six lines and survives a compile, a run, and a demo. The lesson transfers directly: a slice is a three-word header (pointer, length, capacity); passing or sending one copies the header, never the bytes. Ch04.2 taught this as a superpower (cheap sub-slicing); this boss shows the same fact as an attack surface. If a function keeps mutating an array after handing out slices of it, every holder of those slices is holding a live wire.
+
+### Why frame 3 is the tell
+
+The trace is designed so the *last* frame checks out while every earlier one drifts — the fingerprint of after-send mutation (nothing mutates after the final flip, so the final frame alone stays honest). Reeves points the player at it. This teaches trace-reading, not just code-reading: corruption patterns encode their cause.
+
+### Aliasing vs data race — say it precisely
+
+The deterministic loopback (buffered channel, reads after all sends) exposes pure aliasing with no concurrency at all — that's what makes the trace reproducible on the playground. In real deployment, a goroutine receiver reads those bytes *while* `transmit` flips them: an unsynchronized read/write pair on the same memory, a formal data race that `go run -race` reports. The explanation rubric accepts either framing because the root cause — shared backing array, no copy — is identical. Phase 3's fix resolves both for the same reason.
+
+### The fix is two lines and the idiom is universal
+
+`make` + `copy` before sending is the canonical "freeze at the boundary" idiom — the same move guards map values, function-returned slices, and every API that hands internal buffers to callers. Acceptance pattern-checks for it so players internalize the shape, not just the verdict.
+
+### Grading prose fairly
+
+The 2-of-3 marker rubric exists so the evaluator rewards causal understanding, not vocabulary. A player who writes "every frame points at the same bytes and she keeps flipping those bytes after sending, so nothing already sent stays true" hits markers 1 and 2 in plain language and must pass. Keyword lists without a causal chain must not. The lucky-guess path (reject + failed explanation) gets one revision because the game's position is explicit: suspicion without a mechanism is not a read — Kira herself would call that a coin flip.
