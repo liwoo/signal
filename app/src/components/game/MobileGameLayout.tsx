@@ -167,8 +167,8 @@ export function MobileGameLayout({
                 onClick={() => setSecondaryView("library")}
               />
               <MobileMoreButton
-                label="NOTES"
-                description="Revisit diagrams and chapter lessons."
+                label="❔ NOTES · HELP"
+                description="Stuck? The concept + code you need for this level."
                 onClick={() => setSecondaryView("notes")}
               />
             </div>

@@ -79,4 +79,32 @@ export const C = {
   guardAccent: "#c83838",
   guardVisor: "#ff4848",
   guardArmor: "#241e2a",
+
+  // Structural / utility — for shading, edges, and light washes (no bare hex in painters)
+  shadow: "#000000",       // pure shadow for AO, seams, edges
+  highlight: "#ffffff",    // pure highlight for rivets, wet edges
+  lightWash: "#dce6f5",    // cool ceiling light tint
+  lightWarm: "#ffd68c",    // warm practical (door crack, amber)
 } as const;
+
+/**
+ * Return `color` at opacity `a` as an rgba() string. Accepts #rgb, #rrggbb,
+ * rgb(), or rgba() input. Replaces the old regex-on-rgba hack in drawLightCone.
+ */
+export function alpha(color: string, a: number): string {
+  const clamped = Math.max(0, Math.min(1, a));
+  if (color[0] === "#") {
+    let hex = color.slice(1);
+    if (hex.length === 3) hex = hex.split("").map((c) => c + c).join("");
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${clamped})`;
+  }
+  const m = color.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const [r, g, b] = m[1].split(",").map((s) => parseFloat(s));
+    return `rgba(${r},${g},${b},${clamped})`;
+  }
+  return color;
+}

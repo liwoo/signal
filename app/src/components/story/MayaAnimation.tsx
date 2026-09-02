@@ -23,54 +23,40 @@ const CHAR_SCALE_DEFAULT = 2;
 const FLICKER_INTERVAL = 2800;
 const FLICKER_DURATION = 120;
 
-// Per-scene camera + character placement
-// Camera crops SCENE_W×SCENE_H → CAM_W×CAM_H viewport
+// Per-scene character placement. The camera then centers on Maya (see paint),
+// so the framing stays correct even as scene compositions change.
+// Focal x's track each scene's vanishing point (see scene-painter projections):
+//   cell 0.42 · corridor 0.50 · chase 0.58 · vent 0.50 · server 0.38
 interface SceneLayout {
-  camX: number;
-  camY: number;
-  mayaX: number;
-  mayaFeetY: number;
+  mayaX: number;      // scene px — where Maya stands (the focal action point)
+  mayaFeetY: number;  // scene px — floor line under her feet
   charScale: number;
 }
 
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
 function getLayout(scene: SceneType, animation: CharAnimation): SceneLayout {
-  const floorY = SCENE_H * 0.50;
   switch (scene) {
     case "cell":
+      // hack/idle → at the wall terminal (VP); keypad → over at the door.
       return {
-        camX: animation === "keypad" ? 160 : 110,
-        camY: 30,
-        mayaX: animation === "hack" ? 250 : animation === "keypad" ? 310 : 210,
-        mayaFeetY: floorY + 55,
+        mayaX: animation === "keypad" ? SCENE_W * 0.74 : SCENE_W * 0.42,
+        mayaFeetY: SCENE_H * 0.74,
         charScale: CHAR_SCALE_DEFAULT,
       };
     case "vent":
-      // Crawl pose is compact — bigger scale + camera low and tight
-      return {
-        camX: 60,
-        camY: 90,
-        mayaX: 200,
-        mayaFeetY: floorY + 85,
-        charScale: 3,
-      };
+      // Crawl pose is compact — bigger scale, low in the shaft.
+      return { mayaX: SCENE_W * 0.5, mayaFeetY: SCENE_H * 0.7, charScale: 3 };
     case "server":
+      return { mayaX: SCENE_W * 0.4, mayaFeetY: SCENE_H * 0.74, charScale: CHAR_SCALE_DEFAULT };
     case "boss-arena":
-      return {
-        camX: 90,
-        camY: 40,
-        mayaX: 240,
-        mayaFeetY: floorY + 50,
-        charScale: CHAR_SCALE_DEFAULT,
-      };
+      return { mayaX: SCENE_W * 0.46, mayaFeetY: SCENE_H * 0.72, charScale: CHAR_SCALE_DEFAULT };
     case "corridor":
+      return { mayaX: SCENE_W * 0.5, mayaFeetY: SCENE_H * 0.72, charScale: CHAR_SCALE_DEFAULT };
     case "chase":
-      return {
-        camX: 100,
-        camY: 20,
-        mayaX: 220,
-        mayaFeetY: floorY + 45,
-        charScale: CHAR_SCALE_DEFAULT,
-      };
+      return { mayaX: SCENE_W * 0.58, mayaFeetY: SCENE_H * 0.72, charScale: CHAR_SCALE_DEFAULT };
   }
 }
 
@@ -101,13 +87,18 @@ export function MayaAnimation({
     const frames = paintMayaFrames(animation, layout.charScale);
     const mayaFrame = frames[0];
 
+    // Camera centers on Maya so she's always framed head-to-shin, whatever the
+    // scene composition, with the focal prop behind her.
+    const camX = clamp(layout.mayaX - CAM_W / 2, 0, SCENE_W - CAM_W);
+    const camY = clamp(layout.mayaFeetY - CAM_H * 0.82, 0, SCENE_H - CAM_H);
+
     // Draw scene cropped by camera
     ctx.clearRect(0, 0, CAM_W, CAM_H);
-    ctx.drawImage(bg, layout.camX, layout.camY, CAM_W, CAM_H, 0, 0, CAM_W, CAM_H);
+    ctx.drawImage(bg, camX, camY, CAM_W, CAM_H, 0, 0, CAM_W, CAM_H);
 
     // Draw Maya relative to camera
-    const drawX = layout.mayaX - layout.camX - mayaFrame.width / 2;
-    const drawY = layout.mayaFeetY - layout.camY - mayaFrame.height;
+    const drawX = layout.mayaX - camX - mayaFrame.width / 2;
+    const drawY = layout.mayaFeetY - camY - mayaFrame.height;
     ctx.drawImage(mayaFrame, drawX, drawY);
   }, [animation, scene]);
 

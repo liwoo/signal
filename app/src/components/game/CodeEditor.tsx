@@ -20,6 +20,8 @@ interface CodeEditorProps {
   vimEnabled?: boolean;
   onVimToggle?: (enabled: boolean) => void;
   disabled?: boolean;
+  /** True when it's the player's turn — lights up the terminal + thick cursor. */
+  awaitingInput?: boolean;
   aiButton?: React.ReactNode;
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
@@ -129,6 +131,7 @@ export function CodeEditor({
   vimEnabled,
   onVimToggle,
   disabled,
+  awaitingInput = false,
   aiButton,
   fontSize: fontSizeProp,
   onFontSizeChange,
@@ -212,6 +215,10 @@ export function CodeEditor({
   }, [code, onCodeChange, formatting, disabled, busy]);
 
   const isBlockCursor = vim.enabled && vim.mode === "normal";
+  // Show a thick terminal cursor either in vim-normal, or when the terminal is
+  // "on" and awaiting player input.
+  const readyCursor = awaitingInput && !disabled && !isBlockCursor;
+  const showBlockCursor = isBlockCursor || readyCursor;
   const [isMac, setIsMac] = useState(false);
   useEffect(() => {
     setIsMac(navigator.platform?.startsWith("Mac") || navigator.userAgent.includes("Mac"));
@@ -291,7 +298,7 @@ export function CodeEditor({
 
   // Update block cursor position
   const updateCursorOverlay = useCallback(() => {
-    if (!isBlockCursor || !cursorRef.current || !textareaRef.current || !highlightRef.current) return;
+    if (!showBlockCursor || !cursorRef.current || !textareaRef.current || !highlightRef.current) return;
     const ta = textareaRef.current;
     const pos = ta.selectionStart;
     setCursorPos(pos);
@@ -320,8 +327,9 @@ export function CodeEditor({
 
     const cursor = cursorRef.current;
     cursor.style.transform = `translate(${x}px, ${y - ta.scrollTop}px)`;
-    cursor.style.width = `${Math.max(w, 7)}px`;
-  }, [isBlockCursor, code, fontSize, lineHeight]);
+    // Thick terminal cursor when awaiting input; slim block for vim-normal.
+    cursor.style.width = readyCursor ? `${Math.max(w, Math.round(fontSize * 0.6))}px` : `${Math.max(w, 7)}px`;
+  }, [showBlockCursor, readyCursor, code, fontSize, lineHeight]);
 
   useEffect(() => {
     updateCursorOverlay();
@@ -560,6 +568,36 @@ export function CodeEditor({
     <div className="flex flex-col h-full">
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
+        {/* Terminal power state — lit + pulsing when awaiting input, dimmed (standby) while Maya narrates */}
+        {awaitingInput ? (
+          <div
+            className="absolute inset-0 z-30 pointer-events-none"
+            style={{
+              border: "1px solid var(--color-signal)",
+              background: "radial-gradient(ellipse at 50% 100%, rgba(110,255,160,.07), transparent 62%)",
+              animation: "terminal-ready 1.8s ease-in-out infinite",
+            }}
+          >
+            <div
+              className="absolute left-3 top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)]"
+              style={{ color: "var(--color-signal)" }}
+            >
+              ▮ READY
+            </div>
+          </div>
+        ) : busy || disabled ? (
+          <div
+            className="absolute inset-0 z-30 pointer-events-none"
+            style={{ background: "rgba(4,8,16,.5)" }}
+          >
+            <div
+              className="absolute left-3 top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)]"
+              style={{ color: "var(--color-dim)" }}
+            >
+              ▯ STANDBY
+            </div>
+          </div>
+        ) : null}
         {/* Toolbar: format + zoom */}
         {!isMobile ? <div
           className="absolute top-1.5 right-2.5 z-40 flex items-center gap-2"
@@ -652,8 +690,8 @@ export function CodeEditor({
             {"\n"}
           </pre>
 
-          {/* Block cursor for vim normal mode */}
-          {isBlockCursor && (
+          {/* Block cursor — vim-normal, or a thick "ready for input" terminal cursor */}
+          {showBlockCursor && (
             <div
               ref={cursorRef}
               className="absolute pointer-events-none"
@@ -662,7 +700,8 @@ export function CodeEditor({
                 left: 0,
                 height: lineHeight,
                 background: "var(--color-signal)",
-                opacity: 0.7,
+                opacity: readyCursor ? 0.9 : 0.7,
+                mixBlendMode: readyCursor ? "screen" : undefined,
                 animation: "blink 1s step-end infinite",
               }}
             />
@@ -740,7 +779,7 @@ export function CodeEditor({
               fontSize: `${fontSize}px`,
               lineHeight: `${lineHeight}px`,
               tabSize: 4,
-              caretColor: disabled ? "transparent" : isBlockCursor ? "transparent" : "var(--color-signal)",
+              caretColor: disabled || showBlockCursor ? "transparent" : "var(--color-signal)",
               fontFamily: "var(--font-mono)",
               whiteSpace: isMobile ? "pre" : "pre-wrap",
               wordBreak: isMobile ? "normal" : "break-all",

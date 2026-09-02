@@ -54,12 +54,31 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
         </div>
       )}
 
-      {/* Current step brief */}
-      <div className="border-l-[3px] border-l-[#2a6a4a] pl-3.5 mb-4">
-        <div className="text-[var(--color-alert)] text-[8px] tracking-[2px] mb-1.5">
-          STEP {currentStepIndex + 1} · {currentStep.title}
+      {/* Current step brief — the INSTRUCTIONS. Distinct amber "mission" voice,
+          deliberately separated from Maya's green narration in the chat. */}
+      <div
+        className="mb-4 p-3"
+        style={{ borderLeft: "3px solid var(--color-alert)", background: "rgba(255,159,28,.05)" }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] px-1.5 py-px"
+            style={{
+              color: "var(--color-alert)",
+              border: "1px solid rgba(255,159,28,.3)",
+              background: "rgba(255,159,28,.1)",
+            }}
+          >
+            ▸ YOUR MISSION
+          </span>
+          <span className="text-[8px] tracking-[2px]" style={{ color: "var(--color-alert)" }}>
+            STEP {currentStepIndex + 1} · {currentStep.title}
+          </span>
         </div>
-        <p className="text-[#3a7a6a] text-xs leading-[1.9] whitespace-pre-line">
+        <p
+          className="text-sm leading-[1.8] whitespace-pre-line"
+          style={{ color: "var(--color-foreground)" }}
+        >
           {currentStep.brief}
         </p>
       </div>

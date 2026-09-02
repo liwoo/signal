@@ -44,6 +44,7 @@ import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
+import { MissionBriefModal } from "@/components/game/MissionBriefModal";
 import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGameLayout } from "@/components/game/MobileGameLayout";
 import { Warmup } from "@/components/game/Warmup";
@@ -58,7 +59,6 @@ import {
 } from "@/lib/storage/persistence";
 import type { Challenge, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
-import { hasCompletedWarmup, saveWarmupCompleted } from "@/lib/storage/local";
 import {
   trackChapterStart,
   trackCinematicStart,
@@ -208,7 +208,6 @@ export default function PlayPage() {
 function GameRouter() {
   const [persisted, setPersisted] = useState<PersistedState | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
-  const [warmupDone, setWarmupDone] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileChecked, setMobileChecked] = useState(false);
 
@@ -230,10 +229,8 @@ function GameRouter() {
       setPersisted(state);
       // Resume from last completed chapter
       const completedCount = state.progress.completedChapters.length;
-      if (hasCompletedWarmup()) setWarmupDone(true);
       if (completedCount > 0 && completedCount < CHAPTERS.length) {
         setChapterIndex(completedCount);
-        setWarmupDone(true); // returning players skip warmup
       }
     });
   }, []);
@@ -293,20 +290,6 @@ function GameRouter() {
     );
   }
 
-  // Show warmup for first-time players before chapter 1 — works on all devices
-  if (!warmupDone && chapterIndex === 0) {
-    return (
-      <Warmup
-        fontScale={persisted.settings.tutorialFontScale ?? 2}
-        onFontScaleChange={(scale) => handleSaveSettings({ tutorialFontScale: scale })}
-        onComplete={() => {
-          saveWarmupCompleted();
-          setWarmupDone(true);
-        }}
-      />
-    );
-  }
-
   const config = CHAPTERS[chapterIndex];
   const initialState: InitialPersistedState = {
     xp: persisted.stats.xp,
@@ -349,12 +332,34 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const audio = useGameAudio(state, settings.soundEnabled);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
+  // Warm-up type-along opens the lesson (muscle memory) before explanations.
+  const [showWarmup, setShowWarmup] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
   const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile);
   const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id);
+
+  // "This is the mission" modal — surfaced once per step as its instructions begin.
+  const [missionShownForStep, setMissionShownForStep] = useState<number | null>(null);
+  const missionModalOpen =
+    state.phase === "playing" && !showTour && missionShownForStep !== state.currentStepIndex;
+
+  // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
+  const awaitingInput =
+    state.phase === "playing" &&
+    !state.busy &&
+    !state.gamePaused &&
+    !state.waitingForContinue &&
+    !missionModalOpen;
+  const prevAwaitingRef = useRef(false);
+  useEffect(() => {
+    if (awaitingInput && !prevAwaitingRef.current) {
+      audio.playSfx("terminal-beep", 0.35);
+    }
+    prevAwaitingRef.current = awaitingInput;
+  }, [awaitingInput, audio]);
 
   // Resizable split
   const [chatWidth, setChatWidth] = useState(settings.chatWidthPercent || 42);
@@ -390,7 +395,19 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     document.addEventListener("mouseup", onUp);
   }, [onSaveSettings]);
 
-  if (state.phase === "intro" && !showCinematic && !showBeginner && !showBossArena) {
+  // After the warm-up: go to the explanation briefing (beginner mode) or straight to play.
+  const enterExplanations = () => {
+    if (settings.beginnerMode && beginnerNotes) {
+      trackBeginnerStart(challenge.id);
+      setShowBeginner(true);
+    } else if (config.bossFightConfig) {
+      requestAnimationFrame(() => setShowBossArena(true));
+    } else {
+      actions.startGame();
+    }
+  };
+
+  if (state.phase === "intro" && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
     return <IntroScreen
       config={config}
       onStart={() => {
@@ -410,15 +427,27 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         subtitle={config.introSubtitle}
         onComplete={() => {
           setShowCinematic(false);
-          if (settings.beginnerMode && beginnerNotes) {
-            trackBeginnerStart(challenge.id);
-            setShowBeginner(true);
-          } else if (config.bossFightConfig) {
-            // Defer one frame — let PixiJS WebGL context fully release
-            requestAnimationFrame(() => setShowBossArena(true));
+          // Round 1 opens with the type-along warm-up, then explanations.
+          // (Later chapters need their own lesson-specific warm-up content.)
+          if (challenge.chapter === 1) {
+            setShowWarmup(true);
           } else {
-            actions.startGame();
+            enterExplanations();
           }
+        }}
+      />
+    );
+  }
+
+  // ── Warm-up (type-along) — muscle memory before the concepts are explained ──
+  if (showWarmup) {
+    return (
+      <Warmup
+        fontScale={settings.tutorialFontScale ?? 2}
+        onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
+        onComplete={() => {
+          setShowWarmup(false);
+          enterExplanations();
         }}
       />
     );
@@ -572,6 +601,17 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   return (
     <>
+      {/* "This is the mission" — shown as each step's instructions begin */}
+      {missionModalOpen && (
+        <MissionBriefModal
+          challenge={challenge}
+          currentStep={state.currentStep}
+          currentStepIndex={state.currentStepIndex}
+          totalSteps={state.totalSteps}
+          onClose={() => setMissionShownForStep(state.currentStepIndex)}
+        />
+      )}
+
       {/* Guided tour for first-time players */}
       {showTour && !isMobile && state.phase === "playing" && (
         <GuidedTour
@@ -698,6 +738,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 onSubmit={actions.submitCode}
                 busy={state.busy}
                 disabled={state.gamePaused}
+                awaitingInput={awaitingInput}
                 attempts={state.attempts}
                 inRush={state.inRush}
                 baseXP={state.currentStep.xp.base}
@@ -822,27 +863,35 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 borderBottom: "1px solid #0a1820",
               }}
             >
-              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"], ["notes", "NOTES"]] as const).map(
-                ([t, label]) => (
-                  <button
-                    key={t}
-                    onClick={() => actions.setTab(t)}
-                    className="bg-transparent text-[8px] tracking-[2px] px-3.5 py-2 cursor-pointer
-                               transition-colors"
-                    style={{
-                      color:
-                        state.tab === t
-                          ? "var(--color-signal)"
-                          : "var(--color-dim)",
-                      borderBottom:
-                        state.tab === t
-                          ? "2px solid var(--color-signal)"
-                          : "2px solid transparent",
-                    }}
-                  >
-                    {label}
-                  </button>
-                )
+              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"], ["notes", "❔ NOTES · HELP"]] as const).map(
+                ([t, label]) => {
+                  const isHelp = t === "notes";
+                  const active = state.tab === t;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => actions.setTab(t)}
+                      className="bg-transparent text-[8px] tracking-[2px] px-3.5 py-2 cursor-pointer
+                                 transition-colors"
+                      style={{
+                        color: active
+                          ? isHelp
+                            ? "var(--color-info)"
+                            : "var(--color-signal)"
+                          : isHelp
+                            ? "var(--color-info)"
+                            : "var(--color-dim)",
+                        borderBottom: active
+                          ? `2px solid ${isHelp ? "var(--color-info)" : "var(--color-signal)"}`
+                          : isHelp
+                            ? "2px solid color-mix(in srgb, var(--color-info) 35%, transparent)"
+                            : "2px solid transparent",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                }
               )}
               {/* Step progress */}
               {state.totalSteps > 1 && (
@@ -920,6 +969,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   onSubmit={actions.submitCode}
                   busy={state.busy}
                   disabled={state.gamePaused}
+                  awaitingInput={awaitingInput}
                   attempts={state.attempts}
                   inRush={state.inRush}
                   baseXP={state.currentStep.xp.base}

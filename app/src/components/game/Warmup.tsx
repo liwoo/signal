@@ -38,37 +38,39 @@ interface ExerciseConfig {
   multiline: boolean;
 }
 
+// Warm-up drills for CHAPTER 1 — exactly what the player will type this level:
+// print a line, store a variable, format output, and build the program skeleton.
 const EXERCISES: Record<ExerciseNum, ExerciseConfig> = {
   1: {
-    title: "ECHO TEST",
-    maya: 'type the code below exactly as you see it. this prints "hello" to the terminal.',
+    title: "ECHO",
+    maya: "type it exactly. this prints one line to the terminal — how you tell me you're alive.",
     xp: 10,
-    successLabel: "✓ SIGNAL RECEIVED",
-    placeholder: 'fmt.Println("hello")',
+    successLabel: "✓ SIGNAL SENT",
+    placeholder: `fmt.Println("i'm in")`,
     multiline: false,
   },
   2: {
-    title: "FIRST VARIABLE",
-    maya: "store a name in a variable, then print it. use := to declare.",
+    title: "A VARIABLE",
+    maya: "store a value in a variable with :=, then print it back.",
     xp: 15,
     successLabel: "✓ VARIABLE STORED",
-    placeholder: 'name := "maya"\nfmt.Println(name)',
+    placeholder: `cell := "B-09"\nfmt.Println(cell)`,
     multiline: true,
   },
   3: {
-    title: "QUICK MATH",
-    maya: "add two numbers and print the result. go can do math inside Println.",
+    title: "FORMATTED PRINT",
+    maya: "%s is a blank the value after the comma fills in. \\n ends the line.",
     xp: 15,
-    successLabel: "✓ CALCULATION CORRECT",
-    placeholder: "fmt.Println(3 + 7)",
+    successLabel: "✓ SIGNAL FORMATTED",
+    placeholder: `fmt.Printf("CELL %s\\n", cell)`,
     multiline: false,
   },
   4: {
-    title: "STORE & COMPUTE",
-    maya: "declare two variables, then print their sum. same := syntax as before.",
+    title: "THE SKELETON",
+    maya: "every go program needs this shell. type the whole thing — you'll build one to unlock the terminal.",
     xp: 25,
-    successLabel: "✓ SYSTEM ONLINE",
-    placeholder: "a := 10\nb := 20\nfmt.Println(a + b)",
+    successLabel: "✓ TERMINAL ONLINE",
+    placeholder: `package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("i'm in")\n}`,
     multiline: true,
   },
 };
@@ -79,77 +81,66 @@ interface SnippetProps {
   fontSize: string;
 }
 
+const KW = "var(--color-syn-keyword)";
+const FN = "var(--color-syn-builtin)";
+const ID = "var(--color-syn-ident)";
+const STR = "var(--color-syn-string)";
+const FG = "var(--color-foreground)";
+
+function C({ c, children }: { c: string; children: React.ReactNode }) {
+  return <span style={{ color: c }}>{children}</span>;
+}
+
+// 1 — print a line
 function SnippetEcho({ fontSize }: SnippetProps) {
   return (
     <span className="font-[family-name:var(--font-mono)]" style={{ fontSize }}>
-      <span style={{ color: "var(--color-syn-builtin)" }}>fmt</span>
-      <span style={{ color: "var(--color-foreground)" }}>.</span>
-      <span style={{ color: "var(--color-syn-ident)" }}>Println</span>
-      <span style={{ color: "var(--color-foreground)" }}>(</span>
-      <span style={{ color: "var(--color-syn-string)" }}>&quot;hello&quot;</span>
-      <span style={{ color: "var(--color-foreground)" }}>)</span>
+      <C c={FN}>fmt</C><C c={FG}>.</C><C c={ID}>Println</C><C c={FG}>(</C>
+      <C c={STR}>&quot;i&apos;m in&quot;</C><C c={FG}>)</C>
     </span>
   );
 }
 
+// 2 — store a variable, print it
 function SnippetVariable({ fontSize }: SnippetProps) {
   return (
     <div className="font-[family-name:var(--font-mono)] space-y-1" style={{ fontSize }}>
       <div>
-        <span style={{ color: "var(--color-syn-ident)" }}>name</span>
-        <span style={{ color: "var(--color-foreground)" }}> := </span>
-        <span style={{ color: "var(--color-syn-string)" }}>&quot;maya&quot;</span>
+        <C c={ID}>cell</C><C c={FG}> := </C><C c={STR}>&quot;B-09&quot;</C>
       </div>
       <div>
-        <span style={{ color: "var(--color-syn-builtin)" }}>fmt</span>
-        <span style={{ color: "var(--color-foreground)" }}>.</span>
-        <span style={{ color: "var(--color-syn-ident)" }}>Println</span>
-        <span style={{ color: "var(--color-foreground)" }}>(</span>
-        <span style={{ color: "var(--color-syn-ident)" }}>name</span>
-        <span style={{ color: "var(--color-foreground)" }}>)</span>
+        <C c={FN}>fmt</C><C c={FG}>.</C><C c={ID}>Println</C><C c={FG}>(</C>
+        <C c={ID}>cell</C><C c={FG}>)</C>
       </div>
     </div>
   );
 }
 
-function SnippetQuickMath({ fontSize }: SnippetProps) {
+// 3 — formatted print
+function SnippetFormatted({ fontSize }: SnippetProps) {
   return (
     <span className="font-[family-name:var(--font-mono)]" style={{ fontSize }}>
-      <span style={{ color: "var(--color-syn-builtin)" }}>fmt</span>
-      <span style={{ color: "var(--color-foreground)" }}>.</span>
-      <span style={{ color: "var(--color-syn-ident)" }}>Println</span>
-      <span style={{ color: "var(--color-foreground)" }}>(</span>
-      <span style={{ color: "var(--color-syn-number)" }}>3</span>
-      <span style={{ color: "var(--color-foreground)" }}> + </span>
-      <span style={{ color: "var(--color-syn-number)" }}>7</span>
-      <span style={{ color: "var(--color-foreground)" }}>)</span>
+      <C c={FN}>fmt</C><C c={FG}>.</C><C c={ID}>Printf</C><C c={FG}>(</C>
+      <C c={STR}>&quot;CELL %s\n&quot;</C><C c={FG}>, </C><C c={ID}>cell</C><C c={FG}>)</C>
     </span>
   );
 }
 
-function SnippetStoreCompute({ fontSize }: SnippetProps) {
+// 4 — the full program skeleton
+function SnippetSkeleton({ fontSize }: SnippetProps) {
   return (
     <div className="font-[family-name:var(--font-mono)] space-y-1" style={{ fontSize }}>
+      <div><C c={KW}>package</C><C c={FG}> main</C></div>
+      <div>&nbsp;</div>
+      <div><C c={KW}>import</C><C c={FG}> </C><C c={STR}>&quot;fmt&quot;</C></div>
+      <div>&nbsp;</div>
+      <div><C c={KW}>func</C><C c={FG}> </C><C c={FN}>main</C><C c={FG}>() {'{'}</C></div>
       <div>
-        <span style={{ color: "var(--color-syn-ident)" }}>a</span>
-        <span style={{ color: "var(--color-foreground)" }}> := </span>
-        <span style={{ color: "var(--color-syn-number)" }}>10</span>
+        <C c={FG}>&nbsp;&nbsp;&nbsp;&nbsp;</C>
+        <C c={FN}>fmt</C><C c={FG}>.</C><C c={ID}>Println</C><C c={FG}>(</C>
+        <C c={STR}>&quot;i&apos;m in&quot;</C><C c={FG}>)</C>
       </div>
-      <div>
-        <span style={{ color: "var(--color-syn-ident)" }}>b</span>
-        <span style={{ color: "var(--color-foreground)" }}> := </span>
-        <span style={{ color: "var(--color-syn-number)" }}>20</span>
-      </div>
-      <div>
-        <span style={{ color: "var(--color-syn-builtin)" }}>fmt</span>
-        <span style={{ color: "var(--color-foreground)" }}>.</span>
-        <span style={{ color: "var(--color-syn-ident)" }}>Println</span>
-        <span style={{ color: "var(--color-foreground)" }}>(</span>
-        <span style={{ color: "var(--color-syn-ident)" }}>a</span>
-        <span style={{ color: "var(--color-foreground)" }}> + </span>
-        <span style={{ color: "var(--color-syn-ident)" }}>b</span>
-        <span style={{ color: "var(--color-foreground)" }}>)</span>
-      </div>
+      <div><C c={FG}>{'}'}</C></div>
     </div>
   );
 }
@@ -157,8 +148,8 @@ function SnippetStoreCompute({ fontSize }: SnippetProps) {
 const SNIPPETS: Record<ExerciseNum, (props: SnippetProps) => React.JSX.Element> = {
   1: SnippetEcho,
   2: SnippetVariable,
-  3: SnippetQuickMath,
-  4: SnippetStoreCompute,
+  3: SnippetFormatted,
+  4: SnippetSkeleton,
 };
 
 // ── XP float ──
@@ -229,23 +220,14 @@ function SuccessFlash({ label, large }: SuccessFlashProps) {
 // ── Validators ──
 
 const VALIDATORS: Record<ExerciseNum, (value: string) => boolean> = {
-  1: (v) => v.trim().includes('fmt.Println("hello")'),
-  2: (v) => v.includes("name :=") && v.includes("fmt.Println(name)"),
-  3: (v) => {
-    const t = v.trim();
-    // Accept fmt.Println(3 + 7) or fmt.Println(3+7) or fmt.Println(10)
-    return (
-      t.includes("fmt.Println") &&
-      (t.includes("3 + 7") || t.includes("3+7") || t.includes("(10)"))
-    );
-  },
-  4: (v) => {
-    return (
-      v.includes("a :=") &&
-      v.includes("b :=") &&
-      v.includes("fmt.Println(a + b)")
-    );
-  },
+  1: (v) => v.includes("fmt.Println(") && v.includes(`"i'm in"`),
+  2: (v) => /cell\s*:=/.test(v) && v.includes("fmt.Println(cell)"),
+  3: (v) => v.includes("fmt.Printf(") && v.includes("%s") && v.includes("cell"),
+  4: (v) =>
+    v.includes("package main") &&
+    v.includes(`"fmt"`) &&
+    /func\s+main\s*\(\s*\)/.test(v) &&
+    v.includes("fmt.Println("),
 };
 
 // ── Main component ──
@@ -265,7 +247,8 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
   });
 
   const [shake, setShake] = useState(false);
-  const exerciseStartRef = useRef(Date.now());
+  // Set on mount by the [exercise] effect below (avoids an impure call in render).
+  const exerciseStartRef = useRef(0);
 
   useEffect(() => {
     trackWarmupStart();

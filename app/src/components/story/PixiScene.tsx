@@ -4,8 +4,9 @@ import { useRef, useEffect, useCallback } from "react";
 import { Application, Container, Sprite, Texture } from "pixi.js";
 import { paintMayaFrames, paintGuardFrames } from "@/lib/sprites/character-painter";
 import { C } from "@/lib/sprites/palette";
-import { paintCinematicScene } from "@/lib/sprites/cinematic-painter";
-import type { SceneDefinition, Actor, CameraKeyframe } from "@/lib/sprites/scenes";
+import { paintScene } from "@/lib/sprites/scene-painter";
+import type { SceneDefinition, Actor } from "@/lib/sprites/scenes";
+import { clamp01, easeInOutCubic, getCameraPos, lerp } from "@/lib/sprites/camera";
 
 interface PixiSceneProps {
   scene: SceneDefinition;
@@ -37,70 +38,15 @@ interface SceneLayer {
 }
 
 const SCENE_PADDING = 200;
-const CHAR_SCALE = 1.6;
+// ≈ 0.32*sceneH/80 so the character matches the scene's prop reference height.
+const CHAR_SCALE = 2.4;
 const ANIM_INTERVAL = 120;
 const SHOT_DISSOLVE_MS = 720;
-const CINEMATIC_WORLD_SCALE = 0.7;
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * clamp01(t);
-}
-
-function easeInOutCubic(value: number): number {
-  const t = clamp01(value);
-  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-}
-
-function getCameraPos(
-  keyframes: CameraKeyframe[],
-  timeMs: number,
-): { x: number; y: number; zoom: number } {
-  if (keyframes.length === 0) return { x: 0, y: 0, zoom: 1 };
-  if (keyframes.length === 1) {
-    return {
-      x: keyframes[0].x,
-      y: keyframes[0].y,
-      zoom: keyframes[0].zoom ?? 1,
-    };
-  }
-
-  if (timeMs <= keyframes[0].time) {
-    return {
-      x: keyframes[0].x,
-      y: keyframes[0].y,
-      zoom: keyframes[0].zoom ?? 1,
-    };
-  }
-
-  const last = keyframes[keyframes.length - 1];
-  if (timeMs >= last.time) {
-    return { x: last.x, y: last.y, zoom: last.zoom ?? 1 };
-  }
-
-  let prev = keyframes[0];
-  let next = keyframes[1];
-  for (let i = 0; i < keyframes.length - 1; i++) {
-    if (timeMs <= keyframes[i + 1].time) {
-      prev = keyframes[i];
-      next = keyframes[i + 1];
-      break;
-    }
-  }
-
-  const duration = next.time - prev.time;
-  const progress = duration > 0 ? (timeMs - prev.time) / duration : 1;
-  const eased = easeInOutCubic(progress);
-
-  return {
-    x: lerp(prev.x, next.x, eased),
-    y: lerp(prev.y, next.y, eased),
-    zoom: lerp(prev.zoom ?? 1, next.zoom ?? 1, eased),
-  };
-}
+// 0.85 → the 1040×600 scene renders 884×510 into the 640×400 viewport, leaving
+// ~244×110px of crop headroom so the camera can actually frame a shot.
+const CINEMATIC_WORLD_SCALE = 0.85;
+// Default auto push-in for static (single-keyframe) shots: zoom eases +0.05.
+const AUTO_PUSH_IN = 0.05;
 
 function getActorPos(actor: Actor, timeMs: number): { x: number; y: number } {
   if (!actor.path || actor.path.length === 0) {
@@ -164,7 +110,7 @@ export function PixiScene({
 
     const sceneW = width + SCENE_PADDING * 2;
     const sceneH = height + SCENE_PADDING;
-    const backgroundCanvas = paintCinematicScene(nextScene.background, sceneW, sceneH);
+    const backgroundCanvas = paintScene(nextScene.background, sceneW, sceneH);
     const backgroundTexture = Texture.from({ resource: backgroundCanvas, antialias: false });
     const backgroundSprite = new Sprite(backgroundTexture);
     const world = new Container();
@@ -243,17 +189,23 @@ export function PixiScene({
 
     const now = performance.now();
     const hasPreviousShot = layersRef.current.length > 0;
+    // Cut by default; dissolve only when the shot opts in (reserved for
+    // time/place jumps). Reduced motion always hard-cuts.
+    const dissolve =
+      hasPreviousShot &&
+      !reducedMotionRef.current &&
+      nextScene.transition === "dissolve";
 
-    if (reducedMotionRef.current) {
-      for (const layer of layersRef.current) destroyLayer(layer);
-      layersRef.current = [];
-    } else {
+    if (dissolve) {
       for (const layer of layersRef.current) {
         if (layer.leavingAt === undefined) layer.leavingAt = now;
       }
+    } else {
+      for (const layer of layersRef.current) destroyLayer(layer);
+      layersRef.current = [];
     }
 
-    world.alpha = hasPreviousShot && !reducedMotionRef.current ? 0 : 1;
+    world.alpha = dissolve ? 0 : 1;
     app.stage.addChild(world);
     layersRef.current.push({
       world,
@@ -311,15 +263,52 @@ export function PixiScene({
         for (const layer of [...layersRef.current]) {
           const elapsed = now - layer.startedAt;
           const camera = getCameraPos(layer.scene.camera, elapsed);
-          const worldScale = CINEMATIC_WORLD_SCALE * camera.zoom;
-          const openingCamera = layer.scene.camera[0] ?? { x: 0, y: 0 };
-          const panX = (camera.x - openingCamera.x) * 0.18;
-          const panY = (camera.y - openingCamera.y) * 0.18;
+          const reduced = reducedMotionRef.current;
+
+          // Auto push-in on static (single-keyframe) shots — eases the base
+          // zoom up by AUTO_PUSH_IN over the shot. Multi-keyframe shots use
+          // their authored zoom only.
+          let zoom = camera.zoom;
+          if (!reduced && layer.scene.camera.length === 1) {
+            const dur = layer.scene.durationMs || 1;
+            const pushT = easeInOutCubic(clamp01(elapsed / dur));
+            zoom = (layer.scene.camera[0].zoom ?? 1) + AUTO_PUSH_IN * pushT;
+          }
+
+          const worldScale = CINEMATIC_WORLD_SCALE * zoom;
           const sceneWidth = width + SCENE_PADDING * 2;
           const sceneHeight = height + SCENE_PADDING;
+
+          // camera.{x,y} is the world-space point centered in the viewport.
+          // Clamp it so the visible rect never slides past the scene bounds.
+          const halfViewW = width / 2 / worldScale;
+          const halfViewH = height / 2 / worldScale;
+          const centerX = Math.min(
+            Math.max(camera.x, halfViewW),
+            sceneWidth - halfViewW,
+          );
+          const centerY = Math.min(
+            Math.max(camera.y, halfViewH),
+            sceneHeight - halfViewH,
+          );
+
+          // Layered-sine idle sway keyed off scene-elapsed time (deterministic
+          // for visual captures). Disabled under reduced motion.
+          let swayX = 0;
+          let swayY = 0;
+          let swayRot = 0;
+          if (!reduced) {
+            const t = elapsed / 1000;
+            swayX = Math.sin(t * 0.7) * 2.5 + Math.sin(t * 1.3) * 1.2;
+            swayY = Math.sin(t * 0.9) * 1.5 + Math.sin(t * 0.5) * 0.8;
+            swayRot = Math.sin(t * 0.4 + 0.5) * 0.003;
+          }
+
           layer.world.scale.set(worldScale);
-          layer.world.x = (width - sceneWidth * worldScale) / 2 - panX * worldScale;
-          layer.world.y = (height - sceneHeight * worldScale) / 2 - panY * worldScale;
+          layer.world.pivot.set(centerX, centerY);
+          layer.world.rotation = swayRot;
+          layer.world.x = width / 2 + swayX;
+          layer.world.y = height / 2 + swayY;
 
           for (const actor of layer.actors) {
             const position = getActorPos(actor.def, elapsed);

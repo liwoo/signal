@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { PixiScene } from "./PixiScene";
 import { TypeText } from "./TypeText";
 import type { SceneDefinition, AudioCue } from "@/lib/sprites/scenes";
+import { effectiveDurationMs } from "@/lib/sprites/camera";
 import { useAudio } from "@/hooks/useAudio";
 import type { SfxName, AmbienceName, MusicName } from "@/hooks/useAudio";
 
@@ -34,6 +35,7 @@ export function CinematicScene({
   const audio = useAudio();
 
   const currentScene = scenes[sceneIndex] ?? scenes[0];
+  const shotDurationMs = effectiveDurationMs(currentScene);
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -72,12 +74,12 @@ export function CinematicScene({
       } else {
         finish();
       }
-    }, currentScene.durationMs);
+    }, shotDurationMs);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [currentScene, fadePhase, finish, sceneIndex, scenes.length]);
+  }, [currentScene, fadePhase, finish, sceneIndex, scenes.length, shotDurationMs]);
 
   useEffect(() => {
     if (fadePhase !== "playing" || !currentScene) return;
@@ -199,19 +201,16 @@ export function CinematicScene({
       >
         <PixiScene scene={currentScene} width={640} height={400} crtEffect />
 
-        <div
-          className="absolute inset-0 z-20 pointer-events-none"
-          style={{
-            background:
-              "linear-gradient(180deg, color-mix(in srgb, var(--color-background) 76%, transparent) 0%, transparent 28%, transparent 58%, color-mix(in srgb, var(--color-background) 88%, transparent) 100%)",
-          }}
-        />
-
-        <header className="absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-6 p-4 sm:p-6">
+        {/* Letterbox — solid opaque bars top and bottom (≈1.95:1 picture).
+            All chrome rides on the bars so it never overlaps the picture. */}
+        <header
+          className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-4 px-4 py-2 sm:px-6"
+          style={{ minHeight: "9%", background: "var(--color-background)" }}
+        >
           <div className="min-w-0 cinematic-title-in">
             {title && (
               <h1
-                className="font-[family-name:var(--font-display)] text-xl font-black leading-none tracking-[0.24em] sm:text-3xl lg:text-4xl"
+                className="font-[family-name:var(--font-display)] text-lg font-black leading-none tracking-[0.24em] sm:text-2xl lg:text-3xl"
                 style={{
                   color: "var(--color-signal)",
                   textShadow: "0 0 28px color-mix(in srgb, var(--color-signal) 42%, transparent)",
@@ -222,7 +221,7 @@ export function CinematicScene({
             )}
             {subtitle && (
               <p
-                className="mt-2 text-[7px] tracking-[0.38em] sm:text-[9px]"
+                className="mt-1 text-[7px] tracking-[0.38em] sm:text-[9px]"
                 style={{ color: "color-mix(in srgb, var(--color-foreground) 62%, transparent)" }}
               >
                 {subtitle}
@@ -238,7 +237,7 @@ export function CinematicScene({
               {currentScene.location}
             </div>
             <div
-              className="mt-2 flex items-center justify-end gap-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
+              className="mt-1 flex items-center justify-end gap-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
               style={{ color: "color-mix(in srgb, var(--color-danger) 72%, transparent)" }}
             >
               <span
@@ -250,47 +249,48 @@ export function CinematicScene({
           </div>
         </header>
 
-        <div className="absolute inset-x-0 bottom-0 z-30 p-4 sm:p-6">
-          <div className="flex items-end justify-between gap-6">
-            <div key={sceneIndex} className="cinematic-caption-in min-w-0 max-w-[78%]">
-              <div
-                className="mb-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
-                style={{ color: "color-mix(in srgb, var(--color-signal) 65%, transparent)" }}
-              >
-                SIGNAL LOG // {String(sceneIndex + 1).padStart(2, "0")}
-              </div>
-              {currentScene.caption && (
-                <TypeText
-                  text={currentScene.caption}
-                  speed={28}
-                  className="text-[10px] leading-relaxed sm:text-xs lg:text-sm"
-                />
-              )}
+        <div
+          className="absolute inset-x-0 bottom-0 z-30 flex items-end justify-between gap-4 px-4 py-2 sm:px-6"
+          style={{ minHeight: "9%", background: "var(--color-background)" }}
+        >
+          <div key={sceneIndex} className="cinematic-caption-in min-w-0 max-w-[78%]">
+            <div
+              className="mb-1 text-[6px] tracking-[0.32em] sm:text-[7px]"
+              style={{ color: "color-mix(in srgb, var(--color-signal) 65%, transparent)" }}
+            >
+              SIGNAL LOG // {String(sceneIndex + 1).padStart(2, "0")}
             </div>
+            {currentScene.caption && (
+              <TypeText
+                text={currentScene.caption}
+                speed={28}
+                className="text-[10px] leading-relaxed sm:text-xs lg:text-sm"
+              />
+            )}
+          </div>
 
-            <div className="flex shrink-0 items-center gap-1.5" aria-label={`Scene ${sceneIndex + 1} of ${scenes.length}`}>
-              {scenes.map((scene, index) => (
-                <div
-                  key={`${scene.location}-${index}`}
-                  className="relative h-px w-3 overflow-hidden sm:w-6"
-                  style={{ background: "color-mix(in srgb, var(--color-signal) 18%, transparent)" }}
-                >
-                  {index < sceneIndex && (
-                    <div className="absolute inset-0" style={{ background: "var(--color-signal)" }} />
-                  )}
-                  {index === sceneIndex && (
-                    <div
-                      key={`progress-${sceneIndex}`}
-                      className="cinematic-progress absolute inset-0 origin-left"
-                      style={{
-                        background: "var(--color-signal)",
-                        animationDuration: `${currentScene.durationMs}ms`,
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+          <div className="flex shrink-0 items-center gap-1.5" aria-label={`Scene ${sceneIndex + 1} of ${scenes.length}`}>
+            {scenes.map((scene, index) => (
+              <div
+                key={`${scene.location}-${index}`}
+                className="relative h-px w-3 overflow-hidden sm:w-6"
+                style={{ background: "color-mix(in srgb, var(--color-signal) 18%, transparent)" }}
+              >
+                {index < sceneIndex && (
+                  <div className="absolute inset-0" style={{ background: "var(--color-signal)" }} />
+                )}
+                {index === sceneIndex && (
+                  <div
+                    key={`progress-${sceneIndex}`}
+                    className="cinematic-progress absolute inset-0 origin-left"
+                    style={{
+                      background: "var(--color-signal)",
+                      animationDuration: `${shotDurationMs}ms`,
+                    }}
+                  />
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </section>

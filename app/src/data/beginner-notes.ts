@@ -25,6 +25,7 @@ export interface BeginnerNotes {
   subtitle: string;
   blocks: NoteBlock[];                // "Expert Mode" — the original text-heavy notes
   beginnerBlocks?: NoteBlock[];       // "Beginner Mode" — visual-first, analogy-driven (default when present)
+  notesBlocks?: NoteBlock[];          // In-challenge quick reference — terse concept + code (used by NotesPanel when present)
 }
 
 const BEGINNER_NOTES: Record<string, BeginnerNotes> = {
@@ -154,20 +155,20 @@ fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
     ],
 
     // ── Beginner Mode: visual-first, analogy-driven ──
-    // Flow: Animation (section 0) → Package Card (section 1) → Code Recap (section 2) → Start Level
+    // Flow: Analogy card (section 0) → Animated walkthrough (section 1) → Code Recap (section 2) → Start Level
     beginnerBlocks: [
-      // Section 0: Watch the program run — step-by-step animation
+      // Section 0: The Package Card — the analogy comes first (letter → code)
       {
         type: "diagram",
-        diagramId: "ch01-animation",
+        diagramId: "ch01-card",
         content: "",
         section: 0,
       },
 
-      // Section 1: The Package Card — interactive physical analogy
+      // Section 1: Watch the program run — step-by-step animation ("the video")
       {
         type: "diagram",
-        diagramId: "ch01-card",
+        diagramId: "ch01-animation",
         content: "",
         section: 1,
       },
@@ -195,6 +196,36 @@ func main() {
           { text: "fmt.Println(favLang)", tip: "uses the fmt address label to post favLang through the postal slot. jijo reads the sticker → output: Go" },
           { text: "fmt.Println(name)", tip: "posts name to fmt. jijo reads the sticker → output: maya" },
         ],
+      },
+    ],
+
+    // ── In-challenge quick reference — terse concept + code ──
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "the skeleton — every program has these three." },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import "fmt"
+
+func main() {
+}`,
+      },
+      { type: "text", section: 1, content: "print — show text on screen." },
+      {
+        type: "code",
+        section: 1,
+        content: `fmt.Println("hi")          // hi
+fmt.Printf("%s %d\\n", s, n) // fill the blanks`,
+      },
+      { type: "text", section: 2, content: "store a value." },
+      {
+        type: "code",
+        section: 2,
+        content: `name := "maya"   // infers type, can change
+var n int = 3    // explicit type
+const k = 10     // never changes`,
       },
     ],
   },
