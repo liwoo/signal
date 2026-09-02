@@ -59,6 +59,11 @@ const LOOP_ZONES: LoopZone[] = [
 // ── Canvas dimensions ──
 const W = 960;
 const H = 540;
+// Character scale so the sprite ≈ the scene's prop reference height (ch = 0.32*H).
+const CHAR_SCALE = 2.2;
+// Floor line the characters stand on (mid-near floor of the projected rooms).
+const CELL_FEET_Y = 440;
+const CORRIDOR_FEET_Y = 470;
 
 // ── Shot timing (seconds) ──
 const SHOT_TITLE_START   =  0;
@@ -321,8 +326,8 @@ function drawCell(
     // frame is CHAR_W*scale × CHAR_H*scale = 48*3 × 80*3 = 144 × 240
     const frameW = frame.width;
     const frameH = frame.height;
-    const mayaX = 350 - frameW / 2;
-    const mayaY = 340 - frameH;
+    const mayaX = 360 - frameW / 2;
+    const mayaY = CELL_FEET_Y - frameH;
     ctx.drawImage(frame, mayaX, mayaY);
   }
 
@@ -424,7 +429,7 @@ function drawCorridor(
     const frame = mayaWalkFrames[frameIdx];
     const progress = shotT / dur;
     const mayaX = -50 + progress * 650;
-    const mayaFeetY = 330;
+    const mayaFeetY = CORRIDOR_FEET_Y;
     ctx.drawImage(frame, mayaX - frame.width / 2, mayaFeetY - frame.height);
   }
 
@@ -435,7 +440,7 @@ function drawCorridor(
     const frame = guardFrames[frameIdx];
     ctx.save();
     ctx.globalAlpha = 0.6;
-    ctx.drawImage(frame, 750 - frame.width / 2, 320 - frame.height);
+    ctx.drawImage(frame, 780 - frame.width / 2, CORRIDOR_FEET_Y - frame.height);
     ctx.restore();
   }
 
@@ -761,10 +766,11 @@ export function PromoLoop({ className, soundEnabled = false }: { className?: str
       cache.corridorBg = paintScene("corridor", W, H);
       cache.bossFpsBg = paintBossFPS(W, H);
 
-      // Pre-render character frames
-      cache.mayaIdle     = paintMayaFrames("idle" as CharAnimation, 3);
-      cache.mayaWalk     = paintMayaFrames("walk-right" as CharAnimation, 3);
-      cache.guardWalk    = paintGuardFrames("walk-right" as CharAnimation, 3);
+      // Pre-render character frames. Scale ≈ 0.32*H/80 so the character matches
+      // the scene's prop reference height (ch = 0.32*H) — keeps proportions right.
+      cache.mayaIdle     = paintMayaFrames("idle" as CharAnimation, CHAR_SCALE);
+      cache.mayaWalk     = paintMayaFrames("walk-right" as CharAnimation, CHAR_SCALE);
+      cache.guardWalk    = paintGuardFrames("walk-right" as CharAnimation, CHAR_SCALE);
       cache.bossIdle     = paintBossFrames("idle" as BossAnimation, 3, 100);
       cache.bossHitReact = paintBossFrames("hit-react" as BossAnimation, 3, 60);
       cache.bossLowHp    = paintBossFrames("low-hp" as BossAnimation, 3, 30);

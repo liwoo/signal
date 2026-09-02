@@ -23,9 +23,9 @@ export interface Waypoint {
 }
 
 export interface CameraKeyframe {
-  x: number;
-  y: number;
-  /** Optional cinematic push-in. 1 is the native scene scale. */
+  x: number;              // world-space point centered in the viewport (scene coords, 0..1040)
+  y: number;              // world-space point centered in the viewport (scene coords, 0..600)
+  /** Multiplier on the base cinematic scale. Default 1.0, useful range 0.9–1.5. */
   zoom?: number;
   time: number;           // ms from scene start
 }
@@ -54,6 +54,14 @@ export interface SceneDefinition {
   location: string;
   caption?: string;
   audio?: AudioCue[];
+  /** Transition into this shot. Default "cut"; "dissolve" (720ms) for time/place jumps. */
+  transition?: "cut" | "dissolve";
+  /**
+   * Shot pacing. "timed" (default) runs for durationMs. "on-action" ends at
+   * max(last actor path end, caption typing end) + 600ms settle, with
+   * durationMs as a hard ceiling.
+   */
+  advance?: "timed" | "on-action";
 }
 
 // ── INTRO SCENES ───────────────────────────────────────────────────
@@ -66,8 +74,8 @@ export const INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 380, y: 370, animation: "idle" },
     ],
     camera: [
-      { x: 50, y: 80, time: 0 },
-      { x: 90, y: 100, time: 3000 },
+      { x: 420, y: 300, zoom: 1.0, time: 0 },
+      { x: 400, y: 290, zoom: 1.2, time: 3000 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · CELL B-09",
@@ -84,8 +92,8 @@ export const INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 520, y: 340, animation: "hack" },
     ],
     camera: [
-      { x: 140, y: 60, time: 0 },
-      { x: 180, y: 80, time: 3500 },
+      { x: 540, y: 300, zoom: 1.25, time: 0 },
+      { x: 560, y: 295, zoom: 1.4, time: 3500 },
     ],
     durationMs: 4000,
     location: "SUBLEVEL 3 · CELL B-09",
@@ -104,16 +112,16 @@ export const INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 120,
-        y: 310,
+        y: 460,
         animation: "walk-right",
         path: [
-          { x: 600, y: 310, duration: 3000 },
+          { x: 600, y: 460, duration: 3000 },
         ],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 280, y: 10, time: 3000 },
+      { x: 400, y: 300, time: 0 },
+      { x: 600, y: 300, time: 3000 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -139,7 +147,7 @@ export const CHAPTER_01_COMPLETE_SCENES: SceneDefinition[] = [
       { type: "maya", x: 520, y: 340, animation: "hack" },
     ],
     camera: [
-      { x: 140, y: 60, time: 0 },
+      { x: 540, y: 300, zoom: 1.3, time: 0 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · CELL B-09",
@@ -158,14 +166,14 @@ export const CHAPTER_01_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 180,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 620, y: 310, duration: 3000 }],
+        path: [{ x: 620, y: 460, duration: 3000 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 300, y: 10, time: 3000 },
+      { x: 420, y: 300, time: 0 },
+      { x: 620, y: 300, time: 3000 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -187,21 +195,21 @@ export const CHAPTER_01_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 140,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 700, y: 310, duration: 2500 }],
+        path: [{ x: 700, y: 460, duration: 2500 }],
       },
       {
         type: "guard",
         x: 60,
-        y: 315,
+        y: 465,
         animation: "walk-right",
-        path: [{ x: 560, y: 315, duration: 2800 }],
+        path: [{ x: 560, y: 465, duration: 2800 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 350, y: 10, time: 2500 },
+      { x: 380, y: 300, zoom: 1.0, time: 0 },
+      { x: 620, y: 300, zoom: 1.05, time: 2500 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · EAST WING",
@@ -236,8 +244,8 @@ export const CHAPTER_02_INTRO_SCENES: SceneDefinition[] = [
       },
     ],
     camera: [
-      { x: 40, y: 80, time: 0 },
-      { x: 300, y: 70, time: 3000 },
+      { x: 420, y: 310, time: 0 },
+      { x: 620, y: 300, time: 3000 },
     ],
     durationMs: 3500,
     location: "CELL B-09 · DOOR",
@@ -256,8 +264,8 @@ export const CHAPTER_02_INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 700, y: 360, animation: "keypad" },
     ],
     camera: [
-      { x: 300, y: 50, time: 0 },
-      { x: 340, y: 60, time: 4500 },
+      { x: 600, y: 310, zoom: 1.3, time: 0 },
+      { x: 600, y: 300, zoom: 1.4, time: 4500 },
     ],
     durationMs: 5000,
     location: "CELL B-09 · DOOR",
@@ -294,8 +302,8 @@ export const CHAPTER_02_INTRO_SCENES: SceneDefinition[] = [
       },
     ],
     camera: [
-      { x: 320, y: 60, time: 0 },
-      { x: 60, y: 80, time: 2500 },
+      { x: 600, y: 305, time: 0 },
+      { x: 440, y: 300, time: 2500 },
     ],
     durationMs: 3500,
     location: "CELL B-09 · TERMINAL",
@@ -319,8 +327,8 @@ export const CHAPTER_02_COMPLETE_SCENES: SceneDefinition[] = [
       { type: "maya", x: 700, y: 360, animation: "keypad" },
     ],
     camera: [
-      { x: 280, y: 50, time: 0 },
-      { x: 320, y: 60, time: 3500 },
+      { x: 600, y: 305, zoom: 1.3, time: 0 },
+      { x: 610, y: 300, zoom: 1.35, time: 3500 },
     ],
     durationMs: 4000,
     location: "CELL B-09 · DOOR",
@@ -346,8 +354,8 @@ export const CHAPTER_02_COMPLETE_SCENES: SceneDefinition[] = [
       { type: "maya", x: 500, y: 360, animation: "idle" },
     ],
     camera: [
-      { x: 120, y: 80, time: 0 },
-      { x: 140, y: 70, time: 3000 },
+      { x: 500, y: 300, zoom: 1.05, time: 0 },
+      { x: 500, y: 290, zoom: 1.2, time: 3000 },
     ],
     durationMs: 4000,
     location: "CELL B-09 · CORRIDOR",
@@ -373,14 +381,14 @@ export const CHAPTER_02_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 120,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 500, y: 310, duration: 2500 }],
+        path: [{ x: 500, y: 460, duration: 2500 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 250, y: 10, time: 2500 },
+      { x: 400, y: 300, time: 0 },
+      { x: 560, y: 300, time: 2500 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -400,11 +408,11 @@ export const CHAPTER_03_INTRO_SCENES: SceneDefinition[] = [
   {
     background: "corridor",
     actors: [
-      { type: "maya", x: 420, y: 310, animation: "idle" },
+      { type: "maya", x: 420, y: 460, animation: "idle" },
     ],
     camera: [
-      { x: 120, y: 10, time: 0 },
-      { x: 140, y: 20, time: 3500 },
+      { x: 440, y: 300, zoom: 1.15, time: 0 },
+      { x: 430, y: 295, zoom: 1.28, time: 3500 },
     ],
     durationMs: 4000,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -427,14 +435,14 @@ export const CHAPTER_03_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 420,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 620, y: 310, duration: 2000 }],
+        path: [{ x: 620, y: 460, duration: 2000 }],
       },
     ],
     camera: [
-      { x: 140, y: 10, time: 0 },
-      { x: 300, y: 10, time: 2500 },
+      { x: 460, y: 300, time: 0 },
+      { x: 620, y: 300, time: 2500 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -454,14 +462,14 @@ export const CHAPTER_03_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 120,
-        y: 330,
+        y: 445,
         animation: "crawl-right",
-        path: [{ x: 450, y: 330, duration: 3200 }],
+        path: [{ x: 450, y: 445, duration: 3200 }],
       },
     ],
     camera: [
-      { x: 0, y: 30, time: 0 },
-      { x: 200, y: 30, time: 3200 },
+      { x: 400, y: 320, zoom: 1.1, time: 0 },
+      { x: 560, y: 320, zoom: 1.1, time: 3200 },
     ],
     durationMs: 4000,
     location: "VENTILATION SHAFT · SUBLEVEL 3",
@@ -479,11 +487,11 @@ export const CHAPTER_03_INTRO_SCENES: SceneDefinition[] = [
   {
     background: "vent",
     actors: [
-      { type: "maya", x: 550, y: 310, animation: "keypad" },
+      { type: "maya", x: 550, y: 460, animation: "keypad" },
     ],
     camera: [
-      { x: 200, y: 20, time: 0 },
-      { x: 230, y: 30, time: 3500 },
+      { x: 560, y: 310, zoom: 1.3, time: 0 },
+      { x: 570, y: 305, zoom: 1.38, time: 3500 },
     ],
     durationMs: 4000,
     location: "VENTILATION SHAFT · JUNCTION A",
@@ -507,10 +515,10 @@ export const CHAPTER_03_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "vent",
     actors: [
-      { type: "maya", x: 550, y: 310, animation: "keypad" },
+      { type: "maya", x: 550, y: 460, animation: "keypad" },
     ],
     camera: [
-      { x: 200, y: 20, time: 0 },
+      { x: 560, y: 310, zoom: 1.3, time: 0 },
     ],
     durationMs: 3000,
     location: "VENTILATION SHAFT · JUNCTION A",
@@ -529,14 +537,14 @@ export const CHAPTER_03_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 120,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 550, y: 310, duration: 2500 }],
+        path: [{ x: 550, y: 460, duration: 2500 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 280, y: 10, time: 2500 },
+      { x: 400, y: 300, time: 0 },
+      { x: 600, y: 300, time: 2500 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · CELL B-10",
@@ -554,10 +562,10 @@ export const CHAPTER_03_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "corridor",
     actors: [
-      { type: "maya", x: 550, y: 310, animation: "idle" },
+      { type: "maya", x: 550, y: 460, animation: "idle" },
     ],
     camera: [
-      { x: 250, y: 10, time: 0 },
+      { x: 560, y: 300, zoom: 1.25, time: 0 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · CELL B-10",
@@ -582,8 +590,8 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 480, y: 370, animation: "idle" },
     ],
     camera: [
-      { x: 140, y: 90, time: 0 },
-      { x: 120, y: 80, time: 5000 },
+      { x: 500, y: 300, zoom: 1.05, time: 0 },
+      { x: 490, y: 290, zoom: 1.2, time: 5000 },
     ],
     durationMs: 5500,
     location: "SUBLEVEL 3 · CELL B-10",
@@ -601,8 +609,8 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 480, y: 370, animation: "idle" },
     ],
     camera: [
-      { x: 120, y: 80, time: 0 },
-      { x: 130, y: 75, time: 4000 },
+      { x: 490, y: 295, zoom: 1.25, time: 0 },
+      { x: 490, y: 290, zoom: 1.35, time: 4000 },
     ],
     durationMs: 4500,
     location: "SUBLEVEL 3 · CELL B-10",
@@ -620,8 +628,8 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       { type: "maya", x: 480, y: 370, animation: "idle" },
     ],
     camera: [
-      { x: 130, y: 75, time: 0 },
-      { x: 100, y: 90, time: 800 },
+      { x: 490, y: 295, zoom: 1.3, time: 0 },
+      { x: 470, y: 305, zoom: 1.15, time: 800 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · CELL B-10",
@@ -647,14 +655,14 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 60,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 750, y: 310, duration: 2800 }],
+        path: [{ x: 750, y: 460, duration: 2800 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 420, y: 10, time: 2800 },
+      { x: 400, y: 300, time: 0 },
+      { x: 664, y: 300, time: 2800 },
     ],
     durationMs: 3500,
     location: "SUBLEVEL 3 · EAST WING",
@@ -675,14 +683,14 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 400,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 620, y: 310, duration: 1200 }],
+        path: [{ x: 620, y: 460, duration: 1200 }],
       },
     ],
     camera: [
-      { x: 200, y: 10, time: 0 },
-      { x: 280, y: 20, time: 1500 },
+      { x: 520, y: 300, time: 0 },
+      { x: 620, y: 300, time: 1500 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · EAST WING",
@@ -704,14 +712,14 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 100,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 240, y: 310, duration: 2000 }],
+        path: [{ x: 240, y: 460, duration: 2000 }],
       },
     ],
     camera: [
-      { x: 0, y: 60, time: 0 },
-      { x: 40, y: 50, time: 3000 },
+      { x: 420, y: 300, zoom: 1.0, time: 0 },
+      { x: 440, y: 290, zoom: 1.1, time: 3000 },
     ],
     durationMs: 4000,
     location: "SERVER ROOM · SUBLEVEL 3",
@@ -729,8 +737,8 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
     background: "boss-arena",
     actors: [],
     camera: [
-      { x: 80, y: 20, time: 0 },
-      { x: 160, y: 40, time: 4500 },
+      { x: 500, y: 280, zoom: 1.15, time: 0 },
+      { x: 520, y: 250, zoom: 1.45, time: 4500 },
     ],
     durationMs: 5000,
     location: "SERVER ROOM · LOCKMASTER",
@@ -754,8 +762,8 @@ export const BOSS_01_INTRO_SCENES: SceneDefinition[] = [
     background: "boss-arena",
     actors: [],
     camera: [
-      { x: 160, y: 40, time: 0 },
-      { x: 180, y: 45, time: 3500 },
+      { x: 520, y: 255, zoom: 1.4, time: 0 },
+      { x: 520, y: 260, zoom: 1.5, time: 3500 },
     ],
     durationMs: 4000,
     location: "SERVER ROOM · LOCKMASTER",
@@ -785,7 +793,7 @@ export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
     background: "server",
     actors: [],
     camera: [
-      { x: 100, y: 60, time: 0 },
+      { x: 520, y: 280, zoom: 1.3, time: 0 },
     ],
     durationMs: 2500,
     location: "SUBLEVEL 3 · LOCK CONTROLLER",
@@ -804,14 +812,14 @@ export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 100,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 700, y: 310, duration: 2500 }],
+        path: [{ x: 700, y: 460, duration: 2500 }],
       },
     ],
     camera: [
-      { x: 0, y: 10, time: 0 },
-      { x: 350, y: 10, time: 2500 },
+      { x: 400, y: 300, time: 0 },
+      { x: 664, y: 300, time: 2500 },
     ],
     durationMs: 3000,
     location: "SUBLEVEL 3 · EAST WING",
@@ -827,10 +835,10 @@ export const BOSS_01_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "corridor",
     actors: [
-      { type: "maya", x: 680, y: 310, animation: "idle" },
+      { type: "maya", x: 680, y: 460, animation: "idle" },
     ],
     camera: [
-      { x: 300, y: 10, time: 0 },
+      { x: 600, y: 300, zoom: 1.2, time: 0 },
     ],
     durationMs: 2500,
     location: "SUBLEVEL 3 · CORRIDOR B",
@@ -869,9 +877,9 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 80,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 600, y: 310, duration: 3000 }],
+        path: [{ x: 600, y: 460, duration: 3000 }],
       },
     ],
     camera: [
@@ -892,7 +900,7 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
   {
     background: "corridor",
     actors: [
-      { type: "maya", x: 420, y: 310, animation: "idle" },
+      { type: "maya", x: 420, y: 460, animation: "idle" },
     ],
     camera: [
       { x: 120, y: 10, time: 0 },
@@ -914,9 +922,9 @@ export const CHAPTER_04_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 180,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 620, y: 310, duration: 2500 }],
+        path: [{ x: 620, y: 460, duration: 2500 }],
       },
     ],
     camera: [
@@ -961,7 +969,7 @@ export const CHAPTER_04_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "corridor",
     actors: [
-      { type: "maya", x: 600, y: 310, animation: "hack" },
+      { type: "maya", x: 600, y: 460, animation: "hack" },
     ],
     camera: [
       { x: 260, y: 10, time: 0 },
@@ -982,9 +990,9 @@ export const CHAPTER_04_COMPLETE_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 200,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 650, y: 310, duration: 2500 }],
+        path: [{ x: 650, y: 460, duration: 2500 }],
       },
     ],
     camera: [
@@ -1029,9 +1037,9 @@ export const CHAPTER_04_2_INTRO_SCENES: SceneDefinition[] = [
       {
         type: "maya",
         x: 80,
-        y: 310,
+        y: 460,
         animation: "walk-right",
-        path: [{ x: 450, y: 310, duration: 2500 }],
+        path: [{ x: 450, y: 460, duration: 2500 }],
       },
     ],
     camera: [
@@ -1051,7 +1059,7 @@ export const CHAPTER_04_2_INTRO_SCENES: SceneDefinition[] = [
   {
     background: "server",
     actors: [
-      { type: "maya", x: 450, y: 310, animation: "hack" },
+      { type: "maya", x: 450, y: 460, animation: "hack" },
     ],
     camera: [
       { x: 200, y: 10, time: 0 },
@@ -1092,7 +1100,7 @@ export const CHAPTER_04_2_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "server",
     actors: [
-      { type: "maya", x: 450, y: 310, animation: "hack" },
+      { type: "maya", x: 450, y: 460, animation: "hack" },
     ],
     camera: [
       { x: 180, y: 10, time: 0 },
@@ -1110,7 +1118,7 @@ export const CHAPTER_04_2_COMPLETE_SCENES: SceneDefinition[] = [
   {
     background: "server",
     actors: [
-      { type: "maya", x: 450, y: 310, animation: "idle" },
+      { type: "maya", x: 450, y: 460, animation: "idle" },
     ],
     camera: [
       { x: 200, y: 10, time: 0 },

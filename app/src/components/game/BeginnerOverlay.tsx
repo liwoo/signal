@@ -31,11 +31,11 @@ type BriefingTab = "beginner" | "expert";
 
 export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
   const hasBeginner = !!notes.beginnerBlocks && notes.beginnerBlocks.length > 0;
-  const [activeTab, setActiveTab] = useState<BriefingTab>(hasBeginner ? "beginner" : "expert");
+  // Lead with expert; beginners opt in via the prominent CTA below.
+  const [activeTab, setActiveTab] = useState<BriefingTab>("expert");
   const activeBlocks = activeTab === "beginner" && notes.beginnerBlocks ? notes.beginnerBlocks : notes.blocks;
   const totalSections = getSectionCountFromBlocks(activeBlocks);
   const [currentSection, setCurrentSection] = useState(0);
-  const [sectionDone, setSectionDone] = useState(false);
   const [typingBlockIndex, setTypingBlockIndex] = useState(0);
   const [typedChars, setTypedChars] = useState(0);
   const [earnedXP, setEarnedXP] = useState(0);
@@ -47,6 +47,18 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
   const currentTypingBlock = typingBlockIndex < sectionBlocks.length ? sectionBlocks[typingBlockIndex] : null;
   const currentContent = currentTypingBlock?.content ?? "";
   const isLastSection = currentSection >= totalSections - 1;
+  // Derived: the section has finished typing once we're past its last block.
+  const sectionDone = typingBlockIndex >= sectionBlocks.length;
+
+  // If the next section is the animated walkthrough, frame CONTINUE as "watch the video".
+  const nextIsWalkthrough = activeBlocks.some(
+    (b) => b.section === currentSection + 1 && b.type === "diagram" && b.diagramId?.endsWith("-animation"),
+  );
+  const advanceLabel = isLastSection
+    ? "START LEVEL"
+    : nextIsWalkthrough
+      ? "▶ WATCH THE WALKTHROUGH"
+      : "CONTINUE ▸";
 
   // When the section is a single diagram, give it the full remaining height
   // so its internal scroll + pinned controls work correctly
@@ -65,10 +77,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
   }, [clickedHotspots, onHotspotXP, chapterId]);
 
   useEffect(() => {
-    if (!currentTypingBlock) {
-      setSectionDone(true);
-      return;
-    }
+    if (!currentTypingBlock) return;
 
     // Diagram blocks render instantly — skip typing animation
     if (currentTypingBlock.type === "diagram") {
@@ -116,7 +125,6 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
     }
     setTypingBlockIndex(sectionBlocks.length);
     setTypedChars(0);
-    setSectionDone(true);
   }, [sectionBlocks.length]);
 
   const advanceSection = useCallback(() => {
@@ -127,7 +135,6 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
     setCurrentSection((s) => s + 1);
     setTypingBlockIndex(0);
     setTypedChars(0);
-    setSectionDone(false);
   }, [isLastSection, onReady]);
 
   const switchTab = useCallback((tab: BriefingTab) => {
@@ -140,7 +147,6 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
     setCurrentSection(0);
     setTypingBlockIndex(0);
     setTypedChars(0);
-    setSectionDone(false);
   }, [activeTab]);
 
   // Allow Enter key to advance when section is done
@@ -260,6 +266,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
               />
             ))}
           </div>
+
         </div>
 
         {/* Notebook content — diagram sections get full height, text sections scroll */}
@@ -310,6 +317,25 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
             );
           })}
 
+          {/* Beginner opt-in — appears under the first explanation, not pinned at the top */}
+          {activeTab === "expert" && hasBeginner && !isDiagramSection && (typingBlockIndex >= 1 || sectionDone) && (
+            <button
+              onClick={() => switchTab("beginner")}
+              className="w-full mt-1 flex items-center justify-center gap-2 px-4 py-2.5 cursor-pointer transition-colors"
+              style={{
+                color: "var(--color-info)",
+                border: "1px solid var(--color-info)",
+                background: "rgba(0,212,255,.06)",
+              }}
+            >
+              <span className="text-[11px]">🌱</span>
+              <span className="text-[10px] tracking-[2px] font-[family-name:var(--font-display)]">
+                I&apos;M A BEGINNER — I DON&apos;T UNDERSTAND
+              </span>
+              <span className="text-[11px]">→</span>
+            </button>
+          )}
+
           {/* Hotspot prompt */}
           {!isDiagramSection && sectionDone && sectionHasHotspots && (
             <div
@@ -358,7 +384,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                 border: "1px solid rgba(110,255,160,.3)",
               }}
             >
-              {isLastSection ? "START LEVEL" : "CONTINUE ▸"}{" "}
+              {advanceLabel}{" "}
               <span style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
             </button>
           )}
@@ -418,6 +444,7 @@ function BlockRenderer({
         {block.diagramId === "ch01-animation" && (
           <GoAppliance
             view="animation"
+            autoPlay
             onHotspotClick={(id) => onHotspotClick(id)}
             clickedIds={clickedHotspots}
           />
@@ -577,6 +604,13 @@ function BlockRenderer({
 
 // ── Code with Hotspots ──
 
+interface ActiveTip {
+  text: string;
+  tip: string;
+  x: number; // viewport px — token center
+  y: number; // viewport px — token top
+}
+
 function CodeWithHotspots({
   code,
   hotspots,
@@ -590,7 +624,7 @@ function CodeWithHotspots({
   onHotspotClick: (hotspotText: string) => void;
   fontScale: number;
 }) {
-  const [activeTip, setActiveTip] = useState<{ text: string; tip: string } | null>(null);
+  const [activeTip, setActiveTip] = useState<ActiveTip | null>(null);
   const [xpFlash, setXpFlash] = useState(false);
 
   const handleClick = (hs: Hotspot, e: React.MouseEvent) => {
@@ -599,7 +633,8 @@ function CodeWithHotspots({
       setActiveTip(null);
       return;
     }
-    setActiveTip(hs);
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setActiveTip({ text: hs.text, tip: hs.tip, x: rect.left + rect.width / 2, y: rect.top });
 
     // Award XP on first click
     if (!clickedHotspots.has(hs.text)) {
@@ -609,20 +644,33 @@ function CodeWithHotspots({
     }
   };
 
-  const handleContainerClick = () => {
-    if (activeTip) setActiveTip(null);
-  };
+  // Dismiss on scroll/resize/escape — the popover is viewport-anchored.
+  useEffect(() => {
+    if (!activeTip) return;
+    const close = () => setActiveTip(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveTip(null);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [activeTip]);
 
   const segments = buildSegments(code, hotspots);
 
   return (
-    <span onClick={handleContainerClick}>
+    <span onClick={() => activeTip && setActiveTip(null)}>
       {segments.map((seg, i) =>
         seg.hotspot ? (
           <span
             key={i}
             onClick={(e) => handleClick(seg.hotspot!, e)}
-            className="cursor-pointer transition-colors duration-150"
+            className="cursor-help transition-colors duration-150"
             style={{
               borderBottom: "1px dashed var(--color-info)",
               color: activeTip?.text === seg.hotspot.text ? "var(--color-info)" : "var(--color-signal)",
@@ -637,46 +685,80 @@ function CodeWithHotspots({
         )
       )}
 
-      {/* Full-width tooltip below the code */}
       {activeTip && (
-        <span
-          className="block mt-3 px-4 py-3"
-          style={{
-            background: "var(--color-panel)",
-            border: "1px solid var(--color-info)",
-            borderLeft: "3px solid var(--color-info)",
-            whiteSpace: "normal",
-          }}
-        >
-          <span className="flex items-center justify-between mb-1.5">
-            <span
-              className="text-[7px] tracking-[3px]"
-              style={{ color: "var(--color-info)" }}
-            >
-              ▸ EXPLAIN
-            </span>
-            {xpFlash && (
-              <span
-                className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)] xp-burst"
-                style={{ color: "var(--color-signal)" }}
-              >
-                +{HOTSPOT_XP} XP
-              </span>
-            )}
-          </span>
-          <span
-            className="block leading-[1.8]"
-            style={{
-              fontSize: `${Math.round(12 * fontScale)}px`,
-              color: "var(--color-foreground)",
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            {activeTip.tip}
-          </span>
-        </span>
+        <HotspotPopover tip={activeTip} xpFlash={xpFlash} fontScale={fontScale} />
       )}
     </span>
+  );
+}
+
+/** Floating popover pinned above the clicked token (viewport-fixed, clamped horizontally). */
+function HotspotPopover({ tip, xpFlash, fontScale }: { tip: ActiveTip; xpFlash: boolean; fontScale: number }) {
+  const width = Math.min(300, typeof window !== "undefined" ? window.innerWidth * 0.8 : 300);
+  const half = width / 2;
+  const margin = 12;
+  const maxX = (typeof window !== "undefined" ? window.innerWidth : 1000) - half - margin;
+  const centerX = Math.max(half + margin, Math.min(tip.x, maxX));
+  const arrowX = tip.x - (centerX - half); // arrow points back at the token
+
+  return (
+    <div
+      role="tooltip"
+      onClick={(e) => e.stopPropagation()}
+      className="intro-in"
+      style={{
+        position: "fixed",
+        left: centerX - half,
+        top: tip.y - 12,
+        transform: "translateY(-100%)",
+        width,
+        zIndex: 80,
+        whiteSpace: "normal",
+        padding: "10px 12px",
+        background: "var(--color-panel)",
+        border: "1px solid var(--color-info)",
+        borderLeft: "3px solid var(--color-info)",
+        boxShadow: "0 10px 28px rgba(4,8,16,.75)",
+        cursor: "default",
+      }}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[7px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
+          ▸ EXPLAIN
+        </span>
+        {xpFlash && (
+          <span
+            className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)] xp-burst"
+            style={{ color: "var(--color-signal)" }}
+          >
+            +{HOTSPOT_XP} XP
+          </span>
+        )}
+      </div>
+      <div
+        className="leading-[1.7]"
+        style={{
+          fontSize: `${Math.round(11 * fontScale)}px`,
+          color: "var(--color-foreground)",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        {tip.tip}
+      </div>
+      <span
+        style={{
+          position: "absolute",
+          top: "100%",
+          left: Math.max(10, Math.min(arrowX, width - 10)),
+          transform: "translateX(-50%)",
+          width: 0,
+          height: 0,
+          borderLeft: "6px solid transparent",
+          borderRight: "6px solid transparent",
+          borderTop: "6px solid var(--color-info)",
+        }}
+      />
+    </div>
   );
 }
 

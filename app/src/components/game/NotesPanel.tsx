@@ -147,7 +147,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
                   borderBottom: "1px solid rgba(110,255,160,.06)",
                 }}
               >
-                {notes.blocks.map((block, i) => (
+                {(notes.notesBlocks ?? notes.blocks).map((block, i) => (
                   <NoteBlockView key={i} block={block} fontScale={fontScale} />
                 ))}
               </div>
@@ -160,9 +160,9 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
 }
 
 function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: number }) {
-  const textSize = `${Math.round(12 * fontScale)}px`;
-  // Code stays readable at smaller sizes — scale less aggressively
-  const codeSize = `${Math.round(11 * Math.max(1, fontScale * 0.65))}px`;
+  // Larger, more readable in-challenge reference.
+  const textSize = `${Math.round(14 * fontScale)}px`;
+  const codeSize = `${Math.round(13 * Math.max(1, fontScale * 0.7))}px`;
 
   if (block.type === "text") {
     if (block.important) {
@@ -193,7 +193,7 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
     return (
       <div
         className="leading-[1.7] mb-3"
-        style={{ fontSize: textSize, color: "var(--color-foreground)", opacity: 0.8 }}
+        style={{ fontSize: textSize, color: "var(--color-foreground)" }}
       >
         {block.content}
       </div>

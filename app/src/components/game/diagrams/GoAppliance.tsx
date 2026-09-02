@@ -444,21 +444,24 @@ interface GoApplianceProps {
   onHotspotClick?: (id: string) => void;
   clickedIds?: Set<string>;
   view?: "animation" | "card";
+  /** Play as a smooth, controls-free looping "video" (like the landing PromoLoop). */
+  autoPlay?: boolean;
 }
 
-export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "animation" }: GoApplianceProps) {
+export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "animation", autoPlay = false }: GoApplianceProps) {
   const [scene, setScene] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(autoPlay);
   const [cardActive, setCardActive] = useState<string | null>(null);
   const sc = SCENES[scene];
 
-  // Auto-play
+  // Auto-play — loops continuously in video mode; plays once otherwise.
   useEffect(() => {
     if (!playing) return;
-    if (scene >= SCENES.length - 1) { setPlaying(false); return; }
-    const t = setTimeout(() => setScene((s) => s + 1), 3500);
+    const atEnd = scene >= SCENES.length - 1;
+    if (atEnd && !autoPlay) { setPlaying(false); return; }
+    const t = setTimeout(() => setScene((s) => (atEnd ? 0 : s + 1)), atEnd ? 2200 : 3500);
     return () => clearTimeout(t);
-  }, [playing, scene]);
+  }, [playing, scene, autoPlay]);
 
   const handleCardPartClick = useCallback((id: string) => {
     setCardActive((prev) => (prev === id ? null : id));
@@ -486,8 +489,8 @@ export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "an
             </div>
           </div>
 
-          {/* Narration + code (fixed height, flush with controls) */}
-          <div style={{ flexShrink: 0, display: "flex", gap: 12, alignItems: "stretch", height: 300 }}>
+          {/* Narration + code — responsive height so the walkthrough fits small screens */}
+          <div style={{ flexShrink: 0, display: "flex", gap: 12, alignItems: "stretch", height: "clamp(150px, 28vh, 300px)" }}>
             <div style={{ flex: "1 1 300px", border: `1px solid ${T.line}`, overflow: "auto", display: "flex", flexDirection: "column" }}>
               <div style={{ padding: "6px 12px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green }} />
@@ -507,20 +510,28 @@ export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "an
             )}
           </div>
 
-          {/* Controls (flush below narration) */}
-          <div style={{ flexShrink: 0, paddingTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Video mode: a thin, non-interactive progress bar. Otherwise: full controls. */}
+          {autoPlay ? (
+            <div style={{ flexShrink: 0, paddingTop: 8, display: "flex", gap: 4 }}>
               {SCENES.map((_, i) => (
-                <button key={i} onClick={() => { setScene(i); setPlaying(false); }} style={{ width: 26, height: 26, borderRadius: "50%", background: i === scene ? T.green : i < scene ? T.green + "33" : "#1a1a2e", border: i === scene ? `2px solid ${T.green}` : `1px solid ${T.line}`, color: i === scene ? "#0a0a1a" : i < scene ? T.green : "#555", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{i + 1}</button>
+                <div key={i} style={{ flex: 1, height: 3, background: i <= scene ? T.green : T.line, transition: "background .4s ease" }} />
               ))}
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button onClick={() => setScene(Math.max(0, scene - 1))} disabled={scene === 0} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === 0 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === 0 ? 0.3 : 1 }}>← BACK</button>
-              <button onClick={() => { setScene(0); setPlaying(true); }} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.green}44`, color: T.green, fontSize: 12, fontFamily: "var(--font-mono)" }}>▶ PLAY</button>
-              {playing && <button onClick={() => setPlaying(false)} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: T.ink, fontSize: 12, fontFamily: "var(--font-mono)" }}>⏸</button>}
-              <button onClick={() => setScene(Math.min(SCENES.length - 1, scene + 1))} disabled={scene === SCENES.length - 1} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === SCENES.length - 1 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === SCENES.length - 1 ? 0.3 : 1 }}>NEXT →</button>
+          ) : (
+            <div style={{ flexShrink: 0, paddingTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                {SCENES.map((_, i) => (
+                  <button key={i} onClick={() => { setScene(i); setPlaying(false); }} style={{ width: 26, height: 26, borderRadius: "50%", background: i === scene ? T.green : i < scene ? T.green + "33" : "#1a1a2e", border: i === scene ? `2px solid ${T.green}` : `1px solid ${T.line}`, color: i === scene ? "#0a0a1a" : i < scene ? T.green : "#555", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{i + 1}</button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <button onClick={() => setScene(Math.max(0, scene - 1))} disabled={scene === 0} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === 0 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === 0 ? 0.3 : 1 }}>← BACK</button>
+                <button onClick={() => { setScene(0); setPlaying(true); }} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.green}44`, color: T.green, fontSize: 12, fontFamily: "var(--font-mono)" }}>▶ PLAY</button>
+                {playing && <button onClick={() => setPlaying(false)} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: T.ink, fontSize: 12, fontFamily: "var(--font-mono)" }}>⏸</button>}
+                <button onClick={() => setScene(Math.min(SCENES.length - 1, scene + 1))} disabled={scene === SCENES.length - 1} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === SCENES.length - 1 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === SCENES.length - 1 ? 0.3 : 1 }}>NEXT →</button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

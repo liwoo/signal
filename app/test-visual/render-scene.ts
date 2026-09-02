@@ -16,7 +16,7 @@ function renderTo(id: string, source: HTMLCanvasElement) {
 console.log("Starting render...");
 
 // Scenes — paint at exact target size
-for (const type of ["cell", "corridor", "chase", "server", "boss-arena"] as const) {
+for (const type of ["cell", "corridor", "chase", "vent", "server", "boss-arena"] as const) {
   try {
     const bg = paintScene(type, 640, 420);
     console.log(`${type}: ${bg.width}x${bg.height}, has data:`, bg.width > 0);
@@ -77,6 +77,149 @@ try {
   console.log(`Composite: ${W}x${H}, floorY=${floorY}, maya@${mayaFeetY}, guard@${guardFeetY}`);
 } catch (e) {
   console.error("Error painting composite:", e);
+}
+
+// ── CINEMATIC composite: new painter at cinematic dims + Maya at authored coords ──
+try {
+  const el = document.getElementById("cine-cell") as HTMLCanvasElement | null;
+  if (el) {
+    const ctx = el.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    // Compose at full 1040x600, then scale 0.5 into the visible canvas.
+    const full = document.createElement("canvas");
+    full.width = 1040; full.height = 600;
+    const fctx = full.getContext("2d")!;
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(paintScene("cell", 1040, 600), 0, 0);
+    const f = paintMayaFrames("hack", 2.4)[0];
+    const mx = 520, feetY = 340; // authored "rigged the terminal" coords
+    fctx.drawImage(f, mx - f.width / 2, feetY - f.height);
+    ctx.drawImage(full, 0, 0, 1040, 600, 0, 0, 520, 300);
+  }
+} catch (e) {
+  console.error("Error painting cine-cell:", e);
+}
+
+// ── PROMO LOOP composite — verify proportions + grounding ──
+try {
+  const PW = 960, PH = 540, S = 2.2;
+  const pc = document.getElementById("promo-cell") as HTMLCanvasElement | null;
+  if (pc) {
+    const full = document.createElement("canvas"); full.width = PW; full.height = PH;
+    const fx = full.getContext("2d")!; fx.imageSmoothingEnabled = false;
+    fx.drawImage(paintScene("cell", PW, PH), 0, 0);
+    const f = paintMayaFrames("idle", S)[0];
+    fx.drawImage(f, 360 - f.width / 2, 440 - f.height);
+    const c = pc.getContext("2d")!; c.imageSmoothingEnabled = false;
+    c.drawImage(full, 0, 0, PW, PH, 0, 0, 480, 270);
+  }
+  const pk = document.getElementById("promo-corridor") as HTMLCanvasElement | null;
+  if (pk) {
+    const full = document.createElement("canvas"); full.width = PW; full.height = PH;
+    const fx = full.getContext("2d")!; fx.imageSmoothingEnabled = false;
+    fx.drawImage(paintScene("corridor", PW, PH), 0, 0);
+    const m = paintMayaFrames("walk-right", S)[0];
+    fx.drawImage(m, 300 - m.width / 2, 470 - m.height);
+    const g = paintGuardFrames("walk-right", S)[0];
+    fx.globalAlpha = 0.6;
+    fx.drawImage(g, 780 - g.width / 2, 470 - g.height);
+    fx.globalAlpha = 1;
+    const c = pk.getContext("2d")!; c.imageSmoothingEnabled = false;
+    c.drawImage(full, 0, 0, PW, PH, 0, 0, 480, 270);
+  }
+  console.log("Promo composite rendered");
+} catch (e) {
+  console.error("Error painting promo composite:", e);
+}
+
+// ── INTRO CINEMATIC viewport — replicate PixiScene camera crop ──
+try {
+  const clampN = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const SW = 1040, SH = 600, VW = 640, VH = 400, BASE = 0.85;
+  const shots: { id: string; scene: Parameters<typeof paintScene>[0]; anim: Parameters<typeof paintMayaFrames>[0]; ax: number; ay: number; camX: number; camY: number; zoom: number }[] = [
+    { id: "vp-1", scene: "cell", anim: "idle", ax: 380, ay: 370, camX: 400, camY: 290, zoom: 1.2 },
+    { id: "vp-2", scene: "cell", anim: "hack", ax: 520, ay: 340, camX: 560, camY: 295, zoom: 1.4 },
+    { id: "vp-3", scene: "corridor", anim: "walk-right", ax: 600, ay: 460, camX: 600, camY: 300, zoom: 1.0 },
+  ];
+  for (const s of shots) {
+    const el = document.getElementById(s.id) as HTMLCanvasElement | null;
+    if (!el) continue;
+    const ctx = el.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, VW, VH);
+    const scale = BASE * s.zoom;
+    const cx = clampN(s.camX, VW / 2 / scale, SW - VW / 2 / scale);
+    const cy = clampN(s.camY, VH / 2 / scale, SH - VH / 2 / scale);
+    const offX = VW / 2 - cx * scale, offY = VH / 2 - cy * scale;
+    ctx.drawImage(paintScene(s.scene, SW, SH), 0, 0, SW, SH, offX, offY, SW * scale, SH * scale);
+    const f = paintMayaFrames(s.anim, 2.4)[0];
+    ctx.drawImage(f, offX + s.ax * scale - (f.width / 2) * scale, offY + (s.ay - f.height) * scale, f.width * scale, f.height * scale);
+  }
+  console.log("Intro viewport rendered");
+} catch (e) {
+  console.error("Error painting intro viewport:", e);
+}
+
+// ── CINEMATIC AUDIT — check actor grounding against the new floors ──
+try {
+  const audits: { id: string; scene: Parameters<typeof paintScene>[0]; anim: Parameters<typeof paintMayaFrames>[0]; x0: number; x1: number; y: number }[] = [
+    { id: "cine-corridor", scene: "corridor", anim: "walk-right", x0: 160, x1: 620, y: 470 },
+    { id: "cine-chase", scene: "chase", anim: "walk-right", x0: 180, x1: 700, y: 470 },
+    { id: "cine-vent", scene: "vent", anim: "crawl-right", x0: 180, x1: 520, y: 430 },
+    { id: "cine-cell2", scene: "cell", anim: "walk-right", x0: 360, x1: 640, y: 430 },
+    { id: "cine-boss", scene: "boss-arena", anim: "walk-right", x0: 260, x1: 420, y: 470 },
+  ];
+  for (const a of audits) {
+    const el = document.getElementById(a.id) as HTMLCanvasElement | null;
+    if (!el) continue;
+    const ctx = el.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    const full = document.createElement("canvas");
+    full.width = 1040; full.height = 600;
+    const fc = full.getContext("2d")!;
+    fc.imageSmoothingEnabled = false;
+    fc.drawImage(paintScene(a.scene, 1040, 600), 0, 0);
+    const f = paintMayaFrames(a.anim, 1.6)[0];
+    fc.globalAlpha = 0.4;
+    fc.drawImage(f, a.x0 - f.width / 2, a.y - f.height);
+    fc.globalAlpha = 1;
+    fc.drawImage(f, a.x1 - f.width / 2, a.y - f.height);
+    // draw the floor-far line (farB) for reference in magenta
+    ctx.drawImage(full, 0, 0, 1040, 600, 0, 0, 520, 300);
+  }
+  console.log("Cinematic audit rendered");
+} catch (e) {
+  console.error("Error painting cinematic audit:", e);
+}
+
+// ── CAM-FEED cutouts (replicates MayaAnimation crop logic) ──
+try {
+  const CAM_W = 220, CAM_H = 140, SW = 460, SH = 340;
+  const clampV = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const feeds: { id: string; scene: Parameters<typeof paintScene>[0]; anim: Parameters<typeof paintMayaFrames>[0]; mayaXf: number; feetYf: number; scale: number }[] = [
+    { id: "camfeed-cell-hack", scene: "cell", anim: "hack", mayaXf: 0.42, feetYf: 0.74, scale: 2 },
+    { id: "camfeed-cell-keypad", scene: "cell", anim: "keypad", mayaXf: 0.74, feetYf: 0.74, scale: 2 },
+    { id: "camfeed-vent", scene: "vent", anim: "crawl-right", mayaXf: 0.5, feetYf: 0.7, scale: 3 },
+    { id: "camfeed-corridor", scene: "corridor", anim: "walk-right", mayaXf: 0.5, feetYf: 0.72, scale: 2 },
+    { id: "camfeed-server", scene: "server", anim: "hack", mayaXf: 0.4, feetYf: 0.74, scale: 2 },
+  ];
+  for (const f of feeds) {
+    const el = document.getElementById(f.id) as HTMLCanvasElement | null;
+    if (!el) continue;
+    const ctx = el.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    const bg = paintScene(f.scene, SW, SH);
+    const frame = paintMayaFrames(f.anim, f.scale)[0];
+    const mayaX = SW * f.mayaXf, feetY = SH * f.feetYf;
+    const camX = clampV(mayaX - CAM_W / 2, 0, SW - CAM_W);
+    const camY = clampV(feetY - CAM_H * 0.82, 0, SH - CAM_H);
+    ctx.clearRect(0, 0, CAM_W, CAM_H);
+    ctx.drawImage(bg, camX, camY, CAM_W, CAM_H, 0, 0, CAM_W, CAM_H);
+    ctx.drawImage(frame, mayaX - camX - frame.width / 2, feetY - camY - frame.height);
+  }
+  console.log("Cam-feeds rendered");
+} catch (e) {
+  console.error("Error painting cam-feeds:", e);
 }
 
 // Maya character standalone
