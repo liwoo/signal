@@ -2,11 +2,16 @@
 // Each scene describes what to render: background type, actors, camera path, duration.
 // Actor positions are in scene coordinates (scene = viewport + padding).
 // With viewport 640x400 and padding 200, scene is 1040x600.
-// Cell floor starts at y = 600 * 0.50 = 300. Characters feet should be ~360.
-// Corridor walkable area: y = 192 to 420. Character feet ~310.
+//
+// Floor bands (scene px, h=600) — actors' feet must sit inside these:
+//   cell      far edge y≈339 (back wall / terminal)  → near edge 600
+//   corridor  far edge y≈315 (heavy door at the VP)  → near edge 600
+// Actors grow as they walk down the band toward the camera (depth scale).
 
 import type { SceneType } from "./scene-painter";
 import type { CharAnimation } from "./character-painter";
+import type { ShakeSpec, FlashSpec, GlitchSpec } from "./scene-fx";
+import { C } from "./palette";
 
 export interface Actor {
   type: "maya" | "guard";
@@ -14,6 +19,10 @@ export interface Actor {
   y: number;
   animation: CharAnimation;
   path?: Waypoint[];      // movement waypoints
+  /** Animation to switch to once the path has been walked (e.g. walk → hack). */
+  endAnimation?: CharAnimation;
+  /** Extra size multiplier on top of depth scale. Default 1. */
+  scale?: number;
 }
 
 export interface Waypoint {
@@ -46,6 +55,16 @@ export interface AudioCue {
   fadeMs?: number;
 }
 
+/** In-picture title reveal (big display type over the frame). */
+export interface TitleCard {
+  text: string;
+  sub?: string;
+  /** When it appears. Default 0. */
+  atMs?: number;
+  /** How long it stays. Default: until the shot ends. */
+  durationMs?: number;
+}
+
 export interface SceneDefinition {
   background: SceneType;
   actors: Actor[];
@@ -54,176 +73,288 @@ export interface SceneDefinition {
   location: string;
   caption?: string;
   audio?: AudioCue[];
-  /** Transition into this shot. Default "cut"; "dissolve" (720ms) for time/place jumps. */
-  transition?: "cut" | "dissolve";
+  /**
+   * Transition into this shot. Default "cut". "dissolve" (720ms) for
+   * time/place jumps; "flash" = cut under a bright frame; "glitch" = cut
+   * through a burst of signal tearing.
+   */
+  transition?: "cut" | "dissolve" | "flash" | "glitch";
   /**
    * Shot pacing. "timed" (default) runs for durationMs. "on-action" ends at
    * max(last actor path end, caption typing end) + 600ms settle, with
    * durationMs as a hard ceiling.
    */
   advance?: "timed" | "on-action";
+  /** Impact shakes (viewport px) at points in the shot. */
+  shakes?: ShakeSpec[];
+  /** Full-frame flashes at points in the shot. */
+  flashes?: FlashSpec[];
+  /** Signal-tear bursts at points in the shot. */
+  glitches?: GlitchSpec[];
+  /** Dutch tilt in radians, eased in over the first 700ms. */
+  dutch?: number;
+  titleCard?: TitleCard;
 }
 
 // ── INTRO SCENES ───────────────────────────────────────────────────
+// Level 1 intro — six shots, ~23s. Wide → close → tracking → insert → threat →
+// insert. The corridor guard walks straight at the camera (depth scale) and
+// the whole thing ends on the terminal waiting for you.
 
 export const INTRO_SCENES: SceneDefinition[] = [
-  // Scene 1: Maya idle in cell — dark ambient drone, machinery hum
+  // Shot 1: establishing wide. Title card lands over the cell as the drone swells.
   {
     background: "cell",
+    transition: "dissolve",
     actors: [
-      { type: "maya", x: 380, y: 370, animation: "idle" },
+      { type: "maya", x: 610, y: 440, animation: "idle" },
     ],
     camera: [
-      { x: 420, y: 300, zoom: 1.0, time: 0 },
-      { x: 400, y: 290, zoom: 1.2, time: 3000 },
+      { x: 500, y: 330, zoom: 0.98, time: 0 },
+      { x: 520, y: 326, zoom: 1.08, time: 4600 },
     ],
-    durationMs: 3500,
+    durationMs: 4600,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "72 hours missing. no contact.",
+    titleCard: { text: "SIGNAL", sub: "FIRST CONTACT", atMs: 700, durationMs: 3000 },
     audio: [
       { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.12, fadeMs: 2000 },
       { atMs: 200, action: "loop-start", sound: "facility-hum", volume: 0.06, fadeMs: 1500 },
+      { atMs: 700, action: "sfx", sound: "terminal-beep", volume: 0.22 },
+      { atMs: 2600, action: "sfx", sound: "machinery", volume: 0.12 },
     ],
   },
-  // Scene 2: Maya hacking at terminal — typing sounds synced
+  // Shot 2: close on Maya. Dust in the pendant light, a door slides somewhere far off.
   {
     background: "cell",
     actors: [
-      { type: "maya", x: 520, y: 340, animation: "hack" },
+      { type: "maya", x: 610, y: 440, animation: "idle" },
     ],
     camera: [
-      { x: 540, y: 300, zoom: 1.25, time: 0 },
-      { x: 560, y: 295, zoom: 1.4, time: 3500 },
+      { x: 606, y: 366, zoom: 1.5, time: 0 },
+      { x: 604, y: 360, zoom: 1.64, time: 3400 },
     ],
-    durationMs: 4000,
+    durationMs: 3400,
     location: "SUBLEVEL 3 · CELL B-09",
-    caption: "she found a terminal. rigged it.",
+    caption: "sublevel 3. no windows. one terminal.",
     audio: [
-      { atMs: 300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
-      { atMs: 800, action: "sfx", sound: "maya-typing", volume: 0.25 },
-      { atMs: 2400, action: "sfx", sound: "terminal-beep", volume: 0.2 },
-      { atMs: 3200, action: "sfx", sound: "message-receive", volume: 0.3 },
+      { atMs: 1400, action: "sfx", sound: "door-slide", volume: 0.1 },
     ],
   },
-  // Scene 3: Maya walks corridor — footsteps synced to walk cycle (480ms = contact frame)
+  // Shot 3: she crosses to the terminal — camera tracks, then she sits into the hack.
   {
-    background: "corridor",
+    background: "cell",
     actors: [
       {
         type: "maya",
-        x: 120,
-        y: 460,
-        animation: "walk-right",
-        path: [
-          { x: 600, y: 460, duration: 3000 },
-        ],
+        x: 610,
+        y: 440,
+        animation: "walk-left",
+        path: [{ x: 528, y: 348, duration: 2000 }],
+        endAnimation: "hack",
       },
     ],
     camera: [
-      { x: 400, y: 300, time: 0 },
-      { x: 600, y: 300, time: 3000 },
+      { x: 590, y: 372, zoom: 1.25, time: 0 },
+      { x: 520, y: 320, zoom: 1.36, time: 2300 },
     ],
-    durationMs: 3500,
-    location: "SUBLEVEL 3 · CORRIDOR B",
-    caption: "signal sent. waiting for a programmer.",
+    durationMs: 3200,
+    advance: "on-action",
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "she found it on day two.",
     audio: [
-      // Footsteps: ~6 steps over 3s walk, starting with first contact frame
-      { atMs: 100, action: "footsteps", count: 7, intervalMs: 480, volume: 0.3 },
-      // Corridor ambient underneath
-      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 1000 },
-      // Stop cell ambient from previous scene
-      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1500 },
+      { atMs: 100, action: "footsteps", count: 4, intervalMs: 430, volume: 0.22 },
+    ],
+  },
+  // Shot 4: insert on the terminal. Typing, then the send — a cyan flash and a jolt.
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 520, y: 345, animation: "hack" },
+    ],
+    camera: [
+      { x: 515, y: 292, zoom: 1.7, time: 0 },
+      { x: 512, y: 282, zoom: 1.86, time: 4200 },
+    ],
+    durationMs: 4200,
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "rigged a dead terminal. one shot at the outside.",
+    flashes: [{ atMs: 3300, durationMs: 520, color: C.termBright, intensity: 0.35 }],
+    shakes: [{ atMs: 3300, durationMs: 320, intensity: 3 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "maya-typing", volume: 0.3 },
+      { atMs: 900, action: "sfx", sound: "keypress-1", volume: 0.16 },
+      { atMs: 1300, action: "sfx", sound: "keypress-2", volume: 0.16 },
+      { atMs: 1700, action: "sfx", sound: "keypress-3", volume: 0.16 },
+      { atMs: 2300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 3300, action: "sfx", sound: "code-submit", volume: 0.38 },
+    ],
+  },
+  // Shot 5: the threat. A guard walks the corridor straight at the lens, growing
+  // with every step; boots and a dread sting under a slight dutch tilt.
+  {
+    background: "corridor",
+    transition: "glitch",
+    actors: [
+      {
+        type: "guard",
+        x: 526,
+        y: 328,
+        animation: "walk-down",
+        path: [{ x: 506, y: 578, duration: 4200 }],
+      },
+    ],
+    camera: [
+      { x: 520, y: 382, zoom: 1.05, time: 0 },
+      { x: 514, y: 404, zoom: 1.16, time: 4200 },
+    ],
+    dutch: 0.022,
+    durationMs: 4200,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "they check the cells every hour. it's been fifty minutes.",
+    shakes: [
+      { atMs: 3180, durationMs: 220, intensity: 1.6 },
+      { atMs: 3650, durationMs: 240, intensity: 2.2 },
+    ],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1200 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.12, fadeMs: 800 },
+      { atMs: 200, action: "sfx", sound: "dread-sting", volume: 0.42 },
+      { atMs: 300, action: "footsteps", count: 9, intervalMs: 470, volume: 0.42, variant: "boots" },
+    ],
+  },
+  // Shot 6: back on the terminal under a flash — the signal is out. It wobbles once.
+  {
+    background: "cell",
+    transition: "flash",
+    actors: [
+      { type: "maya", x: 520, y: 345, animation: "hack" },
+    ],
+    camera: [
+      { x: 512, y: 286, zoom: 1.6, time: 0 },
+      { x: 506, y: 272, zoom: 1.96, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "signal sent. waiting for a programmer.",
+    glitches: [{ atMs: 2600, durationMs: 220 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.1, fadeMs: 1500 },
+      { atMs: 400, action: "sfx", sound: "message-receive", volume: 0.4 },
+      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+      { atMs: 2600, action: "sfx", sound: "warning-beep", volume: 0.2 },
     ],
   },
 ];
 
 // ── CHAPTER 1 COMPLETE SCENES ──────────────────────────────────────
+// Handshake lands → a guard heard it → the knock → the door is the next problem.
 
 export const CHAPTER_01_COMPLETE_SCENES: SceneDefinition[] = [
-  // Win 1: Maya at terminal — handshake beep, confirmation
+  // Win 1: the terminal confirms. Green flash, link card.
   {
     background: "cell",
+    transition: "dissolve",
     actors: [
-      { type: "maya", x: 520, y: 340, animation: "hack" },
+      { type: "maya", x: 520, y: 345, animation: "hack" },
     ],
     camera: [
-      { x: 540, y: 300, zoom: 1.3, time: 0 },
+      { x: 512, y: 290, zoom: 1.6, time: 0 },
+      { x: 512, y: 284, zoom: 1.72, time: 3600 },
     ],
-    durationMs: 3000,
+    durationMs: 3600,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "handshake confirmed. she's not alone anymore.",
+    titleCard: { text: "LINK ESTABLISHED", sub: "CELL B-09 ↔ YOU", atMs: 900, durationMs: 2300 },
+    flashes: [{ atMs: 700, durationMs: 640, color: C.signalBright, intensity: 0.42 }],
+    shakes: [{ atMs: 700, durationMs: 260, intensity: 2 }],
     audio: [
       { atMs: 0, action: "loop-start", sound: "cell-ambient", volume: 0.1, fadeMs: 1000 },
       { atMs: 200, action: "sfx", sound: "terminal-beep", volume: 0.35 },
-      { atMs: 800, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 700, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
       { atMs: 1600, action: "sfx", sound: "message-receive", volume: 0.3 },
     ],
   },
-  // Win 2: Maya sneaking through corridor — cautious footsteps, tension
+  // Win 2: the corridor. A guard heard the terminal wake up — and he's coming.
   {
     background: "corridor",
+    transition: "glitch",
     actors: [
-      {
-        type: "maya",
-        x: 180,
-        y: 460,
-        animation: "walk-right",
-        path: [{ x: 620, y: 460, duration: 3000 }],
-      },
-    ],
-    camera: [
-      { x: 420, y: 300, time: 0 },
-      { x: 620, y: 300, time: 3000 },
-    ],
-    durationMs: 3500,
-    location: "SUBLEVEL 3 · CORRIDOR B",
-    caption: "but the guards heard something...",
-    audio: [
-      { atMs: 0, action: "loop-stop", sound: "cell-ambient", fadeMs: 1000 },
-      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.12, fadeMs: 800 },
-      // Maya's footsteps — synced to walk cycle contacts (480ms)
-      { atMs: 100, action: "footsteps", count: 7, intervalMs: 480, volume: 0.25 },
-      // Warning beep as guards notice
-      { atMs: 2200, action: "sfx", sound: "warning-beep", volume: 0.35 },
-      { atMs: 2800, action: "sfx", sound: "alert-beep", volume: 0.4 },
-    ],
-  },
-  // Win 3: Chase — alarm, fast footsteps (both Maya and guard)
-  {
-    background: "chase",
-    actors: [
-      {
-        type: "maya",
-        x: 140,
-        y: 460,
-        animation: "walk-right",
-        path: [{ x: 700, y: 460, duration: 2500 }],
-      },
       {
         type: "guard",
-        x: 60,
-        y: 465,
-        animation: "walk-right",
-        path: [{ x: 560, y: 465, duration: 2800 }],
+        x: 530,
+        y: 322,
+        animation: "walk-down",
+        path: [{ x: 500, y: 592, duration: 3400 }],
       },
     ],
     camera: [
-      { x: 380, y: 300, zoom: 1.0, time: 0 },
-      { x: 620, y: 300, zoom: 1.05, time: 2500 },
+      { x: 520, y: 380, zoom: 1.1, time: 0 },
+      { x: 510, y: 424, zoom: 1.3, time: 3400 },
     ],
-    durationMs: 3000,
-    location: "SUBLEVEL 3 · EAST WING",
-    caption: "move. now.",
+    dutch: 0.03,
+    durationMs: 3600,
+    location: "SUBLEVEL 3 · CORRIDOR B",
+    caption: "but someone heard the terminal wake up.",
+    shakes: [{ atMs: 2900, durationMs: 260, intensity: 3 }],
     audio: [
-      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 500 },
-      // Alarm blaring
-      { atMs: 0, action: "loop-start", sound: "alarm-loop", volume: 0.15, fadeMs: 300 },
-      // Maya running — faster footsteps (360ms = running pace)
-      { atMs: 50, action: "footsteps", count: 8, intervalMs: 360, volume: 0.35 },
-      // Guard boots — heavier, slightly slower, offset from Maya
-      { atMs: 200, action: "footsteps", count: 7, intervalMs: 420, volume: 0.45, variant: "boots" },
-      // Stop alarm at end
-      { atMs: 2700, action: "loop-stop", sound: "alarm-loop", fadeMs: 800 },
+      { atMs: 0, action: "loop-stop", sound: "cell-ambient", fadeMs: 600 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.12, fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "heartbeat-slow", volume: 0.2, fadeMs: 1200 },
+      { atMs: 300, action: "sfx", sound: "warning-beep", volume: 0.35 },
+      { atMs: 200, action: "footsteps", count: 8, intervalMs: 430, volume: 0.45, variant: "boots" },
+      { atMs: 2600, action: "sfx", sound: "alert-beep", volume: 0.4 },
+    ],
+  },
+  // Win 3: the knock. The frame slams, the picture tears, the camera creeps to the door.
+  {
+    background: "cell",
+    actors: [
+      { type: "maya", x: 520, y: 345, animation: "idle" },
+    ],
+    camera: [
+      { x: 600, y: 332, zoom: 1.3, time: 0 },
+      { x: 700, y: 330, zoom: 1.36, time: 3400 },
+    ],
+    durationMs: 3600,
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "she kills the screen. holds her breath.",
+    shakes: [
+      { atMs: 900, durationMs: 520, intensity: 9 },
+      { atMs: 1500, durationMs: 360, intensity: 5 },
+    ],
+    flashes: [{ atMs: 900, durationMs: 300, color: C.lightWarm, intensity: 0.22 }],
+    glitches: [{ atMs: 900, durationMs: 190 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 400 },
+      { atMs: 0, action: "loop-start", sound: "cell-ambient", volume: 0.06, fadeMs: 800 },
+      { atMs: 900, action: "sfx", sound: "knock-heavy", volume: 0.62 },
+      { atMs: 900, action: "loop-volume", sound: "heartbeat-slow", volume: 0.32, fadeMs: 400 },
+      { atMs: 1500, action: "sfx", sound: "knock-2", volume: 0.42 },
+      { atMs: 1900, action: "sfx", sound: "dread-sting", volume: 0.5 },
+    ],
+  },
+  // Win 4: the door, and the boots walking away. Chapter card over the keypad.
+  {
+    background: "cell",
+    transition: "dissolve",
+    actors: [
+      { type: "maya", x: 520, y: 345, animation: "idle" },
+    ],
+    camera: [
+      { x: 800, y: 300, zoom: 1.4, time: 0 },
+      { x: 832, y: 290, zoom: 1.56, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "SUBLEVEL 3 · CELL B-09 · DOOR",
+    caption: "the door has a keypad. next: the code.",
+    titleCard: { text: "CHAPTER 1 COMPLETE", sub: "NEXT · DOOR CODE", atMs: 1200, durationMs: 2600 },
+    audio: [
+      { atMs: 200, action: "footsteps", count: 3, intervalMs: 700, volume: 0.22, variant: "boots" },
+      { atMs: 1500, action: "loop-stop", sound: "heartbeat-slow", fadeMs: 2000 },
+      { atMs: 2800, action: "sfx", sound: "door-slide", volume: 0.18 },
+      { atMs: 3000, action: "sfx", sound: "message-receive", volume: 0.3 },
     ],
   },
 ];

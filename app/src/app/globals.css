@@ -11,7 +11,7 @@
   --color-player: #7ab8d8;
   --color-win: #ffed4a;
   --color-border: #0a2030;
-  --color-dim: #1a5a4a;
+  --color-dim: #4f9f82;
   --color-foreground: #b8d4a0;
 
   /* Syntax highlighting */
@@ -326,10 +326,88 @@ textarea {
   animation-fill-mode: both;
 }
 
+/* In-picture title card: tracks in from wide with a two-frame signal stutter */
+@keyframes cinematic-card-in {
+  0% { opacity: 0; letter-spacing: 0.9em; transform: translate3d(0, 6px, 0) scale(1.04); filter: blur(6px); }
+  28% { opacity: 1; letter-spacing: 0.34em; transform: none; filter: blur(0); }
+  33% { opacity: 0.35; transform: translate3d(-6px, 0, 0); }
+  38% { opacity: 1; transform: none; }
+  100% { opacity: 1; letter-spacing: 0.3em; transform: none; }
+}
+
+@keyframes cinematic-card-sub-in {
+  0% { opacity: 0; transform: translate3d(0, 8px, 0); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes cinematic-card-rule {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.cinematic-card {
+  animation: cinematic-card-in 1100ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.cinematic-card-sub {
+  animation: cinematic-card-sub-in 700ms cubic-bezier(.22, 1, .36, 1) 520ms both;
+}
+
+.cinematic-card-rule {
+  animation: cinematic-card-rule 900ms cubic-bezier(.22, 1, .36, 1) 260ms both;
+  transform-origin: center;
+}
+
+/* Secondary actions ("or ENTER", skip, don't show again): visible at rest, bright on hover/focus */
+.btn-secondary:hover,
+.btn-secondary:focus-visible {
+  color: var(--color-signal) !important;
+  border-color: color-mix(in srgb, var(--color-signal) 55%, transparent) !important;
+  background: color-mix(in srgb, var(--color-signal) 7%, transparent);
+  outline: none;
+}
+
+/* Reward card: flash, sweep, slam, badges */
+@keyframes reward-flash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes reward-sweep { 0% { top: -2px; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+@keyframes reward-card-in { 0% { opacity: 0; transform: scale(1.15); } 18% { opacity: 1; transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-14px) scale(.98); } }
+@keyframes reward-title-in { 0% { letter-spacing: .9em; filter: blur(8px); opacity: 0; } 25% { letter-spacing: .22em; filter: blur(0); opacity: 1; } 100% { letter-spacing: .22em; opacity: 1; } }
+@keyframes reward-badge-in { from { opacity: 0; transform: translateY(8px) scale(.8); } to { opacity: 1; transform: none; } }
+.reward-flash { animation: reward-flash 1.2s ease-out both; }
+.reward-sweep { animation: reward-sweep .7s cubic-bezier(.22,1,.36,1) both; }
+.reward-card { animation: reward-card-in 2.6s cubic-bezier(.22,1,.36,1) both; }
+.reward-title { animation: reward-title-in 1s cubic-bezier(.22,1,.36,1) both; }
+.reward-badge { animation: reward-badge-in .45s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* Zen debrief: beat entrance, before fades, after lands */
+@keyframes zen-beat-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes zen-after-in { 0% { opacity: 0; transform: translateX(18px); } 100% { opacity: 1; transform: none; } }
+@keyframes zen-arrow-in { 0%, 40% { opacity: 0; transform: translateX(-6px); } 100% { opacity: 1; transform: none; } }
+.zen-beat { animation: zen-beat-in .5s cubic-bezier(.22,1,.36,1) both; }
+.zen-before { animation: zen-beat-in .5s .3s both; }
+.zen-after { animation: zen-after-in .6s 1.1s cubic-bezier(.22,1,.36,1) both; }
+.zen-arrow { animation: zen-arrow-in 1.2s .5s both; }
+
+/* Objective bar: the hint button breathes when the player looks stuck */
+@keyframes hint-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-info) 0%, transparent); }
+  50% { box-shadow: 0 0 14px 2px color-mix(in srgb, var(--color-info) 45%, transparent); }
+}
+.hint-pulse { animation: hint-pulse 1.8s ease-in-out infinite; }
+
+/* Landing hero: slow breathing glow behind the live picture */
+@keyframes hero-halo {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.05); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cinematic-stage,
   .cinematic-title-in,
-  .cinematic-caption-in {
+  .cinematic-caption-in,
+  .cinematic-card,
+  .cinematic-card-sub,
+  .cinematic-card-rule {
     animation-duration: 1ms;
     animation-delay: 0ms;
   }

@@ -86,3 +86,14 @@ export function getLibraryStats(state: LibraryState): {
     missedXP: missed.reduce((s, e) => s + e.bonusXP, 0),
   };
 }
+
+/**
+ * The one line worth showing for an entry: Maya's teaching sentence, without
+ * the "...wait. i remember something." memory-returning flourish or backticks.
+ */
+export function entryLesson(entry: Pick<LibraryEntry, "learned" | "jolt" | "suggestion">): string {
+  const source = entry.learned ? entry.jolt : entry.suggestion;
+  const paras = source.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const meaningful = paras.find((p) => !p.startsWith("...")) ?? paras[0] ?? source;
+  return meaningful.replace(/`/g, "");
+}

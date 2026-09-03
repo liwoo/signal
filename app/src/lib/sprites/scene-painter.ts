@@ -3,10 +3,89 @@
 // many props, visible light rays, and rich atmospheric lighting.
 
 import { C, alpha } from "./palette";
-import { createProjection, floorGrid, wallQuad } from "./projection";
+import { createProjection, floorGrid, wallQuad, SCENE_PROJECTION } from "./projection";
 import { SCENE_LIGHTING, resolveLight, paintGlow, contactShadow } from "./lighting";
 
 export type SceneType = "cell" | "corridor" | "chase" | "vent" | "server" | "boss-arena";
+
+// ── Layered output ──────────────────────────────────────────────────
+// A scene paints into planes so the cinematic renderer can depth-sort actors
+// against furniture and slide the planes at different rates (parallax).
+
+export interface MidProp {
+  canvas: HTMLCanvasElement;
+  /** Scene px of the canvas' top-left corner. */
+  x: number;
+  y: number;
+  /** Depth-sort key — same convention as an actor's foot line. */
+  footY: number;
+}
+
+export interface PaintedScene {
+  /** Walls, ceiling, floor, background-tier props, baked lighting. */
+  back: HTMLCanvasElement;
+  /** Supporting-tier floor props as individual canvases, sorted by footY. */
+  mid: MidProp[];
+  /** Near-camera occluders (door-frame edge, foreground pipe, hanging cable). */
+  fore: HTMLCanvasElement | null;
+}
+
+interface LayerSink {
+  mid: MidProp[];
+}
+
+/**
+ * Paint a prop either straight onto `ctx` (flat composite) or, when a sink is
+ * supplied, into its own cropped canvas registered as a mid-plane prop.
+ */
+function midProp(
+  ctx: CanvasRenderingContext2D,
+  sink: LayerSink | undefined,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  footY: number,
+  draw: (c: CanvasRenderingContext2D) => void,
+): void {
+  if (!sink) {
+    draw(ctx);
+    return;
+  }
+  const pad = 6;
+  const cx = Math.floor(x - pad);
+  const cy = Math.floor(y - pad);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(w + pad * 2);
+  canvas.height = Math.ceil(h + pad * 2);
+  const c = canvas.getContext("2d")!;
+  c.imageSmoothingEnabled = false;
+  c.translate(-cx, -cy);
+  draw(c);
+  sink.mid.push({ canvas, x: cx, y: cy, footY });
+}
+
+/** Paint a scene as separate planes. `paintScene` composites the same planes flat. */
+export function paintSceneLayers(type: SceneType, w: number, h: number): PaintedScene {
+  const back = document.createElement("canvas");
+  back.width = w;
+  back.height = h;
+  const ctx = back.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  const sink: LayerSink = { mid: [] };
+
+  switch (type) {
+    case "cell": paintCell(ctx, w, h, sink); break;
+    case "corridor": paintCorridor(ctx, w, h, false, sink); break;
+    case "chase": paintCorridor(ctx, w, h, true, sink); break;
+    case "vent": paintVent(ctx, w, h); break;
+    case "server": paintServer(ctx, w, h); break;
+    case "boss-arena": paintBossArena(ctx, w, h); break;
+  }
+  sink.mid.sort((a, b) => a.footY - b.footY);
+
+  return { back, mid: sink.mid, fore: paintForePlane(type, w, h) };
+}
 
 // ── Texture: one ordered-dither pass + one grain pass, both deterministic ──
 // (no Math.random — visual-test safe). Bayer 4×4 ordered matrix, 0..15.
@@ -64,6 +143,8 @@ export function paintScene(type: SceneType, w: number, h: number): HTMLCanvasEle
     case "server": paintServer(ctx, w, h); break;
     case "boss-arena": paintBossArena(ctx, w, h); break;
   }
+  const fore = paintForePlane(type, w, h);
+  if (fore) ctx.drawImage(fore, 0, 0);
   return canvas;
 }
 
@@ -74,11 +155,11 @@ export function paintScene(type: SceneType, w: number, h: number): HTMLCanvasEle
 
 // CELL B-09 — one-point room. VP pulls the eye left-to-right toward the focal
 // wall terminal (right of center). Blue-steel grade + terminal-cyan accent.
-function paintCell(ctx: CanvasRenderingContext2D, w: number, h: number) {
+function paintCell(ctx: CanvasRenderingContext2D, w: number, h: number, sink?: LayerSink) {
   const light = SCENE_LIGHTING.cell;
   const key = resolveLight(light.key, w, h);
   const fills = (light.fills ?? []).map((f) => resolveLight(f, w, h));
-  const p = createProjection(w, h, { vpXFrac: 0.42, vpYFrac: 0.4 });
+  const p = createProjection(w, h, SCENE_PROJECTION.cell);
   const ch = h * 0.32; // character reference height
 
   // ── Ambient base ──
@@ -179,25 +260,38 @@ function paintCell(ctx: CanvasRenderingContext2D, w: number, h: number) {
   // Heavy door on the right wall + extinguisher beside it.
   drawHeavyDoor(ctx, w * 0.82, p.farT + bh * 0.1, w * 0.13, bh * 1.05);
   drawFireExtinguisher(ctx, w * 0.78, floorTop + ch * 0.06, ch * 0.08, ch * 0.22);
-  // Bunk along the near-left floor.
-  drawDetailedCot(ctx, w * 0.02, p.nearB - ch * 0.5, ch * 0.9, ch * 0.22);
   // Metal shelf on the left wall.
   drawShelf(ctx, w * 0.015, p.farT + bh * 0.34, ch * 0.36, ch * 0.3);
-  // Crate stack.
-  drawCrate(ctx, w * 0.19, floorTop + ch * 0.04, ch * 0.26, ch * 0.22);
-  drawCrate(ctx, w * 0.25, floorTop, ch * 0.2, ch * 0.18);
-  // Work table + stool + scattered papers, mid-floor.
-  drawSmallTable(ctx, w * 0.33, floorTop + ch * 0.06, ch * 0.46, ch * 0.26);
-  drawStool(ctx, w * 0.45, floorTop + ch * 0.14, ch * 0.2, ch * 0.22);
-  drawPapers(ctx, w * 0.36, floorTop + ch * 0.04);
-  // Toilet + bucket, right side.
+  // Toilet, right side (wall-adjacent — stays on the back plane).
   drawToilet(ctx, w * 0.9, floorTop + ch * 0.04, ch * 0.22, ch * 0.26);
-  drawBucket(ctx, w * 0.67, floorTop + ch * 0.16, ch * 0.13, ch * 0.16);
 
   // ── Contact shadows for floor-standing props (offset away from the key) ──
+  // Painted on the floor (back plane) so mid props can be lifted off it.
   contactShadow(ctx, w * 0.02 + ch * 0.45, p.nearB - ch * 0.28, ch * 0.9, key);
   contactShadow(ctx, w * 0.19 + ch * 0.13, floorTop + ch * 0.26, ch * 0.5, key);
   contactShadow(ctx, w * 0.33 + ch * 0.23, floorTop + ch * 0.32, ch * 0.46, key);
+  contactShadow(ctx, w * 0.67 + ch * 0.065, floorTop + ch * 0.32, ch * 0.16, key);
+
+  // ── MID-PLANE PROPS — actors depth-sort against these ──
+  // Crate stack.
+  midProp(ctx, sink, w * 0.19, floorTop - ch * 0.02, ch * 0.3, ch * 0.3, floorTop + ch * 0.26, (c) => {
+    drawCrate(c, w * 0.19, floorTop + ch * 0.04, ch * 0.26, ch * 0.22);
+    drawCrate(c, w * 0.25, floorTop, ch * 0.2, ch * 0.18);
+  });
+  // Work table + stool + scattered papers, mid-floor.
+  midProp(ctx, sink, w * 0.33, floorTop + ch * 0.02, ch * 0.34 + w * 0.12, ch * 0.36, floorTop + ch * 0.36, (c) => {
+    drawSmallTable(c, w * 0.33, floorTop + ch * 0.06, ch * 0.46, ch * 0.26);
+    drawStool(c, w * 0.45, floorTop + ch * 0.14, ch * 0.2, ch * 0.22);
+    drawPapers(c, w * 0.36, floorTop + ch * 0.04);
+  });
+  // Bucket.
+  midProp(ctx, sink, w * 0.67, floorTop + ch * 0.14, ch * 0.15, ch * 0.2, floorTop + ch * 0.32, (c) => {
+    drawBucket(c, w * 0.67, floorTop + ch * 0.16, ch * 0.13, ch * 0.16);
+  });
+  // Bunk along the near-left floor — the nearest occluder in the room.
+  midProp(ctx, sink, w * 0.02, p.nearB - ch * 0.52, ch * 0.92, ch * 0.3, p.nearB - ch * 0.24, (c) => {
+    drawDetailedCot(c, w * 0.02, p.nearB - ch * 0.5, ch * 0.9, ch * 0.22);
+  });
 
   // ── Signal wire along the floor, climbing to the terminal ──
   drawSignalWire(ctx, w * 0.14, p.nearB - ch * 0.15, termX, p.farB);
@@ -217,14 +311,11 @@ function paintCell(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 // CORRIDOR — one-point flight corridor, heavy door at the vanishing point.
 // Symmetric (chase skews the VP right for unease). Blue-steel + signal-green.
-function paintCorridor(ctx: CanvasRenderingContext2D, w: number, h: number, alarm: boolean) {
+function paintCorridor(ctx: CanvasRenderingContext2D, w: number, h: number, alarm: boolean, sink?: LayerSink) {
   const light = SCENE_LIGHTING[alarm ? "chase" : "corridor"];
   const key = resolveLight(light.key, w, h);
   const fills = (light.fills ?? []).map((f) => resolveLight(f, w, h));
-  const p = createProjection(w, h, {
-    vpXFrac: alarm ? 0.58 : 0.5,
-    vpYFrac: 0.36,
-  });
+  const p = createProjection(w, h, SCENE_PROJECTION[alarm ? "chase" : "corridor"]);
   const bw = p.farR - p.farL;
   const bh = p.farB - p.farT;
 
@@ -297,6 +388,25 @@ function paintCorridor(ctx: CanvasRenderingContext2D, w: number, h: number, alar
   drawCamera(ctx, p.farR - 8, p.farT + 4);
   drawSignalWire(ctx, w * 0.08, p.nearB - h * 0.05, p.vpX, p.farB);
 
+  // ── MID-PLANE PROPS: supply crates against each wall at different depths ──
+  // Sized through the projection so they shrink with distance; a guard walking
+  // toward the camera passes behind the far one and in front of the near one.
+  const ch = h * 0.32;
+  const farCrate = p.project(0.09, 0.42);
+  const nearCrate = p.project(0.9, 0.16);
+  const fcW = ch * 0.34 * farCrate.scale;
+  const fcH = ch * 0.3 * farCrate.scale;
+  contactShadow(ctx, farCrate.x + fcW / 2, farCrate.y, fcW, key);
+  midProp(ctx, sink, farCrate.x, farCrate.y - fcH, fcW, fcH, farCrate.y, (c) => {
+    drawCrate(c, farCrate.x, farCrate.y - fcH, fcW, fcH);
+  });
+  const ncW = ch * 0.3 * nearCrate.scale;
+  const ncH = ch * 0.26 * nearCrate.scale;
+  contactShadow(ctx, nearCrate.x - ncW / 2, nearCrate.y, ncW, key);
+  midProp(ctx, sink, nearCrate.x - ncW, nearCrate.y - ncH, ncW, ncH, nearCrate.y, (c) => {
+    drawCrate(c, nearCrate.x - ncW, nearCrate.y - ncH, ncW, ncH);
+  });
+
   // ── Lighting: glow passes at key + fills only ──
   paintGlow(ctx, key);
   for (const f of fills) paintGlow(ctx, f);
@@ -322,7 +432,7 @@ function paintVent(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const light = SCENE_LIGHTING.vent;
   const key = resolveLight(light.key, w, h);
   const fills = (light.fills ?? []).map((f) => resolveLight(f, w, h));
-  const p = createProjection(w, h, { vpXFrac: 0.5, vpYFrac: 0.45, farScale: 0.22 });
+  const p = createProjection(w, h, SCENE_PROJECTION.vent);
   const bw = p.farR - p.farL;
   const bh = p.farB - p.farT;
 
@@ -433,7 +543,7 @@ function paintServer(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const light = SCENE_LIGHTING.server;
   const key = resolveLight(light.key, w, h);
   const fills = (light.fills ?? []).map((f) => resolveLight(f, w, h));
-  const p = createProjection(w, h, { vpXFrac: 0.38, vpYFrac: 0.38 });
+  const p = createProjection(w, h, SCENE_PROJECTION.server);
   const bw = p.farR - p.farL;
   const bh = p.farB - p.farT;
 
@@ -2553,4 +2663,164 @@ function drawBucket(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
   // Bottom edge
   ctx.fillStyle = C.metalDark;
   ctx.fillRect(x + 3, y + h - 1, w - 6, 1);
+}
+
+
+// ════════════════════════════════════════════════════════════════════
+// FORE PLANE — near-camera occluders. Painted dark (out of focus, unlit)
+// and slid at 1.12× the camera so pans read as real depth.
+// ════════════════════════════════════════════════════════════════════
+
+function paintForePlane(type: SceneType, w: number, h: number): HTMLCanvasElement | null {
+  if (type === "boss-arena") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+
+  switch (type) {
+    case "cell": paintCellFore(ctx, w, h); break;
+    case "corridor": paintCorridorFore(ctx, w, h, false); break;
+    case "chase": paintCorridorFore(ctx, w, h, true); break;
+    case "vent": paintVentFore(ctx, w, h); break;
+    case "server": paintServerFore(ctx, w, h); break;
+  }
+  return canvas;
+}
+
+/** Vertical steel jamb hugging one screen edge — the classic foreground frame. */
+function drawForeJamb(ctx: CanvasRenderingContext2D, side: "left" | "right", w: number, h: number, jambW: number) {
+  const x = side === "left" ? 0 : w - jambW;
+  const g = ctx.createLinearGradient(x, 0, x + jambW, 0);
+  if (side === "left") {
+    g.addColorStop(0, C.void);
+    g.addColorStop(0.7, C.void);
+    g.addColorStop(1, C.metalDark);
+  } else {
+    g.addColorStop(0, C.metalDark);
+    g.addColorStop(0.3, C.void);
+    g.addColorStop(1, C.void);
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(x, 0, jambW, h);
+  // Inner edge catch-light + rivets.
+  const edgeX = side === "left" ? x + jambW - 1 : x;
+  ctx.fillStyle = alpha(C.metalHighlight, 0.22);
+  ctx.fillRect(edgeX, 0, 1, h);
+  const rivetX = side === "left" ? x + jambW - 7 : x + 5;
+  for (let y = h * 0.12; y < h; y += h * 0.22) {
+    ctx.fillStyle = alpha(C.metalHighlight, 0.18);
+    ctx.fillRect(rivetX, y, 2, 2);
+    ctx.fillStyle = alpha(C.shadow, 0.5);
+    ctx.fillRect(rivetX, y + 2, 2, 1);
+  }
+  ditherRect(ctx, x, 0, jambW, h, C.shadow, 0.04);
+}
+
+/** Thick unlit pipe crossing the top of frame. */
+function drawForePipe(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, r: number) {
+  const g = ctx.createLinearGradient(0, y - r, 0, y + r);
+  g.addColorStop(0, C.metalDark);
+  g.addColorStop(0.35, C.ceilingDark);
+  g.addColorStop(1, C.void);
+  ctx.fillStyle = g;
+  ctx.fillRect(Math.min(x0, x1), y - r, Math.abs(x1 - x0), r * 2);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.14);
+  ctx.fillRect(Math.min(x0, x1), y - r, Math.abs(x1 - x0), 1);
+  // Collar.
+  const cx = x0 + (x1 - x0) * 0.72;
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(cx - r * 0.5, y - r - 2, r, r * 2 + 4);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.2);
+  ctx.fillRect(cx - r * 0.5, y - r - 2, r, 1);
+}
+
+/** Sagging cable between two anchors. */
+function drawForeCable(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, sag: number, width: number) {
+  const mx = (x0 + x1) / 2;
+  const my = Math.max(y0, y1) + sag;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = C.void;
+  ctx.lineWidth = width + 2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.quadraticCurveTo(mx, my * 1.35, x1, y1);
+  ctx.stroke();
+  ctx.strokeStyle = C.metalDark;
+  ctx.lineWidth = width;
+  ctx.stroke();
+  ctx.strokeStyle = alpha(C.metalHighlight, 0.16);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function paintCellFore(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  drawForeJamb(ctx, "left", w, h, w * 0.042);
+  drawForePipe(ctx, 0, w * 0.4, h * 0.075, h * 0.024);
+  drawForeCable(ctx, w * 0.58, 0, w, h * 0.03, h * 0.11, 3);
+  // Corner of a ceiling duct, top right.
+  ctx.fillStyle = C.void;
+  ctx.fillRect(w * 0.84, 0, w * 0.16, h * 0.05);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.12);
+  ctx.fillRect(w * 0.84, h * 0.05 - 1, w * 0.16, 1);
+  ctx.fillRect(w * 0.84, 0, 1, h * 0.05);
+}
+
+function paintCorridorFore(ctx: CanvasRenderingContext2D, w: number, h: number, alarm: boolean) {
+  drawForeJamb(ctx, "right", w, h, w * 0.045);
+  // Cable tray across the top with two drooping runs.
+  ctx.fillStyle = C.void;
+  ctx.fillRect(0, 0, w, h * 0.035);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.12);
+  ctx.fillRect(0, h * 0.035 - 1, w, 1);
+  drawForeCable(ctx, 0, h * 0.03, w * 0.55, h * 0.03, h * 0.07, 3);
+  drawForeCable(ctx, w * 0.5, h * 0.03, w * 0.96, h * 0.03, h * 0.05, 2);
+  // Low pipe rising up the left edge.
+  const r = h * 0.018;
+  const g = ctx.createLinearGradient(w * 0.02 - r, 0, w * 0.02 + r, 0);
+  g.addColorStop(0, C.void);
+  g.addColorStop(0.5, C.metalDark);
+  g.addColorStop(1, C.void);
+  ctx.fillStyle = g;
+  ctx.fillRect(w * 0.02 - r, h * 0.28, r * 2, h * 0.72);
+  if (alarm) {
+    // Hazard stripes on the jamb catch the beacon.
+    const x = w - w * 0.045;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, h * 0.3, w * 0.045, h * 0.4);
+    ctx.clip();
+    for (let y = h * 0.3 - w * 0.05; y < h * 0.7; y += w * 0.03) {
+      ctx.fillStyle = alpha(C.alertMid, 0.32);
+      ctx.beginPath();
+      ctx.moveTo(x, y + w * 0.015);
+      ctx.lineTo(x + w * 0.045, y);
+      ctx.lineTo(x + w * 0.045, y + w * 0.012);
+      ctx.lineTo(x, y + w * 0.027);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function paintVentFore(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  drawForeJamb(ctx, "left", w, h, w * 0.03);
+  drawForeJamb(ctx, "right", w, h, w * 0.03);
+  ctx.fillStyle = C.void;
+  ctx.fillRect(0, 0, w, h * 0.04);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.14);
+  ctx.fillRect(0, h * 0.04 - 1, w, 1);
+}
+
+function paintServerFore(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  drawForeJamb(ctx, "left", w, h, w * 0.055);
+  // Status LEDs on the near rack edge.
+  for (let i = 0; i < 5; i++) {
+    const y = h * (0.2 + i * 0.05);
+    ctx.fillStyle = alpha(i === 3 ? C.alertBright : C.termBright, 0.55);
+    ctx.fillRect(w * 0.055 - 9, y, 3, 2);
+  }
+  drawForeCable(ctx, 0, 0, w * 0.42, 0, h * 0.06, 2);
 }

@@ -20,10 +20,10 @@ test("plays the real game through the compact mobile shell", async ({ page }) =>
   await expect(page.getByRole("button", { name: /SUBMIT/ })).toBeVisible();
 
   await gamePanels.getByRole("button", { name: "MISSION" }).click();
-  await expect(page.getByText("STEP 1 · SCAFFOLD")).toBeVisible();
+  await expect(page.getByText("OBJECTIVE · SCAFFOLD")).toBeVisible();
 
   await gamePanels.getByRole("button", { name: "CHAT" }).click();
-  await expect(page.getByPlaceholder("type a question or ask for a hint...")).toBeVisible();
+  await expect(page.getByPlaceholder("ask maya anything…")).toBeVisible();
 
   const editor = page.locator("textarea");
   const continueButton = page.getByRole("button", { name: /continue/i });

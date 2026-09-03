@@ -53,8 +53,8 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
       <div
         className="relative flex flex-col"
         style={{
-          width: "min(560px, 92vw)",
-          maxHeight: "min(620px, 88vh)",
+          width: "min(640px, 94vw)",
+          maxHeight: "min(720px, 92dvh)",
           border: "1px solid rgba(110,255,160,.12)",
           background: "var(--color-background)",
         }}
@@ -67,7 +67,7 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
           >
             {title}
           </div>
-          <div className="text-[#1a8a4a] text-[8px] tracking-[4px] mb-3">
+          <div className="text-[11px] tracking-[4px] mb-3" style={{ color: "var(--color-dim)" }}>
             {subtitle}
           </div>
 
@@ -95,7 +95,7 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
             <button
               key={t}
               onClick={() => { setTab(t); trackWinModalTab(t); }}
-              className="bg-transparent text-[7px] tracking-[2px] px-3 py-1.5 cursor-pointer transition-colors"
+              className="bg-transparent text-[10px] tracking-[2px] px-3.5 py-2 cursor-pointer transition-colors"
               style={{
                 color: tab === t ? "var(--color-signal)" : "var(--color-dim)",
                 borderBottom: tab === t ? "2px solid var(--color-signal)" : "2px solid transparent",
@@ -119,10 +119,10 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
           className="shrink-0 px-4 py-2 text-center"
           style={{ borderTop: "1px solid var(--color-border)" }}
         >
-          <div className="text-[var(--color-win)] text-[9px] leading-[1.7]">
+          <div className="text-[var(--color-win)] text-[13px] leading-[1.7]">
             guards were talking about an encryption thesis.
           </div>
-          <div className="text-[#4a8a6a] text-[8px]">
+          <div className="text-[11px]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
             maya wasn&apos;t taken at random — they want her research.
           </div>
         </div>
@@ -137,9 +137,9 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
         >
           <button
             onClick={onRetry}
-            className="bg-transparent text-[8px] tracking-[2px] px-4 py-2 cursor-pointer transition-colors"
+            className="bg-transparent text-[11px] tracking-[2px] px-5 py-2.5 cursor-pointer transition-colors"
             style={{
-              border: "1px solid rgba(122,184,216,.2)",
+              border: "1px solid rgba(122,184,216,.35)",
               color: "var(--color-player)",
             }}
             onMouseEnter={(e) => {
@@ -155,7 +155,7 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
           </button>
           <button
             onClick={onContinue}
-            className="bg-transparent text-[8px] tracking-[2px] px-4 py-2 cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+            className="bg-transparent text-[11px] tracking-[2px] px-5 py-2.5 cursor-pointer transition-colors font-[family-name:var(--font-display)]"
             style={{
               border: "2px solid var(--color-signal)",
               color: "var(--color-signal)",
@@ -186,7 +186,7 @@ function StatBox({ label, value, warn }: { label: string; value: string | number
         background: warn ? "rgba(255,159,28,.02)" : "rgba(110,255,160,.02)",
       }}
     >
-      <div className="text-[6px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
+      <div className="text-[9px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
       <div
         className="font-[family-name:var(--font-display)] text-lg font-black"
         style={{ color: warn ? "var(--color-alert)" : "var(--color-signal)" }}
@@ -201,10 +201,10 @@ function PlaceholderTab({ label, description }: { label: string; description: st
   return (
     <div className="flex items-center justify-center p-6">
       <div className="text-center">
-        <div className="text-[var(--color-dim)] text-[8px] tracking-[3px] mb-1.5">
+        <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-1.5">
           ▸ {label}
         </div>
-        <div className="text-[#0a3a4a] text-[10px]">{description}</div>
+        <div className="text-[12px]" style={{ color: "var(--color-foreground)", opacity: 0.7 }}>{description}</div>
       </div>
     </div>
   );

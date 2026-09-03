@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { MailroomVideo } from "./MailroomVideo";
 
 // ── Design tokens (SIGNAL-adapted) ──
 const T = {
@@ -10,15 +11,6 @@ const T = {
   green: "#00d4aa", amber: "#f59e0b", blue: "#3b82f6", pink: "#f472b8", purple: "#c084fc",
 };
 
-const KEYFRAMES = `
-  @keyframes ga-fadeIn    {from{opacity:0}to{opacity:1}}
-  @keyframes ga-popIn     {from{transform:translate(-50%,-50%) scale(0.2);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
-  @keyframes ga-popIn2    {from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
-  @keyframes ga-slideR    {0%{left:-20%}100%{left:110%}}
-  @keyframes ga-slideL    {0%{left:110%}100%{left:-20%}}
-  @keyframes ga-blink     {0%,100%{opacity:1}50%{opacity:0}}
-  @keyframes ga-blinkRed  {0%,49%{opacity:1;box-shadow:0 0 10px #ef444466}50%,100%{opacity:0.25;box-shadow:none}}
-`;
 
 // ── Syntax highlight ──
 function SHLine({ line }: { line: string }) {
@@ -86,194 +78,6 @@ const CARD_PARTS: CardPart[] = [
   { id: "open", label: "Open Envelope", sub: ":= variable", color: T.blue, lines: [6], desc: "an open envelope. holds a sticker that can be peeled off and replaced with a new one. := means 'create this envelope and stick something inside'. later, = alone means 'peel the old sticker off and put a new one in'." },
   { id: "print", label: "Display Post", sub: "fmt.Println", color: T.green, lines: [7, 8], desc: "posts an envelope to the fmt department through the postal slot. jijo opens it, reads the sticker, and sends what it says to the display panel. Println = Print Line." },
 ];
-
-// ── Scenes ──
-interface WorkerData { id: string; emoji: string; label: string; x: number; y: number; action: string }
-interface EnvData { id: string; x: number; y: number; type: string; label: string; open?: boolean; value?: string; isNew?: boolean; sealed?: boolean }
-interface Scene {
-  id: string; narr: string;
-  workers: WorkerData[]; pkg: boolean; fmtBox: boolean; envs: EnvData[];
-  postalDir: null | "to_fmt" | "to_main"; postalLabel: string;
-  display: string[]; displayResult: boolean;
-  completeBtn: "locked" | "pressed"; highlight: number[];
-}
-
-const PA = { DOOR: { x: 11, y: 28 }, SHELF: { x: 17, y: 22 }, MAIN_DESK: { x: 26, y: 52 }, WALL_SLOT: { x: 48, y: 47 }, FMT_SLOT: { x: 62, y: 47 }, FMT_DESK: { x: 74, y: 47 } };
-
-const SCENES: Scene[] = [
-  { id: "idle", narr: "the go machine is powered on.\n\ntwo rooms inside, divided by a wall.\nleft: MAIN dept (zainab).\nright: FMT dept (jijo).\n\na postal slot connects them. at the bottom: the display panel.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: false, fmtBox: false, envs: [], postalDir: null, postalLabel: "", display: [], displayResult: false, completeBtn: "locked", highlight: [] },
-  { id: "package_in", narr: "a programme package slides in through the left wall.\n\nzainab picks it up and reads the label:\nPACKAGE NAME: main\n\nthis is the entry package. time to start.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "reading label", x: PA.DOOR.x, y: PA.DOOR.y, action: "read" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: true, fmtBox: false, envs: [], postalDir: null, postalLabel: "", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [0] },
-  { id: "check_attach", narr: "zainab unfolds the attachments checklist.\n\nshe sees: ☑ fmt\n\nshe walks to the shelf and picks up the fmt address label. she'll need it later to address envelopes to the FMT department.\n\nimport = \"go fetch this address label so i know where to send things.\"", workers: [{ id: "zainab", emoji: "🧕🏿", label: "fetching address label", x: PA.SHELF.x, y: PA.SHELF.y, action: "collect" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: true, fmtBox: true, envs: [], postalDir: null, postalLabel: "", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [2] },
-  { id: "open_main", narr: "zainab opens the main envelope at her worktable.\n\nrequired information: none.\nshe can open it immediately.\n\nshe reads the first instruction.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "opening envelope", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "open" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }], postalDir: null, postalLabel: "", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [4] },
-  { id: "create_const", narr: "instruction 1:\n\n\"create a sealed envelope. name: favLang.\ntype: string (word sticker).\nstick the word sticker 'Go' inside.\nseal it shut — it can never be changed.\"\n\nzainab grabs an envelope, sticks 🔤\"Go\" inside, and locks it. 🔒\n\nthe sticker is the data. the envelope is just the container.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "sealing sticker", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "create" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }, { id: "favLang", x: 40, y: 62, type: "string", label: "favLang", open: false, value: '"Go"', isNew: true, sealed: true }], postalDir: null, postalLabel: "", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [5] },
-  { id: "create_name", narr: "instruction 2:\n\n\"create an open envelope. name: name.\ntype: string (word sticker).\nstick the word sticker 'maya' inside.\nleave it open — the sticker can be peeled off and replaced later.\"\n\nzainab writes the label and drops 🔤\"maya\" in.\n\nopen envelope = variable. you can always swap the sticker.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "sticking value", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "create" }, { id: "jijo", emoji: "👨🏿‍💻", label: "", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }, { id: "favLang", x: 38, y: 62, type: "string", label: "favLang", sealed: true }, { id: "name", x: 46, y: 62, type: "string", label: "name", open: false, value: '"maya"', isNew: true }], postalDir: null, postalLabel: "", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [6] },
-  { id: "post_println1", narr: "instruction 3:\n\n\"post favLang to fmt.Println.\"\n\nzainab uses the fmt address label she collected earlier to address the envelope. she takes the sealed favLang envelope to the postal slot and drops it through the wall.\n\nwithout the address label (import), she wouldn't know where to send it.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "posting →", x: PA.WALL_SLOT.x, y: PA.WALL_SLOT.y, action: "post" }, { id: "jijo", emoji: "👨🏿‍💻", label: "incoming...", x: PA.FMT_SLOT.x, y: PA.FMT_SLOT.y, action: "wait" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }, { id: "name", x: 44, y: 62, type: "string", label: "name" }], postalDir: "to_fmt", postalLabel: "TO: fmt.Println | REQ: favLang", display: ["$ go run main.go"], displayResult: false, completeBtn: "locked", highlight: [7] },
-  { id: "fmt_prints1", narr: "jijo receives the envelope in the FMT dept.\n\nhe opens favLang — it's sealed, but he can still read the sticker: 🔤\"Go\"\n\nhe copies what the sticker says and sends it to the display panel.\nposts DONE reply back through the slot.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "⏳ waiting", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "wait" }, { id: "jijo", emoji: "👨🏿‍💻", label: "reading sticker", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "read" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }, { id: "favLang", x: 76, y: 55, type: "string", label: "favLang", open: true, value: '"Go"', sealed: true }, { id: "name", x: 44, y: 62, type: "string", label: "name" }], postalDir: "to_main", postalLabel: "REPLY: done ✓", display: ["$ go run main.go", "Go"], displayResult: false, completeBtn: "locked", highlight: [7] },
-  { id: "post_println2", narr: "reply received. zainab reads instruction 4:\n\n\"post name to fmt.Println.\"\n\nshe uses the fmt address label again to address this one. drops the name envelope through the postal slot.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "posting →", x: PA.WALL_SLOT.x, y: PA.WALL_SLOT.y, action: "post" }, { id: "jijo", emoji: "👨🏿‍💻", label: "incoming...", x: PA.FMT_SLOT.x, y: PA.FMT_SLOT.y, action: "wait" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }], postalDir: "to_fmt", postalLabel: "TO: fmt.Println | REQ: name", display: ["$ go run main.go", "Go"], displayResult: false, completeBtn: "locked", highlight: [8] },
-  { id: "fmt_prints2", narr: "jijo opens the name envelope.\n\nthis one's open — the sticker 🔤\"maya\" is right there.\n\nhe reads it and sends \"maya\" to the display panel.\nposts DONE reply.", workers: [{ id: "zainab", emoji: "🧕🏿", label: "⏳ waiting", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "wait" }, { id: "jijo", emoji: "👨🏿‍💻", label: "reading sticker", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "read" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }, { id: "name", x: 76, y: 55, type: "string", label: "name", open: true, value: '"maya"' }], postalDir: "to_main", postalLabel: "REPLY: done ✓", display: ["$ go run main.go", "Go", "maya"], displayResult: true, completeBtn: "locked", highlight: [8] },
-  { id: "complete", narr: "all instructions processed.\nall replies received.\n\nzainab presses the button. ✅\n\nprogramme complete.\noutput: Go, maya", workers: [{ id: "zainab", emoji: "🧕🏿", label: "✅ complete!", x: PA.MAIN_DESK.x, y: PA.MAIN_DESK.y, action: "done" }, { id: "jijo", emoji: "👨🏿‍💻", label: "done ✓", x: PA.FMT_DESK.x, y: PA.FMT_DESK.y, action: "done" }], pkg: true, fmtBox: true, envs: [{ id: "main", x: 32, y: 46, type: "func", label: "main", open: true }], postalDir: null, postalLabel: "", display: ["$ go run main.go", "Go", "maya"], displayResult: true, completeBtn: "pressed", highlight: [] },
-];
-
-// ── Worker Chip ──
-function WorkerChip({ w }: { w: WorkerData }) {
-  const aC: Record<string, string> = { read: T.amber, create: T.blue, post: T.green, collect: T.green, open: T.pink, wait: "#94a3b8", done: T.green };
-  const c = aC[w.action] || "#475569";
-  return (
-    <div style={{ position: "absolute", left: `${w.x}%`, top: `${w.y}%`, transform: "translate(-50%,-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, transition: "left 0.8s cubic-bezier(.4,0,.2,1), top 0.8s cubic-bezier(.4,0,.2,1)", zIndex: 10 }}>
-      <div style={{ fontSize: 28, lineHeight: 1, filter: w.action === "done" ? `drop-shadow(0 0 8px ${T.green})` : "none" }}>{w.emoji}</div>
-      {w.label && (
-        <div style={{ fontSize: 10, color: c, fontFamily: "var(--font-mono)", fontWeight: 700, whiteSpace: "nowrap", background: c + "22", border: `1px solid ${c}44`, padding: "2px 6px", maxWidth: 110, textAlign: "center" }}>{w.label}</div>
-      )}
-    </div>
-  );
-}
-
-// ── Sticker Chip (data value visualization) ──
-function StickerChip({ value, typeColor, size = "sm" }: { value: string; typeColor: string; size?: "sm" | "md" }) {
-  const isSm = size === "sm";
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#0d2a18", border: `1.5px solid ${typeColor}`, padding: isSm ? "2px 5px" : "3px 7px", position: "relative" }}>
-      <span style={{ fontSize: isSm ? 9 : 11 }}>🔤</span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: isSm ? 10 : 12, color: typeColor, fontWeight: 700 }}>{value}</span>
-      <div style={{ position: "absolute", top: -1, right: -1, width: 6, height: 6, background: typeColor, opacity: 0.5 }} />
-    </div>
-  );
-}
-
-// ── Envelope Chip ──
-function EnvChip({ env }: { env: EnvData }) {
-  const cols: Record<string, string> = { func: T.pink, string: T.blue };
-  const c = cols[env.type] || "#888";
-  const isFunc = env.type === "func";
-  const w = isFunc ? 90 : 68;
-  return (
-    <div style={{ position: "absolute", left: `${env.x}%`, top: `${env.y}%`, transform: "translate(-50%,-50%)", transition: "left 0.6s ease, top 0.6s ease", animation: env.isNew ? "ga-popIn 0.4s cubic-bezier(.34,1.56,.64,1) both" : "ga-fadeIn 0.3s ease-out both", zIndex: isFunc ? 9 : 8 }}>
-      <div style={{ width: w, background: "#080c14", border: `${isFunc ? 2 : 1.5}px solid ${c}`, overflow: "hidden" }}>
-        {/* Flap */}
-        <div style={{ height: isFunc ? 22 : 16, background: env.open ? c + "44" : c + "22", borderBottom: `1px solid ${c}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {env.sealed && <span style={{ fontSize: 10 }}>🔒</span>}
-          {env.open && !env.sealed && <span style={{ fontSize: isFunc ? 9 : 8, color: c, fontWeight: 700 }}>OPEN</span>}
-        </div>
-        {/* Type badge */}
-        <div style={{ background: c, padding: isFunc ? "2px 6px" : "1px 4px", display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: isFunc ? 10 : 8, color: "#fff", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{env.type}</span>
-          {!isFunc && <span style={{ fontSize: 7, color: "#ffffff88", fontFamily: "var(--font-mono)" }}>sticker</span>}
-        </div>
-        {/* Body */}
-        <div style={{ padding: isFunc ? "4px 6px 6px" : "3px 4px 5px", background: "#080c14" }}>
-          <div style={{ fontSize: isFunc ? 9 : 8, color: c + "99", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.3 }}>name:</div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: isFunc ? 14 : 11, color: T.ink, fontWeight: 700, lineHeight: 1 }}>{env.label}</div>
-          {env.value && (
-            <div style={{ marginTop: 4 }}>
-              <StickerChip value={env.value} typeColor={c} />
-            </div>
-          )}
-          {!env.value && !isFunc && (
-            <div style={{ marginTop: 3, fontSize: 8, color: c + "55", fontFamily: "var(--font-mono)", fontStyle: "italic" }}>no sticker</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Office Room ──
-function OfficeRoom({ sc }: { sc: Scene }) {
-  const wallX = 54, wallW = 5, slotY = 38, slotH = 14;
-  const postalActive = sc.postalDir !== null;
-  const toFmt = sc.postalDir === "to_fmt";
-
-  return (
-    <div style={{ position: "relative", width: "100%", flex: 1, minHeight: 0, background: "linear-gradient(180deg,#0b1220 0%,#090e1a 100%)", border: `1px solid ${T.steelLt}`, overflow: "hidden" }}>
-      {/* Ceiling lights */}
-      <div style={{ position: "absolute", top: 0, left: "5%", width: `${wallX - 6}%`, height: 3, background: `linear-gradient(90deg,transparent,${T.amber}33,transparent)` }} />
-      <div style={{ position: "absolute", top: 0, left: `${wallX + wallW + 1}%`, right: "1%", height: 3, background: `linear-gradient(90deg,transparent,${T.blue}33,transparent)` }} />
-
-      {/* Left wall (package slot) */}
-      <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "5%", background: "#0c1420", borderRight: `1px solid ${T.steelLt}44` }}>
-        <div style={{ position: "absolute", top: "10%", left: "8%", right: "8%", height: "25%", background: sc.pkg ? "#0d1e0d" : "#0a0f14", border: `1px solid ${sc.pkg ? T.green + "66" : T.steelLt}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.5s" }}>
-          {sc.pkg ? (
-            <div style={{ width: "72%", background: T.paper, border: `1px solid ${T.steelLt}`, padding: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ width: "100%", height: 5, background: T.red, marginBottom: 1 }} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 7, color: T.ink, fontWeight: 700 }}>main</span>
-            </div>
-          ) : (
-            <span style={{ fontSize: 8, color: "#1a2d40", fontFamily: "var(--font-mono)", writingMode: "vertical-rl", transform: "rotate(180deg)" }}>slot</span>
-          )}
-        </div>
-      </div>
-
-      {/* MAIN dept label */}
-      <div style={{ position: "absolute", top: "3%", left: "7%", fontSize: 10, color: "#1a3d30", fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>MAIN dept.</div>
-      {/* fmt address label badge */}
-      {sc.fmtBox && <div style={{ position: "absolute", top: "10%", left: "7%", background: "#0f1e33", border: `1px solid ${T.blue}66`, padding: "2px 8px", fontSize: 9, color: T.blue, fontWeight: 700, fontFamily: "var(--font-mono)", animation: "ga-fadeIn 0.4s", display: "flex", alignItems: "center", gap: 4 }}>📋 fmt <span style={{ fontSize: 7, color: T.blue + "88" }}>addr</span></div>}
-
-      {/* MAIN worktable */}
-      <div style={{ position: "absolute", left: "14%", width: `${wallX - 22}%`, top: "58%", height: 3, background: T.steelLt }} />
-      <div style={{ position: "absolute", left: "18%", width: `${wallX - 26}%`, top: "44%", height: "14%", background: "linear-gradient(180deg,#121c2e,#0e1522)", border: `1px solid ${T.steelLt}44`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 9, color: "#1a2d40", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5 }}>worktable</span>
-      </div>
-
-      {/* Complete button */}
-      <div style={{
-        position: "absolute", left: "12%", top: "67%", width: 36, height: 36, borderRadius: "50%",
-        background: sc.completeBtn === "pressed" ? `radial-gradient(circle,${T.green},#008866)` : `radial-gradient(circle,#7f1d1d,#3a0808)`,
-        border: `2px solid ${sc.completeBtn === "pressed" ? T.green : "#991b1b"}`,
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 12,
-        animation: sc.completeBtn === "pressed" ? "ga-popIn2 0.4s ease-out" : "ga-blinkRed 1s step-end infinite",
-      }}>
-        <span style={{ fontSize: sc.completeBtn === "pressed" ? 16 : 14 }}>{sc.completeBtn === "pressed" ? "✅" : "🔴"}</span>
-      </div>
-      <div style={{ position: "absolute", left: "6%", top: "82%", fontSize: 8, color: sc.completeBtn === "pressed" ? T.green : "#7f1d1d", fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase", textAlign: "center", width: "20%", lineHeight: 1.3, transition: "color 0.5s" }}>
-        {sc.completeBtn === "pressed" ? "done!" : "locked"}
-      </div>
-
-      {/* Dividing wall */}
-      <div style={{ position: "absolute", top: 0, bottom: 0, left: `${wallX}%`, width: `${wallW}%`, background: "linear-gradient(180deg,#0c1520,#0a1018)", borderLeft: `1px solid ${T.steelLt}`, borderRight: `1px solid ${T.steelLt}` }}>
-        <div style={{ position: "absolute", top: "4%", left: 0, right: 0, textAlign: "center", fontSize: 7, color: "#1a2d40", fontFamily: "var(--font-mono)", textTransform: "uppercase", lineHeight: 1.4 }}>DIV<br />WALL</div>
-        {/* Postal slot */}
-        <div style={{ position: "absolute", top: `${slotY}%`, left: "10%", right: "10%", height: `${slotH}%`, background: postalActive ? "#0d2a18" : "#080d14", border: `1px solid ${postalActive ? T.green + "99" : T.steelLt}`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s" }}>
-          {postalActive && (
-            <div style={{ position: "absolute", width: "70%", height: 10, background: T.paper, border: `1px solid ${T.steelLt}`, display: "flex", alignItems: "center", justifyContent: "center", animation: toFmt ? "ga-slideR 0.6s ease-in-out infinite" : "ga-slideL 0.6s ease-in-out infinite" }}>
-              <span style={{ fontSize: 7, color: T.inkMid }}>✉</span>
-            </div>
-          )}
-          {!postalActive && <span style={{ fontSize: 10, color: "#1a2d40" }}>📪</span>}
-        </div>
-        {postalActive && <div style={{ position: "absolute", top: `${slotY + slotH + 2}%`, left: 0, right: 0, textAlign: "center", fontSize: 14, color: T.green, animation: "ga-fadeIn 0.2s" }}>{toFmt ? "→" : "←"}</div>}
-        {postalActive && sc.postalLabel && (
-          <div style={{ position: "absolute", top: `${slotY - 18}%`, left: "-200%", width: 240, background: "#0d2a18", border: `1px solid ${T.green}55`, padding: "4px 8px", fontSize: 9, color: T.green, fontFamily: "var(--font-mono)", animation: "ga-fadeIn 0.3s", whiteSpace: "nowrap", zIndex: 20 }}>{sc.postalLabel}</div>
-        )}
-      </div>
-
-      {/* FMT dept */}
-      <div style={{ position: "absolute", top: "3%", left: `${wallX + wallW + 2}%`, fontSize: 10, color: "#1a2d40", fontFamily: "var(--font-mono)", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>FMT dept.</div>
-      <div style={{ position: "absolute", left: `${wallX + wallW + 4}%`, right: "4%", top: "58%", height: 3, background: T.steelLt }} />
-      <div style={{ position: "absolute", left: `${wallX + wallW + 8}%`, right: "8%", top: "44%", height: "14%", background: "linear-gradient(180deg,#0e1c2e,#0a1320)", border: `1px solid ${T.blue}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 9, color: "#1a2d40", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.5 }}>fmt table</span>
-      </div>
-
-      {/* Display panel */}
-      <div style={{ position: "absolute", bottom: 0, left: "5%", right: 0, height: "14%", background: "#020d04", borderTop: `1px solid ${sc.displayResult ? "#1a5c2a" : "#0d1a10"}`, display: "flex", alignItems: "center", padding: "0 12px", gap: 8 }}>
-        <span style={{ fontSize: 8, color: "#1a3d20", fontFamily: "var(--font-mono)", textTransform: "uppercase", letterSpacing: 0.8, flexShrink: 0, borderRight: "1px solid #0d2a10", paddingRight: 8 }}>display</span>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
-          {sc.display.map((l, i) => {
-            const isResult = sc.displayResult && (l === "Go" || l === "maya");
-            return (
-              <span key={i} style={{ fontFamily: "var(--font-mono)", fontSize: isResult ? 16 : 10, color: isResult ? "#00ff88" : "#1a5c2a", fontWeight: isResult ? 700 : 400, textShadow: isResult ? "0 0 12px #00ff88" : "none", animation: i === sc.display.length - 1 ? "ga-fadeIn 0.4s" : "none", whiteSpace: "nowrap" }}>{l}</span>
-            );
-          })}
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#1a3d20", animation: "ga-blink 1s step-end infinite" }}>█</span>
-        </div>
-      </div>
-
-      {/* Envelopes */}
-      {sc.envs.map((e) => <EnvChip key={e.id} env={e} />)}
-      {/* Workers */}
-      {sc.workers.map((w) => <WorkerChip key={w.id} w={w} />)}
-    </div>
-  );
-}
 
 // ── Analog Card ──
 function AnalogCard({ active, onPartClick }: { active: string | null; onPartClick: (id: string) => void }) {
@@ -444,24 +248,13 @@ interface GoApplianceProps {
   onHotspotClick?: (id: string) => void;
   clickedIds?: Set<string>;
   view?: "animation" | "card";
-  /** Play as a smooth, controls-free looping "video" (like the landing PromoLoop). */
+  /** Start the walkthrough video immediately on mount. */
   autoPlay?: boolean;
+  soundEnabled?: boolean;
 }
 
-export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "animation", autoPlay = false }: GoApplianceProps) {
-  const [scene, setScene] = useState(0);
-  const [playing, setPlaying] = useState(autoPlay);
+export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "animation", autoPlay = false, soundEnabled = true }: GoApplianceProps) {
   const [cardActive, setCardActive] = useState<string | null>(null);
-  const sc = SCENES[scene];
-
-  // Auto-play — loops continuously in video mode; plays once otherwise.
-  useEffect(() => {
-    if (!playing) return;
-    const atEnd = scene >= SCENES.length - 1;
-    if (atEnd && !autoPlay) { setPlaying(false); return; }
-    const t = setTimeout(() => setScene((s) => (atEnd ? 0 : s + 1)), atEnd ? 2200 : 3500);
-    return () => clearTimeout(t);
-  }, [playing, scene, autoPlay]);
 
   const handleCardPartClick = useCallback((id: string) => {
     setCardActive((prev) => (prev === id ? null : id));
@@ -470,69 +263,9 @@ export function GoAppliance({ onHotspotClick, clickedIds = new Set(), view = "an
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <style>{KEYFRAMES}</style>
-
-      {/* Animation view */}
+      {/* Animation view — the narrated mailroom video */}
       {view === "animation" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0, flex: 1, minHeight: 0 }}>
-          {/* Illustration area */}
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", gap: 8, minHeight: 0 }}>
-            <OfficeRoom sc={sc} />
-            {/* Legend */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, flexShrink: 0 }}>
-              {[{ dot: T.amber, l: "Pkg slot" }, { dot: T.green, l: "Postal" }, { dot: T.blue, l: "Addr label" }, { dot: "#00ff88", l: "Display" }, { dot: "#86efac", l: "Sticker" }].map((item) => (
-                <div key={item.l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: item.dot }} />
-                  <span style={{ fontSize: 10, color: T.inkFade, fontFamily: "var(--font-mono)" }}>{item.l}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Narration + code — responsive height so the walkthrough fits small screens */}
-          <div style={{ flexShrink: 0, display: "flex", gap: 12, alignItems: "stretch", height: "clamp(150px, 28vh, 300px)" }}>
-            <div style={{ flex: "1 1 300px", border: `1px solid ${T.line}`, overflow: "auto", display: "flex", flexDirection: "column" }}>
-              <div style={{ padding: "6px 12px", borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green }} />
-                <div>
-                  <div style={{ fontSize: 10, color: T.green, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "var(--font-mono)" }}>Scene {scene + 1}/{SCENES.length}</div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, fontFamily: "var(--font-mono)" }}>{sc.id.replace(/_/g, " ")}</div>
-                </div>
-              </div>
-              <div style={{ padding: "8px 12px", fontSize: 12, lineHeight: 1.7, color: T.inkMid, whiteSpace: "pre-line", borderLeft: `3px solid ${T.amber}`, fontFamily: "var(--font-mono)", flex: 1 }}>{sc.narr}</div>
-            </div>
-
-            {sc.highlight.length > 0 && (
-              <div style={{ flex: "1 1 260px", border: `1px solid ${T.line}`, padding: 8, overflow: "auto" }}>
-                <div style={{ fontSize: 9, color: T.inkFade, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-mono)" }}>related code</div>
-                <CodePanel highlightLines={sc.highlight} />
-              </div>
-            )}
-          </div>
-
-          {/* Video mode: a thin, non-interactive progress bar. Otherwise: full controls. */}
-          {autoPlay ? (
-            <div style={{ flexShrink: 0, paddingTop: 8, display: "flex", gap: 4 }}>
-              {SCENES.map((_, i) => (
-                <div key={i} style={{ flex: 1, height: 3, background: i <= scene ? T.green : T.line, transition: "background .4s ease" }} />
-              ))}
-            </div>
-          ) : (
-            <div style={{ flexShrink: 0, paddingTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
-                {SCENES.map((_, i) => (
-                  <button key={i} onClick={() => { setScene(i); setPlaying(false); }} style={{ width: 26, height: 26, borderRadius: "50%", background: i === scene ? T.green : i < scene ? T.green + "33" : "#1a1a2e", border: i === scene ? `2px solid ${T.green}` : `1px solid ${T.line}`, color: i === scene ? "#0a0a1a" : i < scene ? T.green : "#555", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>{i + 1}</button>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button onClick={() => setScene(Math.max(0, scene - 1))} disabled={scene === 0} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === 0 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === 0 ? 0.3 : 1 }}>← BACK</button>
-                <button onClick={() => { setScene(0); setPlaying(true); }} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.green}44`, color: T.green, fontSize: 12, fontFamily: "var(--font-mono)" }}>▶ PLAY</button>
-                {playing && <button onClick={() => setPlaying(false)} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: T.ink, fontSize: 12, fontFamily: "var(--font-mono)" }}>⏸</button>}
-                <button onClick={() => setScene(Math.min(SCENES.length - 1, scene + 1))} disabled={scene === SCENES.length - 1} className="bg-transparent cursor-pointer" style={{ padding: "6px 16px", border: `1px solid ${T.line}`, color: scene === SCENES.length - 1 ? T.inkFade : T.ink, fontSize: 12, fontFamily: "var(--font-mono)", opacity: scene === SCENES.length - 1 ? 0.3 : 1 }}>NEXT →</button>
-              </div>
-            </div>
-          )}
-        </div>
+        <MailroomVideo autoPlay={autoPlay} soundEnabled={soundEnabled} />
       )}
 
       {/* Card view */}

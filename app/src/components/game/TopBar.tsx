@@ -82,16 +82,18 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
       {/* Level Timer */}
       {timerSlot}
 
-      {/* Status */}
-      <span
-        className="text-[8px]"
-        style={{
-          color: inRush ? "var(--color-danger)" : busy ? "var(--color-alert)" : "#2a9a5a",
-          animation: inRush ? "blink .5s step-end infinite" : "none",
-        }}
-      >
-        {compact ? "●" : `● ${inRush ? "RUSH" : busy ? "TX" : "LIVE"}`}
-      </span>
+      {/* Status — only speaks up when something is happening (the timer already says LIVE) */}
+      {(inRush || busy) && (
+        <span
+          className="text-[8px] tracking-[2px]"
+          style={{
+            color: inRush ? "var(--color-danger)" : "var(--color-alert)",
+            animation: inRush ? "blink .5s step-end infinite" : "none",
+          }}
+        >
+          {compact ? "●" : `● ${inRush ? "RUSH" : "TX"}`}
+        </span>
+      )}
     </div>
   );
 }

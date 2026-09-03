@@ -36,6 +36,24 @@ export function CinematicScene({
 
   const currentScene = scenes[sceneIndex] ?? scenes[0];
   const shotDurationMs = effectiveDurationMs(currentScene);
+  // In-picture title card visibility, keyed to the shot it belongs to so a
+  // new shot never inherits the previous card's state.
+  const [cardState, setCardState] = useState<{ index: number; visible: boolean } | null>(null);
+  const captionTickRef = useRef(0);
+  const cardShowAt = currentScene?.titleCard?.atMs ?? 0;
+  const cardVisible =
+    !!currentScene?.titleCard &&
+    fadePhase === "playing" &&
+    (cardState?.index === sceneIndex ? cardState.visible : cardShowAt === 0);
+
+  // Teletype: a soft key click every few characters while the caption types.
+  const onCaptionChar = useCallback((index: number, char: string) => {
+    if (char === " ") return;
+    captionTickRef.current += 1;
+    if (captionTickRef.current % 3 !== 0) return;
+    const names: SfxName[] = ["keypress-1", "keypress-2", "keypress-3"];
+    audio.playSfx(names[index % names.length], 0.05);
+  }, [audio]);
 
   const finish = useCallback(() => {
     if (completedRef.current) return;
@@ -55,10 +73,31 @@ export function CinematicScene({
         if (cue.sound) names.add(cue.sound);
       }
     }
-    if (names.size > 0) {
-      audio.preload([...names] as Parameters<typeof audio.preload>[0]);
-    }
+    names.add("keypress-1");
+    names.add("keypress-2");
+    names.add("keypress-3");
+    audio.preload([...names] as Parameters<typeof audio.preload>[0]);
   }, [audio, scenes]);
+
+  // Title card timers: reveal at atMs, retire after durationMs.
+  useEffect(() => {
+    captionTickRef.current = 0;
+    const card = currentScene?.titleCard;
+    if (fadePhase !== "playing" || !card) return;
+    const showAt = card.atMs ?? 0;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    if (showAt > 0) {
+      timers.push(setTimeout(() => setCardState({ index: sceneIndex, visible: true }), showAt));
+    }
+    if (card.durationMs !== undefined) {
+      timers.push(
+        setTimeout(() => setCardState({ index: sceneIndex, visible: false }), showAt + card.durationMs),
+      );
+    }
+    return () => {
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [currentScene, fadePhase, sceneIndex]);
 
   useEffect(() => {
     const timer = setTimeout(() => setFadePhase("playing"), 80);
@@ -201,13 +240,52 @@ export function CinematicScene({
       >
         <PixiScene scene={currentScene} width={640} height={400} crtEffect />
 
+        {/* In-picture title card — big display type that tracks in over the frame. */}
+        {currentScene.titleCard && (
+          <div
+            key={`card-${sceneIndex}`}
+            className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center text-center"
+            style={{ opacity: cardVisible ? 1 : 0, transition: cardVisible ? "none" : "opacity 500ms ease" }}
+            aria-hidden={!cardVisible}
+          >
+            {cardVisible && (
+              <>
+                <div
+                  className="cinematic-card font-[family-name:var(--font-display)] font-black leading-none tracking-[0.3em]"
+                  style={{
+                    fontSize: "clamp(22px, 4.8vw, 58px)",
+                    color: "var(--color-signal)",
+                    textShadow:
+                      "0 0 18px color-mix(in srgb, var(--color-signal) 60%, transparent), 0 0 64px color-mix(in srgb, var(--color-signal) 35%, transparent)",
+                  }}
+                >
+                  {currentScene.titleCard.text}
+                </div>
+                <div
+                  className="cinematic-card-rule mt-3 h-px w-[38%]"
+                  style={{ background: "color-mix(in srgb, var(--color-signal) 55%, transparent)" }}
+                />
+                {currentScene.titleCard.sub && (
+                  <div
+                    className="cinematic-card-sub mt-3 text-[8px] tracking-[0.5em] sm:text-[11px]"
+                    style={{ color: "color-mix(in srgb, var(--color-foreground) 80%, transparent)" }}
+                  >
+                    {currentScene.titleCard.sub}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Letterbox — solid opaque bars top and bottom (≈1.95:1 picture).
             All chrome rides on the bars so it never overlaps the picture. */}
         <header
           className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-4 px-4 py-2 sm:px-6"
           style={{ minHeight: "9%", background: "var(--color-background)" }}
         >
-          <div className="min-w-0 cinematic-title-in">
+          {/* The header title yields to an in-picture title card when a shot has one. */}
+          <div className="min-w-0 cinematic-title-in" style={{ visibility: currentScene.titleCard ? "hidden" : "visible" }}>
             {title && (
               <h1
                 className="font-[family-name:var(--font-display)] text-lg font-black leading-none tracking-[0.24em] sm:text-2xl lg:text-3xl"
@@ -264,6 +342,7 @@ export function CinematicScene({
               <TypeText
                 text={currentScene.caption}
                 speed={28}
+                onChar={onCaptionChar}
                 className="text-[10px] leading-relaxed sm:text-xs lg:text-sm"
               />
             )}

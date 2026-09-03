@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <div className="relative max-w-[640px] mx-auto px-4 py-10">
         <a
           href="/"
-          className="text-[10px] tracking-[2px] transition-colors"
+          className="text-[12px] tracking-[2px] transition-colors"
           style={{
             color: "var(--color-dim)",
             textDecoration: "none",
@@ -32,8 +32,8 @@ export default function PrivacyPage() {
             PRIVACY POLICY
           </div>
           <div
-            className="text-[11px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+            className="text-[13px]"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             last updated: March 2026
           </div>
@@ -104,13 +104,13 @@ export default function PrivacyPage() {
           ].map((section) => (
             <div key={section.title}>
               <div
-                className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold mb-2"
+                className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold mb-2"
                 style={{ color: "var(--color-foreground)" }}
               >
                 {section.title}
               </div>
               <p
-                className="text-[11px] leading-[1.9] pl-3"
+                className="text-[13px] leading-[1.9] pl-3"
                 style={{
                   color: "var(--color-foreground)",
                   opacity: 0.7,
@@ -131,13 +131,13 @@ export default function PrivacyPage() {
           }}
         >
           <div
-            className="text-[10px] tracking-[1px] mb-1"
-            style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+            className="text-[12px] tracking-[1px] mb-1"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             QUESTIONS ABOUT YOUR DATA?
           </div>
           <div
-            className="text-[11px]"
+            className="text-[13px]"
             style={{ color: "var(--color-signal)" }}
           >
             jeremiah@chienda.com
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
         <div className="text-center mt-8">
           <a
             href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[12px] tracking-[3px] transition-colors"
+            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
             style={{
               border: "2px solid var(--color-signal)",
               color: "var(--color-signal)",

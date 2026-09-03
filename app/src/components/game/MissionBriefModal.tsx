@@ -78,7 +78,7 @@ export function MissionBriefModal({
             style={{ color: "var(--color-info)" }}
           >
             <span>❔</span>
-            <span>stuck? the <b>NOTES · HELP</b> tab has the concept + code you need.</span>
+            <span>stuck? tap <b>HINT</b> above the code for a nudge, or open <b>NOTES</b> for the concept.</span>
           </div>
         </div>
 

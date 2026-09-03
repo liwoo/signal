@@ -101,6 +101,10 @@ export function trackBeginnerHotspot(chapterId: string, hotspotText: string) {
 
 // ── Chat ──
 
+export function trackHintReveal(chapterId: string, stepId: string, level: number, costXP: number) {
+  track("hint_reveal", { chapter_id: chapterId, step_id: stepId, level, cost_xp: costXP });
+}
+
 export function trackChatAsk(chapterId: string, stepId: string, message: string) {
   track("chat_ask", { chapter_id: chapterId, step_id: stepId, message: message.slice(0, 120) });
 }
