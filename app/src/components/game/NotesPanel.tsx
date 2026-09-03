@@ -60,7 +60,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
   }
 
   return (
-    <div className="p-5 overflow-y-auto h-full">
+    <div className="p-5 overflow-y-auto h-full max-w-[760px]">
       {/* Font scale controls */}
       <div className="flex items-center justify-end gap-1 mb-2">
         <button
@@ -92,8 +92,27 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
         </button>
       </div>
       {allNotes.map(({ chapterId, notes }) => {
-        const isExpanded = expandedChapter === chapterId;
+        const isExpanded = allNotes.length === 1 || expandedChapter === chapterId;
         const isCurrent = chapterId === currentChapterId;
+
+        // One chapter: just the notes, no accordion chrome.
+        if (allNotes.length === 1) {
+          return (
+            <div key={chapterId}>
+              <div className="flex items-baseline gap-2 mb-3">
+                <span className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
+                  {notes.title}
+                </span>
+                <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+                  {notes.subtitle}
+                </span>
+              </div>
+              {(notes.notesBlocks ?? notes.blocks).map((block, i) => (
+                <NoteBlockView key={i} block={block} fontScale={fontScale} />
+              ))}
+            </div>
+          );
+        }
 
         return (
           <div key={chapterId} className="mb-2">
@@ -160,9 +179,10 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
 }
 
 function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: number }) {
-  // Larger, more readable in-challenge reference.
-  const textSize = `${Math.round(14 * fontScale)}px`;
-  const codeSize = `${Math.round(13 * Math.max(1, fontScale * 0.7))}px`;
+  // In-challenge reference: compact by default, the A+/A− scale nudges it up
+  // gently (the tutorial-sized 2× default would swamp the side panel).
+  const textSize = `${Math.round(12 + (fontScale - 1) * 3)}px`;
+  const codeSize = `${Math.round(12 + (fontScale - 1) * 2)}px`;
 
   if (block.type === "text") {
     if (block.important) {
@@ -204,8 +224,9 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
   return (
     <div className="mb-2">
       <pre
-        className="leading-[1.7] p-4 overflow-x-auto font-[family-name:var(--font-mono)]"
+        className="leading-[1.7] p-3 overflow-x-auto font-[family-name:var(--font-mono)]"
         style={{
+          whiteSpace: "pre",
           fontSize: codeSize,
           background: "rgba(4,8,16,.6)",
           border: "1px solid rgba(110,255,160,.06)",
@@ -274,21 +295,23 @@ function highlightGo(code: string): string {
     punctuation: "var(--color-syn-punct)",
   };
 
+  const escape = (text: string) =>
+    text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   try {
+    // Walk the source by token offsets so whitespace/newlines between tokens
+    // are preserved verbatim (the tokenizer may not emit them).
     const tokens: Token[] = tokenize(code);
-    return tokens
-      .map((t: Token) => {
-        const escaped = t.value
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-        const color = TOKEN_COLORS[t.type];
-        if (color) {
-          return `<span style="color:${color}">${escaped}</span>`;
-        }
-        return escaped;
-      })
-      .join("");
+    let out = "";
+    let cursor = 0;
+    for (const t of tokens) {
+      if (t.start > cursor) out += escape(code.slice(cursor, t.start));
+      const color = TOKEN_COLORS[t.type];
+      out += color ? `<span style="color:${color}">${escape(t.value)}</span>` : escape(t.value);
+      cursor = Math.max(cursor, t.end);
+    }
+    if (cursor < code.length) out += escape(code.slice(cursor));
+    return out;
   } catch {
     return code
       .replace(/&/g, "&amp;")

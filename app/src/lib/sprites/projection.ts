@@ -166,3 +166,25 @@ export function floorGrid(
     ctx.stroke();
   }
 }
+
+// ── Per-scene vanishing points ──────────────────────────────────────
+// Off-centre VPs give each location a distinct composition. Shared by the
+// painters (room geometry), the FX layer (depth scale) and the cinematic
+// renderer (actor grounding), so every consumer agrees on where the floor is.
+import type { SceneType } from "./scene-painter";
+
+export const SCENE_PROJECTION: Record<SceneType, ProjectionOpts> = {
+  cell: { vpXFrac: 0.42, vpYFrac: 0.4 },
+  corridor: { vpXFrac: 0.5, vpYFrac: 0.36 },
+  chase: { vpXFrac: 0.58, vpYFrac: 0.36 },
+  vent: { vpXFrac: 0.5, vpYFrac: 0.45, farScale: 0.22 },
+  server: { vpXFrac: 0.38, vpYFrac: 0.38 },
+  "boss-arena": { vpXFrac: 0.5, vpYFrac: 0.38 },
+};
+
+/** Fraction of scene height where the far floor edge sits for these options. */
+export function farBottomFrac(opts: ProjectionOpts): number {
+  const vpY = opts.vpYFrac ?? 0.38;
+  const farH = opts.farHeightFrac ?? 0.3;
+  return vpY + farH * 0.55;
+}

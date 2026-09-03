@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
@@ -13,12 +13,16 @@ import { TopBar } from "@/components/game/TopBar";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { CodeEditor } from "@/components/game/CodeEditor";
 import { MissionPanel } from "@/components/game/MissionPanel";
+import { ObjectiveBar } from "@/components/game/ObjectiveBar";
+import { isStuck } from "@/lib/game/hints";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
 import { RushBar } from "@/components/story/RushBar";
 import { PowerCut } from "@/components/story/PowerCut";
 import { TwistReveal } from "@/components/story/TwistReveal";
 import { XPBurst } from "@/components/story/XPBurst";
+import { RewardCard } from "@/components/story/RewardCard";
+import { ZenDebrief } from "@/components/game/ZenDebrief";
 import { StreakLabel } from "@/components/story/StreakLabel";
 import { GameOver } from "@/components/story/GameOver";
 import { WinModal } from "@/components/game/WinModal";
@@ -26,6 +30,7 @@ import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
 import { CinematicScene } from "@/components/story/CinematicScene";
 import { MayaAnimation } from "@/components/story/MayaAnimation";
+import { PixiScene } from "@/components/story/PixiScene";
 import {
   INTRO_SCENES,
   CHAPTER_01_COMPLETE_SCENES,
@@ -332,6 +337,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const audio = useGameAudio(state, settings.soundEnabled);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
+  const [debriefDone, setDebriefDone] = useState(false);
   // Warm-up type-along opens the lesson (muscle memory) before explanations.
   const [showWarmup, setShowWarmup] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
@@ -345,6 +351,20 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [missionShownForStep, setMissionShownForStep] = useState<number | null>(null);
   const missionModalOpen =
     state.phase === "playing" && !showTour && missionShownForStep !== state.currentStepIndex;
+
+  // "Stuck" re-evaluates every few seconds so the hint button can light up on
+  // idle time as well as on failed attempts.
+  const [stuckTick, setStuckTick] = useState(0);
+  useEffect(() => {
+    if (state.phase !== "playing") return;
+    const iv = setInterval(() => setStuckTick((n) => n + 1), 5000);
+    return () => clearInterval(iv);
+  }, [state.phase]);
+  const stuck = useMemo(
+    () => state.phase === "playing" && state.stepStartedAt > 0 && isStuck(state.attempts, Date.now() - state.stepStartedAt),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stuckTick is the clock
+    [state.phase, state.attempts, state.stepStartedAt, stuckTick],
+  );
 
   // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
   const awaitingInput =
@@ -458,6 +478,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       <BeginnerOverlay
         notes={beginnerNotes}
         chapterId={challenge.id}
+        soundEnabled={settings.soundEnabled}
         fontScale={settings.tutorialFontScale ?? 2}
         onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
         onReady={() => {
@@ -573,6 +594,18 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         />
       );
     }
+    // The zen lessons as a watchable debrief, before the summary.
+    const chapterEntries = state.library.entries.filter((e) => e.stepId.startsWith(challenge.id + ":"));
+    if (!debriefDone && chapterEntries.length > 0) {
+      return (
+        <ZenDebrief
+          chapterTitle={challenge.title}
+          entries={chapterEntries}
+          soundEnabled={settings.soundEnabled}
+          onDone={() => setDebriefDone(true)}
+        />
+      );
+    }
     return (
       <WinModal
         xp={state.xp}
@@ -583,6 +616,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         completedChapter={challenge.id}
         onRetry={() => {
           setShowWinCinematic(false);
+          setDebriefDone(false);
           actions.retryFromCheckpoint();
         }}
         onContinue={hasNextChapter ? onNextChapter : () => { window.location.href = "/"; }}
@@ -623,6 +657,9 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       )}
 
       {/* Overlay layers */}
+      {state.reward && (
+        <RewardCard reward={state.reward} soundEnabled={settings.soundEnabled} onDone={actions.dismissReward} />
+      )}
       {state.particles.map((p) => (
         <XPBurst
           key={p.id}
@@ -723,6 +760,17 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           }
           codePanel={
             <div className="relative flex h-full min-h-0 flex-col">
+              <ObjectiveBar
+                compact
+                challenge={challenge}
+                currentStep={state.currentStep}
+                currentStepIndex={state.currentStepIndex}
+                hints={state.hints}
+                stuck={stuck}
+                jeopardy={state.jeopardy.activeEffects}
+                onRevealHint={actions.revealHint}
+                onOpenMission={() => actions.setTab("mission")}
+              />
               {state.aiSuggestOpen && state.aiSuggestions.length > 0 ? (
                 <AISuggestPanel
                   suggestions={state.aiSuggestions}
@@ -765,6 +813,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               currentStep={state.currentStep}
               currentStepIndex={state.currentStepIndex}
               totalSteps={state.totalSteps}
+              hints={state.hints}
+              onRevealHint={actions.revealHint}
             />
           }
           libraryPanel={<LibraryPanel library={state.library} />}
@@ -863,7 +913,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 borderBottom: "1px solid #0a1820",
               }}
             >
-              {([["code", "< CODE />"], ["mission", "MISSION"], ["library", "LIBRARY"], ["notes", "❔ NOTES · HELP"]] as const).map(
+              {([["code", "CODE"], ["mission", "MISSION"], ["notes", "NOTES"], ["library", "LIBRARY"]] as const).map(
                 ([t, label]) => {
                   const isHelp = t === "notes";
                   const active = state.tab === t;
@@ -871,21 +921,15 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                     <button
                       key={t}
                       onClick={() => actions.setTab(t)}
-                      className="bg-transparent text-[8px] tracking-[2px] px-3.5 py-2 cursor-pointer
-                                 transition-colors"
+                      className="bg-transparent text-[9px] tracking-[3px] px-4 py-2.5 cursor-pointer transition-colors"
                       style={{
                         color: active
-                          ? isHelp
-                            ? "var(--color-info)"
-                            : "var(--color-signal)"
-                          : isHelp
-                            ? "var(--color-info)"
-                            : "var(--color-dim)",
+                          ? isHelp ? "var(--color-info)" : "var(--color-signal)"
+                          : "var(--color-foreground)",
+                        opacity: active ? 1 : 0.6,
                         borderBottom: active
                           ? `2px solid ${isHelp ? "var(--color-info)" : "var(--color-signal)"}`
-                          : isHelp
-                            ? "2px solid color-mix(in srgb, var(--color-info) 35%, transparent)"
-                            : "2px solid transparent",
+                          : "2px solid transparent",
                       }}
                     >
                       {label}
@@ -893,63 +937,19 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   );
                 }
               )}
-              {/* Step progress */}
-              {state.totalSteps > 1 && (
-                <div className="ml-auto flex items-center gap-1 pr-2">
-                  {challenge.steps.map((step, i) => (
-                    <div
-                      key={step.id}
-                      className="flex items-center gap-1"
-                    >
-                      <span
-                        className="text-[7px] tracking-[1px] px-1 py-0.5"
-                        style={{
-                          color:
-                            i < state.currentStepIndex
-                              ? "var(--color-signal)"
-                              : i === state.currentStepIndex
-                                ? "var(--color-alert)"
-                                : "#0a3040",
-                          border: `1px solid ${
-                            i < state.currentStepIndex
-                              ? "rgba(110,255,160,.2)"
-                              : i === state.currentStepIndex
-                                ? "rgba(255,159,28,.3)"
-                                : "#0a1820"
-                          }`,
-                          background:
-                            i < state.currentStepIndex
-                              ? "rgba(110,255,160,.05)"
-                              : i === state.currentStepIndex
-                                ? "rgba(255,159,28,.05)"
-                                : "transparent",
-                        }}
-                      >
-                        {i < state.currentStepIndex ? "✓" : i + 1} {step.title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Jeopardy indicators */}
-              {state.jeopardy.activeEffects.length > 0 && (
-                <div className="ml-auto flex items-center gap-1.5 pr-3">
-                  {state.jeopardy.activeEffects.map((effect, i) => (
-                    <span
-                      key={i}
-                      className="text-[7px] tracking-[1px] px-1 py-0.5"
-                      style={{
-                        color: "var(--color-danger)",
-                        border: "1px solid rgba(255,64,64,.2)",
-                        background: "rgba(255,64,64,.05)",
-                      }}
-                    >
-                      {effect.replace("_", " ").toUpperCase()}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {/* What to do right now — always visible above the work area */}
+            <ObjectiveBar
+              challenge={challenge}
+              currentStep={state.currentStep}
+              currentStepIndex={state.currentStepIndex}
+              hints={state.hints}
+              stuck={stuck}
+              jeopardy={state.jeopardy.activeEffects}
+              onRevealHint={actions.revealHint}
+              onOpenMission={() => actions.setTab("mission")}
+            />
 
             {/* Tab content */}
             {state.tab === "code" && (
@@ -1020,6 +1020,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 currentStep={state.currentStep}
                 currentStepIndex={state.currentStepIndex}
                 totalSteps={state.totalSteps}
+                hints={state.hints}
+                onRevealHint={actions.revealHint}
               />
             )}
             {state.tab === "library" && (
@@ -1041,21 +1043,58 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   );
 }
 
+// Live establishing shot behind the chapter intro panel — the room the
+// chapter opens in, breathing under its own light, on a slow ping-pong drift.
+function introAmbientShot(config: ChapterConfig): SceneDefinition {
+  const first = config.introScenes[0];
+  return {
+    background: first.background,
+    actors: first.actors.map((a) => ({ ...a, path: undefined, endAnimation: undefined })),
+    // Framed left of the opening shot so the actor sits at the frame's edge,
+    // clear of the brief in the middle of the screen.
+    camera: [
+      { x: first.camera[0].x - 110, y: first.camera[0].y, zoom: (first.camera[0].zoom ?? 1) * 0.98, time: 0 },
+      { x: first.camera[0].x - 90, y: first.camera[0].y - 8, zoom: (first.camera[0].zoom ?? 1) * 1.1, time: 14000 },
+    ],
+    durationMs: 14000,
+    location: first.location,
+  };
+}
+
 function IntroScreen({ config, onStart }: {
   config: ChapterConfig;
   onStart: () => void;
 }) {
   const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
+  const ambient = useMemo(() => introAmbientShot(config), [config]);
 
   return (
     <div
-      className="min-h-dvh flex items-center justify-center px-5"
+      className="min-h-dvh flex items-center justify-center px-5 relative overflow-hidden"
       style={{
         background: "var(--color-background)",
         backgroundImage:
           "radial-gradient(ellipse at 50% 110%, rgba(0,60,20,.2) 0%, transparent 65%)",
       }}
     >
+      {/* Live 3.5D backdrop — the chapter's opening room, dimmed behind the brief */}
+      <div className="fixed inset-0 pointer-events-none" aria-hidden="true" style={{ opacity: 0.45 }}>
+        {/* Cover-fit: keep the 16:10 picture and let it overflow the viewport. */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ width: "max(100vw, 165dvh)", aspectRatio: "16 / 10" }}
+        >
+          <PixiScene scene={ambient} width={640} height={400} crtEffect loop="pingpong" />
+        </div>
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 45%, transparent 0%, color-mix(in srgb, var(--color-background) 55%, transparent) 55%, var(--color-background) 100%)",
+          }}
+        />
+      </div>
+
       {/* Grid overlay */}
       <div
         className="fixed inset-0 opacity-10 pointer-events-none"
@@ -1077,7 +1116,10 @@ function IntroScreen({ config, onStart }: {
         />
       </div>
 
-      <div className="max-w-[480px] w-full relative">
+      <div
+        className="max-w-[480px] w-full relative px-5 py-6"
+        style={{ background: "color-mix(in srgb, var(--color-background) 62%, transparent)" }}
+      >
         {/* Title */}
         <div
           className="text-center mb-7"

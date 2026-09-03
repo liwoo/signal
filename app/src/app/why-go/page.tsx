@@ -119,7 +119,7 @@ export default function WhyGoPage() {
       <div className="relative max-w-[640px] mx-auto px-4 py-10">
         <a
           href="/"
-          className="text-[10px] tracking-[2px] transition-colors"
+          className="text-[12px] tracking-[2px] transition-colors"
           style={{
             color: "var(--color-dim)",
             textDecoration: "none",
@@ -136,8 +136,8 @@ export default function WhyGoPage() {
             {PAGE_TITLE}
           </div>
           <div
-            className="text-[11px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+            className="text-[13px]"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             {PAGE_SUBTITLE}
           </div>
@@ -153,7 +153,7 @@ export default function WhyGoPage() {
           }}
         >
           <p
-            className="text-[12px] leading-[1.9]"
+            className="text-[14px] leading-[1.9]"
             style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             Go is the fastest-growing backend language in the world. designed at
@@ -176,7 +176,7 @@ export default function WhyGoPage() {
             >
               <div className="flex items-start justify-between gap-4 mb-2">
                 <div
-                  className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold"
+                  className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold"
                   style={{ color: "var(--color-foreground)" }}
                 >
                   {title}
@@ -189,7 +189,7 @@ export default function WhyGoPage() {
                     {stat}
                   </div>
                   <div
-                    className="text-[6px] tracking-[1px]"
+                    className="text-[10px] tracking-[1px]"
                     style={{ color: "var(--color-dim)" }}
                   >
                     {statLabel}
@@ -197,8 +197,8 @@ export default function WhyGoPage() {
                 </div>
               </div>
               <p
-                className="text-[11px] leading-[1.8]"
-                style={{ color: "var(--color-foreground)", opacity: 0.65 }}
+                className="text-[13px] leading-[1.8]"
+                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
                 {text}
               </p>
@@ -209,7 +209,7 @@ export default function WhyGoPage() {
         {/* Who uses Go */}
         <div className="mt-8 mb-6">
           <div
-            className="text-[9px] tracking-[3px] text-center mb-4"
+            className="text-[11px] tracking-[3px] text-center mb-4"
             style={{ color: "var(--color-dim)" }}
           >
             COMPANIES USING GO IN PRODUCTION
@@ -219,7 +219,7 @@ export default function WhyGoPage() {
               <a
                 key={title}
                 href={url}
-                className="opacity-[60%] text-[10px] tracking-[1px] px-2.5 py-1 hover:bg-slate-800 hover:text-green-600 cursor-pointer"
+                className="opacity-[60%] text-[12px] tracking-[1px] px-2.5 py-1 hover:bg-slate-800 hover:text-green-600 cursor-pointer"
                 style={{
                   border: "1px solid rgba(110,255,160,.08)",
                 }}
@@ -234,7 +234,7 @@ export default function WhyGoPage() {
         <div className="text-center mt-10">
           <a
             href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[12px] tracking-[3px] transition-colors"
+            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
             style={{
               border: "2px solid var(--color-signal)",
               color: "var(--color-signal)",

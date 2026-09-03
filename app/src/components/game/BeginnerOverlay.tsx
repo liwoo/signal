@@ -25,11 +25,12 @@ interface BeginnerOverlayProps {
   onReady: () => void;
   onDisable: () => void;
   onHotspotXP: (amount: number) => void;
+  soundEnabled?: boolean;
 }
 
 type BriefingTab = "beginner" | "expert";
 
-export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP }: BeginnerOverlayProps) {
+export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP, soundEnabled = true }: BeginnerOverlayProps) {
   const hasBeginner = !!notes.beginnerBlocks && notes.beginnerBlocks.length > 0;
   // Lead with expert; beginners opt in via the prominent CTA below.
   const [activeTab, setActiveTab] = useState<BriefingTab>("expert");
@@ -289,6 +290,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
               clickedHotspots={clickedHotspots}
               onHotspotClick={handleHotspotClick}
               fontScale={fontScale}
+              soundEnabled={soundEnabled}
             />
           ))}
 
@@ -313,6 +315,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                 clickedHotspots={clickedHotspots}
                 onHotspotClick={handleHotspotClick}
                 fontScale={fontScale}
+                soundEnabled={soundEnabled}
               />
             );
           })}
@@ -365,11 +368,10 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           {!sectionDone ? (
             <button
               onClick={skipSection}
-              className="bg-transparent text-[9px] tracking-[3px] px-4 py-2 cursor-pointer transition-colors
-                         hover:bg-[rgba(110,255,160,.05)]"
+              className="btn-secondary bg-transparent text-[10px] tracking-[3px] px-4 py-2 cursor-pointer transition-colors"
               style={{
-                color: "var(--color-dim)",
-                border: "1px solid rgba(110,255,160,.15)",
+                color: "var(--color-foreground)",
+                border: "1px solid rgba(184,212,160,.35)",
               }}
             >
               SKIP ▸▸
@@ -390,11 +392,10 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           )}
           <button
             onClick={onDisable}
-            className="bg-transparent text-[8px] tracking-[2px] px-3 py-2 cursor-pointer transition-colors ml-auto
-                       hover:bg-[rgba(255,64,64,.05)]"
+            className="btn-secondary bg-transparent text-[10px] tracking-[2px] px-4 py-2 cursor-pointer transition-colors ml-auto"
             style={{
-              color: "rgba(110,255,160,.25)",
-              border: "1px solid rgba(110,255,160,.06)",
+              color: "var(--color-foreground)",
+              border: "1px solid rgba(184,212,160,.35)",
             }}
           >
             DON&apos;T SHOW AGAIN
@@ -416,6 +417,7 @@ function BlockRenderer({
   clickedHotspots,
   onHotspotClick,
   fontScale,
+  soundEnabled = true,
 }: {
   block: NoteBlock;
   text: string;
@@ -425,6 +427,7 @@ function BlockRenderer({
   clickedHotspots: Set<string>;
   onHotspotClick: (hotspotText: string) => void;
   fontScale: number;
+  soundEnabled?: boolean;
 }) {
   const textSize = `${Math.round(12 * fontScale)}px`;
   const codeSize = `${Math.round(12 * fontScale)}px`;
@@ -445,6 +448,7 @@ function BlockRenderer({
           <GoAppliance
             view="animation"
             autoPlay
+            soundEnabled={soundEnabled}
             onHotspotClick={(id) => onHotspotClick(id)}
             clickedIds={clickedHotspots}
           />
@@ -458,6 +462,7 @@ function BlockRenderer({
         )}
         {block.diagramId === "ch01-appliance" && (
           <GoAppliance
+            soundEnabled={soundEnabled}
             onHotspotClick={(id) => onHotspotClick(id)}
             clickedIds={clickedHotspots}
           />

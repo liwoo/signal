@@ -563,11 +563,23 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
             >
               RUN
             </button>
+            {/* Keyboard alternative — a visible keycap, not a whisper */}
             <span
-              className="text-[8px] tracking-[2px] ml-3 hidden sm:inline"
-              style={{ color: "var(--color-dim)" }}
+              className="ml-3 hidden sm:inline-flex items-center gap-2 text-[10px] tracking-[2px] align-middle"
+              style={{ color: "var(--color-foreground)", opacity: 0.85 }}
             >
-              {config.multiline ? "or ⌘+ENTER" : "or ENTER"}
+              <span>or</span>
+              <kbd
+                className="px-2 py-1 text-[10px] tracking-[1px] font-[family-name:var(--font-mono)]"
+                style={{
+                  color: "var(--color-signal)",
+                  border: "1px solid rgba(110,255,160,.45)",
+                  borderBottomWidth: 3,
+                  background: "rgba(110,255,160,.06)",
+                }}
+              >
+                {config.multiline ? "⌘ + ENTER" : "⏎ ENTER"}
+              </kbd>
             </span>
           </div>
 
@@ -615,20 +627,17 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
             ))}
           </div>
 
-          {/* Skip link */}
+          {/* Skip — a clearly visible secondary action, not a hidden link */}
           <div className="flex justify-end">
             <button
               onClick={handleSkip}
-              className="bg-transparent border-0 cursor-pointer text-[8px] tracking-[2px]"
-              style={{ color: "var(--color-dim)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--color-foreground)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "var(--color-dim)";
+              className="btn-secondary bg-transparent cursor-pointer text-[10px] tracking-[3px] px-4 py-2 transition-colors"
+              style={{
+                color: "var(--color-foreground)",
+                border: "1px solid rgba(184,212,160,.35)",
               }}
             >
-              skip warmup ▸
+              SKIP WARMUP ▸
             </button>
           </div>
         </div>

@@ -18,6 +18,12 @@ const STEPS: TourStep[] = [
     position: "right",
   },
   {
+    target: "objective-bar",
+    title: "OBJECTIVE",
+    description: "what to do right now, always one line above your code. the pips are your steps. if you get stuck, HINT unlocks one clue at a time — it costs a little XP, and maya will nudge you when it's time.",
+    position: "bottom",
+  },
+  {
     target: "code-editor",
     title: "CODE EDITOR",
     description: "write your Go code here. maya's survival depends on what you type. when you're ready, hit TRANSMIT to compile and run it.",
@@ -37,8 +43,8 @@ const STEPS: TourStep[] = [
   },
   {
     target: "tab-bar",
-    title: "MISSION / LIBRARY / NOTES",
-    description: "switch between your code, the mission brief, your zen library, and notes. the mission tab shows what maya needs you to build. hit NOTES any time to review what you learned in the tutorial.",
+    title: "CODE · MISSION · NOTES · LIBRARY",
+    description: "the full mission brief and your hints live under MISSION. NOTES is the concept reference from the tutorial. LIBRARY collects the go idioms you earn.",
     position: "bottom",
   },
   {

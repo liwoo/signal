@@ -41,6 +41,22 @@ const MSG_COLORS: Record<string, string> = {
 
 const MAYA_TYPES = new Set(["maya", "win"]);
 
+/** Fold runs of identical system lines ("energy drain" ×3) into one chip. */
+function collapseSystemNoise(messages: ChatMsg[]): Array<{ msg: ChatMsg; repeats: number }> {
+  const out: Array<{ msg: ChatMsg; repeats: number }> = [];
+  for (const m of messages) {
+    const prev = out[out.length - 1];
+    const system = m.type === "dim" || m.type === "sys";
+    if (prev && system && prev.msg.type === m.type && prev.msg.text === m.text) {
+      prev.repeats += 1;
+      prev.msg = m; // keep the newest id so the list stays keyed on the tail
+      continue;
+    }
+    out.push({ msg: m, repeats: 1 });
+  }
+  return out;
+}
+
 export function ChatPanel({
   messages,
   busy,
@@ -93,18 +109,13 @@ export function ChatPanel({
           borderBottom: "1px solid #0a1820",
         }}
       >
-        <div className="flex justify-between items-center">
-          <div>
-            <span className="text-[var(--color-alert)] text-[11px] font-semibold">
-              {challengeTitle}{" "}
-            </span>
-            <span className="text-[#1a5a6a] text-[9px]">
-              — {challengeConcepts}
-            </span>
-          </div>
-          <div className="text-[var(--color-dim)] text-[8px] text-right">
-            {location}
-          </div>
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-[var(--color-signal)] text-[9px] tracking-[3px] font-[family-name:var(--font-display)]">
+            MAYA · {location}
+          </span>
+          <span className="text-[8px] tracking-[2px] truncate" style={{ color: "var(--color-dim)" }} title={challengeConcepts}>
+            {challengeTitle}
+          </span>
         </div>
       </div>
 
@@ -115,28 +126,43 @@ export function ChatPanel({
             routing<span className="cursor-blink">...</span>
           </div>
         )}
-        {messages.map((m, i) => {
-          const distFromEnd = messages.length - 1 - i;
-          const opacity = distFromEnd < 2 ? 1 : Math.max(0.08, 1 - (distFromEnd - 1) * 0.25);
+        {collapseSystemNoise(messages).map(({ msg: m, repeats }, i, list) => {
+          const distFromEnd = list.length - 1 - i;
+          // Recency fade: older messages recede but stay readable.
+          const opacity = distFromEnd < 2 ? 1 : Math.max(0.4, 1 - (distFromEnd - 1) * 0.15);
           const isMaya = MAYA_TYPES.has(m.type);
           const isLastMsg = m.id === lastMsgId;
           const hasFinishedTyping = typedIds.has(m.id);
+          const isSystem = m.type === "dim" || m.type === "sys";
+
+          // System lines are status chips, not conversation.
+          if (isSystem) {
+            return (
+              <div
+                key={m.id}
+                className="msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700"
+                style={{ opacity, color: m.type === "sys" ? "var(--color-alert)" : "var(--color-dim)" }}
+              >
+                <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+                <span className="shrink-0 max-w-[85%] truncate">
+                  {m.text.replace(/^▸\s*/, "")}
+                  {repeats > 1 ? ` ×${repeats}` : ""}
+                </span>
+                <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+              </div>
+            );
+          }
 
           return (
             <div
               key={m.id}
-              className={`msg-enter leading-[1.65] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[17px]"}`}
+              className={`msg-enter leading-[1.6] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[15px]"}`}
               style={{ opacity }}
             >
-              <div className="flex gap-1.5 mb-px">
-                <span className="text-[#0a2a3a] text-[7px]">
-                  {new Date(parseInt(m.id)).toLocaleTimeString("en-US", {
-                    hour12: false,
-                  })}
-                </span>
+              <div className="mb-px">
                 <span
-                  className="text-[7px] tracking-[2px]"
-                  style={{ color: MSG_COLORS[m.type] }}
+                  className="text-[8px] tracking-[2px]"
+                  style={{ color: MSG_COLORS[m.type], opacity: 0.7 }}
                 >
                   {m.from}
                 </span>
@@ -158,8 +184,8 @@ export function ChatPanel({
           );
         })}
         {busy && (
-          <div className="text-[9px] text-[#0a4a3a]">
-            <span className="text-[var(--color-signal)] opacity-30 tracking-[2px]">
+          <div className="text-[9px]">
+            <span className="text-[var(--color-signal)] opacity-50 tracking-[2px]">
               MAYA{" "}
             </span>
             <span className="cursor-blink text-[var(--color-signal)]">▋</span>
@@ -224,18 +250,12 @@ export function ChatPanel({
           background: "rgba(4,9,15,.8)",
         }}
       >
-        <div
-          className="text-[8px] tracking-[3px]"
-          style={{ color: "var(--color-player)", opacity: 0.5 }}
-        >
-          ▸ ASK MAYA ANYTHING
-        </div>
         <div className="flex gap-2 items-center">
           <input
             value={chatInput}
             onChange={(e) => onChatChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onSend()}
-            placeholder="type a question or ask for a hint..."
+            placeholder="ask maya anything…"
             disabled={busy}
             className={`flex-1 bg-transparent text-[var(--color-player)] py-1 focus:outline-none placeholder:text-[rgba(122,184,216,.25)] disabled:opacity-40 ${compact ? "text-[16px]" : "text-[14px]"}`}
             style={{

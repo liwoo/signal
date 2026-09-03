@@ -8,6 +8,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ## Process
 
+0. **Read the level playbook first** — `spec/levels/level-playbook.md` records every decision made for chapter 1 (cinematic grammar, onboarding, HUD, hints, rewards, zen debrief, legibility, mobile, QA scripts). New levels replicate it; deviations need a reason written into the level spec.
+
 1. **Start from the spec** — every chapter/boss has a spec in `spec/levels/`. Read it first. It defines the Go concepts, story beats, acceptance criteria, and XP values. Don't improvise story or mechanics.
 
 2. **Read adjacent chapters** — content must flow narratively. If you're writing chapter 7, read chapters 6 and 8's specs (or existing data files) so twists connect and the difficulty curve makes sense.

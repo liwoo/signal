@@ -81,7 +81,7 @@ export default function FAQPage() {
       <div className="relative max-w-[640px] mx-auto px-4 py-10">
         <a
           href="/"
-          className="text-[10px] tracking-[2px] transition-colors"
+          className="text-[12px] tracking-[2px] transition-colors"
           style={{
             color: "var(--color-dim)",
             textDecoration: "none",
@@ -98,8 +98,8 @@ export default function FAQPage() {
             FAQ
           </div>
           <div
-            className="text-[11px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+            className="text-[13px]"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             frequently asked questions about SIGNAL
           </div>
@@ -125,7 +125,7 @@ export default function FAQPage() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span
-                      className="text-[11px] leading-[1.6]"
+                      className="text-[13px] leading-[1.6]"
                       style={{
                         color: isOpen
                           ? "var(--color-signal)"
@@ -135,7 +135,7 @@ export default function FAQPage() {
                       {faq.q}
                     </span>
                     <span
-                      className="text-[10px] shrink-0 transition-transform"
+                      className="text-[12px] shrink-0 transition-transform"
                       style={{
                         color: "var(--color-dim)",
                         transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
@@ -156,7 +156,7 @@ export default function FAQPage() {
                     }}
                   >
                     <p
-                      className="text-[11px] leading-[1.8]"
+                      className="text-[13px] leading-[1.8]"
                       style={{
                         color: "var(--color-foreground)",
                         opacity: 0.75,
@@ -174,7 +174,7 @@ export default function FAQPage() {
         <div className="text-center mt-10">
           <a
             href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[12px] tracking-[3px] transition-colors"
+            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
             style={{
               border: "2px solid var(--color-signal)",
               color: "var(--color-signal)",

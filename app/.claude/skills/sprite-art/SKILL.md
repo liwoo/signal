@@ -13,15 +13,63 @@ All visuals are painted programmatically with Canvas 2D — no external image as
 ```
 src/lib/sprites/
 ├── palette.ts            # Central color palette (C.metalDark, C.skinMid, etc.)
-├── scene-painter.ts      # Background environments (cell, corridor, chase, vent, server)
+├── projection.ts         # Shared one-point projection + SCENE_PROJECTION (per-scene VPs)
+├── lighting.ts           # SCENE_LIGHTING — one key light + ≤2 fills per scene
+├── scene-fx.ts           # Deterministic per-frame FX: parallax, depth scale, flicker,
+│                         #   strobe, dust, sway/shake/dutch, flash + glitch envelopes
+├── scene-painter.ts      # Background environments; paintScene (flat) + paintSceneLayers
 ├── character-painter.ts  # Maya + Guard sprite frames
-└── scenes.ts             # Scene definitions (actors, camera, duration)
+└── scenes.ts             # Scene definitions (actors, camera, transitions, fx, audio)
 
 src/components/story/
-├── PixiScene.tsx          # WebGL renderer — composites scene + characters
-├── CinematicScene.tsx     # Full-screen intro/chapter-transition sequences
+├── PixiScene.tsx          # WebGL 3.5D renderer — planes, lights, dust, camera body
+├── CinematicScene.tsx     # Full-screen intro/chapter-transition sequences + title cards
 └── MayaAnimation.tsx      # Bottom-right freeze-frame during gameplay
+
+src/components/promo/PromoLoop.tsx   # Landing hero — same planes/lights/camera in Canvas 2D
+src/app/dev/cinematic/page.tsx       # Dev-only preview: /dev/cinematic?seq=INTRO_SCENES
 ```
+
+## The 3.5D Stage (how a shot is built)
+
+`paintSceneLayers(type, w, h)` returns three planes; `paintScene` composites them flat
+for MayaAnimation and the visual test.
+
+| Plane | Parallax | Contents |
+|---|---|---|
+| `back` | 0.92× | walls, ceiling, floor, wall-mounted props, baked glow, contact shadows |
+| `mid[]` | 1× | floor props as cropped canvases with a `footY` — actors depth-sort against them |
+| `fore` | 1.12× | near-camera occluders: door jamb, overhead pipe, hanging cable (dark, unlit) |
+
+Register a floor prop as a mid prop with `midProp(ctx, sink, x, y, w, h, footY, draw)`;
+leave its contact shadow on the back plane. Every scene needs ≥1 fore element or the
+parallax is invisible.
+
+On top of the planes the renderer animates, per frame and purely from scene-elapsed time:
+
+- **Lights** — additive glow sprites at `SCENE_LIGHTING` key/fills, a light-shaft cone from
+  `SCENE_FX[type].rays`; the key flickers (`flickerLevel`), fills pulse, chase/boss get a
+  rotating-beacon wash (`strobeLevel`).
+- **Dust** — `SCENE_FX[type].dust` motes drifting inside the lit region (`dustMote`).
+- **Actors** — scaled by `depthScale(type, footY, h)` so they grow walking toward the lens,
+  tinted by distance to the key (`actorTint`), rim-lit in the scene accent.
+- **Camera body** — idle `swayOffset`, `shakeOffset` for `SceneDefinition.shakes`, `dutch`.
+- **Post** — `flashes` and `glitches` on the shot, plus `transition: "flash" | "glitch"`.
+
+### Authoring a shot (scenes.ts)
+
+- Feet must sit on the floor band: cell far edge y≈339, corridor y≈315 (scene h=600).
+- `Actor.endAnimation` swaps the animation when the path completes (walk → hack).
+- `titleCard` puts big display type in-picture; the header title hides while it shows.
+- Keep dissolves for time/place jumps; use `glitch` for threat reveals, `flash` for sends.
+- Every `sound` in `audio` must exist in `useAudio.ts` — `scenes.test.ts` checks this.
+
+### Checking it
+
+- `npx vitest run src/lib/sprites` — fx determinism + scene data validation.
+- `node test-visual/capture-live.mjs http://localhost:3000/play /tmp/out cinematic` —
+  screenshots the live cinematic at fixed times (GPU headless; SwiftShader is too slow).
+- `/dev/cinematic?seq=CHAPTER_01_COMPLETE_SCENES` plays any sequence without game state.
 
 ## Color Palette Rules
 

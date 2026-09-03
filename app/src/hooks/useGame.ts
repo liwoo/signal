@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { createHintState, revealNextHint, markOffered, isStuck } from "@/lib/game/hints";
+import type { HintState } from "@/lib/game/hints";
+import { buildReward } from "@/lib/game/reward";
+import type { Reward } from "@/lib/game/reward";
 import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
 import { callMayaEngine, callMayaEngineAsync } from "@/lib/ai/engine";
@@ -17,7 +21,6 @@ import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "@/lib
 import {
   createLibraryState,
   recordZenResults,
-  getMissedTips,
   getMasteredRuleIds,
   type LibraryState,
 } from "@/lib/game/library";
@@ -49,6 +52,7 @@ import {
   trackZenBonus,
   trackHeartBuy,
   trackChatAsk,
+  trackHintReveal,
   trackChatExplain,
   trackAISuggestOpen,
   trackAISuggestUse,
@@ -135,6 +139,12 @@ export interface GameState {
   aiTokens: number;
   aiSuggestOpen: boolean;
   aiSuggestions: AISuggestion[];
+  // Reward card for the last cleared step (null when none showing)
+  reward: Reward | null;
+  // Progressive hints
+  hints: HintState;
+  /** When the current step began (ms) — drives the "stuck" nudge. */
+  stepStartedAt: number;
 }
 
 export interface GameActions {
@@ -160,6 +170,9 @@ export interface GameActions {
   openAISuggest: () => void;
   closeAISuggest: () => void;
   useAISuggestion: (suggestion: AISuggestion) => void;
+  /** Reveal the next hint for the current step (costs XP); Maya posts it in chat. */
+  revealHint: () => void;
+  dismissReward: () => void;
 }
 
 export function useGame(
@@ -180,6 +193,9 @@ export function useGame(
   const [chatInput, setChatInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [xp, setXp] = useState(initial?.xp ?? 0);
+  const [hintState, setHintState] = useState<HintState>(createHintState);
+  const [reward, setReward] = useState<Reward | null>(null);
+  const [stepStartedAt, setStepStartedAt] = useState(0);
   const [level, setLevel] = useState(initial?.level ?? 1);
   const [attempts, setAttempts] = useState(initialDraft?.attempts ?? 0);
   const [tab, setTab] = useState<"code" | "mission" | "library" | "notes">("code");
@@ -282,11 +298,6 @@ export function useGame(
   );
 
   const idCounter = useRef(0);
-
-  const spawnXP = useCallback((amount: number) => {
-    const id = ++idCounter.current;
-    setParticles((p) => [...p, { id, amount }]);
-  }, []);
 
   const showStreak = useCallback((text: string) => {
     const id = ++idCounter.current;
@@ -408,6 +419,8 @@ export function useGame(
       stepSchedulerRef.current.stop();
       stepSchedulerRef.current = createEventScheduler();
       stepStartTimeRef.current = Date.now();
+      setStepStartedAt(Date.now());
+      setHintState(createHintState());
       if (step.events.length > 0) {
         stepSchedulerRef.current.start(step.events, handleEvent);
       }
@@ -616,7 +629,16 @@ export function useGame(
         trackZenBonus(challenge.id, currentStep.id, zenResult.bonusXP, zenResult.jolts.length);
       }
 
-      spawnXP(totalEarned);
+      // The payoff: one card that says what was earned and why.
+      setReward(buildReward({
+        stepTitle: currentStep.title,
+        stepIndex,
+        totalSteps: challenge.steps.length,
+        base: currentStep.xp.base,
+        firstTry: isFirst,
+        speedXP: speedBonus,
+        zenXP: zenResult.bonusXP,
+      }));
       setXp((prev) => {
         const next = prev + totalEarned;
         const newLevel = calculateLevel(next);
@@ -627,8 +649,6 @@ export function useGame(
         return next;
       });
 
-      if (isFirst && wasRush) showStreak("SPEED RUN!");
-      else if (isFirst) showStreak("FIRST TRY!");
 
       // Chunked delivery: completion reply → zen → next step intro
       // Each chunk pauses for "continue" — no more setTimeout timing hacks
@@ -684,12 +704,12 @@ export function useGame(
           pendingMsgRef.current.push({ from: "MAYA", text: chunk, type: "maya", animated: true });
         }
       } else {
-        // All steps complete — chapter done
-        showStreak("CHAPTER CLEAR!");
+        // All steps complete — chapter done (the reward card carries the moment)
         trackChapterComplete(challenge.id, challenge.chapter, totalEarned, Date.now() - startTimeRef.current);
 
-        // Queue missed zen tips reinforcement before chapter-complete transition
-        // Compute from current library + this step's results (setLibrary hasn't flushed yet)
+        // Zen lessons (learned + missed) are taught in the ZenDebrief screen
+        // after the outro cinematic, not as chat chunks here. The library is
+        // computed now because setLibrary hasn't flushed yet.
         const updatedLib = recordZenResults(
           libraryRef.current,
           currentStep.id,
@@ -698,26 +718,6 @@ export function useGame(
             suggestion: r.suggestion, bonusXP: r.bonusXP, passed: r.check(code),
           }))
         );
-        // Only show missed tips from THIS chapter's steps, not all time
-        const chapterPrefix = challenge.id + ":";
-        const missed = getMissedTips(updatedLib).filter(
-          (m) => m.stepId.startsWith(chapterPrefix)
-        );
-        if (missed.length > 0) {
-          const reinforceHeader = `▸ ZEN LIBRARY · ${missed.length} MISSED`;
-          pendingMsgRef.current.push({
-            from: "SYS", text: reinforceHeader, type: "dim", animated: false,
-          });
-          const reinforceLines = missed.map(
-            (m) => `**${m.principle}** — ${m.suggestion}`
-          ).join("\n\n");
-          for (const chunk of splitMayaMessage(reinforceLines)) {
-            pendingMsgRef.current.push({
-              from: "MAYA", text: chunk, type: "maya", animated: true,
-            });
-          }
-        }
-
         pendingMsgRef.current.push({
           from: "SYS",
           text: null,
@@ -765,7 +765,6 @@ export function useGame(
     twistData,
     addMsg,
     addMayaChunked,
-    spawnXP,
     showStreak,
     startStepEvents,
     syncPauseState,
@@ -788,6 +787,34 @@ export function useGame(
   const addXP = useCallback((amount: number) => {
     setXp((prev) => prev + amount);
   }, []);
+
+  // Reveal the next hint: pay XP, show it as a Maya message, log it.
+  const revealHint = useCallback(() => {
+    const result = revealNextHint(currentStep.hints, hintState, xpRef.current);
+    if (!result.hint) return;
+    setHintState(result.state);
+    setXp(result.xp);
+    trackHintReveal(challenge.id, currentStep.id, result.hint.level, result.hint.energyCost);
+    addMayaChunked("MAYA", `hint ${result.hint.level}: ${result.hint.text}`, "maya");
+  }, [currentStep.hints, currentStep.id, hintState, challenge.id, addMayaChunked]);
+
+  // One-time nudge when the player looks stuck: Maya points at the hint button.
+  useEffect(() => {
+    if (phase !== "playing" || hintState.offered || hintState.revealed > 0 || currentStep.hints.length === 0) return;
+    const check = () => {
+      if (isStuck(attempts, Date.now() - (stepStartTimeRef.current || Date.now()))) {
+        setHintState((prev) => markOffered(prev));
+        addMsg("MAYA", "stuck? that's normal. tap HINT above the code and i'll walk you through the first piece.", "maya", true);
+        return true;
+      }
+      return false;
+    };
+    if (check()) return;
+    const iv = setInterval(() => {
+      if (check()) clearInterval(iv);
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [phase, attempts, hintState.offered, hintState.revealed, currentStep.hints.length, addMsg]);
 
   const onMayaTypingStart = useCallback(() => {
     const result = pureStartPause(pauseRef.current, Date.now(), timerStopped);
@@ -984,6 +1011,9 @@ export function useGame(
     aiTokens,
     aiSuggestOpen,
     aiSuggestions: getAISuggestions(currentStep.id),
+    hints: hintState,
+    stepStartedAt,
+    reward,
   };
 
   const actions: GameActions = {
@@ -1015,6 +1045,8 @@ export function useGame(
       }
     },
     closeAISuggest: () => setAiSuggestOpen(false),
+    revealHint,
+    dismissReward: () => setReward(null),
     useAISuggestion: (suggestion: AISuggestion) => {
       const newTokens = useToken(aiTokens);
       if (newTokens === null) return;

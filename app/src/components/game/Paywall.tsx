@@ -329,7 +329,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         <div className="relative max-w-[640px] mx-auto px-4 py-10">
           <button
             onClick={() => setShowCurriculum(false)}
-            className="bg-transparent cursor-pointer text-[10px] tracking-[2px] mb-8 transition-colors"
+            className="bg-transparent cursor-pointer text-[12px] tracking-[2px] mb-8 transition-colors"
             style={{
               color: hovered === "back" ? "var(--color-signal)" : "var(--color-foreground)",
               opacity: hovered === "back" ? 1 : 0.5,
@@ -349,14 +349,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               FULL CURRICULUM
             </div>
             <div
-              className="text-[12px] mb-2"
-              style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+              className="text-[14px] mb-2"
+              style={{ color: "var(--color-foreground)", opacity: 0.85 }}
             >
               4 acts &middot; 22 chapters &middot; 4 boss fights
             </div>
             <div
-              className="text-[11px]"
-              style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+              className="text-[13px]"
+              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
             >
               from &quot;hello world&quot; to production Go
             </div>
@@ -368,7 +368,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               <div key={act.act} className="mb-10">
                 <div className="flex items-center gap-3 mb-4">
                   <div
-                    className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold"
+                    className="font-[family-name:var(--font-display)] text-[14px] tracking-[3px] font-bold"
                     style={{
                       color: act.status === "complete" ? "var(--color-signal)" : "var(--color-foreground)",
                       opacity: act.status === "complete" ? 1 : 0.9,
@@ -377,14 +377,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                     ACT {act.act} &mdash; {act.title}
                   </div>
                   <span
-                    className="text-[7px] tracking-[1px] px-2 py-0.5 font-[family-name:var(--font-display)]"
+                    className="text-[10px] tracking-[1px] px-2 py-0.5 font-[family-name:var(--font-display)]"
                     style={{ background: diff.bg, color: diff.color }}
                   >
                     {diff.label}
                   </span>
                   {act.status === "complete" && (
                     <span
-                      className="text-[7px] tracking-[1px] px-2 py-0.5"
+                      className="text-[10px] tracking-[1px] px-2 py-0.5"
                       style={{ background: "rgba(110,255,160,.15)", color: "var(--color-signal)" }}
                     >
                       FREE
@@ -410,22 +410,22 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                       <div className="flex items-center gap-2 mb-1">
                         {ch.boss ? (
                           <span
-                            className="text-[7px] tracking-[1px] px-1.5 py-0.5 font-[family-name:var(--font-display)] font-bold"
+                            className="text-[10px] tracking-[1px] px-1.5 py-0.5 font-[family-name:var(--font-display)] font-bold"
                             style={{ background: "rgba(255,64,64,.15)", color: "#ff6e6e" }}
                           >
                             BOSS
                           </span>
                         ) : act.status === "complete" ? (
-                          <span className="text-[10px]" style={{ color: "var(--color-signal)" }}>
+                          <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>
                             &#10003;
                           </span>
                         ) : (
-                          <span className="text-[10px]" style={{ color: "var(--color-foreground)", opacity: 0.4 }}>
+                          <span className="text-[12px]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
                             &#9656;
                           </span>
                         )}
                         <span
-                          className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold"
+                          className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold"
                           style={{
                             color: ch.boss
                               ? (act.status === "complete" ? "var(--color-signal)" : "#ff6e6e")
@@ -436,7 +436,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                         </span>
                       </div>
                       <div
-                        className="text-[10px] leading-[1.6] mb-2 pl-5"
+                        className="text-[12px] leading-[1.6] mb-2 pl-5"
                         style={{
                           color: "var(--color-foreground)",
                           opacity: act.status === "complete" ? 0.7 : 0.6,
@@ -448,7 +448,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                         {ch.concepts.map((c) => (
                           <span
                             key={c}
-                            className="text-[8px] tracking-[0.5px] px-1.5 py-0.5"
+                            className="text-[11px] tracking-[0.5px] px-1.5 py-0.5"
                             style={{
                               color: act.status === "complete" ? "var(--color-signal)" : "var(--color-foreground)",
                               opacity: act.status === "complete" ? 0.7 : 0.55,
@@ -471,7 +471,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           <div className="text-center mt-4 mb-10">
             <button
               onClick={() => setShowCurriculum(false)}
-              className="bg-transparent py-3 px-8 cursor-pointer font-[family-name:var(--font-display)] text-[12px] tracking-[3px] transition-all"
+              className="bg-transparent py-3 px-8 cursor-pointer font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-all"
               style={{
                 border: "2px solid var(--color-signal)",
                 color: hovered === "back-cta" ? "var(--color-background)" : "var(--color-signal)",
@@ -522,7 +522,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           {/* Typing tagline */}
           <div className="h-[24px] mb-6">
             <span
-              className="text-[14px] sm:text-[16px] tracking-[1px]"
+              className="text-[16px] sm:text-[16px] tracking-[1px]"
               style={{ color: "var(--color-dim)" }}
             >
               {tagline.displayed}
@@ -537,7 +537,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             <PromoLoop soundEnabled={soundEnabled} />
             <button
               onClick={() => setSoundEnabled((s) => !s)}
-              className="absolute bottom-3 right-3 bg-transparent cursor-pointer text-[9px] tracking-[1px] px-2 py-1 transition-colors"
+              className="absolute bottom-3 right-3 bg-transparent cursor-pointer text-[11px] tracking-[1px] px-2 py-1 transition-colors"
               style={{
                 color: soundEnabled ? "var(--color-signal)" : "var(--color-foreground)",
                 opacity: soundEnabled ? 1 : 0.5,
@@ -553,7 +553,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           {/* Primary CTA */}
           <a
             href="/play"
-            className="py-3.5 px-10 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
+            className="py-3.5 px-10 font-[family-name:var(--font-display)] text-[15px] tracking-[3px] transition-all"
             style={{
               border: "2px solid var(--color-signal)",
               color: hovered === "hero-play" ? "var(--color-background)" : "var(--color-signal)",
@@ -567,15 +567,15 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             PLAY FREE
           </a>
           <div
-            className="text-[9px] tracking-[1px] mt-3"
-            style={{ color: "var(--color-foreground)", opacity: 0.4 }}
+            className="text-[11px] tracking-[1px] mt-3"
+            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             act I &middot; no account required
           </div>
 
           {/* Scroll indicator */}
           <div
-            className="absolute bottom-8 text-[10px] tracking-[2px]"
+            className="absolute bottom-8 text-[12px] tracking-[2px]"
             style={{ color: "var(--color-dim)", animation: "glow-pulse 3s ease-in-out infinite" }}
           >
             &#9660;
@@ -585,7 +585,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         {/* ═══════════ THE PITCH ═══════════ */}
         <section className="max-w-[640px] mx-auto px-4 sm:px-6 py-16 sm:py-24">
           <div
-            className="text-[13px] sm:text-[14px] leading-[2] mb-12"
+            className="text-[15px] sm:text-[16px] leading-[2] mb-12"
             style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             maya chen is a cryptography researcher trapped in a locked-down facility.
@@ -607,14 +607,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 }}
               >
                 <div
-                  className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px] font-bold mb-2"
+                  className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold mb-2"
                   style={{ color: f.color }}
                 >
                   {f.label}
                 </div>
                 <div
-                  className="text-[11px] leading-[1.8]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.65 }}
+                  className="text-[13px] leading-[1.8]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
                   {f.detail}
                 </div>
@@ -625,7 +625,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           {/* What you'll learn */}
           <div className="mb-16">
             <div
-              className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px] font-bold mb-6"
+              className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold mb-6"
               style={{ color: "var(--color-signal)" }}
             >
               WHAT YOU&apos;LL LEARN
@@ -635,7 +635,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <div key={cp.act} className="flex gap-4">
                   <div className="shrink-0 w-[28px]">
                     <div
-                      className="font-[family-name:var(--font-display)] text-[11px] font-bold text-center"
+                      className="font-[family-name:var(--font-display)] text-[13px] font-bold text-center"
                       style={{ color: "var(--color-dim)" }}
                     >
                       {cp.act}
@@ -643,14 +643,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   </div>
                   <div>
                     <div
-                      className="text-[12px] mb-0.5"
+                      className="text-[14px] mb-0.5"
                       style={{ color: "var(--color-foreground)" }}
                     >
                       {cp.label}
                     </div>
                     <div
-                      className="text-[10px]"
-                      style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                      className="text-[12px]"
+                      style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                     >
                       {cp.detail}
                     </div>
@@ -669,14 +669,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             }}
           >
             <div
-              className="text-[12px] leading-[1.9] mb-3"
+              className="text-[14px] leading-[1.9] mb-3"
               style={{ color: "var(--color-foreground)", opacity: 0.8 }}
             >
               &quot;i tried three Go tutorials before this. SIGNAL is the first one where I
               actually looked forward to the next lesson.&quot;
             </div>
             <div
-              className="text-[10px]"
+              className="text-[12px]"
               style={{ color: "var(--color-dim)" }}
             >
               &mdash; early access player
@@ -698,8 +698,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 UNLOCK THE FULL GAME
               </div>
               <div
-                className="text-[11px] leading-[1.8]"
-                style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                className="text-[13px] leading-[1.8]"
+                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
                 act I is free. unlock acts II\u2013IV for the complete Go curriculum.
               </div>
@@ -715,21 +715,21 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             >
               <div>
                 <div
-                  className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold mb-0.5"
+                  className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold mb-0.5"
                   style={{ color: "var(--color-signal)" }}
                 >
                   ACT I &mdash; FREE
                 </div>
                 <div
-                  className="text-[9px]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                  className="text-[11px]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
                   4 chapters + 1 boss fight &middot; no account needed
                 </div>
               </div>
               <a
                 href="/play"
-                className="text-[9px] tracking-[1px] px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
+                className="text-[11px] tracking-[1px] px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
                 style={{
                   border: "1px solid rgba(110,255,160,.3)",
                   color: "var(--color-signal)",
@@ -759,8 +759,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 }}
               >
                 <div
-                  className="text-[7px] tracking-[2px] mb-2"
-                  style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                  className="text-[10px] tracking-[2px] mb-2"
+                  style={{ color: "var(--color-foreground)", opacity: 0.85 }}
                 >
                   INDIVIDUAL
                 </div>
@@ -773,8 +773,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   </span>
                 </div>
                 <div
-                  className="text-[8px] leading-[1.6]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.55 }}
+                  className="text-[11px] leading-[1.6]"
+                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
                   one-time &middot; lifetime access
                 </div>
@@ -794,14 +794,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 }}
               >
                 <div
-                  className="absolute top-0 right-0 px-1.5 py-0.5 text-[6px] tracking-[1px] font-[family-name:var(--font-display)] font-bold"
+                  className="absolute top-0 right-0 px-1.5 py-0.5 text-[10px] tracking-[1px] font-[family-name:var(--font-display)] font-bold"
                   style={{ background: "var(--color-signal)", color: "var(--color-background)" }}
                 >
                   SAVE {Math.round((1 - (parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)) / parseFloat(PRICE_SINGLE)) * 100)}%
                 </div>
                 <div
-                  className="text-[7px] tracking-[2px] mb-2"
-                  style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                  className="text-[10px] tracking-[2px] mb-2"
+                  style={{ color: "var(--color-foreground)", opacity: 0.85 }}
                 >
                   TEAM &middot; {TEAM_SEATS} SEATS
                 </div>
@@ -814,8 +814,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   </span>
                 </div>
                 <div
-                  className="text-[8px] mb-0.5"
-                  style={{ color: "var(--color-signal)", opacity: 0.7 }}
+                  className="text-[11px] mb-0.5"
+                  style={{ color: "var(--color-signal)", opacity: 0.85 }}
                 >
                   ${(parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)).toFixed(2)}/seat
                 </div>
@@ -831,8 +831,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               }}
             >
               <div
-                className="text-[8px] tracking-[2px] mb-2"
-                style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                className="text-[11px] tracking-[2px] mb-2"
+                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
                 INCLUDES
               </div>
@@ -845,10 +845,10 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 "lifetime access \u2014 no subscription",
               ].map((item) => (
                 <div key={item} className="flex items-start gap-2 mb-1.5">
-                  <span className="text-[9px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
+                  <span className="text-[11px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
                   <span
-                    className="text-[10px] leading-[1.6]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                    className="text-[12px] leading-[1.6]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.85 }}
                   >
                     {item}
                   </span>
@@ -859,7 +859,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             {/* Purchase CTA */}
             <button
               onClick={handleGoogleClick}
-              className="w-full py-3.5 cursor-pointer text-[12px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
+              className="w-full py-3.5 cursor-pointer text-[14px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
               style={{
                 border: "2px solid var(--color-signal)",
                 color: hovered === "google" ? "var(--color-background)" : "var(--color-signal)",
@@ -876,7 +876,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             <div className="text-center mt-3 mb-2">
               <button
                 onClick={() => setShowCurriculum(true)}
-                className="bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
+                className="bg-transparent cursor-pointer text-[11px] tracking-[1px] transition-colors"
                 style={{
                   color: hovered === "curriculum" ? "var(--color-signal)" : "var(--color-foreground)",
                   opacity: hovered === "curriculum" ? 1 : 0.5,
@@ -899,13 +899,13 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 style={{ borderTop: "1px solid rgba(110,255,160,.06)" }}
               >
                 <div className="text-center">
-                  <div className="text-[7px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.6 }}>YOUR XP</div>
+                  <div className="text-[10px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>YOUR XP</div>
                   <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
                     {playerXP.toLocaleString()}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[7px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.6 }}>LEVEL</div>
+                  <div className="text-[10px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>LEVEL</div>
                   <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
                     {playerLevel}
                   </div>
@@ -928,11 +928,11 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             ] as const).map((link, i) => (
               <span key={link.label} className="flex items-center gap-5">
                 {i > 0 && (
-                  <span className="text-[9px]" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
+                  <span className="text-[11px]" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
                 )}
                 <a
                   href={link.href}
-                  className="text-[10px] tracking-[1.5px] transition-colors"
+                  className="text-[12px] tracking-[1.5px] transition-colors"
                   style={{
                     color: hovered === link.label ? "var(--color-signal)" : "var(--color-foreground)",
                     opacity: hovered === link.label ? 1 : 0.6,
@@ -947,7 +947,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             ))}
           </div>
           <div
-            className="text-center text-[8px] tracking-[1px]"
+            className="text-center text-[11px] tracking-[1px]"
             style={{ color: "var(--color-foreground)", opacity: 0.25 }}
           >
             CHIENDA LTD &middot; 2026
@@ -975,14 +975,14 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
             >
               <span
-                className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold"
+                className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold"
                 style={{ color: "var(--color-signal)" }}
               >
                 CONFIRM PURCHASE
               </span>
               <button
                 onClick={handleConsentDismiss}
-                className="bg-transparent border-0 cursor-pointer text-[14px]"
+                className="bg-transparent border-0 cursor-pointer text-[16px]"
                 style={{ color: "var(--color-dim)" }}
               >
                 &#10005;
@@ -999,8 +999,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               >
                 <div className="flex justify-between items-baseline">
                   <span
-                    className="text-[9px] tracking-[2px]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                    className="text-[11px] tracking-[2px]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.85 }}
                   >
                     {selectedPlan === "single" ? "INDIVIDUAL LICENSE" : `TEAM LICENSE \u00B7 ${TEAM_SEATS} SEATS`}
                   </span>
@@ -1012,16 +1012,16 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   </span>
                 </div>
                 <div
-                  className="text-[9px] mt-1"
-                  style={{ color: "var(--color-foreground)", opacity: 0.5 }}
+                  className="text-[11px] mt-1"
+                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
                   one-time payment &middot; lifetime access &middot; all 22 chapters
                 </div>
               </div>
 
               <p
-                className="text-[10px] leading-[1.8] mb-5"
-                style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+                className="text-[12px] leading-[1.8] mb-5"
+                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
                 By proceeding, you authorize Chienda Ltd to charge ${activePrice} USD
                 to your payment method via Stripe. Your purchase grants lifetime access
@@ -1048,7 +1048,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   }}
                 >
                   {consentChecked && (
-                    <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>&#10003;</span>
+                    <span className="text-[14px]" style={{ color: "var(--color-signal)" }}>&#10003;</span>
                   )}
                 </div>
                 <input
@@ -1058,7 +1058,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   className="sr-only"
                 />
                 <span
-                  className="text-[10px] leading-[1.7]"
+                  className="text-[12px] leading-[1.7]"
                   style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
                   I have read and agree to the{" "}
@@ -1077,7 +1077,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               <button
                 onClick={handleConsentProceed}
                 disabled={!consentChecked}
-                className="w-full py-3 cursor-pointer text-[11px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)] disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-full py-3 cursor-pointer text-[13px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)] disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
                   border: `2px solid ${consentChecked ? "var(--color-signal)" : "rgba(110,255,160,.15)"}`,
                   color: consentChecked ? "var(--color-signal)" : "var(--color-dim)",
@@ -1090,8 +1090,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
 
               <button
                 onClick={handleConsentDismiss}
-                className="w-full mt-2 py-2 bg-transparent cursor-pointer text-[9px] tracking-[1px] transition-colors"
-                style={{ border: "none", color: "var(--color-foreground)", opacity: 0.5 }}
+                className="w-full mt-2 py-2 bg-transparent cursor-pointer text-[11px] tracking-[1px] transition-colors"
+                style={{ border: "none", color: "var(--color-foreground)", opacity: 0.8 }}
               >
                 cancel
               </button>
