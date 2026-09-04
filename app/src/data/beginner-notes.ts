@@ -392,20 +392,20 @@ default:
     ],
 
     // ── Beginner Mode: visual-first, analogy-driven ──
-    // Flow: Animation (section 0) → Card (section 1) → Code Recap (section 2) → Start Level
+    // Flow: Analogy Card (section 0) → Walkthrough Video (section 1) → Code Recap (section 2) → Start Level
     beginnerBlocks: [
-      // Section 0: Watch the keypad programme run — revolving door + sorting station
+      // Section 0: The interactive card — sealed folder + revolving door + sorting station
       {
         type: "diagram",
-        diagramId: "ch02-animation",
+        diagramId: "ch02-card",
         content: "",
         section: 0,
       },
 
-      // Section 1: The interactive card — sealed folder + revolving door + sorting station
+      // Section 1: Watch the keypad programme run — the door code video
       {
         type: "diagram",
-        diagramId: "ch02-card",
+        diagramId: "ch02-animation",
         content: "",
         section: 1,
       },

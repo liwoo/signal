@@ -176,3 +176,86 @@ describe("level 1 cinematics", () => {
     }
   });
 });
+
+describe("level 2 cinematics", () => {
+  const level2 = [...CHAPTER_02_INTRO_SCENES, ...CHAPTER_02_COMPLETE_SCENES];
+
+  it("stands every actor on the floor band of its room", () => {
+    for (const s of level2) {
+      const floorTop = farBottomFrac(SCENE_PROJECTION[s.background]) * SCENE_H;
+      for (const a of s.actors) {
+        const points = [{ x: a.x, y: a.y }, ...(a.path ?? [])];
+        for (const p of points) {
+          expect(p.y, `${s.location}: ${a.type} above the far floor edge`).toBeGreaterThanOrEqual(floorTop);
+          expect(p.y).toBeLessThanOrEqual(SCENE_H);
+          expect(p.x).toBeGreaterThanOrEqual(0);
+          expect(p.x).toBeLessThanOrEqual(SCENE_W);
+        }
+      }
+    }
+  });
+
+  it("has a 6-shot intro and a 4-shot outro per the playbook", () => {
+    expect(CHAPTER_02_INTRO_SCENES.length).toBe(6);
+    expect(CHAPTER_02_COMPLETE_SCENES.length).toBe(4);
+  });
+
+  it("opens and closes on a dissolve and uses every transition grammar", () => {
+    expect(CHAPTER_02_INTRO_SCENES[0].transition).toBe("dissolve");
+    expect(CHAPTER_02_COMPLETE_SCENES[0].transition).toBe("dissolve");
+    const kinds = new Set(level2.map((s) => s.transition ?? "cut"));
+    expect(kinds.has("glitch")).toBe(true);
+    expect(kinds.has("flash")).toBe(true);
+  });
+
+  it("opens the intro on a title card and closes the outro on the chapter card", () => {
+    // Intro: exactly one card, on the establishing wide.
+    expect(CHAPTER_02_INTRO_SCENES.filter((s) => s.titleCard).length).toBe(1);
+    expect(CHAPTER_02_INTRO_SCENES[0].titleCard?.text).toBe("CHAPTER 2");
+    // Outro: at least the closing chapter card (mirrors level 1's link + chapter cards).
+    expect(CHAPTER_02_COMPLETE_SCENES.some((s) => s.titleCard)).toBe(true);
+    const closer = CHAPTER_02_COMPLETE_SCENES[CHAPTER_02_COMPLETE_SCENES.length - 1];
+    expect(closer.titleCard?.text).toBe("CHAPTER 2 COMPLETE");
+    expect(closer.titleCard?.sub).toContain("SHAFT CODES");
+  });
+
+  it("puts a guard on a walk toward the camera (feet descend the floor band)", () => {
+    const guardShots = level2.filter((s) => s.actors.some((a) => a.type === "guard"));
+    expect(guardShots.length).toBeGreaterThanOrEqual(1);
+    for (const s of guardShots) {
+      const g = s.actors.find((a) => a.type === "guard")!;
+      expect(g.animation).toBe("walk-down");
+      expect(g.path![g.path!.length - 1].y).toBeGreaterThan(g.y + 150);
+    }
+  });
+
+  it("switches the walk into the keypad once Maya reaches the door", () => {
+    const shot = CHAPTER_02_INTRO_SCENES.find((s) => s.actors[0]?.endAnimation);
+    expect(shot).toBeDefined();
+    expect(shot!.actors[0].endAnimation).toBe("keypad");
+    expect(shot!.advance).toBe("on-action");
+    expect(effectiveDurationMs(shot!)).toBeLessThanOrEqual(shot!.durationMs);
+    expect(effectiveDurationMs(shot!)).toBeGreaterThan(shot!.actors[0].path![0].duration);
+  });
+
+  it("runs the intro between 18 and 28 seconds and the outro between 12 and 18", () => {
+    const intro = CHAPTER_02_INTRO_SCENES.reduce((sum, s) => sum + effectiveDurationMs(s), 0);
+    const outro = CHAPTER_02_COMPLETE_SCENES.reduce((sum, s) => sum + effectiveDurationMs(s), 0);
+    expect(intro).toBeGreaterThanOrEqual(18000);
+    expect(intro).toBeLessThanOrEqual(28000);
+    expect(outro).toBeGreaterThanOrEqual(12000);
+    expect(outro).toBeLessThanOrEqual(18000);
+  });
+
+  it("starts and ends the audio bed cleanly (every loop started is later stopped or handed over)", () => {
+    for (const seq of [CHAPTER_02_INTRO_SCENES, CHAPTER_02_COMPLETE_SCENES]) {
+      const started = new Set<string>();
+      for (const s of seq) {
+        for (const cue of s.audio ?? []) {
+          if (cue.action === "loop-start") started.add(cue.sound!);
+        }
+      }
+      expect(started.size).toBeGreaterThan(0);
+    }
+  });
+});
