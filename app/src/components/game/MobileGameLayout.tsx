@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type MobileView = "chat" | "code" | "mission" | "more";
 type SecondaryView = "library" | "notes" | null;
@@ -16,6 +16,13 @@ interface MobileGameLayoutProps {
   latestMessage?: string;
   waitingForContinue: boolean;
   inRush: boolean;
+  /**
+   * Whose turn it is right now: "narrative" (Maya is speaking / paused) or
+   * "code" (the player's turn to type). On each change we auto-switch the phone
+   * to CHAT or CODE so the player focuses on one thing at a time. null = don't
+   * force a switch (keeps a deliberate MISSION/MORE tap put).
+   */
+  focusMode?: "narrative" | "code" | null;
 }
 
 const PRIMARY_TABS: Array<{ id: MobileView; label: string }> = [
@@ -36,6 +43,7 @@ export function MobileGameLayout({
   latestMessage,
   waitingForContinue,
   inRush,
+  focusMode = null,
 }: MobileGameLayoutProps) {
   const [view, setView] = useState<MobileView>("code");
   const [secondaryView, setSecondaryView] = useState<SecondaryView>(null);
@@ -44,6 +52,20 @@ export function MobileGameLayout({
   const hasUnreadMessage = Boolean(
     latestMessage && latestMessage !== lastReadMessage && view !== "chat"
   );
+
+  // Auto-switch on each focus change, not continuously — so a deliberate tap
+  // between turns is respected, but the phone always follows the action:
+  // narrative → CHAT (read Maya, hints included), player's turn → CODE.
+  const prevFocus = useRef(focusMode);
+  useEffect(() => {
+    if (focusMode && focusMode !== prevFocus.current) {
+      setView(focusMode === "narrative" ? "chat" : "code");
+      setSecondaryView(null);
+      // Whatever Maya said up to this beat counts as seen once we move.
+      if (latestMessage) setLastReadMessage(latestMessage);
+    }
+    prevFocus.current = focusMode;
+  }, [focusMode, latestMessage]);
 
   return (
     <div

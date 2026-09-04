@@ -41,4 +41,24 @@ export const ZEN_EXAMPLES: Record<string, ZenExample> = {
     after: 'cell := "B-09"\nsublevel := 3',
     change: "say what it is — single letters hide meaning",
   },
+  simple_increment: {
+    before: 'for i := 1; i <= 10; i = i + 1 {',
+    after: 'for i := 1; i <= 10; i++ {',
+    change: "i++ — one operation, one form, nothing to misread",
+  },
+  switch_over_ifelse: {
+    before: 'if i <= 3 {\n    fmt.Println(i, "DENY")\n} else if i <= 6 {\n    fmt.Println(i, "WARN")\n}',
+    after: 'switch {\ncase i <= 3:\n    fmt.Println(i, "DENY")\ncase i <= 6:\n    fmt.Println(i, "WARN")\n}',
+    change: "switch on true reads like a truth table, not a ladder",
+  },
+  no_unnecessary_break: {
+    before: 'case i <= 3:\n    fmt.Println(i, "DENY")\n    break',
+    after: 'case i <= 3:\n    fmt.Println(i, "DENY")',
+    change: "drop the break — go cases don't fall through by default",
+  },
+  use_constants_labels: {
+    before: 'fmt.Println(i, "DENY")\nfmt.Println(i, "WARN")',
+    after: 'const (\n    deny = "DENY"\n    warn = "WARN"\n)\nfmt.Println(i, deny)',
+    change: "name the labels — change them in one place, not ten",
+  },
 };

@@ -381,6 +381,21 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     prevAwaitingRef.current = awaitingInput;
   }, [awaitingInput, audio]);
 
+  // Mobile focus: one thing at a time. When Maya is talking (generating, mid-
+  // message, or waiting for the player to read), the phone should be on CHAT;
+  // when it's the player's turn to type, it should be on CODE. Hint reveals post
+  // a Maya message, so they ride this into CHAT and read full-width rather than as
+  // a truncated banner over the editor. null = don't force a switch (e.g. mission
+  // modal, transitions) so we never fight a deliberate MISSION/MORE tap.
+  const focusMode: "narrative" | "code" | null =
+    state.phase !== "playing"
+      ? null
+      : state.busy || state.gamePaused || state.waitingForContinue
+        ? "narrative"
+        : awaitingInput
+          ? "code"
+          : null;
+
   // Resizable split
   const [chatWidth, setChatWidth] = useState(settings.chatWidthPercent || 42);
   const draggingRef = useRef(false);
@@ -716,6 +731,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           height={mobileViewportHeight}
           inRush={state.inRush}
           waitingForContinue={state.waitingForContinue}
+          focusMode={focusMode}
           latestMessage={latestMayaMessage}
           topBar={
             <TopBar

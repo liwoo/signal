@@ -6,6 +6,7 @@ import { getSectionCountFromBlocks } from "@/data/beginner-notes";
 import { ProgramBlueprint } from "./diagrams/ProgramBlueprint";
 import { GoAppliance } from "./diagrams/GoAppliance";
 import { DoorCodeMachine } from "./diagrams/DoorCodeMachine";
+import { DoorCodeVideo } from "./diagrams/DoorCodeVideo";
 import { ShaftFunctions } from "./diagrams/ShaftFunctions";
 import { GuardRoster } from "./diagrams/GuardRoster";
 import { CipherRelay } from "./diagrams/CipherRelay";
@@ -468,11 +469,7 @@ function BlockRenderer({
           />
         )}
         {block.diagramId === "ch02-animation" && (
-          <DoorCodeMachine
-            view="animation"
-            onHotspotClick={(id) => onHotspotClick(id)}
-            clickedIds={clickedHotspots}
-          />
+          <DoorCodeVideo autoPlay soundEnabled={soundEnabled} />
         )}
         {block.diagramId === "ch02-card" && (
           <DoorCodeMachine
