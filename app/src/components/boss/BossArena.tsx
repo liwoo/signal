@@ -1140,7 +1140,9 @@ export function BossArena({
             inRush={false}
             baseXP={0}
             rushBonus={0}
-            vimEnabled={vimEnabled}
+            // Vim is never available on touch/mobile — the modal cursor is too
+            // clunky without a physical keyboard.
+            vimEnabled={compact ? false : vimEnabled}
           />
         </div>
       </div>
