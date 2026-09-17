@@ -80,12 +80,6 @@ export const boss01Config: BossFightConfig = {
       // switch on wrong variable, missing closing brace
       starterCode: `package weapon
 
-// WEAPON TARGETING SYSTEM
-// Sectors map to grid coordinates:
-//   1=(128,160)  2=(256,160)  3=(384,160)
-//   4=(128,320)  5=(256,320)  6=(384,320)
-//   7=(128,480)  8=(256,480)  9=(384,480)
-
 func Aim(sector in) (int, int) {
 \tswitch s {
 \tcase 1:
@@ -115,12 +109,6 @@ func Aim(sector in) (int, int) {
       // Corrupted: "sting" instead of "string", broken slice literal,
       // wrong loop syntax, variable name mismatch
       starterCode: `package weapon
-
-// AMMO LOADING SYSTEM
-// Threat types:
-//   "shield"  -> 3x "pierce"
-//   "armor"   -> 2x "blast"
-//   "exposed" -> 1x "pulse"
 
 func Load(threat sting) []string {
 \tvar rounds []string
@@ -154,8 +142,6 @@ func Load(threat sting) []string {
       // missing closing brace on first if block
       starterCode: `package weapon
 
-// WEAPON FIRE CONTROL
-
 const (
 \tHit      = "FIRE"
 \tNoTarget = "NO TARGET"
@@ -185,19 +171,7 @@ import (
 \t"strings"
 \t"weapon"
 )
-
-// COMBO SYSTEM
-// The weapon package (aim.go, load.go, fire.go) provides:
-//   weapon.Aim(sector) → (x, y int)
-//   weapon.Load(threat) → []string
-//   weapon.Fire(x, y, ammo) → string
-//
-// Write a function called Combo that:
-//   - takes any number of strings (variadic: ...string)
-//   - returns them joined with " | "
-//
-// Example: Combo("HIT", "HIT") returns "HIT | HIT"
-// Hint: strings.Join(slice, separator)`,
+`,
     },
   ],
 

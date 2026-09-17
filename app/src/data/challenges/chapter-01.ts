@@ -14,14 +14,14 @@ export const chapter01: Challenge = {
       title: "SCAFFOLD",
       brief:
         "Every Go program starts the same way. Set up the skeleton: package declaration, import, and main function. Maya's terminal needs a valid Go program before it can run anything.",
-      starterCode: `// write a valid Go program skeleton
-// every .go file needs four things:
-// 1. package declaration
-// 2. import statement (we need "fmt")
-// 3. func main() { }
-// 4. fmt.Println("I'm in") inside main
-`,
+      starterCode: ``,
       expectedBehavior: "valid-go-scaffold",
+      quickCheck: {
+        question: "Which line marks this as an executable Go program?",
+        options: ["package main", "import fmt", "func start()", "go run"],
+        correctIndex: 0,
+        explanation: "`package main` is the package used for a runnable Go program.",
+      },
       hints: [
         {
           level: 1,
@@ -72,6 +72,12 @@ export const chapter01: Challenge = {
         "Now use your program to print Maya's exact location. Use constants and variables to output: CELL B-09 · SUBLEVEL 3",
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "CELL B-09 · SUBLEVEL 3",
+      quickCheck: {
+        question: "Which declaration is best for a sublevel that will not change?",
+        options: ["sublevel := 3", "const sublevel = 3", "sublevel = 3", "let sublevel = 3"],
+        correctIndex: 1,
+        explanation: "Use `const` for a value fixed for the life of the program. Use `:=` when the value may vary.",
+      },
       hints: [
         {
           level: 1,
@@ -111,7 +117,7 @@ export const chapter01: Challenge = {
   ],
   events: [], // level-wide events (none for ch1 — steps handle their own)
   timer: {
-    timeLimitSeconds: 150,
+    timeLimitSeconds: 210,
     gameOverOnExpiry: true,
   },
   isBoss: false,

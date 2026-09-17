@@ -203,13 +203,14 @@ describe("tab starter code quality", () => {
     }
   });
 
-  test("aim.go has sector grid in comments", () => {
+  test("aim.go keeps the broken targeting code without editor comments", () => {
     const aimTab = boss01Config.tabs.find((t) => t.id === "aim")!;
-    expect(aimTab.starterCode).toContain("1=(128,160)");
-    expect(aimTab.starterCode).toContain("9=(384,480)");
+    expect(aimTab.starterCode).toContain("func Aim(sector in)");
+    expect(aimTab.starterCode).toContain("case 2:");
+    expect(aimTab.starterCode).not.toContain("//");
   });
 
-  test("load.go has threat types in comments", () => {
+  test("load.go retains its threat cases", () => {
     const loadTab = boss01Config.tabs.find((t) => t.id === "load")!;
     expect(loadTab.starterCode).toContain('"shield"');
     expect(loadTab.starterCode).toContain('"armor"');
@@ -225,12 +226,11 @@ describe("tab starter code quality", () => {
     expect(fireTab.starterCode).toContain('Hit      = "FIRE"');
   });
 
-  test("main.go has package main + import weapon + Combo instructions", () => {
+  test("main.go has the imports needed to write Combo without editor comments", () => {
     const mainTab = boss01Config.tabs.find((t) => t.id === "main")!;
     expect(mainTab.starterCode).toContain("package main");
     expect(mainTab.starterCode).toContain('"weapon"');
-    expect(mainTab.starterCode).toContain("Combo");
-    expect(mainTab.starterCode).toContain("strings.Join");
+    expect(mainTab.starterCode).not.toContain("//");
     // Starter has package/import but no func keyword — player writes from scratch
     expect(mainTab.starterCode).not.toContain("func ");
   });

@@ -3,6 +3,7 @@
 import type { Challenge, ChallengeStep } from "@/types/game";
 import type { HintState } from "@/lib/game/hints";
 import { hintCostXP } from "@/lib/game/hints";
+import { QuickCheck } from "@/components/game/QuickCheck";
 
 interface MissionPanelProps {
   challenge: Challenge;
@@ -80,6 +81,13 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
           {currentStep.brief}
         </p>
       </div>
+
+      {currentStep.quickCheck ? (
+        <div className="relative mb-5 flex items-center justify-between gap-3 px-4 py-3" style={{ border: "1px solid color-mix(in srgb, var(--color-info) 30%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, transparent)" }}>
+          <span className="text-[10px] leading-[1.5]" style={{ color: "var(--color-info)" }}>take a ten-second syntax check before you code.</span>
+          <QuickCheck key={currentStep.id} check={currentStep.quickCheck} />
+        </div>
+      ) : null}
 
       {/* Progressive hints */}
       {currentStep.hints.length > 0 && (

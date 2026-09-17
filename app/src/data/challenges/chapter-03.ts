@@ -15,16 +15,15 @@ export const chapter03: Challenge = {
       brief:
         "the ventilation shaft runs on go. set up the program skeleton — package, import, main function. the junction panel won't initialize until the terminal structure is right.",
       starterCode: `package main
-
-// TODO: import the fmt package
-
-// TODO: write func main()
-// put fmt.Println("ready") inside so the import is used
-// the shaft junctions need computed codes
-// you'll write functions to process them
 `,
       expectedBehavior:
         "valid go program with package main, import fmt, and func main",
+      quickCheck: {
+        question: "Where do you place a reusable Go function?",
+        options: ["inside main only", "above or below main in the same package", "inside import", "in a comment"],
+        correctIndex: 1,
+        explanation: "Functions live at package level, so `main` can call them.",
+      },
       hints: [
         {
           level: 1,
@@ -58,6 +57,12 @@ export const chapter03: Challenge = {
         "each shaft junction needs computed codes. write a variadic function `sumCodes` that takes any number of ints and returns their sum. add it above main and call it from main.",
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "Sum: 115",
+      quickCheck: {
+        question: "What does `...int` mean in a parameter list?",
+        options: ["one optional int", "any number of ints", "a decimal int", "an int pointer"],
+        correctIndex: 1,
+        explanation: "`...int` makes a variadic parameter that receives any number of integers.",
+      },
       testHarness: `func main() {
     fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
     fmt.Println("Sum:", sumCodes(1, 2, 3))
@@ -156,7 +161,7 @@ export const chapter03: Challenge = {
   ],
   events: [],
   timer: {
-    timeLimitSeconds: 300,
+    timeLimitSeconds: 390,
     gameOverOnExpiry: false,
   },
   isBoss: false,
