@@ -62,9 +62,9 @@ import {
   trackJeopardy,
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
-import { clearGameDraft, loadGameDraft, saveGameDraft } from "@/lib/storage/local";
+import { clearGameDraft } from "@/lib/storage/local";
 import { buildSubmissionFeedback } from "@/lib/game/submission-feedback";
-import type { GameDraft, SubmissionFeedback } from "@/types/game";
+import type { SubmissionFeedback } from "@/types/game";
 
 export interface InitialPersistedState {
   xp: number;
@@ -151,7 +151,10 @@ export interface GameState {
 }
 
 export interface GameActions {
-  startGame: () => void;
+  /** Start a clean round. Guided UI tours defer Maya until the tour has finished. */
+  startGame: (options?: { deferMission?: boolean }) => void;
+  /** Begin Maya's mission briefing after an intentionally deferred UI tour. */
+  beginMission: () => void;
   sendChat: () => void;
   submitCode: () => void;
   setChatInput: (v: string) => void;
@@ -186,12 +189,6 @@ export function useGame(
   onSave?: (payload: SavePayload) => void,
   timingScale = 1
 ): [GameState, GameActions] {
-  const [initialDraft] = useState(() => {
-    const draft = loadGameDraft(challenge.id);
-    if (!draft || draft.version !== 1) return null;
-    const step = challenge.steps[draft.stepIndex];
-    return step?.id === draft.stepId ? draft : null;
-  });
   const [phase, setPhase] = useState<GameState["phase"]>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -202,7 +199,7 @@ export function useGame(
   const [submissionFeedback, setSubmissionFeedback] = useState<SubmissionFeedback | null>(null);
   const [stepStartedAt, setStepStartedAt] = useState(0);
   const [level, setLevel] = useState(initial?.level ?? 1);
-  const [attempts, setAttempts] = useState(initialDraft?.attempts ?? 0);
+  const [attempts, setAttempts] = useState(0);
   const [tab, setTab] = useState<"code" | "mission" | "library" | "notes">("code");
   const [library, setLibrary] = useState<LibraryState>(
     () => initial?.library ?? createLibraryState()
@@ -213,13 +210,13 @@ export function useGame(
   onSaveRef.current = onSave;
 
   // Step tracking
-  const [stepIndex, setStepIndex] = useState(initialDraft?.stepIndex ?? 0);
+  const [stepIndex, setStepIndex] = useState(0);
   const EMPTY_STEP: ChallengeStep = {
     id: "", title: "", brief: "", starterCode: "", expectedBehavior: "",
     hints: [], rushMode: null, xp: { base: 0, firstTryBonus: 0, parTimeSeconds: 0 }, events: [],
   };
   const currentStep = challenge.steps[stepIndex] ?? EMPTY_STEP;
-  const [code, setCode] = useState(initialDraft?.code ?? currentStep.starterCode ?? "");
+  const [code, setCode] = useState(currentStep.starterCode ?? "");
 
   const [inRush, setInRush] = useState(false);
   const [rushLabel, setRushLabel] = useState("");
@@ -478,9 +475,7 @@ export function useGame(
     }
   }, [challenge.steps, effectiveTimeLimitSeconds, stepIndex, timerBonusSeconds, fireJeopardy, handleTimerExpire]);
 
-  const startGame = useCallback(() => {
-    setPhase("playing");
-    setSubmissionFeedback(null);
+  const beginMission = useCallback(() => {
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
@@ -512,14 +507,20 @@ export function useGame(
       });
     }
 
-    // Start level-wide events
     if (challenge.events.length > 0) {
       levelSchedulerRef.current.start(challenge.events, handleEvent);
     }
-
-    // Start first step's events
     startStepEvents(firstStep);
-  }, [challenge, addMsg, handleEvent, startStepEvents]);
+  }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents]);
+
+  const startGame = useCallback((options?: { deferMission?: boolean }) => {
+    // A new round is always new. Drafts used to silently restore code, attempts,
+    // and a substep from an earlier visit; checkpoints are the only explicit retry.
+    clearGameDraft(challenge.id);
+    setPhase("playing");
+    setSubmissionFeedback(null);
+    if (!options?.deferMission) beginMission();
+  }, [challenge.id, beginMission]);
 
   const sendChat = useCallback(() => {
     if (!chatInput.trim() || busy) return;
@@ -879,35 +880,6 @@ export function useGame(
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [flushQueuedEvents]);
 
-  const latestDraftRef = useRef<GameDraft | null>(null);
-  latestDraftRef.current = phase === "playing" ? {
-    version: 1,
-    challengeId: challenge.id,
-    stepId: currentStep.id,
-    stepIndex,
-    code,
-    attempts,
-    updatedAt: Date.now(),
-  } : null;
-
-  useEffect(() => {
-    if (phase !== "playing") return;
-    const timer = setTimeout(() => {
-      if (latestDraftRef.current) saveGameDraft(latestDraftRef.current);
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [phase, challenge.id, currentStep.id, stepIndex, code, attempts]);
-
-  useEffect(() => {
-    const flushDraft = () => {
-      if (document.hidden && latestDraftRef.current) {
-        saveGameDraft(latestDraftRef.current);
-      }
-    };
-    document.addEventListener("visibilitychange", flushDraft);
-    return () => document.removeEventListener("visibilitychange", flushDraft);
-  }, []);
-
   const resumeFromPause = useCallback(() => {
     // Drain pending message chunks before actually resuming the timer
     if (pendingMsgRef.current.length > 0) {
@@ -1047,6 +1019,7 @@ export function useGame(
 
   const actions: GameActions = {
     startGame,
+    beginMission,
     sendChat,
     submitCode,
     setChatInput,
