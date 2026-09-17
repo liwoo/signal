@@ -8,6 +8,11 @@ interface QuickCheckProps {
   compact?: boolean;
 }
 
+interface QuickCheckModalProps {
+  check: QuickCheckData;
+  onClose: () => void;
+}
+
 /** A no-penalty retrieval prompt: it reinforces syntax without interrupting play. */
 export function QuickCheck({ check, compact = false }: QuickCheckProps) {
   const [open, setOpen] = useState(false);
@@ -76,6 +81,76 @@ export function QuickCheck({ check, compact = false }: QuickCheckProps) {
           </div>
         </section>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A contextual retrieval check for a player who has stalled on this exact step.
+ * It is deliberately separate from Maya's chat and has no gameplay penalty.
+ */
+export function QuickCheckModal({ check, onClose }: QuickCheckModalProps) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const answered = selected !== null;
+  const correct = selected === check.correctIndex;
+
+  return (
+    <div
+      className="fixed inset-0 z-[800] flex items-center justify-center p-5"
+      style={{ background: "rgba(4,8,16,.88)" }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quick knowledge check"
+    >
+      <section
+        className="w-full max-w-[460px]"
+        style={{ border: "1px solid color-mix(in srgb, var(--color-info) 52%, transparent)", background: "var(--color-panel)" }}
+      >
+        <header className="px-5 py-3" style={{ borderBottom: "1px solid color-mix(in srgb, var(--color-info) 24%, transparent)" }}>
+          <div className="text-[9px] tracking-[3px]" style={{ color: "var(--color-info)" }}>QUICK CHECK · NO PENALTY</div>
+          <p className="mt-1 text-[11px] leading-[1.5]" style={{ color: "var(--color-dim)" }}>A short reset before you return to this step.</p>
+        </header>
+        <div className="p-5">
+          <p className="text-[14px] leading-[1.65]" style={{ color: "var(--color-foreground)" }}>{check.question}</p>
+          <div className="mt-4 grid gap-2">
+            {check.options.map((option, index) => {
+              const isSelected = selected === index;
+              const showCorrect = answered && index === check.correctIndex;
+              const showWrong = answered && isSelected && !correct;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setSelected(index)}
+                  className="bg-transparent cursor-pointer px-3 py-2.5 text-left text-[12px] leading-[1.45]"
+                  style={{
+                    border: `1px solid ${showCorrect ? "var(--color-signal)" : showWrong ? "var(--color-danger)" : "color-mix(in srgb, var(--color-foreground) 25%, transparent)"}`,
+                    color: showCorrect ? "var(--color-signal)" : showWrong ? "var(--color-danger)" : "var(--color-foreground)",
+                    background: showCorrect ? "color-mix(in srgb, var(--color-signal) 6%, transparent)" : showWrong ? "color-mix(in srgb, var(--color-danger) 5%, transparent)" : "transparent",
+                  }}
+                >
+                  {String.fromCharCode(65 + index)} · {option}
+                </button>
+              );
+            })}
+          </div>
+          {answered ? (
+            <p className="mt-4 text-[12px] leading-[1.6]" style={{ color: correct ? "var(--color-signal)" : "var(--color-info)" }}>
+              {correct ? "right. " : "not quite. "}{check.explanation}
+            </p>
+          ) : null}
+        </div>
+        <footer className="flex justify-end px-5 py-3" style={{ borderTop: "1px solid color-mix(in srgb, var(--color-info) 18%, transparent)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-transparent cursor-pointer px-4 py-2 text-[9px] tracking-[2px]"
+            style={{ color: "var(--color-info)", border: "1px solid color-mix(in srgb, var(--color-info) 45%, transparent)" }}
+          >
+            {answered ? "RETURN TO CODE" : "SKIP FOR NOW"}
+          </button>
+        </footer>
+      </section>
     </div>
   );
 }

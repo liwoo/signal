@@ -14,6 +14,7 @@ import { ChatPanel } from "@/components/game/ChatPanel";
 import { CodeEditor } from "@/components/game/CodeEditor";
 import { MissionPanel } from "@/components/game/MissionPanel";
 import { ObjectiveBar } from "@/components/game/ObjectiveBar";
+import { QuickCheckModal } from "@/components/game/QuickCheck";
 import { isStuck } from "@/lib/game/hints";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
@@ -369,13 +370,37 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     [state.phase, state.attempts, state.stepStartedAt, stuckTick],
   );
 
+  // Each authored quick check becomes an intervention once for its own step.
+  // It is not a gate or a penalty: it simply gives a stalled player a focused
+  // multiple-choice reset before they return to the editor.
+  const [showRecoveryCheck, setShowRecoveryCheck] = useState(false);
+  const recoveryCheckShownForStep = useRef<string | null>(null);
+  useEffect(() => {
+    const step = state.currentStep;
+    if (
+      state.phase !== "playing" ||
+      !stuck ||
+      !step.quickCheck ||
+      showTour ||
+      missionModalOpen ||
+      state.busy ||
+      state.gamePaused ||
+      state.waitingForContinue ||
+      recoveryCheckShownForStep.current === step.id
+    ) return;
+
+    recoveryCheckShownForStep.current = step.id;
+    setShowRecoveryCheck(true);
+  }, [state.phase, state.currentStep, state.busy, state.gamePaused, state.waitingForContinue, stuck, showTour, missionModalOpen]);
+
   // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
   const awaitingInput =
     state.phase === "playing" &&
     !state.busy &&
     !state.gamePaused &&
     !state.waitingForContinue &&
-    !missionModalOpen;
+    !missionModalOpen &&
+    !showRecoveryCheck;
   const prevAwaitingRef = useRef(false);
   useEffect(() => {
     if (awaitingInput && !prevAwaitingRef.current) {
@@ -433,6 +458,10 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     document.addEventListener("mouseup", onUp);
   }, [onSaveSettings]);
 
+  // A guided UI tour owns the screen first; do not let Maya start narrating
+  // beneath it. Her mission briefing begins only when the player completes/skips it.
+  const startRound = () => actions.startGame({ deferMission: showTour });
+
   // After the warm-up: go to the explanation briefing (beginner mode) or straight to play.
   const enterExplanations = () => {
     if ((settings.beginnerMode || forceBeginner) && beginnerNotes) {
@@ -441,7 +470,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     } else if (config.bossFightConfig) {
       requestAnimationFrame(() => setShowBossArena(true));
     } else {
-      actions.startGame();
+      startRound();
     }
   };
 
@@ -514,7 +543,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {
-            actions.startGame();
+            startRound();
           }
         }}
         onDisable={() => {
@@ -524,7 +553,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {
-            actions.startGame();
+            startRound();
           }
         }}
         onHotspotXP={actions.addXP}
@@ -679,7 +708,16 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           onComplete={() => {
             setShowTour(false);
             onSaveSettings({ tourCompleted: true });
+            actions.beginMission();
           }}
+        />
+      )}
+
+      {showRecoveryCheck && state.currentStep.quickCheck && (
+        <QuickCheckModal
+          key={state.currentStep.id}
+          check={state.currentStep.quickCheck}
+          onClose={() => setShowRecoveryCheck(false)}
         />
       )}
 
