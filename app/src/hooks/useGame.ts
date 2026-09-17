@@ -63,7 +63,8 @@ import {
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
 import { clearGameDraft, loadGameDraft, saveGameDraft } from "@/lib/storage/local";
-import type { GameDraft } from "@/types/game";
+import { buildSubmissionFeedback } from "@/lib/game/submission-feedback";
+import type { GameDraft, SubmissionFeedback } from "@/types/game";
 
 export interface InitialPersistedState {
   xp: number;
@@ -145,6 +146,8 @@ export interface GameState {
   hints: HintState;
   /** When the current step began (ms) — drives the "stuck" nudge. */
   stepStartedAt: number;
+  /** The latest rejected submission, shown next to the code instead of burying it in chat. */
+  submissionFeedback: SubmissionFeedback | null;
 }
 
 export interface GameActions {
@@ -173,6 +176,7 @@ export interface GameActions {
   /** Reveal the next hint for the current step (costs XP); Maya posts it in chat. */
   revealHint: () => void;
   dismissReward: () => void;
+  dismissSubmissionFeedback: () => void;
 }
 
 export function useGame(
@@ -195,6 +199,7 @@ export function useGame(
   const [xp, setXp] = useState(initial?.xp ?? 0);
   const [hintState, setHintState] = useState<HintState>(createHintState);
   const [reward, setReward] = useState<Reward | null>(null);
+  const [submissionFeedback, setSubmissionFeedback] = useState<SubmissionFeedback | null>(null);
   const [stepStartedAt, setStepStartedAt] = useState(0);
   const [level, setLevel] = useState(initial?.level ?? 1);
   const [attempts, setAttempts] = useState(initialDraft?.attempts ?? 0);
@@ -475,6 +480,7 @@ export function useGame(
 
   const startGame = useCallback(() => {
     setPhase("playing");
+    setSubmissionFeedback(null);
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
@@ -576,6 +582,7 @@ export function useGame(
     });
 
     if (isComplete) {
+      setSubmissionFeedback(null);
       // Stop step-scoped events/rush
       stepSchedulerRef.current.stop();
       if (wasRush) {
@@ -686,6 +693,7 @@ export function useGame(
           onShow: () => {
             setStepIndex(nextStepIndex);
             setAttempts(0);
+            setSubmissionFeedback(null);
             syncPauseState(resetExplainForNewStep(pauseRef.current));
             if (nextStep.starterCode !== null) setCode(nextStep.starterCode);
             startStepEvents(nextStep);
@@ -750,7 +758,14 @@ export function useGame(
       return;
     }
 
-    addMayaChunked("MAYA", reply, "maya");
+    // A rejected attempt is feedback, not a cutscene. Keep the editor live so
+    // the player can make the one fix and immediately try again.
+    setSubmissionFeedback(buildSubmissionFeedback(
+      code,
+      reply,
+      currentStep.hints[0]?.text,
+    ));
+    addMsg("MAYA", reply, "err");
     setBusy(false);
   }, [
     code,
@@ -938,8 +953,11 @@ export function useGame(
 
   const retryFromCheckpoint = useCallback(() => {
     clearGameDraft(challenge.id);
-    setPhase("intro");
-    setMessages([]);
+    // A checkpoint is the mission start, not the chapter's opening. Re-enter
+    // play directly so a loss never makes the player replay cinematics,
+    // warm-ups, or beginner briefings.
+    setPhase("playing");
+    setMessages([{ id: `msg-${++msgIdCounter.current}`, from: "SYS", text: "▸ CHECKPOINT RESTORED · STEP 1", type: "dim", animated: false }]);
     setStepIndex(0);
     setCode(challenge.steps[0].starterCode ?? "");
     setChatInput("");
@@ -953,9 +971,19 @@ export function useGame(
     setParticles([]);
     setStreaks([]);
     setTimerBonusSeconds(0);
-    setTimerStopped(true);
+    const now = Date.now();
+    startTimeRef.current = now;
+    setTimerStartMs(now);
+    setTimerStopped(false);
+    setSubmissionFeedback(null);
     syncPauseState(createPauseState());
     pendingMsgRef.current.length = 0;
+
+    const firstStep = challenge.steps[0];
+    if (challenge.events.length > 0) {
+      levelSchedulerRef.current.start(challenge.events, handleEvent);
+    }
+    startStepEvents(firstStep);
 
     setJeopardy((prev) => {
       const carried = createJeopardyState();
@@ -972,7 +1000,7 @@ export function useGame(
       }
       return carried;
     });
-  }, [challenge.id, challenge.steps]);
+  }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState]);
 
   const state: GameState = {
     phase,
@@ -1013,6 +1041,7 @@ export function useGame(
     aiSuggestions: getAISuggestions(currentStep.id),
     hints: hintState,
     stepStartedAt,
+    submissionFeedback,
     reward,
   };
 
@@ -1047,6 +1076,7 @@ export function useGame(
     closeAISuggest: () => setAiSuggestOpen(false),
     revealHint,
     dismissReward: () => setReward(null),
+    dismissSubmissionFeedback: () => setSubmissionFeedback(null),
     useAISuggestion: (suggestion: AISuggestion) => {
       const newTokens = useToken(aiTokens);
       if (newTokens === null) return;

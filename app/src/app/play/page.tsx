@@ -341,9 +341,12 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   // Warm-up type-along opens the lesson (muscle memory) before explanations.
   const [showWarmup, setShowWarmup] = useState(false);
   const [showBeginner, setShowBeginner] = useState(false);
+  // The detailed walkthrough is still one click away, but it no longer gates
+  // a new player's first mission.
+  const [forceBeginner, setForceBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
-  const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile);
+  const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile && settings.beginnerMode);
   const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
@@ -432,7 +435,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   // After the warm-up: go to the explanation briefing (beginner mode) or straight to play.
   const enterExplanations = () => {
-    if (settings.beginnerMode && beginnerNotes) {
+    if ((settings.beginnerMode || forceBeginner) && beginnerNotes) {
       trackBeginnerStart(challenge.id);
       setShowBeginner(true);
     } else if (config.bossFightConfig) {
@@ -451,6 +454,15 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         trackChapterStart(challenge.id, challenge.chapter);
         trackCinematicStart(challenge.id, "intro");
       }}
+      onGuidedStart={() => {
+        setForceBeginner(true);
+        onSaveSettings({ beginnerMode: true });
+        if (!isMobile) setShowTour(true);
+        audio.startLoop("dark-drone-1", 0.08, 5000);
+        setShowCinematic(true);
+        trackChapterStart(challenge.id, challenge.chapter);
+        trackCinematicStart(challenge.id, "intro");
+      }}
     />;
   }
 
@@ -464,7 +476,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowCinematic(false);
           // Round 1 opens with the type-along warm-up, then explanations.
           // (Later chapters need their own lesson-specific warm-up content.)
-          if (challenge.chapter === 1) {
+          if (challenge.chapter === 1 && (settings.beginnerMode || forceBeginner)) {
             setShowWarmup(true);
           } else {
             enterExplanations();
@@ -802,6 +814,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 onSubmit={actions.submitCode}
                 busy={state.busy}
                 disabled={state.gamePaused}
+                submissionFeedback={state.submissionFeedback}
+                onDismissSubmissionFeedback={actions.dismissSubmissionFeedback}
                 awaitingInput={awaitingInput}
                 attempts={state.attempts}
                 inRush={state.inRush}
@@ -985,6 +999,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   onSubmit={actions.submitCode}
                   busy={state.busy}
                   disabled={state.gamePaused}
+                  submissionFeedback={state.submissionFeedback}
+                  onDismissSubmissionFeedback={actions.dismissSubmissionFeedback}
                   awaitingInput={awaitingInput}
                   attempts={state.attempts}
                   inRush={state.inRush}
@@ -1077,9 +1093,10 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, onStart }: {
+function IntroScreen({ config, onStart, onGuidedStart }: {
   config: ChapterConfig;
   onStart: () => void;
+  onGuidedStart: () => void;
 }) {
   const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
   const ambient = useMemo(() => introAmbientShot(config), [config]);
@@ -1214,6 +1231,14 @@ function IntroScreen({ config, onStart }: {
                        transition-colors"
           >
             {ctaLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onGuidedStart}
+            className="w-full mt-2.5 py-2.5 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+            style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
+          >
+            NEW TO GO? START GUIDED MODE
           </button>
           <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}

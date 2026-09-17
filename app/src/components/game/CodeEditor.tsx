@@ -6,6 +6,7 @@ import { useVim, type VimMode } from "@/hooks/useVim";
 import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
 import { formatGo } from "@/lib/go/playground";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
+import type { SubmissionFeedback } from "@/types/game";
 
 interface CodeEditorProps {
   code: string;
@@ -26,6 +27,8 @@ interface CodeEditorProps {
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
   isMobile?: boolean;
+  submissionFeedback?: SubmissionFeedback | null;
+  onDismissSubmissionFeedback?: () => void;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -136,6 +139,8 @@ export function CodeEditor({
   fontSize: fontSizeProp,
   onFontSizeChange,
   isMobile = false,
+  submissionFeedback,
+  onDismissSubmissionFeedback,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -789,6 +794,14 @@ export function CodeEditor({
         </div>
       </div>
 
+      {submissionFeedback ? (
+        <SubmissionFeedbackPanel
+          key={`${submissionFeedback.line ?? "mission"}:${submissionFeedback.message}`}
+          feedback={submissionFeedback}
+          onDismiss={onDismissSubmissionFeedback}
+        />
+      ) : null}
+
       {isMobile ? (
         <div
           className="flex shrink-0 items-center gap-1 overflow-x-auto px-1.5 py-1"
@@ -920,6 +933,78 @@ export function CodeEditor({
           )}
         </button>
       </div>
+    </div>
+  );
+}
+
+function SubmissionFeedbackPanel({
+  feedback,
+  onDismiss,
+}: {
+  feedback: SubmissionFeedback;
+  onDismiss?: () => void;
+}) {
+  const [lessonOpen, setLessonOpen] = useState(false);
+
+  return (
+    <div
+      className="shrink-0 px-3 py-2"
+      style={{
+        borderTop: "1px solid rgba(255,64,64,.35)",
+        borderBottom: "1px solid rgba(255,64,64,.2)",
+        background: "rgba(255,64,64,.055)",
+      }}
+      role="status"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="font-[family-name:var(--font-display)] text-[8px] tracking-[2px]"
+              style={{ color: "var(--color-danger)" }}
+            >
+              TRANSMISSION REJECTED
+            </span>
+            {feedback.line ? (
+              <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-alert)" }}>
+                LINE {feedback.line}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[11px] leading-[1.45]" style={{ color: "var(--color-foreground)" }}>
+            {feedback.message}
+          </p>
+        </div>
+        {onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="bg-transparent px-1 text-[10px] cursor-pointer"
+            style={{ color: "var(--color-dim)", border: "none" }}
+            aria-label="Dismiss submission feedback"
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+      {feedback.lesson ? (
+        <div className="mt-1.5">
+          <button
+            type="button"
+            onClick={() => setLessonOpen((open) => !open)}
+            className="bg-transparent p-0 text-[8px] tracking-[1px] cursor-pointer"
+            style={{ color: "var(--color-info)", border: "none" }}
+            aria-expanded={lessonOpen}
+          >
+            {lessonOpen ? "HIDE QUICK LESSON ▴" : "WHY THIS FAILED · QUICK LESSON ▾"}
+          </button>
+          {lessonOpen ? (
+            <p className="mt-1 text-[10px] leading-[1.45]" style={{ color: "var(--color-info)" }}>
+              {feedback.lesson}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

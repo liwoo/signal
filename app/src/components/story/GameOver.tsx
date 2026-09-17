@@ -121,7 +121,7 @@ export function GameOver({ onRetry, onBuyHeart, hearts, canBuyHeart: canBuy, hea
                 RETRY FROM CHECKPOINT
               </button>
               <div className="text-center mt-2 text-[7px] tracking-[2px]" style={{ color: "#3a1a1a" }}>
-                -1 HEART · SPEED BONUS UNAVAILABLE · ENERGY 30%
+                -1 HEART · RESTARTS STEP 1 IMMEDIATELY · ENERGY 30%
               </div>
             </>
           ) : (

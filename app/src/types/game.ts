@@ -183,6 +183,16 @@ export interface SubmissionResult {
   firstTry?: boolean;
 }
 
+/** The actionable result of a rejected submission, kept beside the editor. */
+export interface SubmissionFeedback {
+  /** The compiler or mission-check message in plain language. */
+  message: string;
+  /** One-based source line, when the checker can identify one. */
+  line?: number;
+  /** A small, opt-in nudge that teaches the underlying idea without solving it. */
+  lesson?: string;
+}
+
 // ── Economy ──
 
 export interface MarketItem {

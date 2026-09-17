@@ -1,0 +1,19 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+[scripts]
+# The application is an npm project located in app/.
+setup = "npm --prefix app ci --no-audit --no-fund"
+archive = "true"
+run_mode = "concurrent"
+
+[scripts.run.dev]
+available_in = [ "local" ]
+command = "npm run dev -- --port $CONDUCTOR_PORT"
+options.cwd = "app"
+default = true
+icon = "play"
+
+[scripts.run.test]
+command = "npx vitest run"
+options.cwd = "app"
+icon = "test-tube"
