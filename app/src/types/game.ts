@@ -32,6 +32,15 @@ export interface ChallengeStep {
   expectedOutput?: string;
   /** Patterns the user's code must contain (even if output matches) to prevent hardcoding answers. */
   requiredCode?: string[];
+  /** A short, optional retrieval check shown beside the active objective. */
+  quickCheck?: QuickCheck;
+}
+
+export interface QuickCheck {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
 }
 
 export interface Challenge {

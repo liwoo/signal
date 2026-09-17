@@ -15,15 +15,14 @@ export const chapter04: Challenge = {
       brief:
         "every go program starts the same way. set up the skeleton — package, import, and a main function. print \"ready\" so the terminal initializes.",
       starterCode: `package main
-
-// TODO: import the fmt package
-
-// TODO: write func main()
-// put fmt.Println("ready") inside so the import is used
-// maya photographed the guard schedule
-// you'll use maps to parse it
 `,
       expectedBehavior: "valid-go-scaffold",
+      quickCheck: {
+        question: "Which package provides `fmt.Println`?",
+        options: ["main", "fmt", "print", "go"],
+        correctIndex: 1,
+        explanation: "Import `fmt` to use Go's standard formatting and printing functions.",
+      },
       hints: [
         {
           level: 1,
@@ -57,6 +56,12 @@ export const chapter04: Challenge = {
         'write a function `buildRoster() map[string]string` that returns a map with these key-value pairs:\n\n"Chen": "Floor 1"\n"Alvarez": "Floor 2"\n"Volkov": "Floor 2"\n"Park": "Floor 3"\n"Santos": "Floor 1"\n\nadd it above main. the terminal will test it automatically.',
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "Floor 2\nFloor 1\n5",
+      quickCheck: {
+        question: "What does a map store?",
+        options: ["Only numbers", "Key-value pairs", "One ordered value", "A loop counter"],
+        correctIndex: 1,
+        explanation: "A map connects each key to its value, like a guard name to a floor.",
+      },
       testHarness: `func main() {
 \tr := buildRoster()
 \tfmt.Println(r["Volkov"])
@@ -152,7 +157,7 @@ export const chapter04: Challenge = {
     },
   ],
   timer: {
-    timeLimitSeconds: 330,
+    timeLimitSeconds: 420,
     gameOverOnExpiry: true,
   },
   isBoss: false,

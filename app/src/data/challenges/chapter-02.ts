@@ -15,15 +15,14 @@ export const chapter02: Challenge = {
       brief:
         "the keypad is wired to a go program. set up the skeleton — package, import, and a main function. the keypad won't accept input until the terminal is initialized.",
       starterCode: `package main
-
-// TODO: import the fmt package
-
-// TODO: write func main()
-// put fmt.Println("ready") inside so the import is used
-// the keypad cycles codes 1 through 10
-// you'll need to loop through them
 `,
       expectedBehavior: "valid go program with package main, import fmt, and func main",
+      quickCheck: {
+        question: "Which keyword starts every counted loop in Go?",
+        options: ["repeat", "while", "for", "loop"],
+        correctIndex: 2,
+        explanation: "Go has one looping keyword: `for`.",
+      },
       hints: [
         {
           level: 1,
@@ -57,6 +56,12 @@ export const chapter02: Challenge = {
         "the keypad cycles codes 1-10. write a for loop that prints each number on its own line. just the numbers — nothing else.\n\nexpected output:\n1\n2\n3\n...\n10",
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "loop-1-to-10",
+      quickCheck: {
+        question: "What does `i++` do at the end of a loop?",
+        options: ["prints i", "adds 1 to i", "resets i", "stops the loop"],
+        correctIndex: 1,
+        explanation: "`i++` increments the counter by one after each loop pass.",
+      },
       hints: [
         {
           level: 1,
@@ -93,6 +98,12 @@ export const chapter02: Challenge = {
       starterCode: null, // carry forward from loop
       expectedBehavior:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+      quickCheck: {
+        question: "Which branch handles a value that matches no earlier switch case?",
+        options: ["otherwise", "fallback", "default", "else"],
+        correctIndex: 2,
+        explanation: "`default:` is the final fallback branch in a Go switch.",
+      },
       hints: [
         {
           level: 1,
@@ -153,19 +164,8 @@ export const chapter02: Challenge = {
 import "fmt"
 
 func main() {
-\t// REDUNDANCY PROTOCOL
-\t// Rewrite classification using the OTHER approach
-\t// switch → if/else, or if/else → switch
-\t//
-\t// Access levels:
-\t//   1-3  → DENY
-\t//   4-6  → WARN
-\t//   7-9  → GRANT
-\t//   10   → OVERRIDE
-\t//
-\t// Print: code number then label (e.g. 1 DENY)
 \tfor i := 1; i <= 10; i++ {
-\t\tfmt.Println(i, "TODO") // replace "TODO" with the right label
+\t\tfmt.Println(i, "TODO")
 \t}
 }
 `,
@@ -213,7 +213,7 @@ func main() {
   ],
   events: [],
   timer: {
-    timeLimitSeconds: 240,
+    timeLimitSeconds: 330,
     gameOverOnExpiry: true,
   },
   isBoss: false,

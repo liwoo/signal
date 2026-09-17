@@ -143,7 +143,7 @@ describe("corrupted starter code — all tabs fail to compile", () => {
     expect(result.success).toBe(false);
   }, 15_000);
 
-  it("main.go starter has no func (comments only) → MALFUNCTION", async () => {
+  it("main.go starter has no function yet → MALFUNCTION", async () => {
     let state = createBossCombatState(boss01Config);
     state = updateTabCode(state, "aim", CORRECT_AIM_SHIFTED);
     state = updateTabCode(state, "load", CORRECT_LOAD);

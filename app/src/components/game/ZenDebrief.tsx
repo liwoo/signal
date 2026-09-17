@@ -28,10 +28,8 @@ function beatDuration(beat: Beat): number {
 }
 
 /**
- * The zen lessons as something you watch. One rule per beat: a verdict
- * (LEARNED / MISSED), the principle in display type, Maya's line typed as a
- * subtitle, and the code before → after with the fix sliding into place.
- * Paced by reading length, skippable, and it ends on the tally.
+ * A quiet post-level study card. Zen is deliberately presented as a lesson,
+ * not another amber mission instruction or chat exchange.
  */
 export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone }: ZenDebriefProps) {
   const audio = useAudio(soundEnabled);
@@ -115,43 +113,43 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
         }}
       />
 
-      {/* Picture */}
+      {/* Lesson card — blue/paper-like visual language, intentionally unlike missions. */}
       <section
         className="relative w-full flex flex-col overflow-hidden sm:aspect-[16/10]"
-        style={{ maxWidth: 880, maxHeight: "78dvh", minHeight: 360, border: "1px solid color-mix(in srgb, var(--color-signal) 20%, transparent)", background: "#04090f" }}
+        style={{ maxWidth: 880, maxHeight: "78dvh", minHeight: 360, border: "1px solid color-mix(in srgb, var(--color-info) 45%, transparent)", background: "var(--color-panel)" }}
       >
-        {/* Header rail */}
-        <header className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid var(--color-border)" }}>
+        <header className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid color-mix(in srgb, var(--color-info) 25%, transparent)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}>
           <div className="font-[family-name:var(--font-display)] text-[12px] tracking-[4px]" style={{ color: "var(--color-info)" }}>
-            ZEN DEBRIEF · {chapterTitle}
+            ZEN NOTEBOOK · {chapterTitle}
           </div>
           <div className="text-[10px] tracking-[2px]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
-            {beat.kind === "rule" ? `${index}/${entries.length}` : ""}
+            {beat.kind === "rule" ? `LESSON ${index} OF ${entries.length}` : ""}
           </div>
         </header>
 
         <div className="relative flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center px-4 py-4 sm:px-6 text-center">
           {beat.kind === "title" && (
-            <div key="title" className="cinematic-card font-[family-name:var(--font-display)] font-black tracking-[0.3em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-signal)", textShadow: "0 0 24px rgba(110,255,160,.5)" }}>
-              THE ZEN OF GO
+            <div key="title" className="w-full max-w-[620px] border-l-[3px] px-6 py-5 text-left" style={{ borderColor: "var(--color-info)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}>
+              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.18em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-info)" }}>THE ZEN OF GO</div>
+              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>A short review of the choices that make Go code clear, calm, and easy to build on.</p>
             </div>
           )}
 
           {beat.kind === "rule" && beat.entry && (
-            <div key={beat.entry.id} className="w-full flex flex-col items-center gap-3 sm:gap-4 zen-beat">
-              <div className="text-[10px] sm:text-[11px] tracking-[3px] px-3 py-1" style={{ color: verdictColor, border: `1px solid ${verdictColor}` }}>
-                {beat.entry.learned ? "✓ LEARNED" : "○ MISSED"} · +{beat.entry.bonusXP} XP
+            <div key={beat.entry.id} className="w-full max-w-[720px] flex flex-col items-start gap-3 sm:gap-4 zen-beat text-left">
+              <div className="text-[10px] sm:text-[11px] tracking-[3px] px-3 py-1" style={{ color: verdictColor, border: `1px solid ${verdictColor}`, background: "color-mix(in srgb, var(--color-info) 5%, transparent)" }}>
+                {beat.entry.learned ? "IN YOUR CODE" : "TRY NEXT TIME"} · +{beat.entry.bonusXP} XP
               </div>
-              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.1em] lowercase leading-tight" style={{ fontSize: "clamp(18px, 3.4vw, 32px)", color: "var(--color-foreground)" }}>
+              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.06em] lowercase leading-tight" style={{ fontSize: "clamp(18px, 3.4vw, 32px)", color: "var(--color-foreground)" }}>
                 {beat.entry.principle}
               </div>
               {example ? (
                 <div className="w-full grid gap-2 sm:gap-3 text-left grid-cols-1 sm:grid-cols-[1fr_auto_1fr]" style={{ maxWidth: 720 }}>
-                  <CodeBox label="before" code={example.before} tone="dim" />
-                  <div className="self-center justify-self-center font-[family-name:var(--font-display)] text-[20px] zen-arrow rotate-90 sm:rotate-0" style={{ color: "var(--color-signal)" }}>→</div>
-                  <CodeBox label="after" code={example.after} tone="lit" />
-                  <div className="sm:col-span-3 text-center text-[11px] sm:text-[12px] tracking-[1px]" style={{ color: "var(--color-info)" }}>
-                    {example.change}
+                  <CodeBox label="first draft" code={example.before} tone="dim" />
+                  <div className="self-center justify-self-center font-[family-name:var(--font-display)] text-[20px] zen-arrow rotate-90 sm:rotate-0" style={{ color: "var(--color-info)" }}>→</div>
+                  <CodeBox label="go pattern" code={example.after} tone="lit" />
+                  <div className="sm:col-span-3 text-left text-[11px] sm:text-[12px] tracking-[1px]" style={{ color: "var(--color-info)" }}>
+                    THE TAKEAWAY · {example.change}
                   </div>
                 </div>
               ) : null}
@@ -159,15 +157,15 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
           )}
 
           {beat.kind === "outro" && (
-            <div key="outro" className="cinematic-card font-[family-name:var(--font-display)] font-black tracking-[0.2em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-win)", textShadow: "0 0 24px rgba(255,237,74,.4)" }}>
-              {learned}/{entries.length} · +{earned} XP
+            <div key="outro" className="w-full max-w-[620px] border-l-[3px] px-6 py-5 text-left" style={{ borderColor: "var(--color-signal)", background: "color-mix(in srgb, var(--color-signal) 6%, transparent)" }}>
+              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.12em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-signal)" }}>{learned}/{entries.length} · +{earned} XP</div>
+              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>These patterns stay in your library for the next time you write Go.</p>
             </div>
           )}
         </div>
 
-        {/* Subtitle */}
-        <div className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 text-center" style={{ minHeight: 76, borderTop: "1px solid var(--color-border)", background: "rgba(4,8,16,.9)" }}>
-          <div className="text-[9px] tracking-[3px] mb-1" style={{ color: "var(--color-signal)", opacity: 0.8 }}>MAYA</div>
+        <div className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 text-left" style={{ minHeight: 76, borderTop: "1px solid color-mix(in srgb, var(--color-info) 25%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, var(--color-panel))" }}>
+          <div className="text-[9px] tracking-[3px] mb-1" style={{ color: "var(--color-info)", opacity: 0.8 }}>WHY IT MATTERS</div>
           <div className="text-[13px] sm:text-[15px] leading-[1.5]" style={{ color: "var(--color-foreground)" }}>
             {playing ? beat.line.slice(0, shown) : beat.line}
             {playing && shown < beat.line.length && <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>▍</span>}
@@ -186,7 +184,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
           <div className="flex gap-2">
             <button type="button" onClick={() => goTo(index - 1)} disabled={index === 0} className="btn-secondary bg-transparent cursor-pointer px-3 py-2 text-[11px] tracking-[2px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.35)" }}>◀</button>
             <button type="button" onClick={() => (playing ? setPlaying(false) : ended ? goTo(0) : setPlaying(true))} className="btn-secondary bg-transparent cursor-pointer px-4 py-2 text-[11px] tracking-[2px]" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.35)", minWidth: 96 }}>
-              {playing ? "❚❚ PAUSE" : ended ? "↻ REPLAY" : "▶ PLAY"}
+              {playing ? "❚❚ PAUSE" : ended ? "↻ REVIEW AGAIN" : "▶ RESUME"}
             </button>
             <button type="button" onClick={() => goTo(index + 1)} disabled={index >= beats.length - 1} className="btn-secondary bg-transparent cursor-pointer px-3 py-2 text-[11px] tracking-[2px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.35)" }}>▶</button>
           </div>

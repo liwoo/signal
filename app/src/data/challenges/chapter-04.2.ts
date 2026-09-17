@@ -15,15 +15,14 @@ export const chapter04_2: Challenge = {
       brief:
         "set up the terminal. this time you need three imports — fmt, strings, and strconv. print \"ready\" so the relay initializes.",
       starterCode: `package main
-
-// TODO: import "fmt", "strings", and "strconv"
-// use an import group: import ( ... )
-
-// TODO: write func main()
-// print "ready" to initialize the relay
-// reeves says the keyword scanners check every 30 seconds
 `,
       expectedBehavior: "valid-go-scaffold",
+      quickCheck: {
+        question: "How do you group several imports in Go?",
+        options: ["import fmt, strings", "imports { ... }", "import ( ... )", "use imports"],
+        correctIndex: 2,
+        explanation: "Use parentheses after `import` and put one package path on each line.",
+      },
       hints: [
         {
           level: 1,
@@ -57,6 +56,12 @@ export const chapter04_2: Challenge = {
         "write `func reverseWord(s string) string` that reverses the characters of a single word.\n\nkey: convert to `[]rune` first (not bytes — runes handle unicode safely), reverse the slice, convert back to `string`.\n\nthe terminal will test it with multiple words.",
       starterCode: null,
       expectedBehavior: "olleh\noG\na",
+      quickCheck: {
+        question: "Why convert a string to `[]rune` before reversing it?",
+        options: ["Runes support Unicode characters", "It makes strings mutable", "It imports fmt", "It removes spaces"],
+        correctIndex: 0,
+        explanation: "Runes represent characters safely, including characters that use more than one byte.",
+      },
       testHarness: `func main() {
 \tfmt.Println(reverseWord("hello"))
 \tfmt.Println(reverseWord("Go"))
@@ -213,7 +218,7 @@ export const chapter04_2: Challenge = {
     },
   ],
   timer: {
-    timeLimitSeconds: 380,
+    timeLimitSeconds: 480,
     gameOverOnExpiry: true,
   },
   isBoss: false,

@@ -3,6 +3,7 @@
 import type { Challenge, ChallengeStep, JeopardyEvent } from "@/types/game";
 import type { HintState } from "@/lib/game/hints";
 import { nextHint, hintCostXP } from "@/lib/game/hints";
+import { QuickCheck } from "@/components/game/QuickCheck";
 
 interface ObjectiveBarProps {
   challenge: Challenge;
@@ -97,6 +98,10 @@ export function ObjectiveBar({
           {currentStep.brief}
         </div>
       </button>
+
+      {currentStep.quickCheck ? (
+        <QuickCheck key={currentStep.id} check={currentStep.quickCheck} compact={compact} />
+      ) : null}
 
       {/* Hazards */}
       {jeopardy.length > 0 && (
