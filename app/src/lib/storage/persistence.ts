@@ -70,7 +70,7 @@ export const DEFAULTS: PersistedState = {
     vimModeEnabled: false,
     fontSize: 15,
     soundEnabled: true,
-    beginnerMode: true,
+    beginnerMode: false,
     chatWidthPercent: 42,
     tutorialFontScale: 2,
     tourCompleted: false,
