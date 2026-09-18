@@ -671,7 +671,7 @@ export function useGame(
           pendingMsgRef.current.push({
             from: "MAYA",
             text: zenChunks[i],
-            type: "maya",
+            type: "zen",
             animated: true,
             onShow: i === 0 && zenResult.bonusXP > 0 ? () => showStreak("ZEN") : undefined,
           });
