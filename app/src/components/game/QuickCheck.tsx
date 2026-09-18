@@ -13,6 +13,10 @@ interface QuickCheckModalProps {
   onClose: () => void;
 }
 
+interface ChatQuickCheckProps {
+  check: QuickCheckData;
+}
+
 /** A no-penalty retrieval prompt: it reinforces syntax without interrupting play. */
 export function QuickCheck({ check, compact = false }: QuickCheckProps) {
   const [open, setOpen] = useState(false);
@@ -82,6 +86,66 @@ export function QuickCheck({ check, compact = false }: QuickCheckProps) {
         </section>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A retrieval prompt that lives in Maya's chat. It is used after a short pause
+ * in the editor, so the next useful action is always an answer the player can
+ * tap rather than a modal they need to dismiss.
+ */
+export function ChatQuickCheck({ check }: ChatQuickCheckProps) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const answered = selected !== null;
+  const correct = selected === check.correctIndex;
+
+  const select = (index: number) => {
+    if (answered) return;
+    setSelected(index);
+  };
+
+  return (
+    <section
+      className="msg-enter mt-1 border-l-[3px]"
+      style={{ borderColor: "var(--color-info)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}
+      aria-label="Quick knowledge check"
+    >
+      <header className="flex items-center justify-between gap-3 px-3 py-2" style={{ borderBottom: "1px solid color-mix(in srgb, var(--color-info) 24%, transparent)" }}>
+        <span className="text-[8px] tracking-[2.5px]" style={{ color: "var(--color-info)" }}>MAYA · QUICK CHECK</span>
+        <span className="text-[7px] tracking-[1.5px]" style={{ color: "var(--color-dim)" }}>NO PENALTY</span>
+      </header>
+      <div className="p-3">
+        <p className="text-[12px] leading-[1.55]" style={{ color: "var(--color-foreground)" }}>{check.question}</p>
+        <div className="mt-3 grid gap-1.5">
+          {check.options.map((option, index) => {
+            const isSelected = selected === index;
+            const showCorrect = answered && index === check.correctIndex;
+            const showWrong = answered && isSelected && !correct;
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => select(index)}
+                disabled={answered}
+                className="bg-transparent cursor-pointer px-2.5 py-2 text-left text-[11px] leading-[1.4] disabled:cursor-default"
+                style={{
+                  border: `1px solid ${showCorrect ? "var(--color-signal)" : showWrong ? "var(--color-danger)" : "color-mix(in srgb, var(--color-foreground) 25%, transparent)"}`,
+                  color: showCorrect ? "var(--color-signal)" : showWrong ? "var(--color-danger)" : "var(--color-foreground)",
+                  background: showCorrect ? "color-mix(in srgb, var(--color-signal) 6%, transparent)" : showWrong ? "color-mix(in srgb, var(--color-danger) 5%, transparent)" : "transparent",
+                }}
+              >
+                {String.fromCharCode(65 + index)} · {option}
+              </button>
+            );
+          })}
+        </div>
+        {answered ? (
+          <p className="mt-3 text-[11px] leading-[1.55]" style={{ color: correct ? "var(--color-signal)" : "var(--color-info)" }}>
+            {correct ? "right. " : "not quite. "}{check.explanation}
+          </p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

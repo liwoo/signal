@@ -14,7 +14,6 @@ import { ChatPanel } from "@/components/game/ChatPanel";
 import { CodeEditor } from "@/components/game/CodeEditor";
 import { MissionPanel } from "@/components/game/MissionPanel";
 import { ObjectiveBar } from "@/components/game/ObjectiveBar";
-import { QuickCheckModal } from "@/components/game/QuickCheck";
 import { isStuck } from "@/lib/game/hints";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
@@ -370,28 +369,41 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     [state.phase, state.attempts, state.stepStartedAt, stuckTick],
   );
 
-  // Each authored quick check becomes an intervention once for its own step.
-  // It is not a gate or a penalty: it simply gives a stalled player a focused
-  // multiple-choice reset before they return to the editor.
-  const [showRecoveryCheck, setShowRecoveryCheck] = useState(false);
-  const recoveryCheckShownForStep = useRef<string | null>(null);
+  // Offer one authored multiple-choice check directly in Maya's chat after
+  // three seconds with no code or chat activity. It is a gentle reset, never
+  // a gate or a penalty.
+  const [showIdleQuickCheck, setShowIdleQuickCheck] = useState(false);
+  const idleQuickCheckShownForStep = useRef<string | null>(null);
   useEffect(() => {
     const step = state.currentStep;
     if (
       state.phase !== "playing" ||
-      !stuck ||
       !step.quickCheck ||
       showTour ||
       missionModalOpen ||
       state.busy ||
       state.gamePaused ||
       state.waitingForContinue ||
-      recoveryCheckShownForStep.current === step.id
+      idleQuickCheckShownForStep.current === step.id
     ) return;
 
-    recoveryCheckShownForStep.current = step.id;
-    setShowRecoveryCheck(true);
-  }, [state.phase, state.currentStep, state.busy, state.gamePaused, state.waitingForContinue, stuck, showTour, missionModalOpen]);
+    setShowIdleQuickCheck(false);
+    const timer = window.setTimeout(() => {
+      idleQuickCheckShownForStep.current = step.id;
+      setShowIdleQuickCheck(true);
+    }, 3_000);
+    return () => window.clearTimeout(timer);
+  }, [
+    state.phase,
+    state.currentStep,
+    state.code,
+    state.chatInput,
+    state.busy,
+    state.gamePaused,
+    state.waitingForContinue,
+    showTour,
+    missionModalOpen,
+  ]);
 
   // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
   const awaitingInput =
@@ -400,7 +412,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     !state.gamePaused &&
     !state.waitingForContinue &&
     !missionModalOpen &&
-    !showRecoveryCheck;
+    !showIdleQuickCheck;
   const prevAwaitingRef = useRef(false);
   useEffect(() => {
     if (awaitingInput && !prevAwaitingRef.current) {
@@ -713,14 +725,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         />
       )}
 
-      {showRecoveryCheck && state.currentStep.quickCheck && (
-        <QuickCheckModal
-          key={state.currentStep.id}
-          check={state.currentStep.quickCheck}
-          onClose={() => setShowRecoveryCheck(false)}
-        />
-      )}
-
       {/* Overlay layers */}
       {state.reward && (
         <RewardCard reward={state.reward} soundEnabled={settings.soundEnabled} onDone={actions.dismissReward} />
@@ -821,6 +825,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               explainUsed={state.explainUsed}
               onContinue={actions.resumeFromPause}
               onExplain={actions.requestExplain}
+              idleQuickCheck={showIdleQuickCheck ? state.currentStep.quickCheck : undefined}
               compact
             />
           }
@@ -952,6 +957,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               explainUsed={state.explainUsed}
               onContinue={actions.resumeFromPause}
               onExplain={actions.requestExplain}
+              idleQuickCheck={showIdleQuickCheck ? state.currentStep.quickCheck : undefined}
             />
           </div>
 

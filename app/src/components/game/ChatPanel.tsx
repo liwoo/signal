@@ -3,12 +3,14 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import { TypeText } from "@/components/story/TypeText";
 import { MayaMarkdown } from "@/components/game/MayaMarkdown";
+import { ChatQuickCheck } from "@/components/game/QuickCheck";
+import type { QuickCheck } from "@/types/game";
 
 export interface ChatMsg {
   id: string;
   from: string;
   text: string;
-  type: "maya" | "you" | "sys" | "win" | "err" | "dim";
+  type: "maya" | "you" | "sys" | "win" | "err" | "dim" | "zen";
   animated: boolean;
 }
 
@@ -27,6 +29,7 @@ interface ChatPanelProps {
   explainUsed?: boolean;
   onContinue?: () => void;
   onExplain?: () => void;
+  idleQuickCheck?: QuickCheck;
   compact?: boolean;
 }
 
@@ -37,9 +40,10 @@ const MSG_COLORS: Record<string, string> = {
   sys: "var(--color-alert)",
   err: "var(--color-danger)",
   dim: "#1a4a5a",
+  zen: "var(--color-info)",
 };
 
-const MAYA_TYPES = new Set(["maya", "win"]);
+const MAYA_TYPES = new Set(["maya", "win", "zen"]);
 
 /** Fold runs of identical system lines ("energy drain" ×3) into one chip. */
 function collapseSystemNoise(messages: ChatMsg[]): Array<{ msg: ChatMsg; repeats: number }> {
@@ -72,6 +76,7 @@ export function ChatPanel({
   explainUsed,
   onContinue,
   onExplain,
+  idleQuickCheck,
   compact = false,
 }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -153,18 +158,25 @@ export function ChatPanel({
             );
           }
 
+          const isZen = m.type === "zen";
           return (
             <div
               key={m.id}
-              className={`msg-enter leading-[1.6] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[15px]"}`}
-              style={{ opacity }}
+              className={`msg-enter leading-[1.6] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[15px]"} ${isZen ? "border-l-[3px] px-3 py-2" : ""}`}
+              style={{
+                opacity,
+                ...(isZen ? {
+                  borderColor: "var(--color-info)",
+                  background: "color-mix(in srgb, var(--color-info) 6%, transparent)",
+                } : {}),
+              }}
             >
               <div className="mb-px">
                 <span
                   className="text-[8px] tracking-[2px]"
                   style={{ color: MSG_COLORS[m.type], opacity: 0.7 }}
                 >
-                  {m.from}
+                  {isZen ? "ZEN NOTE · MAYA" : m.from}
                 </span>
               </div>
               <div
@@ -190,6 +202,10 @@ export function ChatPanel({
             </span>
             <span className="cursor-blink text-[var(--color-signal)]">▋</span>
           </div>
+        )}
+
+        {idleQuickCheck && !busy && !waitingForContinue && (
+          <ChatQuickCheck check={idleQuickCheck} />
         )}
 
         {/* Pause + continue/explain buttons */}
