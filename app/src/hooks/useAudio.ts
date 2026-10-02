@@ -96,12 +96,26 @@ export type MusicName = keyof typeof MUSIC;
 
 // ── Hook ──
 
-export function useAudio(soundEnabled = true) {
+interface LoopHandle {
+  el: HTMLAudioElement;
+  /** Gain stage the element plays through. iOS ignores `el.volume`; gain works. */
+  gain: GainNode | null;
+  stopTimer: ReturnType<typeof setTimeout> | null;
+}
+
+/**
+ * @param soundEnabled master switch — gates every sound, SFX and loops alike
+ * @param loopsEnabled background layer switch — music and ambience loops only.
+ *   Flipping it off fades out whatever is playing; SFX (beeps, footsteps) stay.
+ */
+export function useAudio(soundEnabled = true, loopsEnabled = true) {
   const ctxRef = useRef<AudioContext | null>(null);
   const bufferCache = useRef<Map<string, AudioBuffer>>(new Map());
-  // Loops use HTML Audio elements (reliable for long audio)
-  const loopEls = useRef<Map<string, HTMLAudioElement>>(new Map());
+  // Loops use HTML Audio elements (reliable for long audio), routed through a
+  // Web Audio gain node so volume and fades are honoured everywhere.
+  const loopEls = useRef<Map<string, LoopHandle>>(new Map());
   const enabledRef = useRef(true);
+  const loopsEnabledRef = useRef(true);
 
   // Lazily create AudioContext (must be after user gesture)
   const getCtx = useCallback(() => {
@@ -137,6 +151,9 @@ export function useAudio(soundEnabled = true) {
   useEffect(() => {
     enabledRef.current = soundEnabled;
   }, [soundEnabled]);
+  useEffect(() => {
+    loopsEnabledRef.current = loopsEnabled;
+  }, [loopsEnabled]);
 
   // Play a one-shot SFX
   const playSfx = useCallback(
@@ -174,6 +191,37 @@ export function useAudio(soundEnabled = true) {
     [loadBuffer, playSfx]
   );
 
+  // ── Loop volume helpers ──
+  // Volume lives on the gain node when Web Audio is available (iOS ignores
+  // el.volume); fall back to the element otherwise.
+  const rampLoop = useCallback((handle: LoopHandle, target: number, ms: number) => {
+    const clamped = Math.max(0, Math.min(1, target));
+    const ctx = ctxRef.current;
+    if (handle.gain && ctx) {
+      const now = ctx.currentTime;
+      const g = handle.gain.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      if (ms <= 0) g.setValueAtTime(clamped, now);
+      else g.linearRampToValueAtTime(clamped, now + ms / 1000);
+      return;
+    }
+    // Element fallback: stepped ramp
+    const el = handle.el;
+    if (ms <= 0) {
+      el.volume = clamped;
+      return;
+    }
+    const startVol = el.volume;
+    const steps = 20;
+    const stepMs = ms / steps;
+    for (let i = 1; i <= steps; i++) {
+      setTimeout(() => {
+        el.volume = Math.max(0, Math.min(1, startVol + (clamped - startVol) * (i / steps)));
+      }, stepMs * i);
+    }
+  }, []);
+
   // Start a looping sound (ambience or music) — uses HTML Audio for reliability.
   // SYNCHRONOUS — el.play() must happen in the same call stack as user gesture
   // or browsers (especially Safari) reject it as non-user-initiated.
@@ -182,14 +230,15 @@ export function useAudio(soundEnabled = true) {
     (
       name: AmbienceName | MusicName,
       volume = 0.3,
-      _fadeInMs = 2000
+      fadeInMs = 2000
     ) => {
-      if (!enabledRef.current) return;
+      if (!enabledRef.current || !loopsEnabledRef.current) return;
 
       // Kill any existing element (may be mid-fade-out from stopAllLoops)
       const existing = loopEls.current.get(name);
       if (existing) {
-        existing.pause();
+        if (existing.stopTimer) clearTimeout(existing.stopTimer);
+        existing.el.pause();
         loopEls.current.delete(name);
       }
 
@@ -204,45 +253,53 @@ export function useAudio(soundEnabled = true) {
 
       const el = new Audio(url);
       el.loop = true;
-      el.volume = volume;
 
       // Log load errors so "Invalid URI" is traceable
       el.addEventListener("error", () => {
         console.error(`[AUDIO] load error for "${name}" (${url}):`, el.error?.message);
       });
 
-      loopEls.current.set(name, el);
+      // Route through a gain node when we can — the only way volume is
+      // honoured on iOS, and it gives us sample-accurate fades.
+      let gain: GainNode | null = null;
+      try {
+        const ctx = getCtx();
+        const source = ctx.createMediaElementSource(el);
+        gain = ctx.createGain();
+        gain.gain.value = fadeInMs > 0 ? 0 : volume;
+        source.connect(gain).connect(ctx.destination);
+      } catch {
+        gain = null;
+        el.volume = fadeInMs > 0 ? 0 : volume;
+      }
+
+      const handle: LoopHandle = { el, gain, stopTimer: null };
+      loopEls.current.set(name, handle);
+      if (fadeInMs > 0) rampLoop(handle, volume, fadeInMs);
 
       // Fire-and-forget — play() returns a promise, handle errors without await
       // so the call stays synchronous within the user gesture stack frame.
       el.play().catch((e) => {
         console.warn(`[AUDIO] loop play failed for "${name}" (${url}):`, e);
-        loopEls.current.delete(name);
+        if (loopEls.current.get(name) === handle) loopEls.current.delete(name);
       });
     },
-    []
+    [getCtx, rampLoop]
   );
 
   // Stop a looping sound with fade out
   const stopLoop = useCallback(
     (name: AmbienceName | MusicName, fadeOutMs = 1500) => {
-      const el = loopEls.current.get(name);
-      if (!el) return;
-
-      const startVol = el.volume;
-      const steps = 20;
-      const stepMs = fadeOutMs / steps;
-      for (let i = 1; i <= steps; i++) {
-        setTimeout(() => {
-          el.volume = Math.max(0, startVol * (1 - i / steps));
-        }, stepMs * i);
-      }
-      setTimeout(() => {
-        el.pause();
-        loopEls.current.delete(name);
+      const handle = loopEls.current.get(name);
+      if (!handle) return;
+      if (handle.stopTimer) clearTimeout(handle.stopTimer);
+      rampLoop(handle, 0, fadeOutMs);
+      handle.stopTimer = setTimeout(() => {
+        handle.el.pause();
+        if (loopEls.current.get(name) === handle) loopEls.current.delete(name);
       }, fadeOutMs);
     },
-    []
+    [rampLoop]
   );
 
   // Stop all loops
@@ -258,20 +315,21 @@ export function useAudio(soundEnabled = true) {
   // Set volume on active loop
   const setLoopVolume = useCallback(
     (name: AmbienceName | MusicName, volume: number, rampMs = 500) => {
-      const el = loopEls.current.get(name);
-      if (!el) return;
-      const startVol = el.volume;
-      const steps = 15;
-      const stepMs = rampMs / steps;
-      for (let i = 1; i <= steps; i++) {
-        setTimeout(() => {
-          const e = loopEls.current.get(name);
-          if (e) e.volume = Math.max(0, Math.min(1, startVol + (volume - startVol) * (i / steps)));
-        }, stepMs * i);
-      }
+      const handle = loopEls.current.get(name);
+      if (!handle) return;
+      rampLoop(handle, volume, rampMs);
     },
-    []
+    [rampLoop]
   );
+
+  // Background layer toggled off mid-play: fade everything out. Turning it
+  // back on is the caller's job (it knows which bed belongs to the moment).
+  const prevLoopsEnabled = useRef(loopsEnabled);
+  useEffect(() => {
+    const was = prevLoopsEnabled.current;
+    prevLoopsEnabled.current = loopsEnabled;
+    if (was && !loopsEnabled) stopAllLoops(400);
+  }, [loopsEnabled, stopAllLoops]);
 
   // Preload sounds into buffer cache (no playback)
   // Call during scene transitions or level load to avoid first-play delay
@@ -294,8 +352,9 @@ export function useAudio(soundEnabled = true) {
   useEffect(() => {
     return () => {
       // Stop all HTML Audio loops
-      for (const el of loopEls.current.values()) {
-        el.pause();
+      for (const handle of loopEls.current.values()) {
+        if (handle.stopTimer) clearTimeout(handle.stopTimer);
+        handle.el.pause();
       }
       loopEls.current.clear();
       // Close Web Audio context (used for SFX)

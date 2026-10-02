@@ -1,19 +1,12 @@
 "use client";
 
 import type { Challenge, ChallengeStep, JeopardyEvent } from "@/types/game";
-import type { HintState } from "@/lib/game/hints";
-import { nextHint, hintCostXP } from "@/lib/game/hints";
-import { QuickCheck } from "@/components/game/QuickCheck";
 
 interface ObjectiveBarProps {
   challenge: Challenge;
   currentStep: ChallengeStep;
   currentStepIndex: number;
-  hints: HintState;
-  /** The player looks stuck — the hint affordance lights up. */
-  stuck: boolean;
   jeopardy: JeopardyEvent[];
-  onRevealHint: () => void;
   onOpenMission: () => void;
   compact?: boolean;
 }
@@ -22,23 +15,16 @@ interface ObjectiveBarProps {
  * The one line that always answers "what am I supposed to do right now?".
  * Sits above the code. Amber = mission voice (instructions), distinct from
  * Maya's green narration in the chat. Holds the step pips, the current
- * objective, hazards, and the progressive hint button.
+ * objective, and hazards. Hints live behind the HINT button in the chat.
  */
 export function ObjectiveBar({
   challenge,
   currentStep,
   currentStepIndex,
-  hints,
-  stuck,
   jeopardy,
-  onRevealHint,
   onOpenMission,
   compact = false,
 }: ObjectiveBarProps) {
-  const upcoming = nextHint(currentStep.hints, hints);
-  const used = hints.revealed;
-  const total = currentStep.hints.length;
-
   return (
     <div
       data-tour="objective-bar"
@@ -99,10 +85,6 @@ export function ObjectiveBar({
         </div>
       </button>
 
-      {currentStep.quickCheck ? (
-        <QuickCheck key={currentStep.id} check={currentStep.quickCheck} compact={compact} />
-      ) : null}
-
       {/* Hazards */}
       {jeopardy.length > 0 && (
         <div className="hidden sm:flex items-center gap-1 shrink-0">
@@ -121,31 +103,6 @@ export function ObjectiveBar({
           ))}
         </div>
       )}
-
-      {/* Progressive hint */}
-      <div className="flex items-center shrink-0">
-        {upcoming ? (
-          <button
-            type="button"
-            onClick={onRevealHint}
-            className={`btn-secondary bg-transparent cursor-pointer flex items-center gap-1.5 tracking-[1px] transition-colors whitespace-nowrap ${compact ? "min-h-11 px-2.5 text-[9px]" : "px-3 py-1.5 text-[9px] tracking-[2px]"} ${stuck ? "hint-pulse" : ""}`}
-            style={{
-              color: stuck ? "var(--color-info)" : "var(--color-foreground)",
-              border: `1px solid ${stuck ? "var(--color-info)" : "rgba(184,212,160,.35)"}`,
-              background: stuck ? "rgba(0,212,255,.08)" : "transparent",
-            }}
-            title={`Reveal hint ${used + 1} of ${total} for ${hintCostXP(upcoming)} XP`}
-          >
-            <span>{stuck ? "STUCK? HINT" : "HINT"}</span>
-            <span style={{ opacity: 0.7 }}>{used}/{total}</span>
-            <span className={compact ? "hidden" : ""} style={{ color: "var(--color-alert)" }}>−{hintCostXP(upcoming)} XP</span>
-          </button>
-        ) : total > 0 ? (
-          <span className="text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
-            ALL HINTS USED
-          </span>
-        ) : null}
-      </div>
     </div>
   );
 }

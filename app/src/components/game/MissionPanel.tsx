@@ -1,25 +1,19 @@
 "use client";
 
 import type { Challenge, ChallengeStep } from "@/types/game";
-import type { HintState } from "@/lib/game/hints";
-import { hintCostXP } from "@/lib/game/hints";
-import { QuickCheck } from "@/components/game/QuickCheck";
 
 interface MissionPanelProps {
   challenge: Challenge;
   currentStep: ChallengeStep;
   currentStepIndex: number;
   totalSteps: number;
-  hints: HintState;
-  onRevealHint: () => void;
 }
 
 /**
- * The full mission brief. One amber block of instructions, the step path,
- * the reward, and progressive hints — unrevealed hints stay locked so the
- * answer isn't sitting on screen before the player has tried.
+ * The full mission brief. One amber block of instructions, the step path, and
+ * the reward. Hints live behind the HINT button in Maya's chat, not here.
  */
-export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSteps, hints, onRevealHint }: MissionPanelProps) {
+export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSteps }: MissionPanelProps) {
   const totalXP = challenge.steps.reduce((sum, s) => sum + s.xp.base, 0);
 
   return (
@@ -83,67 +77,12 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
       </div>
 
       {currentStep.quickCheck ? (
-        <div className="relative mb-5 flex items-center justify-between gap-3 px-4 py-3" style={{ border: "1px solid color-mix(in srgb, var(--color-info) 30%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, transparent)" }}>
-          <span className="text-[10px] leading-[1.5]" style={{ color: "var(--color-info)" }}>take a ten-second syntax check before you code.</span>
-          <QuickCheck key={currentStep.id} check={currentStep.quickCheck} />
+        <div className="mb-5 flex items-center gap-2 px-4 py-3" style={{ border: "1px solid color-mix(in srgb, var(--color-info) 30%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, transparent)" }}>
+          <span className="text-[10px] leading-[1.5]" style={{ color: "var(--color-info)" }}>
+            stuck? tap the <span style={{ color: "var(--color-info)", fontWeight: 700 }}>? HINT</span> button in maya&apos;s chat — she&apos;ll answer the question you&apos;re stuck on, no penalty.
+          </span>
         </div>
       ) : null}
-
-      {/* Progressive hints */}
-      {currentStep.hints.length > 0 && (
-        <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <div className="text-[9px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
-              HINTS · {hints.revealed}/{currentStep.hints.length} REVEALED
-            </div>
-            <div className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
-              each hint costs XP · reveal in order
-            </div>
-          </div>
-          <ol className="flex flex-col gap-1.5">
-            {currentStep.hints.map((hint, i) => {
-              const revealed = i < hints.revealed;
-              const isNext = i === hints.revealed;
-              return (
-                <li
-                  key={hint.level}
-                  className="p-3"
-                  style={{
-                    border: `1px solid ${revealed ? "rgba(0,212,255,.3)" : "rgba(184,212,160,.15)"}`,
-                    borderLeft: `3px solid ${revealed ? "var(--color-info)" : "rgba(184,212,160,.2)"}`,
-                    background: revealed ? "rgba(0,212,255,.04)" : "transparent",
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[8px] tracking-[2px]" style={{ color: revealed ? "var(--color-info)" : "var(--color-dim)" }}>
-                      HINT {hint.level}{revealed ? "" : " · LOCKED"}
-                    </span>
-                    {isNext ? (
-                      <button
-                        type="button"
-                        onClick={onRevealHint}
-                        className="btn-secondary bg-transparent cursor-pointer text-[9px] tracking-[2px] px-3 py-1"
-                        style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.35)" }}
-                      >
-                        REVEAL · −{hintCostXP(hint)} XP
-                      </button>
-                    ) : (
-                      <span className="text-[8px]" style={{ color: revealed ? "var(--color-dim)" : "rgba(184,212,160,.35)" }}>
-                        −{hintCostXP(hint)} XP
-                      </span>
-                    )}
-                  </div>
-                  {revealed && (
-                    <code className="block mt-2 text-[12px] leading-[1.7] whitespace-pre-wrap" style={{ color: "var(--color-foreground)" }}>
-                      {hint.text}
-                    </code>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
     </div>
   );
 }

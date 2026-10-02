@@ -566,15 +566,15 @@ const useNamedValues: ZenRule = {
   },
   bonusXP: 10,
   jolt: "...the gas is clearing.\n\nyou gave things names — variables, not raw strings buried in a print call. that's intent. anyone reading this code knows what \"B-09\" means because you told them.\n\nzen of go: make your intent visible. `const` locks it down at compile time. `:=` is good too — it's short, clear, declared right where it's used.",
-  suggestion: "try declaring named values — `cell := \"B-09\"` or `const cell = \"B-09\"` — instead of hardcoding strings directly in the print call. names are documentation.",
+  suggestion: "give the package values names — `cell := cellblock.Cell`, `sublevel := cellblock.Sublevel` — instead of dropping cellblock.Cell straight into the print call. names are documentation.",
   // Dynamic suggestion: if they already declared variables but didn't use them in print,
   // tell them to reference those variables instead of suggesting they declare them again.
   getSuggestion: (code) => {
     const decls = collectDeclarations(code);
     if (decls.length > 0) {
-      return "you declared variables — now use them in your print call. `fmt.Println(cell)` instead of hardcoding the value again. the whole point of a name is to use it.";
+      return "you declared variables — now use them in your print call. `fmt.Println(cell)` instead of reaching into the package again. the whole point of a name is to use it.";
     }
-    return "try declaring named values — `cell := \"B-09\"` or `const cell = \"B-09\"` — instead of hardcoding strings directly in the print call. names are documentation.";
+    return "give the package values names — `cell := cellblock.Cell`, `sublevel := cellblock.Sublevel` — instead of dropping cellblock.Cell straight into the print call. names are documentation.";
   },
 };
 
@@ -613,7 +613,7 @@ const descriptiveNames: ZenRule = {
   },
   bonusXP: 10,
   jolt: "good names. `cell`, `sublevel`... not `x` and `y`. in go, a variable's name is its documentation. no javadoc, no docblocks — just honest names.\n\nmy advisor used to say: \"the length of a name should be proportional to its scope.\" short in a loop. descriptive everywhere else.",
-  suggestion: "try using descriptive names — `cell := \"B-09\"` reads better than `x := \"B-09\"`. in go, names are documentation.",
+  suggestion: "try using descriptive names — `cell := cellblock.Cell` reads better than `x := cellblock.Cell`. in go, names are documentation.",
 };
 
 // Ch02: Loop

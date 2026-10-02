@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 
 interface GameOverProps {
   onRetry: () => void;
+  onRestart: () => void;
   onBuyHeart: () => void;
   hearts: number;
   canBuyHeart: boolean;
@@ -18,7 +19,7 @@ const MAYA_LAST_WORDS = [
   "don't forget what i told you.",
 ];
 
-export function GameOver({ onRetry, onBuyHeart, hearts, canBuyHeart: canBuy, heartCostXP }: GameOverProps) {
+export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: canBuy, heartCostXP }: GameOverProps) {
   const [lineIndex, setLineIndex] = useState(0);
   const [showRetry, setShowRetry] = useState(false);
 
@@ -129,24 +130,35 @@ export function GameOver({ onRetry, onBuyHeart, hearts, canBuyHeart: canBuy, hea
               <div className="text-[10px] tracking-[2px] mb-3" style={{ color: "#6a2020" }}>
                 NO LIVES REMAINING
               </div>
+              <button
+                onClick={onRestart}
+                className="py-2.5 px-8 bg-transparent border cursor-pointer
+                           text-[9px] tracking-[4px] transition-colors
+                           hover:bg-[rgba(255,64,64,.15)] hover:border-[var(--color-danger)]"
+                style={{
+                  borderColor: "#4a1a1a",
+                  color: "var(--color-danger)",
+                }}
+              >
+                RESTART
+              </button>
+              <div className="text-center mt-2 text-[7px] tracking-[2px]" style={{ color: "#3a1a1a" }}>
+                FRESH LIVES · RESTARTS STEP 1 · KEEPS XP
+              </div>
               {canBuy ? (
                 <button
                   onClick={onBuyHeart}
-                  className="py-2.5 px-8 bg-transparent border cursor-pointer
-                             text-[9px] tracking-[4px] transition-colors
+                  className="mt-4 py-2 px-6 bg-transparent border cursor-pointer
+                             text-[8px] tracking-[3px] transition-colors
                              hover:bg-[rgba(255,159,28,.1)] hover:border-[var(--color-alert)]"
                   style={{
                     borderColor: "#3a2a0a",
                     color: "var(--color-alert)",
                   }}
                 >
-                  BUY HEART · {heartCostXP} XP
+                  OR BUY HEART · {heartCostXP} XP
                 </button>
-              ) : (
-                <div className="text-[8px] tracking-[2px]" style={{ color: "#3a1a1a" }}>
-                  NOT ENOUGH XP · {heartCostXP} XP NEEDED
-                </div>
-              )}
+              ) : null}
             </>
           )}
         </div>

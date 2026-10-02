@@ -1468,3 +1468,50 @@ describe("di — delete inner text object", () => {
     expect(r.code).toBe("hello");
   });
 });
+
+// ── Word text objects (iw / aw) ──
+
+describe("text objects — word (iw / aw)", () => {
+  const LINE = `const cell = "B-09"`; // cell = indices 6..9
+
+  test("ciw deletes the word under the cursor and enters insert", () => {
+    const r = sim(LINE, 7, "ciw");
+    expect(r.code).toBe(`const  = "B-09"`);
+    expect(r.mode).toBe("insert");
+    expect(r.pos).toBe(6);
+    expect(r.yank).toBe("cell");
+  });
+
+  test("diw deletes the word and stays in normal mode", () => {
+    const r = sim(LINE, 8, "diw");
+    expect(r.code).toBe(`const  = "B-09"`);
+    expect(r.mode).toBe("normal");
+    expect(r.yank).toBe("cell");
+  });
+
+  test("daw deletes the word plus its trailing space", () => {
+    const r = sim(LINE, 7, "daw");
+    expect(r.code).toBe(`const = "B-09"`);
+    expect(r.yank).toBe("cell ");
+  });
+
+  test("yiw yanks the word without changing the code", () => {
+    const r = sim(LINE, 7, "yiw");
+    expect(r.code).toBe(LINE);
+    expect(r.yank).toBe("cell");
+  });
+
+  test("ciw on punctuation selects the punctuation run", () => {
+    const r = sim(`a := b`, 2, "ciw"); // cursor on ':'
+    expect(r.yank).toBe(":=");
+    expect(r.code).toBe(`a  b`);
+    expect(r.mode).toBe("insert");
+  });
+
+  test("delimiter objects still work after the change (ci()", () => {
+    const r = sim(`sum(a, b)`, 4, "ci(");
+    expect(r.code).toBe(`sum()`);
+    expect(r.mode).toBe("insert");
+    expect(r.yank).toBe("a, b");
+  });
+});

@@ -64,7 +64,8 @@ export function createIDBPersistence(): GamePersistence {
           progress: (progress as PersistedState["progress"]) ?? DEFAULTS.progress,
           stats: (stats as PersistedState["stats"]) ?? DEFAULTS.stats,
           unlocks: (unlocks as PersistedState["unlocks"]) ?? DEFAULTS.unlocks,
-          settings: (settings as PersistedState["settings"]) ?? DEFAULTS.settings,
+          // Merge so settings added in later releases pick up their defaults.
+          settings: { ...DEFAULTS.settings, ...((settings as Partial<PersistedState["settings"]> | undefined) ?? {}) },
           library: (library as PersistedState["library"]) ?? DEFAULTS.library,
         };
       } catch {

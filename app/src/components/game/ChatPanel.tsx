@@ -29,7 +29,10 @@ interface ChatPanelProps {
   explainUsed?: boolean;
   onContinue?: () => void;
   onExplain?: () => void;
-  idleQuickCheck?: QuickCheck;
+  /** The step's "stuck?" helper, opened from the HINT button below. */
+  quickCheck?: QuickCheck;
+  /** The player looks stuck — the HINT button lights up. */
+  stuck?: boolean;
   compact?: boolean;
 }
 
@@ -76,12 +79,23 @@ export function ChatPanel({
   explainUsed,
   onContinue,
   onExplain,
-  idleQuickCheck,
+  quickCheck,
+  stuck = false,
   compact = false,
 }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const [typedIds, setTypedIds] = useState<Set<string>>(new Set());
   const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : "";
+
+  // The "stuck?" helper is opened on demand from the HINT button. It resets
+  // whenever the step's check changes so it never carries into the next step.
+  const [hintOpen, setHintOpen] = useState(false);
+  const [lastCheck, setLastCheck] = useState(quickCheck);
+  if (quickCheck !== lastCheck) {
+    setLastCheck(quickCheck);
+    setHintOpen(false);
+  }
+  const showQuickCheck = hintOpen && !!quickCheck && !busy;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -204,8 +218,8 @@ export function ChatPanel({
           </div>
         )}
 
-        {idleQuickCheck && !busy && !waitingForContinue && (
-          <ChatQuickCheck check={idleQuickCheck} />
+        {showQuickCheck && quickCheck && (
+          <ChatQuickCheck check={quickCheck} />
         )}
 
         {/* Pause + continue/explain buttons */}
@@ -267,6 +281,22 @@ export function ChatPanel({
         }}
       >
         <div className="flex gap-2 items-center">
+          {quickCheck && (
+            <button
+              type="button"
+              onClick={() => setHintOpen((v) => !v)}
+              className={`bg-transparent text-[9px] tracking-[2px] px-3 transition-colors cursor-pointer whitespace-nowrap ${compact ? "min-h-11 py-2" : "py-1.5"} ${stuck && !hintOpen ? "hint-pulse" : ""}`}
+              style={{
+                border: `1px solid ${hintOpen || stuck ? "var(--color-info)" : "rgba(122,184,216,.25)"}`,
+                color: "var(--color-info)",
+                background: hintOpen ? "rgba(0,212,255,.08)" : "transparent",
+              }}
+              aria-pressed={hintOpen}
+              title="Open Maya's hints for this step"
+            >
+              {hintOpen ? "✕ HINT" : stuck ? "STUCK? HINT" : "? HINT"}
+            </button>
+          )}
           <input
             value={chatInput}
             onChange={(e) => onChatChange(e.target.value)}
@@ -306,7 +336,7 @@ export function ChatPanel({
   );
 }
 
-const AUTO_CONTINUE_SECONDS = 7;
+const AUTO_CONTINUE_SECONDS = 5;
 
 // Continue button with auto-countdown
 function ContinueButton({ onContinue, compact = false }: { onContinue: () => void; compact?: boolean }) {
@@ -406,7 +436,7 @@ function MessageContent({
       <TypeText
         text={msg.text}
         className=""
-        speed={20}
+        speed={14}
         onStart={isLastMsg ? onTypingStart : undefined}
         onDone={handleDone}
       />
@@ -419,7 +449,7 @@ function MessageContent({
       <TypeText
         text={msg.text}
         className=""
-        speed={20}
+        speed={14}
         onDone={handleDone}
       />
     );

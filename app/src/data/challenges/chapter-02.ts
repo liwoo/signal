@@ -13,15 +13,25 @@ export const chapter02: Challenge = {
       id: "chapter-02:scaffold",
       title: "SCAFFOLD",
       brief:
-        "the keypad is wired to a go program. set up the skeleton — package, import, and a main function. the keypad won't accept input until the terminal is initialized.",
-      starterCode: `package main
-`,
+        "the keypad is wired to a go program. get it live by printing `Hello World` — that one line pulls in the whole skeleton: package, import, and a main function. the keypad won't respond until the terminal's live.",
+      starterCode: ``,
       expectedBehavior: "valid go program with package main, import fmt, and func main",
       quickCheck: {
-        question: "Which keyword starts every counted loop in Go?",
-        options: ["repeat", "while", "for", "loop"],
-        correctIndex: 2,
-        explanation: "Go has one looping keyword: `for`.",
+        prompt: "same skeleton as before — tap whatever you need a refresher on.",
+        items: [
+          {
+            question: "which line makes it runnable again?",
+            answer: "`package main` on the first line. no main package, nothing runs.",
+          },
+          {
+            question: "how do i pull in fmt?",
+            answer: "`import \"fmt\"` right after the package line, quotes included.",
+          },
+          {
+            question: "where does the code that runs go?",
+            answer: "inside `func main()` — that's the entry point go looks for.",
+          },
+        ],
       },
       hints: [
         {
@@ -36,7 +46,7 @@ export const chapter02: Challenge = {
         },
         {
           level: 3,
-          text: "package main, then import \"fmt\", then func main() { fmt.Println(\"ready\") }",
+          text: "package main, then import \"fmt\", then func main() { fmt.Println(\"Hello World\") }",
           energyCost: 12,
         },
       ],
@@ -57,10 +67,21 @@ export const chapter02: Challenge = {
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "loop-1-to-10",
       quickCheck: {
-        question: "What does `i++` do at the end of a loop?",
-        options: ["prints i", "adds 1 to i", "resets i", "stops the loop"],
-        correctIndex: 1,
-        explanation: "`i++` increments the counter by one after each loop pass.",
+        prompt: "stuck on the loop? tap the question that's in your head.",
+        items: [
+          {
+            question: "which keyword do i loop with?",
+            answer: "go only has one: `for`. there's no while or repeat — `for` covers all of them.",
+          },
+          {
+            question: "how do i count from 1 to 10?",
+            answer: "`for i := 1; i <= 10; i++` — start, condition, step. the body runs while the condition holds.",
+          },
+          {
+            question: "what is that `i++` doing?",
+            answer: "it adds 1 to `i` after each pass, so the loop moves forward instead of running forever.",
+          },
+        ],
       },
       hints: [
         {
@@ -99,10 +120,17 @@ export const chapter02: Challenge = {
       expectedBehavior:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
       quickCheck: {
-        question: "Which branch handles a value that matches no earlier switch case?",
-        options: ["otherwise", "fallback", "default", "else"],
-        correctIndex: 2,
-        explanation: "`default:` is the final fallback branch in a Go switch.",
+        prompt: "stuck on the switch? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i test a value against several cases?",
+            answer: "use `switch` with a `case` for each value you want to match — cleaner than stacking if/else.",
+          },
+          {
+            question: "what catches a value none of my cases match?",
+            answer: "add a `default:` branch. it's the fallback that runs when no earlier case matched.",
+          },
+        ],
       },
       hints: [
         {
@@ -158,19 +186,27 @@ export const chapter02: Challenge = {
       id: "chapter-02:rewrite",
       title: "REWRITE",
       brief:
-        "redundancy protocol. rewrite the classification using the other approach — if you used switch, use if/else chains. if you used if/else, use switch/case. same output required. +45s bonus time.",
-      starterCode: `package main
-
-import "fmt"
-
-func main() {
-\tfor i := 1; i <= 10; i++ {
-\t\tfmt.Println(i, "TODO")
-\t}
-}
-`,
+        "redundancy protocol. your classification carries over — rewrite it using the other approach. if you used switch, switch to if/else chains. if you used if/else, use switch/case. same output. +45s bonus time.",
+      starterCode: null, // carry the player's classification forward — they rewrite it in place
       expectedBehavior:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
+      quickCheck: {
+        prompt: "stuck rewriting it the other way? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i turn a switch into if/else?",
+            answer: "each `case i <= 3:` becomes `if i <= 3 { ... }`, the next becomes `else if i <= 6 { ... }`, and `default:` becomes a final `else { ... }`.",
+          },
+          {
+            question: "how do i turn if/else into a switch?",
+            answer: "open `switch {` with no value after it, then one `case i <= 3:` per condition, and `default:` for the last one (code 10).",
+          },
+          {
+            question: "do i still need the loop?",
+            answer: "yes — keep the `for i := 1; i <= 10; i++` loop. only the branching style inside it changes.",
+          },
+        ],
+      },
       hints: [
         {
           level: 1,

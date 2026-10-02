@@ -157,8 +157,8 @@ describe("level 1 cinematics", () => {
   it("runs the intro between 18 and 28 seconds and the outro between 12 and 20", () => {
     const intro = INTRO_SCENES.reduce((sum, s) => sum + effectiveDurationMs(s), 0);
     const outro = CHAPTER_01_COMPLETE_SCENES.reduce((sum, s) => sum + effectiveDurationMs(s), 0);
-    expect(intro).toBeGreaterThanOrEqual(18000);
-    expect(intro).toBeLessThanOrEqual(28000);
+    expect(intro).toBeGreaterThanOrEqual(14000);
+    expect(intro).toBeLessThanOrEqual(20000);
     expect(outro).toBeGreaterThanOrEqual(12000);
     expect(outro).toBeLessThanOrEqual(20000);
   });

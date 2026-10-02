@@ -1,4 +1,4 @@
-import type { Challenge } from "@/types/game";
+import type { Challenge, CompileModule } from "@/types/game";
 import { diagnose } from "@/lib/go/diagnostics";
 import { compileGo, type CompileResult } from "@/lib/go/playground";
 
@@ -81,7 +81,7 @@ export function isValidScaffold(code: string): boolean {
 // Chapter 01: Step 1 — Scaffold
 const ch01ScaffoldBank: StepBank = {
   intro:
-    "...signal received.\n\nyou're in. i'm maya — cell B-09, sublevel 3. i hacked this maintenance terminal but the connection is fragile.\n\nfirst things first. this terminal runs go. i need you to set up a valid program — package, import, main function. just the skeleton. the terminal won't accept anything until the structure is right.",
+    "...signal received. you're in.\ni'm maya — cell B-09, sublevel 3. this terminal runs go. prove it's live: make it print `Hello World`. that one line forces the whole skeleton — package, import, main.",
 
   conceptFAQ: [
     {
@@ -117,12 +117,12 @@ const ch01ScaffoldBank: StepBank = {
     {
       keywords: ["skeleton", "scaffold", "structure", "setup"],
       response:
-        "four parts: `package main` at the top, `import \"fmt\"`, `func main() { }`, and `fmt.Println(\"I'm in\")` inside main — go won't compile if you import something and don't use it.",
+        "four parts: `package main` at the top, `import \"fmt\"`, `func main() { }`, and `fmt.Println(\"Hello World\")` inside main — go won't compile if you import something and don't use it.",
     },
     {
       keywords: ["what do i do", "what should i do", "what now", "what next", "where do i start", "start"],
       response:
-        "write the go skeleton. four lines: `package main`, `import \"fmt\"`, `func main() {`, `fmt.Println(\"I'm in\")`, then `}`. transmit it.",
+        "make it print `Hello World`. five lines: `package main`, `import \"fmt\"`, `func main() {`, `fmt.Println(\"Hello World\")`, then `}`. transmit it.",
     },
     {
       keywords: ["curly brace", "curly bracket", "opening brace", "closing brace", "where does the {"],
@@ -150,7 +150,7 @@ const ch01ScaffoldBank: StepBank = {
     {
       match: (code) => isValidScaffold(code),
       response:
-        "structure checks out. package, import, main — the terminal accepted it.\n\nnow i need you to actually print something.\n\n||COMPLETE||",
+        "there it is — `Hello World` on the wire. the terminal accepted it. package, import, main — the skeleton's all there.\n\n||COMPLETE||",
     },
     {
       match: (code) => !minify(code).includes("packagemain"),
@@ -179,12 +179,12 @@ const ch01ScaffoldBank: StepBank = {
         return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
       },
       response:
-        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"I'm in\")` inside main.",
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"Hello World\")` inside main.",
     },
   ],
 
   correctResponse:
-    "structure checks out. package, import, main — the terminal accepted it.\n\nnow i need you to actually print something.\n\n||COMPLETE||",
+    "there it is — `Hello World` on the wire. the terminal accepted it. package, import, main — the skeleton's all there.\n\n||COMPLETE||",
 
   genericWrong: [
     "the terminal can't parse that. i need: package main, import, func main(), and use fmt inside.",
@@ -193,15 +193,15 @@ const ch01ScaffoldBank: StepBank = {
   ],
 
   rushDialogue: [
-    "the signal's degrading. just get the skeleton in. package, import, main, println.",
-    "hurry — four lines is all i need. package main, import fmt, func main, fmt.Println.",
-    "losing you. scaffold. now.",
+    "the signal's degrading. just get `Hello World` printing. package, import, main, println.",
+    "hurry — five lines is all i need. package main, import fmt, func main, fmt.Println.",
+    "losing you. print `Hello World`. now.",
   ],
 
   stuckResponses: [
-    "four things, in order:\n1. `package main`\n2. `import \"fmt\"`\n3. `func main() {`\n4. `fmt.Println(\"I'm in\")`\n5. `}`",
+    "five lines, in order:\n1. `package main`\n2. `import \"fmt\"`\n3. `func main() {`\n4. `fmt.Println(\"Hello World\")`\n5. `}`",
     "every go program has the same shape. package at top, imports, then func main with a print inside. go won't compile if you import something unused.",
-    "just write:\n```\npackage main\nimport \"fmt\"\nfunc main() {\n  fmt.Println(\"I'm in\")\n}\n```",
+    "just write:\n```\npackage main\nimport \"fmt\"\nfunc main() {\n  fmt.Println(\"Hello World\")\n}\n```",
   ],
 
   deflections: [
@@ -214,23 +214,33 @@ const ch01ScaffoldBank: StepBank = {
 // Chapter 01: Step 2 — Transmit Location
 const ch01LocationBank: StepBank = {
   intro:
-    "good. the terminal's ready.\n\nnow i need proof you can see my location. print it. exactly.\n\nCELL B-09 · SUBLEVEL 3\n\nuse variables and constants. show me you understand the language.",
+    "good, we're live. now let's print something that actually means something — my location. don't type it in by hand: it's already on this terminal in a package called `cellblock`. import `terminal/cellblock`, then print its `Cell` constant and `Sublevel` variable as `CELL B-09 · SUBLEVEL 3`. pull the values from the package — no hardcoding.",
 
   conceptFAQ: [
     {
       keywords: ["print", "println", "output", "display", "show", "write"],
       response:
-        "fmt.Println(\"your text\") — that's how you send a signal through the terminal. it's already imported.",
+        "fmt.Println(\"your text\") sends a signal through the terminal. but don't put my cell in quotes — feed it the package values: `fmt.Println(cellblock.Cell, cellblock.Sublevel)` or format them with Printf.",
+    },
+    {
+      keywords: ["import", "package", "cellblock", "another package"],
+      response:
+        "add the package to your import block: `import (` then `\"fmt\"` and `\"terminal/cellblock\"` on their own lines, then `)`. that pulls the cell data onto this terminal.",
+    },
+    {
+      keywords: ["access", "use the package", "read the value", "get the value", "dot notation", "reach into", "how do i use cellblock"],
+      response:
+        "package name, then a dot, then the exported name: `cellblock.Cell` is the cell string, `cellblock.Sublevel` is the number. that's how you read what a package exposes.",
     },
     {
       keywords: ["variable", "var", ":=", "declare", "assign"],
       response:
-        "two ways. `var name string = \"value\"` or the short form: `name := \"value\"`. the second is faster.",
+        "you can pull the package value into your own name: `sublevel := cellblock.Sublevel`. `:=` declares and assigns in one step.",
     },
     {
       keywords: ["constant", "const"],
       response:
-        "const name = value — locked down, can't change it after. good for things that shouldn't move.",
+        "`cellblock.Cell` is already a `const` inside the package — a value that never changes. you don't declare it, you just read it.",
     },
     {
       keywords: ["string", "text", "quote", "double quote"],
@@ -250,12 +260,12 @@ const ch01LocationBank: StepBank = {
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start"],
       response:
-        "print my location: CELL B-09 · SUBLEVEL 3. use variables or constants if you want, but the output needs to match.",
+        "import `terminal/cellblock`, then print `cellblock.Cell` and `cellblock.Sublevel` as `CELL B-09 · SUBLEVEL 3`. don't type my cell in by hand — pull it from the package.",
     },
     {
-      keywords: ["dot", "·", "middle dot", "special character", "unicode"],
+      keywords: ["dot", "·", "middle dot", "special character", "unicode", "period", "separator"],
       response:
-        "the `·` is a middle dot. you can copy it directly into your string, or skip it — i'll accept the output as long as B-09 and SUBLEVEL 3 are both there.",
+        "the `·` is just a decorative middle dot — it's hard to type, so a regular period works fine: `\"CELL %s . SUBLEVEL %d\"`. i read `·` and `.` the same.",
     },
     {
       keywords: ["concat", "concatenat", "combine", "join", "+"],
@@ -270,24 +280,13 @@ const ch01LocationBank: StepBank = {
     {
       keywords: ["example", "show me", "sample", "template"],
       response:
-        "here's one way:\n```\ncell := \"B-09\"\nfmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cell, 3)\n```\nbut there are many valid approaches.",
+        "here's the shape:\n```\nimport (\n  \"fmt\"\n  \"terminal/cellblock\"\n)\n\nfunc main() {\n  fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n}\n```",
     },
   ],
 
+  // Feedback for near-miss output. Exact-match completion is handled by
+  // expectedOutput + requiredCode, so these never complete — they only nudge.
   outputPatterns: [
-    {
-      match: (output) => {
-        const lower = output.toLowerCase();
-        return (
-          (lower.includes("b-09") || lower.includes("b09")) &&
-          (lower.includes("sublevel 3") ||
-            lower.includes("sublevel  3") ||
-            (lower.includes("sublevel") && lower.includes("3")))
-        );
-      },
-      response:
-        "...i see it. my cell. you actually got through.\n\n||COMPLETE||",
-    },
     {
       match: (output) => {
         const lower = output.toLowerCase();
@@ -297,24 +296,25 @@ const ch01LocationBank: StepBank = {
         "that's a hello world. i don't need a greeting — i need my location. CELL B-09 · SUBLEVEL 3.",
     },
     {
+      match: (output) => {
+        const lower = output.toLowerCase();
+        return (lower.includes("b-09") || lower.includes("b09")) && !lower.includes("sublevel");
+      },
+      response:
+        "close — i see the cell but not the sublevel. i need both: CELL B-09 · SUBLEVEL 3.",
+    },
+    {
       match: (output) =>
         output.trim().length > 0 && !output.toLowerCase().includes("b-09") && !output.toLowerCase().includes("b09"),
       response:
-        "you're printing something, but it's not my cell. i need B-09 in there.",
+        "you're printing something, but it's not my cell. i need CELL B-09 · SUBLEVEL 3.",
     },
   ],
 
   codePatterns: [
     {
-      match: (code) => {
-        const lower = code.toLowerCase();
-        return (
-          (lower.includes("b-09") || lower.includes("b09")) &&
-          (lower.includes("sublevel 3") ||
-            lower.includes("sublevel  3") ||
-            (lower.includes("sublevel") && lower.includes("3")))
-        );
-      },
+      // pulled both values straight from the package — that's the whole point
+      match: (code) => code.includes("cellblock.Cell") && code.includes("cellblock.Sublevel"),
       response:
         "...i see it. my cell. you actually got through.\n\n||COMPLETE||",
     },
@@ -333,19 +333,22 @@ const ch01LocationBank: StepBank = {
         return lower.includes("hello") && lower.includes("world");
       },
       response:
-        "that's a hello world. i don't need a greeting — i need my location. CELL B-09 · SUBLEVEL 3.",
+        "that's a hello world. i don't need a greeting — i need my location, straight from the cellblock package.",
     },
     {
-      match: (code) =>
-        code.includes("Println") && !code.toLowerCase().includes("b-09"),
+      // reaching into the package but only grabbed one of the two values
+      match: (code) => code.includes("cellblock.Cell") !== code.includes("cellblock.Sublevel"),
       response:
-        "you're printing something, but it's not my cell. i need B-09 in there.",
+        "close — you're reaching into the package, but i need both: cellblock.Cell and cellblock.Sublevel.",
     },
     {
-      match: (code) =>
-        code.includes("Println") && !code.toLowerCase().includes("sublevel"),
+      // typed my cell in by hand instead of importing the package
+      match: (code) => {
+        const lower = code.toLowerCase();
+        return (lower.includes("b-09") || lower.includes("b09")) && !code.includes("cellblock");
+      },
       response:
-        "close — i see the cell but not the sublevel. i need both: CELL B-09 · SUBLEVEL 3.",
+        "don't type my cell in by hand. import `terminal/cellblock` and print cellblock.Cell and cellblock.Sublevel — pull the values from the package.",
     },
   ],
 
@@ -365,9 +368,9 @@ const ch01LocationBank: StepBank = {
   ],
 
   stuckResponses: [
-    "you're stuck? try: fmt.Println(\"CELL B-09 · SUBLEVEL 3\")",
-    "start simple. fmt.Println puts text on screen. that's all you need.",
-    "don't overthink it. print my location. use fmt.Println.",
+    "two steps. import `terminal/cellblock`, then:\n```\nfmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n```",
+    "the values aren't yours to type — they're in the package. `cellblock.Cell` and `cellblock.Sublevel`. import `terminal/cellblock` and read them.",
+    "don't overthink it. import the package, then print cellblock.Cell and cellblock.Sublevel.",
   ],
 
   deflections: [
@@ -381,7 +384,7 @@ const ch01LocationBank: StepBank = {
 // Chapter 02: Step 1 — Scaffold
 const ch02ScaffoldBank: StepBank = {
   intro:
-    "the keypad on my door runs go. same deal as before — set up the program skeleton. package, import, main function.\n\nonce the terminal recognizes the structure, we can start cracking the sequence.",
+    "the keypad on my door runs go. same deal as before — get the terminal live by printing `Hello World`. that one line pulls in the whole skeleton: package, import, main.\n\nonce it's live, we can start cracking the sequence.",
 
   conceptFAQ: [
     {
@@ -402,7 +405,7 @@ const ch02ScaffoldBank: StepBank = {
     {
       keywords: ["skeleton", "scaffold", "structure", "setup"],
       response:
-        "same skeleton every time: package main, import fmt, func main, and a fmt.Println inside so the import is used.",
+        "same skeleton every time: package main, import fmt, func main, and `fmt.Println(\"Hello World\")` inside so the import is used.",
     },
   ],
 
@@ -439,7 +442,7 @@ const ch02ScaffoldBank: StepBank = {
         return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
       },
       response:
-        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"ready\")` inside main.",
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"Hello World\")` inside main.",
     },
   ],
 
@@ -454,11 +457,11 @@ const ch02ScaffoldBank: StepBank = {
   rushDialogue: [],
 
   stuckResponses: [
-    "same three things: `package main`, `import \"fmt\"`, `func main() { }`. that's the skeleton.",
+    "same shape as before: `package main`, then `import \"fmt\"`, then `func main() { fmt.Println(\"Hello World\") }`.",
   ],
 
   deflections: [
-    "focus. set up the program skeleton first, then we crack the codes.",
+    "focus. get the terminal live with a hello world first, then we crack the codes.",
   ],
 };
 
@@ -863,7 +866,7 @@ const ch02RewriteBank: StepBank = {
 // Chapter 03: Step 0 — Scaffold
 const ch03ScaffoldBank: StepBank = {
   intro:
-    "we're in the ventilation shaft now. the junction panels run go — same as before.\n\nset up the program skeleton. package, import, main. the panel won't initialize without it.",
+    "we're in the ventilation shaft now. the junction panels run go — same as before.\n\nget it live by printing `Hello World`. that one line pulls in the whole skeleton: package, import, main.",
 
   conceptFAQ: [
     {
@@ -921,7 +924,7 @@ const ch03ScaffoldBank: StepBank = {
         return m.includes("packagemain") && (m.includes('import"fmt"') || m.includes('import("fmt")')) && m.includes("funcmain(){") && !m.includes("fmt.print") && !m.includes("fmt.sprint");
       },
       response:
-        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"ready\")` inside main.",
+        "almost. go won't compile if you import fmt but don't use it. add `fmt.Println(\"Hello World\")` inside main.",
     },
   ],
 
@@ -935,10 +938,10 @@ const ch03ScaffoldBank: StepBank = {
 
   rushDialogue: [],
   stuckResponses: [
-    "three things: `package main`, `import \"fmt\"`, `func main() { }`.",
+    "same shape as before: `package main`, `import \"fmt\"`, then `func main() { fmt.Println(\"Hello World\") }`.",
   ],
   deflections: [
-    "just the skeleton for now. package, import, main.",
+    "just get a hello world on screen for now. package, import, main.",
   ],
 };
 
@@ -2193,6 +2196,7 @@ export interface StepTestConfig {
   testHarness?: string;
   expectedOutput?: string;
   requiredCode?: string[];
+  compileModule?: CompileModule;
 }
 
 export async function callMayaEngineAsync(
@@ -2224,9 +2228,15 @@ export async function callMayaEngineAsync(
   }
 
   // 2. Build source to compile — if testHarness is provided, swap main()
-  const source = stepTest?.testHarness
+  const base = stepTest?.testHarness
     ? replaceMain(userMessage, stepTest.testHarness)
     : userMessage;
+
+  // If the step ships a package to import, wrap everything in a txtar module so
+  // the player's import resolves against a real compiled package.
+  const source = stepTest?.compileModule
+    ? buildModuleSource(base, stepTest.compileModule)
+    : base;
 
   // 3. Compile with Go Playground
   const compiled = await compileGo(source);
@@ -2246,9 +2256,9 @@ export async function callMayaEngineAsync(
     return { reply: formatVetError(compiled.vetErrors, inRush), isComplete: false };
   }
 
-  // 6. Test harness — exact output comparison (the scalable path)
+  // 6. Test harness — output comparison (the scalable path)
   if (stepTest?.expectedOutput) {
-    if (compiled.output.trim() === stepTest.expectedOutput.trim()) {
+    if (outputsMatch(compiled.output, stepTest.expectedOutput)) {
       // Check requiredCode — prevent hardcoding the answer
       if (stepTest.requiredCode && stepTest.requiredCode.length > 0) {
         const missing = stepTest.requiredCode.find((pat) => !userMessage.includes(pat));
@@ -2262,8 +2272,9 @@ export async function callMayaEngineAsync(
       const reply = bank.correctResponse.replace("||COMPLETE||", "").trim();
       return { reply, isComplete: true };
     }
-    // Output didn't match — use outputPatterns for targeted feedback, then generic
-    return evaluateWrongOutput(bank, compiled.output, inRush);
+    // Output didn't match — use outputPatterns for targeted feedback, then a
+    // concrete diff so the player can see exactly what's off.
+    return evaluateWrongOutput(bank, compiled.output, inRush, stepTest.expectedOutput);
   }
 
   // 7. Output pattern matching (for steps without test harness)
@@ -2279,6 +2290,20 @@ export async function callMayaEngineAsync(
 
   // 9. Fall back to code pattern matching
   return evaluateCodePatterns(bank, userMessage, inRush, attempts);
+}
+
+// ── Wrap the player's code + a shipped package into a txtar module ──
+// The Go Playground (version 2) compiles a multi-file txtar body: each file is
+// introduced by a `-- path --` marker. We emit go.mod, the player's main.go,
+// and every package file the step provides.
+
+function buildModuleSource(mainGo: string, mod: CompileModule): string {
+  const sections: string[] = [
+    `-- go.mod --\nmodule ${mod.module}\n\ngo ${mod.goVersion ?? "1.21"}\n`,
+    `-- main.go --\n${mainGo.trimEnd()}\n`,
+    ...mod.files.map((f) => `-- ${f.path} --\n${f.content.trimEnd()}\n`),
+  ];
+  return sections.join("");
 }
 
 // ── Replace user's main() with test harness ──
@@ -2310,7 +2335,7 @@ function replaceMain(code: string, harness: string): string {
 
 // ── Wrong output feedback ──
 
-function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean): MayaResponse {
+function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean, expected?: string): MayaResponse {
   if (bank.outputPatterns) {
     for (const pattern of bank.outputPatterns) {
       if (pattern.match(output)) {
@@ -2318,11 +2343,32 @@ function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean): M
       }
     }
   }
+  // When we know the exact target, show the player what they printed vs what's
+  // needed — a concrete diff beats a vague "doesn't match".
+  if (expected) {
+    const got = output.trim();
+    const want = expected.trim();
+    const reply = got
+      ? `almost. your terminal printed:\n\n  ${got}\n\nbut i need it to read exactly:\n\n  ${want}\n\nlook at the difference, character for character.`
+      : `nothing came through. i need it to print exactly:\n\n  ${want}`;
+    return { reply, isComplete: false };
+  }
   let reply = pickRandom(bank.genericWrong);
   if (inRush && bank.rushDialogue.length > 0) {
     reply += "\n\n" + pickRandom(bank.rushDialogue);
   }
   return { reply, isComplete: false };
+}
+
+/**
+ * Compare program output to the expected string. Trims surrounding whitespace
+ * and treats interpunct separators (· • ∙) as an ordinary period, since the
+ * middle dot isn't typeable on most keyboards and paste is disabled in the
+ * editor — the decorative separator must never block a correct answer.
+ */
+function outputsMatch(output: string, expected: string): boolean {
+  const norm = (s: string) => s.trim().replace(/[·•∙]/g, ".");
+  return norm(output) === norm(expected);
 }
 
 // ── Local Code Evaluation (sync, offline) ──

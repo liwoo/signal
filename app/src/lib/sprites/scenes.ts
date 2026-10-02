@@ -97,7 +97,7 @@ export interface SceneDefinition {
 }
 
 // ── INTRO SCENES ───────────────────────────────────────────────────
-// Level 1 intro — six shots, ~23s. Wide → close → tracking → insert → threat →
+// Level 1 intro — six shots, ~17s (tap advances a shot; Esc skips). Wide → close → tracking → insert → threat →
 // insert. The corridor guard walks straight at the camera (depth scale) and
 // the whole thing ends on the terminal waiting for you.
 
@@ -111,17 +111,17 @@ export const INTRO_SCENES: SceneDefinition[] = [
     ],
     camera: [
       { x: 500, y: 330, zoom: 0.98, time: 0 },
-      { x: 520, y: 326, zoom: 1.08, time: 4600 },
+      { x: 520, y: 326, zoom: 1.08, time: 3400 },
     ],
-    durationMs: 4600,
+    durationMs: 3400,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "72 hours missing. no contact.",
-    titleCard: { text: "SIGNAL", sub: "FIRST CONTACT", atMs: 700, durationMs: 3000 },
+    titleCard: { text: "SIGNAL", sub: "FIRST CONTACT", atMs: 500, durationMs: 2400 },
     audio: [
       { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.12, fadeMs: 2000 },
       { atMs: 200, action: "loop-start", sound: "facility-hum", volume: 0.06, fadeMs: 1500 },
       { atMs: 700, action: "sfx", sound: "terminal-beep", volume: 0.22 },
-      { atMs: 2600, action: "sfx", sound: "machinery", volume: 0.12 },
+      { atMs: 2000, action: "sfx", sound: "machinery", volume: 0.12 },
     ],
   },
   // Shot 2: close on Maya. Dust in the pendant light, a door slides somewhere far off.
@@ -132,13 +132,13 @@ export const INTRO_SCENES: SceneDefinition[] = [
     ],
     camera: [
       { x: 606, y: 366, zoom: 1.5, time: 0 },
-      { x: 604, y: 360, zoom: 1.64, time: 3400 },
+      { x: 604, y: 360, zoom: 1.64, time: 2400 },
     ],
-    durationMs: 3400,
+    durationMs: 2400,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "sublevel 3. no windows. one terminal.",
     audio: [
-      { atMs: 1400, action: "sfx", sound: "door-slide", volume: 0.1 },
+      { atMs: 1100, action: "sfx", sound: "door-slide", volume: 0.1 },
     ],
   },
   // Shot 3: she crosses to the terminal — camera tracks, then she sits into the hack.
@@ -150,20 +150,20 @@ export const INTRO_SCENES: SceneDefinition[] = [
         x: 610,
         y: 440,
         animation: "walk-left",
-        path: [{ x: 528, y: 348, duration: 2000 }],
+        path: [{ x: 528, y: 348, duration: 1700 }],
         endAnimation: "hack",
       },
     ],
     camera: [
       { x: 590, y: 372, zoom: 1.25, time: 0 },
-      { x: 520, y: 320, zoom: 1.36, time: 2300 },
+      { x: 520, y: 320, zoom: 1.36, time: 2000 },
     ],
-    durationMs: 3200,
+    durationMs: 2600,
     advance: "on-action",
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "she found it on day two.",
     audio: [
-      { atMs: 100, action: "footsteps", count: 4, intervalMs: 430, volume: 0.22 },
+      { atMs: 100, action: "footsteps", count: 4, intervalMs: 400, volume: 0.22 },
     ],
   },
   // Shot 4: insert on the terminal. Typing, then the send — a cyan flash and a jolt.
@@ -174,20 +174,20 @@ export const INTRO_SCENES: SceneDefinition[] = [
     ],
     camera: [
       { x: 515, y: 292, zoom: 1.7, time: 0 },
-      { x: 512, y: 282, zoom: 1.86, time: 4200 },
+      { x: 512, y: 282, zoom: 1.86, time: 3000 },
     ],
-    durationMs: 4200,
+    durationMs: 3000,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "rigged a dead terminal. one shot at the outside.",
-    flashes: [{ atMs: 3300, durationMs: 520, color: C.termBright, intensity: 0.35 }],
-    shakes: [{ atMs: 3300, durationMs: 320, intensity: 3 }],
+    flashes: [{ atMs: 2300, durationMs: 520, color: C.termBright, intensity: 0.35 }],
+    shakes: [{ atMs: 2300, durationMs: 320, intensity: 3 }],
     audio: [
       { atMs: 300, action: "sfx", sound: "maya-typing", volume: 0.3 },
-      { atMs: 900, action: "sfx", sound: "keypress-1", volume: 0.16 },
-      { atMs: 1300, action: "sfx", sound: "keypress-2", volume: 0.16 },
-      { atMs: 1700, action: "sfx", sound: "keypress-3", volume: 0.16 },
-      { atMs: 2300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
-      { atMs: 3300, action: "sfx", sound: "code-submit", volume: 0.38 },
+      { atMs: 700, action: "sfx", sound: "keypress-1", volume: 0.16 },
+      { atMs: 1000, action: "sfx", sound: "keypress-2", volume: 0.16 },
+      { atMs: 1300, action: "sfx", sound: "keypress-3", volume: 0.16 },
+      { atMs: 1700, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 2300, action: "sfx", sound: "code-submit", volume: 0.38 },
     ],
   },
   // Shot 5: the threat. A guard walks the corridor straight at the lens, growing
@@ -201,26 +201,26 @@ export const INTRO_SCENES: SceneDefinition[] = [
         x: 526,
         y: 328,
         animation: "walk-down",
-        path: [{ x: 506, y: 578, duration: 4200 }],
+        path: [{ x: 506, y: 578, duration: 3400 }],
       },
     ],
     camera: [
       { x: 520, y: 382, zoom: 1.05, time: 0 },
-      { x: 514, y: 404, zoom: 1.16, time: 4200 },
+      { x: 514, y: 404, zoom: 1.16, time: 3400 },
     ],
     dutch: 0.022,
-    durationMs: 4200,
+    durationMs: 3400,
     location: "SUBLEVEL 3 · CORRIDOR B",
     caption: "they check the cells every hour. it's been fifty minutes.",
     shakes: [
-      { atMs: 3180, durationMs: 220, intensity: 1.6 },
-      { atMs: 3650, durationMs: 240, intensity: 2.2 },
+      { atMs: 2560, durationMs: 220, intensity: 1.6 },
+      { atMs: 2960, durationMs: 240, intensity: 2.2 },
     ],
     audio: [
       { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1200 },
       { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.12, fadeMs: 800 },
       { atMs: 200, action: "sfx", sound: "dread-sting", volume: 0.42 },
-      { atMs: 300, action: "footsteps", count: 9, intervalMs: 470, volume: 0.42, variant: "boots" },
+      { atMs: 300, action: "footsteps", count: 7, intervalMs: 440, volume: 0.42, variant: "boots" },
     ],
   },
   // Shot 6: back on the terminal under a flash — the signal is out. It wobbles once.
@@ -232,18 +232,18 @@ export const INTRO_SCENES: SceneDefinition[] = [
     ],
     camera: [
       { x: 512, y: 286, zoom: 1.6, time: 0 },
-      { x: 506, y: 272, zoom: 1.96, time: 3800 },
+      { x: 506, y: 272, zoom: 1.96, time: 2800 },
     ],
-    durationMs: 3800,
+    durationMs: 2800,
     location: "SUBLEVEL 3 · CELL B-09",
     caption: "signal sent. waiting for a programmer.",
-    glitches: [{ atMs: 2600, durationMs: 220 }],
+    glitches: [{ atMs: 1900, durationMs: 220 }],
     audio: [
       { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
       { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.1, fadeMs: 1500 },
       { atMs: 400, action: "sfx", sound: "message-receive", volume: 0.4 },
-      { atMs: 1500, action: "sfx", sound: "terminal-beep", volume: 0.25 },
-      { atMs: 2600, action: "sfx", sound: "warning-beep", volume: 0.2 },
+      { atMs: 1200, action: "sfx", sound: "terminal-beep", volume: 0.25 },
+      { atMs: 1900, action: "sfx", sound: "warning-beep", volume: 0.2 },
     ],
   },
 ];

@@ -1464,8 +1464,49 @@ func main() {
     expect(response.isComplete).toBe(false);
   }, 15000);
 
-  // Ch01 transmit: correct output → isComplete
-  it("ch01 transmit: correct output triggers completion", async () => {
+  // Ch01 transmit: importing the shipped cellblock package → isComplete
+  it("ch01 transmit: importing the cellblock package triggers completion", async () => {
+    const loc = chapter01.steps[1];
+    const code = `package main
+
+import (
+    "fmt"
+    "terminal/cellblock"
+)
+
+func main() {
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+}`;
+    const response = await callMayaEngineAsync(
+      "chapter-01:location", code, true, false, false, 0,
+      { expectedOutput: loc.expectedOutput!, requiredCode: loc.requiredCode!, compileModule: loc.compileModule! }
+    );
+    expect(response.isComplete).toBe(true);
+  }, 15000);
+
+  // Ch01 transmit: a regular period stands in for the untypeable middle dot
+  it("ch01 transmit: accepts a regular period in place of the middle dot", async () => {
+    const loc = chapter01.steps[1];
+    const code = `package main
+
+import (
+    "fmt"
+    "terminal/cellblock"
+)
+
+func main() {
+    fmt.Printf("CELL %s . SUBLEVEL %d", cellblock.Cell, cellblock.Sublevel)
+}`;
+    const response = await callMayaEngineAsync(
+      "chapter-01:location", code, true, false, false, 0,
+      { expectedOutput: loc.expectedOutput!, requiredCode: loc.requiredCode!, compileModule: loc.compileModule! }
+    );
+    expect(response.isComplete).toBe(true);
+  }, 15000);
+
+  // Ch01 transmit: hardcoding the answer is rejected — must use the package
+  it("ch01 transmit: hardcoded string is rejected (must import the package)", async () => {
+    const loc = chapter01.steps[1];
     const code = `package main
 
 import "fmt"
@@ -1474,9 +1515,10 @@ func main() {
     fmt.Println("CELL B-09 · SUBLEVEL 3")
 }`;
     const response = await callMayaEngineAsync(
-      "chapter-01:location", code, true, false, false, 0
+      "chapter-01:location", code, true, false, false, 0,
+      { expectedOutput: loc.expectedOutput!, requiredCode: loc.requiredCode!, compileModule: loc.compileModule! }
     );
-    expect(response.isComplete).toBe(true);
+    expect(response.isComplete).toBe(false);
   }, 15000);
 
   // Ch03 sumfunc with harness: correct → isComplete
