@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { createHintState, revealNextHint, markOffered, isStuck } from "@/lib/game/hints";
+import { createHintState, revealNextHint } from "@/lib/game/hints";
 import type { HintState } from "@/lib/game/hints";
 import { buildReward } from "@/lib/game/reward";
 import type { Reward } from "@/lib/game/reward";
@@ -166,6 +166,7 @@ export interface GameActions {
   removeParticle: (id: number) => void;
   removeStreak: (id: number) => void;
   retryFromCheckpoint: () => void;
+  restartGame: () => void;
   handleTimerExpire: () => void;
   purchaseHeart: () => void;
   addXP: (amount: number) => void;
@@ -425,6 +426,9 @@ export function useGame(
       setHintState(createHintState());
       if (step.events.length > 0) {
         stepSchedulerRef.current.start(step.events, handleEvent);
+        // Step advances happen inside Maya's talk pause; hold the clock until
+        // the player has the editor back.
+        if (isPaused(pauseRef.current)) stepSchedulerRef.current.pause();
       }
     },
     [handleEvent]
@@ -568,8 +572,8 @@ export function useGame(
       false,
       inRush,
       attempts,
-      currentStep.testHarness || currentStep.expectedOutput
-        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput, requiredCode: currentStep.requiredCode }
+      currentStep.testHarness || currentStep.expectedOutput || currentStep.compileModule
+        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput, requiredCode: currentStep.requiredCode, compileModule: currentStep.compileModule }
         : undefined
     );
 
@@ -814,29 +818,15 @@ export function useGame(
     addMayaChunked("MAYA", `hint ${result.hint.level}: ${result.hint.text}`, "maya");
   }, [currentStep.hints, currentStep.id, hintState, challenge.id, addMayaChunked]);
 
-  // One-time nudge when the player looks stuck: Maya points at the hint button.
-  useEffect(() => {
-    if (phase !== "playing" || hintState.offered || hintState.revealed > 0 || currentStep.hints.length === 0) return;
-    const check = () => {
-      if (isStuck(attempts, Date.now() - (stepStartTimeRef.current || Date.now()))) {
-        setHintState((prev) => markOffered(prev));
-        addMsg("MAYA", "stuck? that's normal. tap HINT above the code and i'll walk you through the first piece.", "maya", true);
-        return true;
-      }
-      return false;
-    };
-    if (check()) return;
-    const iv = setInterval(() => {
-      if (check()) clearInterval(iv);
-    }, 5000);
-    return () => clearInterval(iv);
-  }, [phase, attempts, hintState.offered, hintState.revealed, currentStep.hints.length, addMsg]);
-
   const onMayaTypingStart = useCallback(() => {
     const result = pureStartPause(pauseRef.current, Date.now(), timerStopped);
     if (!result) return;
     syncPauseState(result);
     setTimerStopped(true);
+    // Hazards count player-active time only: no rush siren the instant the
+    // editor unlocks after a briefing.
+    levelSchedulerRef.current.pause();
+    stepSchedulerRef.current.pause();
   }, [timerStopped, syncPauseState]);
 
   const onMayaTypingEnd = useCallback(() => {
@@ -900,6 +890,8 @@ export function useGame(
     syncPauseState(result.state);
     setTimerBonusSeconds((prev) => prev + result.bonusSeconds);
     setTimerStopped(false);
+    levelSchedulerRef.current.resume();
+    stepSchedulerRef.current.resume();
     flushQueuedEvents();
   }, [syncPauseState, flushQueuedEvents, addMsg]);
 
@@ -974,6 +966,14 @@ export function useGame(
     });
   }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState]);
 
+  // Full restart after being captured with no lives left: restore lives and
+  // re-enter the mission from step 1. XP/library progress is kept.
+  const restartGame = useCallback(() => {
+    setHearts(INITIAL_HEARTS);
+    onSaveRef.current?.({ xp: xpRef.current, level: levelRef.current, hearts: INITIAL_HEARTS, library: libraryRef.current });
+    retryFromCheckpoint();
+  }, [retryFromCheckpoint]);
+
   const state: GameState = {
     phase,
     messages,
@@ -1033,6 +1033,7 @@ export function useGame(
     removeStreak: (id) =>
       setStreaks((s) => s.filter((x) => x.id !== id)),
     retryFromCheckpoint,
+    restartGame,
     handleTimerExpire,
     purchaseHeart,
     addXP,

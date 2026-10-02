@@ -18,10 +18,17 @@ export const chapter04_2: Challenge = {
 `,
       expectedBehavior: "valid-go-scaffold",
       quickCheck: {
-        question: "How do you group several imports in Go?",
-        options: ["import fmt, strings", "imports { ... }", "import ( ... )", "use imports"],
-        correctIndex: 2,
-        explanation: "Use parentheses after `import` and put one package path on each line.",
+        prompt: "stuck wiring three imports? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i import more than one package?",
+            answer: "group them: `import (` then one path per line — `\"fmt\"`, `\"strings\"`, `\"strconv\"` — then `)`.",
+          },
+          {
+            question: "do i have to use every package i import?",
+            answer: "yes — go won't compile with an unused import. printing \"ready\" with fmt covers that one; you'll reach for the others soon.",
+          },
+        ],
       },
       hints: [
         {
@@ -57,10 +64,17 @@ export const chapter04_2: Challenge = {
       starterCode: null,
       expectedBehavior: "olleh\noG\na",
       quickCheck: {
-        question: "Why convert a string to `[]rune` before reversing it?",
-        options: ["Runes support Unicode characters", "It makes strings mutable", "It imports fmt", "It removes spaces"],
-        correctIndex: 0,
-        explanation: "Runes represent characters safely, including characters that use more than one byte.",
+        prompt: "stuck reversing the word? tap the question that's in your head.",
+        items: [
+          {
+            question: "why turn the string into `[]rune` first?",
+            answer: "runes represent whole characters, even ones that use more than one byte. reversing bytes would corrupt those.",
+          },
+          {
+            question: "how do i actually flip the slice?",
+            answer: "swap from both ends toward the middle — first with last, second with second-last — then convert back with `string(runes)`.",
+          },
+        ],
       },
       testHarness: `func main() {
 \tfmt.Println(reverseWord("hello"))

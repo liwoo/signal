@@ -13,16 +13,26 @@ export const chapter03: Challenge = {
       id: "chapter-03:scaffold",
       title: "SCAFFOLD",
       brief:
-        "the ventilation shaft runs on go. set up the program skeleton — package, import, main function. the junction panel won't initialize until the terminal structure is right.",
-      starterCode: `package main
-`,
+        "the ventilation shaft runs on go. get the junction panel live by printing `Hello World` — that one line pulls in the whole skeleton: package, import, and a main function. the panel won't initialize until the terminal's live.",
+      starterCode: ``,
       expectedBehavior:
         "valid go program with package main, import fmt, and func main",
       quickCheck: {
-        question: "Where do you place a reusable Go function?",
-        options: ["inside main only", "above or below main in the same package", "inside import", "in a comment"],
-        correctIndex: 1,
-        explanation: "Functions live at package level, so `main` can call them.",
+        prompt: "same skeleton, new shaft — tap whatever you need a refresher on.",
+        items: [
+          {
+            question: "which line makes it runnable?",
+            answer: "`package main` on the first line — that's what lets go run the file.",
+          },
+          {
+            question: "how do i pull in fmt?",
+            answer: "`import \"fmt\"` right after the package line, quotes included.",
+          },
+          {
+            question: "where does the code that runs go?",
+            answer: "inside `func main()` — that's the entry point go looks for.",
+          },
+        ],
       },
       hints: [
         {
@@ -37,7 +47,7 @@ export const chapter03: Challenge = {
         },
         {
           level: 3,
-          text: 'package main, then import "fmt", then func main() { fmt.Println("ready") }',
+          text: 'package main, then import "fmt", then func main() { fmt.Println("Hello World") }',
           energyCost: 12,
         },
       ],
@@ -58,10 +68,17 @@ export const chapter03: Challenge = {
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "Sum: 115",
       quickCheck: {
-        question: "What does `...int` mean in a parameter list?",
-        options: ["one optional int", "any number of ints", "a decimal int", "an int pointer"],
-        correctIndex: 1,
-        explanation: "`...int` makes a variadic parameter that receives any number of integers.",
+        prompt: "stuck on the variadic function? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i take any number of ints?",
+            answer: "write the parameter as `...int` — that's a variadic parameter. inside the function it behaves like a slice of ints.",
+          },
+          {
+            question: "how do i add them all up?",
+            answer: "`range` over the parameter and add each value into a running total, then `return` it.",
+          },
+        ],
       },
       testHarness: `func main() {
     fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
@@ -111,8 +128,25 @@ export const chapter03: Challenge = {
       title: "VALIDATE",
       brief:
         "now add `validateCode(codes ...int) (int, bool)` — it sums the codes and checks if the total is greater than 100. return both: the sum and `total > 100`. the junction won't open unless the total passes.",
-      starterCode: null,
+      starterCode: null, // carry forward from sumfunc
       expectedBehavior: "Sum: 115\nResult: 115, Valid: true",
+      quickCheck: {
+        prompt: "stuck on the two-value return? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i return two values?",
+            answer: "list both types in the signature: `func validateCode(codes ...int) (int, bool)`, then `return sum, ok`.",
+          },
+          {
+            question: "how do i reuse sumCodes in here?",
+            answer: "spread the slice back out: `total := sumCodes(codes...)` — the `...` passes every value through.",
+          },
+          {
+            question: "how do i get the bool?",
+            answer: "a comparison is already a bool: `return total, total > 100`.",
+          },
+        ],
+      },
       testHarness: `func main() {
     fmt.Println("Sum:", sumCodes(25, 30, 50, 10))
     s, v := validateCode(25, 30, 50, 10)

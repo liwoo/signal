@@ -14,6 +14,9 @@ interface CinematicSceneProps {
   subtitle?: string;
   onComplete: () => void;
   skipLabel?: string;
+  soundEnabled?: boolean;
+  /** Background loops (drones, ambience). Off = the film plays with SFX only. */
+  loopsEnabled?: boolean;
 }
 
 type FadePhase = "in" | "playing" | "out";
@@ -24,7 +27,9 @@ export function CinematicScene({
   title,
   subtitle,
   onComplete,
-  skipLabel = "PRESS ANY KEY TO SKIP",
+  skipLabel = "SKIP INTRO",
+  soundEnabled = true,
+  loopsEnabled = true,
 }: CinematicSceneProps) {
   const [sceneIndex, setSceneIndex] = useState(0);
   const [fadePhase, setFadePhase] = useState<FadePhase>("in");
@@ -32,7 +37,9 @@ export function CinematicScene({
   const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completedRef = useRef(false);
   const cueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const audio = useAudio();
+  const audio = useAudio(soundEnabled, loopsEnabled);
+  // When the current shot started — debounces a double-tap into one advance.
+  const shotStartedAtRef = useRef(0);
 
   const currentScene = scenes[sceneIndex] ?? scenes[0];
   const shotDurationMs = effectiveDurationMs(currentScene);
@@ -61,10 +68,26 @@ export function CinematicScene({
     if (timerRef.current) clearTimeout(timerRef.current);
     for (const timer of cueTimersRef.current) clearTimeout(timer);
     cueTimersRef.current = [];
-    audio.stopAllLoops(800);
+    audio.stopAllLoops(650);
     setFadePhase("out");
-    finishTimerRef.current = setTimeout(onComplete, 650);
+    finishTimerRef.current = setTimeout(onComplete, 700);
   }, [audio, onComplete]);
+
+  // Tap / click / Space: next shot. The player sets the pace; nobody sits
+  // through a 4s hold they've already read.
+  const advanceShot = useCallback(() => {
+    if (completedRef.current || fadePhase !== "playing") return;
+    if (Date.now() - shotStartedAtRef.current < 300) return;
+    if (sceneIndex < scenes.length - 1) {
+      setSceneIndex((index) => index + 1);
+    } else {
+      finish();
+    }
+  }, [fadePhase, finish, sceneIndex, scenes.length]);
+
+  useEffect(() => {
+    shotStartedAtRef.current = Date.now();
+  }, [sceneIndex]);
 
   useEffect(() => {
     const names = new Set<string>();
@@ -186,18 +209,20 @@ export function CinematicScene({
     };
   }, [audio, currentScene, fadePhase, sceneIndex]);
 
+  // Escape skips the whole film; any other key steps to the next shot.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
-      finish();
+      if (event.key === "Escape") finish();
+      else advanceShot();
     };
-    const timer = setTimeout(() => window.addEventListener("keydown", handler), 800);
+    const timer = setTimeout(() => window.addEventListener("keydown", handler), 500);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("keydown", handler);
     };
-  }, [finish]);
+  }, [advanceShot, finish]);
 
   useEffect(() => {
     return () => {
@@ -229,7 +254,7 @@ export function CinematicScene({
       />
 
       <section
-        className="cinematic-stage relative overflow-hidden border"
+        className="cinematic-stage relative overflow-hidden border cursor-pointer select-none"
         style={{
           width: "min(94vw, 1200px, 118dvh)",
           aspectRatio: "16 / 10",
@@ -237,6 +262,8 @@ export function CinematicScene({
           background: "var(--color-background)",
         }}
         aria-live="polite"
+        onClick={advanceShot}
+        title="Tap for the next shot"
       >
         <PixiScene scene={currentScene} width={640} height={400} crtEffect />
 
@@ -381,14 +408,25 @@ export function CinematicScene({
         crafted with ♥ by chienda.com
       </div>
 
-      <button
-        type="button"
-        className="absolute bottom-3 right-4 border-0 bg-transparent p-2 text-[6px] tracking-[0.28em] transition-colors sm:text-[7px]"
-        style={{ color: "color-mix(in srgb, var(--color-foreground) 38%, transparent)" }}
-        onClick={finish}
-      >
-        {skipLabel}
-      </button>
+      <div className="absolute bottom-2 right-4 flex items-center gap-3 sm:bottom-3">
+        <span
+          className="hidden text-[7px] tracking-[0.24em] sm:block"
+          style={{ color: "color-mix(in srgb, var(--color-foreground) 42%, transparent)" }}
+        >
+          TAP · NEXT SHOT
+        </span>
+        <button
+          type="button"
+          className="cursor-pointer bg-transparent px-3 py-1.5 text-[8px] tracking-[0.28em] transition-colors sm:text-[9px]"
+          style={{
+            color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--color-foreground) 28%, transparent)",
+          }}
+          onClick={finish}
+        >
+          {skipLabel} ▸▸
+        </button>
+      </div>
     </div>
   );
 }

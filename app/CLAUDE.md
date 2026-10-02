@@ -49,6 +49,15 @@ src/
 └── types/         # TypeScript types (game.ts is the source of truth)
 ```
 
+### Hints, Onboarding & Shipped Packages (current patterns — follow these)
+
+- **Hints = the "STUCK?" helper, in the chat only.** A step's `quickCheck` is NOT a quiz — it's a hint FAQ. Shape (`src/types/game.ts`): `QuickCheck { prompt?, items: { question, answer }[] }`. Each item is a question the player is *stuck WITH* ("how do i declare a package?") that reveals Maya's answer as a hint. Rendered by `ChatQuickCheck`/`QuickCheck` in `src/components/game/QuickCheck.tsx`.
+- **The `? HINT` button lives in `ChatPanel`'s input row and is always present** (see `quickCheck` + `stuck` props). It opens the STUCK? helper inline in Maya's chat. Do NOT re-add: the progressive-hint XP ladder UI (removed from `ObjectiveBar`/`MissionPanel`), the 3s idle auto-popup, or scripted "tap HINT above the code" nudges. All hinting flows through the chat button.
+- **Never inject scaffold/comment "starter code" into the editor.** Prefer `starterCode: null` (carry the player's own code forward). Put all guidance in the chat (Maya intro + hint ladder + quickCheck), not as editor clutter.
+- **Steps can ship a real Go package to import** via `ChallengeStep.compileModule` (`CompileModule` in `game.ts`). The engine wraps the player's code + the package into a Go Playground **txtar module** (`buildModuleSource` in `src/lib/ai/engine.ts`); `StepTestConfig.compileModule` is threaded from `useGame.ts`. Prevent hardcoding with `expectedOutput` + `requiredCode` (must reference the package's exported names). Example: Chapter 1 Step 2 ships `terminal/cellblock` (exports `Cell` const, `Sublevel` var).
+- **Autocomplete for shipped packages is automatic.** `extraPackagesFromModule(compileModule)` (in `src/lib/go/completions.ts`) parses exported `const`/`var`/`func`/`type`; `play/page.tsx` passes the result as `CodeEditor`'s `extraPackages` prop. So `pkg.` lists members and a bare prefix suggests the package once imported. Don't hardcode game packages into the stdlib registry.
+- **Every chapter's scaffold step starts by printing `Hello World` into an empty editor** (`starterCode: ""`, no injected code) — printing teases out package/import/main naturally. Don't frame scaffold steps as "set up the skeleton." Example follow-on: Ch1 Step 2 imports `terminal/cellblock` and prints `Cell`/`Sublevel` (teaches importing a package's exported members, blocks hardcoding).
+
 ## Reference Files
 
 - **Design doc:** `../docs/design.md` — game mechanics, story arc, curriculum map

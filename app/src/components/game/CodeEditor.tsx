@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, useEffect } from "react";
 import { tokenize } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
-import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion } from "@/lib/go/completions";
+import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion, type ExtraPackage } from "@/lib/go/completions";
 import { formatGo } from "@/lib/go/playground";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
 import type { SubmissionFeedback } from "@/types/game";
@@ -29,6 +29,8 @@ interface CodeEditorProps {
   isMobile?: boolean;
   submissionFeedback?: SubmissionFeedback | null;
   onDismissSubmissionFeedback?: () => void;
+  /** Non-stdlib packages the current step ships, so their members autocomplete. */
+  extraPackages?: ExtraPackage[];
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -82,7 +84,8 @@ function vimModeLabel(mode: VimMode): string {
   }
 }
 
-const KNOWN_PKGS = getKnownPackages();
+// Stable default so the useCallback deps don't churn when no extra packages exist.
+const EMPTY_EXTRA_PACKAGES: ExtraPackage[] = [];
 
 type AcContext =
   | { type: "pkg"; pkg: string; partial: string; start: number }
@@ -100,7 +103,7 @@ function isInsideString(code: string, pos: number): boolean {
   return inDouble || inBack;
 }
 
-function detectAutocomplete(code: string, pos: number): AcContext | null {
+function detectAutocomplete(code: string, pos: number, extra: ExtraPackage[]): AcContext | null {
   const before = code.slice(0, pos);
 
   // No completions inside string literals
@@ -108,7 +111,7 @@ function detectAutocomplete(code: string, pos: number): AcContext | null {
 
   // Check for pkg.partial pattern first — only if the package is actually imported
   const pkgMatch = before.match(/(\w+)\.(\w*)$/);
-  if (pkgMatch && KNOWN_PKGS.includes(pkgMatch[1]) && isPackageImported(code, pkgMatch[1])) {
+  if (pkgMatch && getKnownPackages(extra).includes(pkgMatch[1]) && isPackageImported(code, pkgMatch[1], extra)) {
     return { type: "pkg", pkg: pkgMatch[1], partial: pkgMatch[2], start: pos - pkgMatch[2].length };
   }
 
@@ -141,6 +144,7 @@ export function CodeEditor({
   isMobile = false,
   submissionFeedback,
   onDismissSubmissionFeedback,
+  extraPackages = EMPTY_EXTRA_PACKAGES,
 }: CodeEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
@@ -231,19 +235,19 @@ export function CodeEditor({
 
   // Update autocomplete on code/cursor change
   const updateAutocomplete = useCallback((newCode: string, pos: number) => {
-    const ctx = detectAutocomplete(newCode, pos);
+    const ctx = detectAutocomplete(newCode, pos, extraPackages);
     if (!ctx) {
       setAcVisible(false);
       return;
     }
     let filtered: Completion[];
     if (ctx.type === "pkg") {
-      const all = getCompletions(ctx.pkg);
+      const all = getCompletions(ctx.pkg, extraPackages);
       filtered = ctx.partial
         ? all.filter((c) => c.label.toLowerCase().startsWith(ctx.partial.toLowerCase()))
         : all;
     } else {
-      filtered = getSymbolCompletions(newCode, ctx.start, ctx.partial);
+      filtered = getSymbolCompletions(newCode, ctx.start, ctx.partial, extraPackages);
       // Don't show if the only match is exactly what's typed
       if (filtered.length === 1 && filtered[0].label === ctx.partial) {
         setAcVisible(false);
@@ -283,7 +287,7 @@ export function CodeEditor({
         y: markerRect.top - measureRect.top + parseInt(lh) - ta.scrollTop,
       });
     }
-  }, []);
+  }, [extraPackages]);
 
   const acceptCompletion = useCallback((item: Completion) => {
     trackAutocomplete(item.label);

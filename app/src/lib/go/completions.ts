@@ -3,10 +3,77 @@
 // Powered by the same registry used in diagnostics.
 
 import { KNOWN_PKG_METHODS } from "./diagnostics";
+import type { CompileModule } from "@/types/game";
 
 export interface Completion {
   label: string;
   detail: string;
+}
+
+/**
+ * A non-stdlib package shipped with a step (via its compileModule) that the
+ * player can import. Feeds autocomplete so `pkg.` lists the package's exported
+ * members and a bare prefix suggests the package name once it's imported.
+ */
+export interface ExtraPackage {
+  /** The name the player writes before the dot, e.g. "cellblock". */
+  name: string;
+  /** The full import path, e.g. "terminal/cellblock". */
+  importPath: string;
+  /** Exported members of the package. */
+  members: Completion[];
+}
+
+/** Build the importable packages from a step's compileModule. */
+export function extraPackagesFromModule(mod: CompileModule): ExtraPackage[] {
+  const byPath = new Map<string, ExtraPackage>();
+  for (const file of mod.files) {
+    const pkgMatch = file.content.match(/\bpackage\s+(\w+)/);
+    if (!pkgMatch) continue;
+    const dir = file.path.includes("/") ? file.path.slice(0, file.path.lastIndexOf("/")) : "";
+    const importPath = dir ? `${mod.module}/${dir}` : mod.module;
+    const existing = byPath.get(importPath);
+    const members = extractExportedSymbols(file.content);
+    if (existing) {
+      existing.members.push(...members);
+    } else {
+      byPath.set(importPath, { name: pkgMatch[1], importPath, members });
+    }
+  }
+  return Array.from(byPath.values());
+}
+
+/** Extract exported (capitalized) top-level declarations from a Go package file. */
+function extractExportedSymbols(content: string): Completion[] {
+  const seen = new Set<string>();
+  const out: Completion[] = [];
+  const add = (name: string, detail: string) => {
+    if (!/^[A-Z]/.test(name) || seen.has(name)) return;
+    seen.add(name);
+    out.push({ label: name, detail: detail.trim() });
+  };
+
+  // single const/var declarations: const Cell = "B-09"
+  for (const m of content.matchAll(/\b(const|var)\s+([A-Za-z_]\w*)\b([^\n]*)/g)) {
+    add(m[2], `${m[1]} ${m[2]}${m[3]}`);
+  }
+  // func Name(params) ret
+  for (const m of content.matchAll(/\bfunc\s+([A-Za-z_]\w*)\s*\(([^)]*)\)([^\n{]*)/g)) {
+    add(m[1], `func ${m[1]}(${m[2].trim()})${m[3].replace(/\{/g, "").trimEnd()}`);
+  }
+  // type Name ...
+  for (const m of content.matchAll(/\btype\s+([A-Za-z_]\w*)\s+([^\n{]*)/g)) {
+    add(m[1], `type ${m[1]} ${m[2].trim()}`);
+  }
+  // grouped const/var blocks
+  for (const m of content.matchAll(/\b(const|var)\s*\(([\s\S]*?)\)/g)) {
+    for (const line of m[2].split("\n")) {
+      const t = line.trim();
+      const idm = t.match(/^([A-Za-z_]\w*)/);
+      if (idm) add(idm[1], `${m[1]} ${t}`);
+    }
+  }
+  return out;
 }
 
 const METHOD_SIGNATURES: Record<string, Record<string, string>> = {
@@ -76,7 +143,12 @@ const METHOD_SIGNATURES: Record<string, Record<string, string>> = {
   },
 };
 
-export function getCompletions(pkg: string): Completion[] {
+export function getCompletions(pkg: string, extra: ExtraPackage[] = []): Completion[] {
+  const ep = extra.find((e) => e.name === pkg);
+  if (ep) {
+    return [...ep.members].sort((a, b) => a.label.localeCompare(b.label));
+  }
+
   const methods = KNOWN_PKG_METHODS[pkg];
   if (!methods) return [];
 
@@ -89,20 +161,23 @@ export function getCompletions(pkg: string): Completion[] {
     }));
 }
 
-export function getKnownPackages(): string[] {
-  return Object.keys(KNOWN_PKG_METHODS);
+export function getKnownPackages(extra: ExtraPackage[] = []): string[] {
+  return [...Object.keys(KNOWN_PKG_METHODS), ...extra.map((e) => e.name)];
 }
 
 /** Check if a package is imported in the given Go source code. */
-export function isPackageImported(code: string, pkg: string): boolean {
+export function isPackageImported(code: string, pkg: string, extra: ExtraPackage[] = []): boolean {
+  // Extra (shipped) packages import by their full path, e.g. "terminal/cellblock".
+  const ep = extra.find((e) => e.name === pkg);
+  const token = ep ? ep.importPath : pkg;
   // Single import: import "fmt"
-  const singleImport = new RegExp(`\\bimport\\s+"${pkg}"`)
+  const singleImport = new RegExp(`\\bimport\\s+"${token}"`)
   if (singleImport.test(code)) return true;
   // Grouped import: import (\n\t"fmt"\n)
   const groupMatch = code.match(/\bimport\s*\(([\s\S]*?)\)/);
   if (groupMatch) {
     const body = groupMatch[1];
-    return new RegExp(`"${pkg}"`).test(body);
+    return new RegExp(`"${token}"`).test(body);
   }
   return false;
 }
@@ -224,20 +299,25 @@ export function extractUserSymbols(code: string, cursorPos: number): Completion[
 }
 
 /** Extract imported package names that we know about. */
-export function getImportedPackages(code: string): Completion[] {
+export function getImportedPackages(code: string, extra: ExtraPackage[] = []): Completion[] {
   const results: Completion[] = [];
   for (const pkg of Object.keys(KNOWN_PKG_METHODS)) {
     if (isPackageImported(code, pkg)) {
       results.push({ label: pkg, detail: "package" });
     }
   }
+  for (const ep of extra) {
+    if (isPackageImported(code, ep.name, extra)) {
+      results.push({ label: ep.name, detail: `package "${ep.importPath}"` });
+    }
+  }
   return results;
 }
 
 /** Get all symbol completions for a bare identifier prefix. */
-export function getSymbolCompletions(code: string, cursorPos: number, partial: string): Completion[] {
+export function getSymbolCompletions(code: string, cursorPos: number, partial: string, extra: ExtraPackage[] = []): Completion[] {
   const userSymbols = extractUserSymbols(code, cursorPos);
-  const importedPkgs = getImportedPackages(code);
+  const importedPkgs = getImportedPackages(code, extra);
   const all = [...userSymbols, ...importedPkgs, ...GO_BUILTINS, ...GO_KEYWORDS];
   if (!partial) return all;
   const lower = partial.toLowerCase();

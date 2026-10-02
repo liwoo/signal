@@ -32,15 +32,50 @@ export interface ChallengeStep {
   expectedOutput?: string;
   /** Patterns the user's code must contain (even if output matches) to prevent hardcoding answers. */
   requiredCode?: string[];
-  /** A short, optional retrieval check shown beside the active objective. */
+  /** Extra Go package files compiled alongside the user's code so they can practice a real import. */
+  compileModule?: CompileModule;
+  /** Optional "stuck?" helper shown beside the active objective. */
   quickCheck?: QuickCheck;
 }
 
+/**
+ * A tiny Go module compiled together with the player's code. It lets a step hand
+ * the player a real package to `import` (with exported consts/vars) instead of
+ * letting them hardcode the answer. Sent to the compiler as a txtar archive.
+ */
+export interface CompileModule {
+  /** go.mod module path, e.g. "terminal" — the player imports "terminal/<pkg>". */
+  module: string;
+  /** go.mod Go version. Defaults to "1.21". */
+  goVersion?: string;
+  /** Extra package files, keyed by txtar path (e.g. "cellblock/cellblock.go"). */
+  files: CompileModuleFile[];
+}
+
+export interface CompileModuleFile {
+  /** Path inside the module, e.g. "cellblock/cellblock.go". */
+  path: string;
+  /** Full Go source of the file. */
+  content: string;
+}
+
+/**
+ * A no-penalty helper that surfaces the questions a player is likely stuck WITH
+ * on this step ("how do i declare a package?") and reveals Maya's answer as a
+ * hint. It is not a quiz — there is no correct option to guess.
+ */
 export interface QuickCheck {
+  /** Optional lead-in, e.g. "stuck on the skeleton? tap what you're wondering." */
+  prompt?: string;
+  /** The questions a player might be stuck on. Tapping one reveals its answer. */
+  items: QuickCheckItem[];
+}
+
+export interface QuickCheckItem {
+  /** A question in the player's own voice, e.g. "how do i mark this as runnable?" */
   question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
+  /** Maya's answer — a hint, not a grade. */
+  answer: string;
 }
 
 export interface Challenge {
@@ -139,6 +174,8 @@ export interface PlayerSettings {
   vimModeEnabled: boolean;
   fontSize: number;
   soundEnabled: boolean;
+  /** Background music + ambience loops. One-shot SFX are unaffected. */
+  musicEnabled: boolean;
   beginnerMode: boolean;
   chatWidthPercent: number;
   /** Tutorial text size multiplier (1 = original 11px, 2 = default 22px) */

@@ -18,10 +18,17 @@ export const chapter04: Challenge = {
 `,
       expectedBehavior: "valid-go-scaffold",
       quickCheck: {
-        question: "Which package provides `fmt.Println`?",
-        options: ["main", "fmt", "print", "go"],
-        correctIndex: 1,
-        explanation: "Import `fmt` to use Go's standard formatting and printing functions.",
+        prompt: "same skeleton as before — tap whatever you need a refresher on.",
+        items: [
+          {
+            question: "which package gives me println?",
+            answer: "`fmt`. add `import \"fmt\"` and you can call `fmt.Println`.",
+          },
+          {
+            question: "where does \"ready\" get printed from?",
+            answer: "inside `func main()` — call `fmt.Println(\"ready\")` there so it runs on start.",
+          },
+        ],
       },
       hints: [
         {
@@ -57,10 +64,21 @@ export const chapter04: Challenge = {
       starterCode: null, // carry forward from scaffold
       expectedBehavior: "Floor 2\nFloor 1\n5",
       quickCheck: {
-        question: "What does a map store?",
-        options: ["Only numbers", "Key-value pairs", "One ordered value", "A loop counter"],
-        correctIndex: 1,
-        explanation: "A map connects each key to its value, like a guard name to a floor.",
+        prompt: "stuck on the map? tap the question that's in your head.",
+        items: [
+          {
+            question: "how does a map hold a guard and their floor?",
+            answer: "a map stores key-value pairs. `map[string]string` connects each name (key) to a floor (value).",
+          },
+          {
+            question: "how do i write the return type?",
+            answer: "`func buildRoster() map[string]string` — the `map[string]string` after the parens is what it hands back.",
+          },
+          {
+            question: "how do i put entries in?",
+            answer: "make it with `map[string]string{\"Chen\": \"Floor 1\", ...}`, one pair per line, then `return` it.",
+          },
+        ],
       },
       testHarness: `func main() {
 \tr := buildRoster()

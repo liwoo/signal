@@ -11,16 +11,27 @@ export const chapter01: Challenge = {
     // ── Step 1: Scaffold ──
     {
       id: "chapter-01:scaffold",
-      title: "SCAFFOLD",
+      title: "HELLO WORLD",
       brief:
-        "Every Go program starts the same way. Set up the skeleton: package declaration, import, and main function. Maya's terminal needs a valid Go program before it can run anything.",
+        "Get Maya's terminal live: write a Go program that prints `Hello World`. That one line forces the whole skeleton into place — package declaration, import, and a main function.",
       starterCode: ``,
       expectedBehavior: "valid-go-scaffold",
       quickCheck: {
-        question: "Which line marks this as an executable Go program?",
-        options: ["package main", "import fmt", "func start()", "go run"],
-        correctIndex: 0,
-        explanation: "`package main` is the package used for a runnable Go program.",
+        prompt: "stuck getting hello world out? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i make this a program go can run?",
+            answer: "the first line has to be `package main`. that package name is what makes it runnable instead of just a library.",
+          },
+          {
+            question: "how do i get access to printing?",
+            answer: "add `import \"fmt\"` under the package line, quotes included. fmt is the standard package for printing.",
+          },
+          {
+            question: "where does the program actually start?",
+            answer: "inside `func main()`. go runs whatever is in main first — that's the entry point.",
+          },
+        ],
       },
       hints: [
         {
@@ -35,7 +46,7 @@ export const chapter01: Challenge = {
         },
         {
           level: 3,
-          text: "then `func main() { fmt.Println(\"I'm in\") }` — the entry point. go won't compile if you import fmt but don't use it.",
+          text: "then `func main() { fmt.Println(\"Hello World\") }` — the entry point. go won't compile if you import fmt but don't use it.",
           energyCost: 20,
         },
       ],
@@ -54,7 +65,7 @@ export const chapter01: Challenge = {
         {
           triggerAtSeconds: 10,
           type: "system",
-          message: "SIGNAL INTEGRITY DROPPING — SUBMIT SCAFFOLD TO STABILIZE",
+          message: "SIGNAL INTEGRITY DROPPING — TRANSMIT PROGRAM TO STABILIZE",
         },
         {
           triggerAtSeconds: 12,
@@ -69,29 +80,59 @@ export const chapter01: Challenge = {
       id: "chapter-01:location",
       title: "TRANSMIT",
       brief:
-        "Now use your program to print Maya's exact location. Use constants and variables to output: CELL B-09 · SUBLEVEL 3",
-      starterCode: null, // carry forward from scaffold
+        "Don't type Maya's location by hand — the terminal already knows it. Import the `cellblock` package (`terminal/cellblock`), which holds a `Cell` constant and a `Sublevel` variable, and print them as: CELL B-09 · SUBLEVEL 3",
+      starterCode: null, // carry the player's own code forward — guidance lives in the chat, not the editor
+
       expectedBehavior: "CELL B-09 · SUBLEVEL 3",
+      expectedOutput: "CELL B-09 · SUBLEVEL 3",
+      requiredCode: ["cellblock.Cell", "cellblock.Sublevel"],
+      compileModule: {
+        module: "terminal",
+        files: [
+          {
+            path: "cellblock/cellblock.go",
+            content: `package cellblock
+
+// Cell is maya's holding cell.
+const Cell = "B-09"
+
+// Sublevel is how far underground the cell sits.
+var Sublevel = 3
+`,
+          },
+        ],
+      },
       quickCheck: {
-        question: "Which declaration is best for a sublevel that will not change?",
-        options: ["sublevel := 3", "const sublevel = 3", "sublevel = 3", "let sublevel = 3"],
-        correctIndex: 1,
-        explanation: "Use `const` for a value fixed for the life of the program. Use `:=` when the value may vary.",
+        prompt: "stuck importing the cell data? tap the question that's in your head.",
+        items: [
+          {
+            question: "how do i import more than one package?",
+            answer: "group them: `import (` then one path per line — `\"fmt\"` and `\"terminal/cellblock\"` — then `)`.",
+          },
+          {
+            question: "how do i read a value out of the package?",
+            answer: "use the package name and a dot: `cellblock.Cell` for the const, `cellblock.Sublevel` for the variable.",
+          },
+          {
+            question: "how do i print text and a number together?",
+            answer: "`fmt.Printf` with placeholders — `%s` for the cell string, `%d` for the sublevel number.",
+          },
+        ],
       },
       hints: [
         {
           level: 1,
-          text: "inside main(), use `fmt.Println(\"your text\")` to print to the terminal.",
+          text: "the values live in a package. add `\"terminal/cellblock\"` to your import block — group it with fmt inside `import ( ... )`.",
           energyCost: 8,
         },
         {
           level: 2,
-          text: "`const sublevel = 3` for things that don't change. `cell := \"B-09\"` for quick variables.",
+          text: "reach into the package with a dot: `cellblock.Cell` is the cell string, `cellblock.Sublevel` is the sublevel number.",
           energyCost: 12,
         },
         {
           level: 3,
-          text: "`fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cell, sublevel)` — fill in the values.",
+          text: "`fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)` — %s for the cell, %d for the sublevel.",
           energyCost: 20,
         },
       ],

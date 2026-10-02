@@ -5,7 +5,9 @@ import {
   getImportedPackages,
   isPackageImported,
   extractUserSymbols,
+  extraPackagesFromModule,
 } from "./completions";
+import type { CompileModule } from "@/types/game";
 
 // ── Package completions ──
 
@@ -184,6 +186,71 @@ describe("getImportedPackages", () => {
   it("returns empty when no known packages imported", () => {
     const code = `package main\n\nfunc main() {}`;
     expect(getImportedPackages(code)).toEqual([]);
+  });
+});
+
+// ── Step-shipped (extra) packages ──
+
+const CELLBLOCK_MODULE: CompileModule = {
+  module: "terminal",
+  files: [
+    {
+      path: "cellblock/cellblock.go",
+      content: `package cellblock
+
+// Cell is maya's holding cell.
+const Cell = "B-09"
+
+// Sublevel is how far underground the cell sits.
+var Sublevel = 3
+`,
+    },
+  ],
+};
+
+describe("extraPackagesFromModule", () => {
+  it("derives package name, import path, and exported members", () => {
+    const [pkg] = extraPackagesFromModule(CELLBLOCK_MODULE);
+    expect(pkg.name).toBe("cellblock");
+    expect(pkg.importPath).toBe("terminal/cellblock");
+    const labels = pkg.members.map((m) => m.label);
+    expect(labels).toEqual(expect.arrayContaining(["Cell", "Sublevel"]));
+  });
+
+  it("ignores unexported (lowercase) declarations", () => {
+    const mod: CompileModule = {
+      module: "terminal",
+      files: [{ path: "cellblock/cellblock.go", content: `package cellblock\nconst Cell = "B-09"\nvar secret = 1\n` }],
+    };
+    const labels = extraPackagesFromModule(mod)[0].members.map((m) => m.label);
+    expect(labels).toContain("Cell");
+    expect(labels).not.toContain("secret");
+  });
+});
+
+describe("extra packages in completions", () => {
+  const extra = extraPackagesFromModule(CELLBLOCK_MODULE);
+  const importedCode = `package main\n\nimport (\n\t"fmt"\n\t"terminal/cellblock"\n)\n\nfunc main() {\n\tcellblock.\n}`;
+
+  it("lists the package's exported members after the dot", () => {
+    const labels = getCompletions("cellblock", extra).map((c) => c.label);
+    expect(labels).toEqual(["Cell", "Sublevel"]);
+  });
+
+  it("detects the package as imported by its full path", () => {
+    expect(isPackageImported(importedCode, "cellblock", extra)).toBe(true);
+    expect(isPackageImported(`import "fmt"`, "cellblock", extra)).toBe(false);
+  });
+
+  it("suggests the package name for a bare prefix once imported", () => {
+    const results = getSymbolCompletions(importedCode, importedCode.indexOf("cellblock."), "cell", extra);
+    expect(results.map((r) => r.label)).toContain("cellblock");
+  });
+
+  it("does not suggest the package when it isn't imported", () => {
+    const code = `package main\n\nfunc main() {\n\tcell\n}`;
+    const results = getSymbolCompletions(code, code.length - 2, "cell", extra);
+    expect(results.map((r) => r.label)).not.toContain("cellblock");
   });
 });
 

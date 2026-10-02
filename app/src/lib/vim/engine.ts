@@ -213,6 +213,56 @@ export function findInnerRange(code: string, pos: number, delim: string): { star
   return { start: open + 1, end: close };
 }
 
+/** The `a` range for a delimiter text object (da(, ci" etc.) — inner plus the delimiters. */
+export function findARange(code: string, pos: number, delim: string): { start: number; end: number } | null {
+  const inner = findInnerRange(code, pos, delim);
+  if (!inner) return null;
+  return { start: inner.start - 1, end: inner.end + 1 };
+}
+
+type CharClass = "word" | "punct" | "blank";
+function charClass(ch: string): CharClass {
+  if (/\s/.test(ch)) return "blank";
+  if (/\w/.test(ch)) return "word";
+  return "punct";
+}
+
+/** Inner word (iw): the run of same-class chars under the cursor, bounded to the line. */
+export function innerWordRange(code: string, pos: number): { start: number; end: number } | null {
+  if (code.length === 0) return null;
+  const p = Math.min(Math.max(pos, 0), code.length - 1);
+  if (code[p] === "\n") return null;
+  const cls = charClass(code[p]);
+  let start = p;
+  while (start > 0 && code[start - 1] !== "\n" && charClass(code[start - 1]) === cls) start--;
+  let end = p;
+  while (end + 1 < code.length && code[end + 1] !== "\n" && charClass(code[end + 1]) === cls) end++;
+  return { start, end: end + 1 };
+}
+
+/** A word (aw): inner word plus trailing whitespace, or leading whitespace if none trails. */
+export function aWordRange(code: string, pos: number): { start: number; end: number } | null {
+  const inner = innerWordRange(code, pos);
+  if (!inner) return null;
+  let { start } = inner;
+  const { end: innerEnd } = inner;
+  let end = innerEnd;
+  while (end < code.length && code[end] !== "\n" && /\s/.test(code[end])) end++;
+  if (end === innerEnd) {
+    // nothing trailing — swallow leading whitespace instead
+    while (start > 0 && code[start - 1] !== "\n" && /\s/.test(code[start - 1])) start--;
+  }
+  return { start, end };
+}
+
+/** Resolve a text object like "iw", "aw", "i(", "a\"" to a [start, end) range. */
+function resolveTextObject(code: string, pos: number, kind: "i" | "a", obj: string): { start: number; end: number } | null {
+  if (obj === "w") {
+    return kind === "i" ? innerWordRange(code, pos) : aWordRange(code, pos);
+  }
+  return kind === "i" ? findInnerRange(code, pos, obj) : findARange(code, pos, obj);
+}
+
 // ── Main command processor ──
 
 export function processKey(input: VimInput): VimOutput {
@@ -522,11 +572,10 @@ export function processKey(input: VimInput): VimOutput {
       yank: code.slice(start, pos), yankLinewise: false, undoStack, codeChanged: true,
     };
   }
-  // di — delete inner text object (pending "di", awaiting delimiter)
-  if (pending === "di") return { ...noop, pending: "di" };
-  if (pending.length === 3 && pending.startsWith("di")) {
-    const delim = pending[2];
-    const range = findInnerRange(code, pos, delim);
+  // di / da — delete a text object (diw, daw, di(, da", ...)
+  if (pending === "di" || pending === "da") return { ...noop, pending };
+  if (pending.length === 3 && (pending.startsWith("di") || pending.startsWith("da"))) {
+    const range = resolveTextObject(code, pos, pending[1] as "i" | "a", pending[2]);
     if (range) {
       undoStack = pushUndo(undoStack, code);
       const yanked = code.slice(range.start, range.end);
@@ -579,11 +628,10 @@ export function processKey(input: VimInput): VimOutput {
       pos: start, yank: code.slice(start, pos), yankLinewise: false, undoStack, codeChanged: true,
     };
   }
-  // ci — change inner text object (pending "ci", awaiting delimiter)
-  if (pending === "ci") return { ...noop, pending: "ci" };
-  if (pending.length === 3 && pending.startsWith("ci")) {
-    const delim = pending[2];
-    const range = findInnerRange(code, pos, delim);
+  // ci / ca — change a text object (ciw, caw, ci(, ca", ...)
+  if (pending === "ci" || pending === "ca") return { ...noop, pending };
+  if (pending.length === 3 && (pending.startsWith("ci") || pending.startsWith("ca"))) {
+    const range = resolveTextObject(code, pos, pending[1] as "i" | "a", pending[2]);
     if (range) {
       undoStack = pushUndo(undoStack, code);
       const yanked = code.slice(range.start, range.end);
@@ -607,6 +655,15 @@ export function processKey(input: VimInput): VimOutput {
   if (pending === "yw") {
     const end = wordForwardPos(code, pos);
     return { ...noop, yank: code.slice(pos, end), yankLinewise: false };
+  }
+  // yi / ya — yank a text object (yiw, yaw, yi(, ya", ...)
+  if (pending === "yi" || pending === "ya") return { ...noop, pending };
+  if (pending.length === 3 && (pending.startsWith("yi") || pending.startsWith("ya"))) {
+    const range = resolveTextObject(code, pos, pending[1] as "i" | "a", pending[2]);
+    if (range) {
+      return { ...noop, yank: code.slice(range.start, range.end), yankLinewise: false };
+    }
+    return noop;
   }
 
   // p — paste after cursor

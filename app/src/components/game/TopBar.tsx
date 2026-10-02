@@ -11,9 +11,12 @@ interface TopBarProps {
   timerSlot?: ReactNode;
   hearts?: number;
   compact?: boolean;
+  /** Background music state; renders the ♪ toggle when a handler is given. */
+  musicEnabled?: boolean;
+  onToggleMusic?: () => void;
 }
 
-export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, compact = false }: TopBarProps) {
+export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, compact = false, musicEnabled = true, onToggleMusic }: TopBarProps) {
   const pct = Math.min((xp / xpMax) * 100, 100);
 
   return (
@@ -78,6 +81,25 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
           ))}
         </div>
       ))}
+
+      {/* Background music toggle — SFX stay on either way */}
+      {onToggleMusic && (
+        <button
+          type="button"
+          onClick={onToggleMusic}
+          aria-pressed={musicEnabled}
+          aria-label={musicEnabled ? "Mute background music" : "Unmute background music"}
+          title={musicEnabled ? "Background music on · click to mute" : "Background music off · click to unmute"}
+          className={`shrink-0 bg-transparent cursor-pointer tracking-[1px] transition-colors ${compact ? "h-7 px-2 text-[11px] leading-none" : "px-2 py-0.5 text-[8px] tracking-[2px]"}`}
+          style={{
+            color: musicEnabled ? "var(--color-signal)" : "var(--color-dim)",
+            border: `1px solid ${musicEnabled ? "rgba(110,255,160,.25)" : "rgba(255,255,255,.12)"}`,
+            textDecoration: musicEnabled ? "none" : "line-through",
+          }}
+        >
+          {compact ? "\u266A" : musicEnabled ? "\u266A ON" : "\u266A OFF"}
+        </button>
+      )}
 
       {/* Level Timer */}
       {timerSlot}

@@ -8,8 +8,20 @@ import type { GameState } from "./useGame";
  * Orchestrates audio based on game state changes.
  * Drop into the page component alongside useGame.
  */
-export function useGameAudio(state: GameState, soundEnabled = true) {
-  const audio = useAudio(soundEnabled);
+// Base bed while coding. Kept low: it sits under Maya's beeps for minutes at a
+// time, and two of the loops are short files whose seams get tiring loud.
+const BED = {
+  ambient: 0.1,
+  hum: 0.05,
+  music: 0.06,
+} as const;
+
+/**
+ * @param soundEnabled master switch for every sound
+ * @param musicEnabled background layer only (music + ambience loops); SFX stay on
+ */
+export function useGameAudio(state: GameState, soundEnabled = true, musicEnabled = true) {
+  const audio = useAudio(soundEnabled, musicEnabled);
   const prevPhase = useRef(state.phase);
   const prevRush = useRef(state.inRush);
   const prevStepIndex = useRef(state.currentStepIndex);
@@ -35,9 +47,11 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
         "handshake-confirm", "heartbeat-slow", "heartbeat-fast",
         "knock-1", "knock-2", "knock-heavy",
       ]);
-      audio.startLoop("cell-ambient", 0.15, 3000);
-      audio.startLoop("facility-hum", 0.08, 2000);
-      audio.startLoop("gameplay-loop", 0.12, 4000);
+      // The intro-screen drone was never stopped before; it doubled the bed.
+      audio.stopLoop("dark-drone-1", 2000);
+      audio.startLoop("cell-ambient", BED.ambient, 3000);
+      audio.startLoop("facility-hum", BED.hum, 2000);
+      audio.startLoop("gameplay-loop", BED.music, 5000);
       audio.playSfx("terminal-beep", 0.4);
       hasStartedAmbience.current = true;
       firedWarning30.current = false;
@@ -56,7 +70,7 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
       audio.playSfx("handshake-confirm", 0.6);
       audio.stopLoop("heartbeat-slow", 1500);
       audio.stopLoop("tension-drone", 2000);
-      audio.setLoopVolume("gameplay-loop", 0.04, 2000);
+      audio.setLoopVolume("gameplay-loop", 0.02, 2000);
       audio.stopLoop("facility-hum", 2000);
     }
 
@@ -74,6 +88,19 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
     }
   }, [state.phase, audio]);
 
+  // ── Music toggle flipped back on mid-round: bring the bed back ──
+  // (Flipping it off is handled inside useAudio, which fades every loop out.)
+  const prevMusicEnabled = useRef(musicEnabled);
+  useEffect(() => {
+    const was = prevMusicEnabled.current;
+    prevMusicEnabled.current = musicEnabled;
+    if (was || !musicEnabled) return;
+    if (state.phase !== "playing" || !hasStartedAmbience.current) return;
+    audio.startLoop("cell-ambient", BED.ambient, 1500);
+    audio.startLoop("facility-hum", BED.hum, 1500);
+    audio.startLoop("gameplay-loop", BED.music, 2500);
+  }, [musicEnabled, state.phase, audio]);
+
   // ── Rush mode — heartbeat + siren + tension ──
   useEffect(() => {
     const prev = prevRush.current;
@@ -85,10 +112,9 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
       audio.startLoop("siren-loop", 0.12, 800);
       audio.startLoop("heartbeat-fast", 0.3, 600);
       audio.startLoop("tension-drone", 0.15, 1200);
-      // Intensify music
-      audio.setLoopVolume("gameplay-loop", 0.06, 1000);
-      // Dim ambient
-      audio.setLoopVolume("cell-ambient", 0.05, 1000);
+      // Duck the bed under the tension layers
+      audio.setLoopVolume("gameplay-loop", BED.music / 2, 1000);
+      audio.setLoopVolume("cell-ambient", BED.ambient / 2, 1000);
     }
 
     if (prev && !state.inRush) {
@@ -96,8 +122,8 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
       audio.stopLoop("siren-loop", 1500);
       audio.stopLoop("heartbeat-fast", 2000);
       audio.stopLoop("tension-drone", 2000);
-      audio.setLoopVolume("gameplay-loop", 0.12, 1500);
-      audio.setLoopVolume("cell-ambient", 0.15, 1500);
+      audio.setLoopVolume("gameplay-loop", BED.music, 1500);
+      audio.setLoopVolume("cell-ambient", BED.ambient, 1500);
     }
   }, [state.inRush, audio]);
 
@@ -116,8 +142,8 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
         audio.startLoop("heartbeat-slow", 0.25, 1500);
         audio.startLoop("tension-drone", 0.1, 2000);
         // Darken the music
-        audio.setLoopVolume("gameplay-loop", 0.06, 2000);
-        audio.setLoopVolume("cell-ambient", 0.06, 2000);
+        audio.setLoopVolume("gameplay-loop", BED.music / 2, 2000);
+        audio.setLoopVolume("cell-ambient", BED.ambient / 2, 2000);
       }
 
       // 15s remaining — escalate to fast heartbeat
@@ -202,8 +228,9 @@ export function useGameAudio(state: GameState, soundEnabled = true) {
       audio.setLoopVolume("gameplay-loop", 0.03, 800);
       audio.setLoopVolume("cell-ambient", 0.02, 600);
       audio.stopLoop("dark-drone-2", 600);
-      // Boost facility hum to sound like backup generators
-      audio.setLoopVolume("facility-hum", 0.25, 1200);
+      // Boost facility hum to sound like backup generators (restart in case
+      // the bed had already faded it out)
+      audio.startLoop("facility-hum", 0.25, 1200);
       // Add tension drone underneath
       audio.startLoop("tension-drone", 0.06, 2000);
     }

@@ -186,48 +186,59 @@ describe("ch01 location — concept FAQ", () => {
   });
 });
 
-describe("ch01 location — code evaluation", () => {
-  it("accepts correct solution using Printf", () => {
+describe("ch01 location — code evaluation (offline patterns)", () => {
+  it("accepts a solution that imports and prints both package values", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    const sublevel = 3
-    cell := "B-09"
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
     expect(r.reply).toContain("you actually got through");
   });
 
-  it("accepts correct solution using Println", () => {
+  it("accepts assigning the package values to named locals", () => {
+    const code = `package main
+import (
+    "fmt"
+    "terminal/cellblock"
+)
+func main() {
+    cell := cellblock.Cell
+    sublevel := cellblock.Sublevel
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+}`;
+    const r = call("chapter-01:location", code, { isCode: true });
+    expect(r.isComplete).toBe(true);
+  });
+
+  it("rejects a hardcoded location string (must use the package)", () => {
     const code = `package main
 import "fmt"
 func main() {
     fmt.Println("CELL B-09 · SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
-    expect(r.isComplete).toBe(true);
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("cellblock");
   });
 
-  it("accepts B09 without hyphen", () => {
+  it("rejects using only one of the two package values", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B09 · SUBLEVEL 3")
+    fmt.Println(cellblock.Cell)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
-    expect(r.isComplete).toBe(true);
-  });
-
-  it("accepts different casing", () => {
-    const code = `package main
-import "fmt"
-func main() {
-    fmt.Println("Cell b-09 · sublevel 3")
-}`;
-    const r = call("chapter-01:location", code, { isCode: true });
-    expect(r.isComplete).toBe(true);
+    expect(r.isComplete).toBe(false);
+    expect(r.reply).toContain("both");
   });
 
   it("rejects code with no fmt/print", () => {
@@ -251,17 +262,6 @@ func main() {
     expect(r.reply).toContain("location");
   });
 
-  it("rejects missing B-09", () => {
-    const code = `package main
-import "fmt"
-func main() {
-    fmt.Println("CELL A-01 · SUBLEVEL 3")
-}`;
-    const r = call("chapter-01:location", code, { isCode: true });
-    expect(r.isComplete).toBe(false);
-    expect(r.reply).toContain("B-09");
-  });
-
   it("rejects B-09 without sublevel", () => {
     const code = `package main
 import "fmt"
@@ -274,9 +274,12 @@ func main() {
 
   it("strips ||COMPLETE|| from reply", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.reply).not.toContain("||COMPLETE||");
@@ -673,9 +676,12 @@ describe("rush mode behavior", () => {
 
   it("still marks correct code as complete during rush", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true, inRush: true });
     expect(r.isComplete).toBe(true);
@@ -775,9 +781,12 @@ describe("edge cases", () => {
 
   it("handles unicode in code", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3") // コメント
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel) // コメント
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -790,9 +799,12 @@ func main() {
 
   it("isFirstMessage + isCode evaluates code, not intro", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isFirst: true, isCode: true });
     expect(r.isComplete).toBe(true);
@@ -887,9 +899,12 @@ func main() {
 
   it("still accepts valid fmt.Println", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println(cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -897,10 +912,12 @@ func main() {
 
   it("still accepts valid fmt.Printf", () => {
     const code = `package main
-import "fmt"
+import (
+    "fmt"
+    "terminal/cellblock"
+)
 func main() {
-    cell := "B-09"
-    fmt.Printf("CELL %s · SUBLEVEL 3\\n", cell)
+    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);

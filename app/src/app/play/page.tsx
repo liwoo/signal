@@ -15,6 +15,7 @@ import { CodeEditor } from "@/components/game/CodeEditor";
 import { MissionPanel } from "@/components/game/MissionPanel";
 import { ObjectiveBar } from "@/components/game/ObjectiveBar";
 import { isStuck } from "@/lib/game/hints";
+import { extraPackagesFromModule } from "@/lib/go/completions";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
 import { RushBar } from "@/components/story/RushBar";
@@ -49,7 +50,6 @@ import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
 import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
-import { MissionBriefModal } from "@/components/game/MissionBriefModal";
 import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGameLayout } from "@/components/game/MobileGameLayout";
 import { Warmup } from "@/components/game/Warmup";
@@ -334,7 +334,9 @@ interface GameScreenProps {
 function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
   const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1);
-  const audio = useGameAudio(state, settings.soundEnabled);
+  const musicOn = settings.musicEnabled ?? true;
+  const audio = useGameAudio(state, settings.soundEnabled, musicOn);
+  const toggleMusic = () => onSaveSettings({ musicEnabled: !musicOn });
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [debriefDone, setDebriefDone] = useState(false);
@@ -350,11 +352,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id);
 
-  // "This is the mission" modal — surfaced once per step as its instructions begin.
-  const [missionShownForStep, setMissionShownForStep] = useState<number | null>(null);
-  const missionModalOpen =
-    state.phase === "playing" && !showTour && missionShownForStep !== state.currentStepIndex;
-
   // "Stuck" re-evaluates every few seconds so the hint button can light up on
   // idle time as well as on failed attempts.
   const [stuckTick, setStuckTick] = useState(0);
@@ -369,50 +366,18 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     [state.phase, state.attempts, state.stepStartedAt, stuckTick],
   );
 
-  // Offer one authored multiple-choice check directly in Maya's chat after
-  // three seconds with no code or chat activity. It is a gentle reset, never
-  // a gate or a penalty.
-  const [showIdleQuickCheck, setShowIdleQuickCheck] = useState(false);
-  const idleQuickCheckShownForStep = useRef<string | null>(null);
-  useEffect(() => {
-    const step = state.currentStep;
-    if (
-      state.phase !== "playing" ||
-      !step.quickCheck ||
-      showTour ||
-      missionModalOpen ||
-      state.busy ||
-      state.gamePaused ||
-      state.waitingForContinue ||
-      idleQuickCheckShownForStep.current === step.id
-    ) return;
-
-    setShowIdleQuickCheck(false);
-    const timer = window.setTimeout(() => {
-      idleQuickCheckShownForStep.current = step.id;
-      setShowIdleQuickCheck(true);
-    }, 3_000);
-    return () => window.clearTimeout(timer);
-  }, [
-    state.phase,
-    state.currentStep,
-    state.code,
-    state.chatInput,
-    state.busy,
-    state.gamePaused,
-    state.waitingForContinue,
-    showTour,
-    missionModalOpen,
-  ]);
+  // Packages this step ships (e.g. cellblock) so their members autocomplete.
+  const extraPackages = useMemo(
+    () => (state.currentStep.compileModule ? extraPackagesFromModule(state.currentStep.compileModule) : []),
+    [state.currentStep.compileModule],
+  );
 
   // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
   const awaitingInput =
     state.phase === "playing" &&
     !state.busy &&
     !state.gamePaused &&
-    !state.waitingForContinue &&
-    !missionModalOpen &&
-    !showIdleQuickCheck;
+    !state.waitingForContinue;
   const prevAwaitingRef = useRef(false);
   useEffect(() => {
     if (awaitingInput && !prevAwaitingRef.current) {
@@ -513,7 +478,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         scenes={introScenes}
         title={config.introTitle}
         subtitle={config.introSubtitle}
+        soundEnabled={settings.soundEnabled}
+        loopsEnabled={musicOn}
         onComplete={() => {
+          // The gesture-anchored drone from the intro screen ends with the film.
+          audio.stopLoop("dark-drone-1", 1500);
           setShowCinematic(false);
           // Round 1 opens with the type-along warm-up, then explanations.
           // (Later chapters need their own lesson-specific warm-up content.)
@@ -617,6 +586,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           scenes={completeScenes}
           title={config.completeTitle}
           subtitle={config.completeSubtitle}
+          soundEnabled={settings.soundEnabled}
+          loopsEnabled={musicOn}
           onComplete={() => setShowWinCinematic(true)}
         />
       );
@@ -643,6 +614,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     return (
       <GameOver
         onRetry={() => { trackRetry(challenge.id); actions.retryFromCheckpoint(); }}
+        onRestart={() => { trackRetry(challenge.id); actions.restartGame(); }}
         onBuyHeart={actions.purchaseHeart}
         hearts={state.hearts}
         canBuyHeart={state.canBuyHeart}
@@ -658,6 +630,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           scenes={completeScenes}
           title={config.completeTitle}
           subtitle={config.completeSubtitle}
+          soundEnabled={settings.soundEnabled}
+          loopsEnabled={musicOn}
           onComplete={() => setShowWinCinematic(true)}
         />
       );
@@ -703,17 +677,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   return (
     <>
-      {/* "This is the mission" — shown as each step's instructions begin */}
-      {missionModalOpen && (
-        <MissionBriefModal
-          challenge={challenge}
-          currentStep={state.currentStep}
-          currentStepIndex={state.currentStepIndex}
-          totalSteps={state.totalSteps}
-          onClose={() => setMissionShownForStep(state.currentStepIndex)}
-        />
-      )}
-
       {/* Guided tour for first-time players */}
       {showTour && !isMobile && state.phase === "playing" && (
         <GuidedTour
@@ -796,6 +759,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               inRush={state.inRush}
               busy={state.busy}
               hearts={state.hearts}
+              musicEnabled={musicOn}
+              onToggleMusic={toggleMusic}
               timerSlot={state.timerStartMs > 0 ? (
                 <LevelTimer
                   compact
@@ -825,7 +790,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               explainUsed={state.explainUsed}
               onContinue={actions.resumeFromPause}
               onExplain={actions.requestExplain}
-              idleQuickCheck={showIdleQuickCheck ? state.currentStep.quickCheck : undefined}
+              quickCheck={state.currentStep.quickCheck}
+              stuck={stuck}
               compact
             />
           }
@@ -836,10 +802,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 challenge={challenge}
                 currentStep={state.currentStep}
                 currentStepIndex={state.currentStepIndex}
-                hints={state.hints}
-                stuck={stuck}
                 jeopardy={state.jeopardy.activeEffects}
-                onRevealHint={actions.revealHint}
                 onOpenMission={() => actions.setTab("mission")}
               />
               {state.aiSuggestOpen && state.aiSuggestions.length > 0 ? (
@@ -867,6 +830,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 fontSize={Math.max(settings.fontSize ?? 15, 16)}
                 onFontSizeChange={(size) => onSaveSettings({ fontSize: size })}
                 vimEnabled={false}
+                extraPackages={extraPackages}
                 aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                   <button
                     type="button"
@@ -886,8 +850,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               currentStep={state.currentStep}
               currentStepIndex={state.currentStepIndex}
               totalSteps={state.totalSteps}
-              hints={state.hints}
-              onRevealHint={actions.revealHint}
             />
           }
           libraryPanel={<LibraryPanel library={state.library} />}
@@ -916,6 +878,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           inRush={state.inRush}
           busy={state.busy}
           hearts={state.hearts}
+          musicEnabled={musicOn}
+          onToggleMusic={toggleMusic}
           timerSlot={
             state.timerStartMs > 0 && (
               <LevelTimer
@@ -957,7 +921,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               explainUsed={state.explainUsed}
               onContinue={actions.resumeFromPause}
               onExplain={actions.requestExplain}
-              idleQuickCheck={showIdleQuickCheck ? state.currentStep.quickCheck : undefined}
+              quickCheck={state.currentStep.quickCheck}
+              stuck={stuck}
             />
           </div>
 
@@ -1018,10 +983,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               challenge={challenge}
               currentStep={state.currentStep}
               currentStepIndex={state.currentStepIndex}
-              hints={state.hints}
-              stuck={stuck}
               jeopardy={state.jeopardy.activeEffects}
-              onRevealHint={actions.revealHint}
               onOpenMission={() => actions.setTab("mission")}
             />
 
@@ -1054,6 +1016,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   onFontSizeChange={(size) => onSaveSettings({ fontSize: size })}
                   vimEnabled={settings.vimModeEnabled}
                   onVimToggle={(enabled) => onSaveSettings({ vimModeEnabled: enabled })}
+                  extraPackages={extraPackages}
                   camFeed={(() => {
                     const cam = CAM_FEED_CONFIG[challenge.id] ?? DEFAULT_CAM;
                     return (
@@ -1096,8 +1059,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 currentStep={state.currentStep}
                 currentStepIndex={state.currentStepIndex}
                 totalSteps={state.totalSteps}
-                hints={state.hints}
-                onRevealHint={actions.revealHint}
               />
             )}
             {state.tab === "library" && (
@@ -1219,7 +1180,7 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
         {/* Stats */}
         <div
           className="flex gap-1.5 mb-4 opacity-0"
-          style={{ animation: "intro-in .7s ease .2s forwards" }}
+          style={{ animation: "intro-in .6s ease .1s forwards" }}
         >
           {[
             [String(challenge.steps.length), challenge.steps.length === 1 ? "STEP" : "STEPS"],
@@ -1247,7 +1208,7 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
           className="border border-[#0a2a1a] border-l-[3px] border-l-[#2a8a5a] p-3.5 mb-3.5 opacity-0"
           style={{
             background: "rgba(0,255,80,.015)",
-            animation: "intro-in .7s ease .4s forwards",
+            animation: "intro-in .6s ease .25s forwards",
           }}
         >
           <div className="text-[#1a6a4a] text-[8px] tracking-[3px] mb-2">
@@ -1264,7 +1225,7 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
         {/* CTA */}
         <div
           className="opacity-0"
-          style={{ animation: "intro-in .7s ease .9s forwards" }}
+          style={{ animation: "intro-in .6s ease .4s forwards" }}
         >
           <button
             onClick={onStart}
