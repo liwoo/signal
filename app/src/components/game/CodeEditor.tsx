@@ -588,7 +588,7 @@ export function CodeEditor({
             }}
           >
             <div
-              className="absolute left-3 top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)]"
+              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
               style={{ color: "var(--color-signal)" }}
             >
               ▮ READY
@@ -600,7 +600,7 @@ export function CodeEditor({
             style={{ background: "rgba(4,8,16,.5)" }}
           >
             <div
-              className="absolute left-3 top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)]"
+              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
               style={{ color: "var(--color-dim)" }}
             >
               ▯ STANDBY
@@ -808,11 +808,10 @@ export function CodeEditor({
 
       {isMobile ? (
         <div
-          className="flex shrink-0 items-center gap-1 overflow-x-auto px-1.5 py-1"
+          className="flex shrink-0 flex-wrap items-center justify-center gap-1 px-1.5 py-1"
           style={{
             background: "#04090f",
             borderTop: "1px solid var(--color-border)",
-            WebkitOverflowScrolling: "touch",
           }}
           aria-label="Code keyboard shortcuts"
         >

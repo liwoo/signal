@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import { TypeText } from "@/components/story/TypeText";
 import { MayaMarkdown } from "@/components/game/MayaMarkdown";
-import { ChatQuickCheck } from "@/components/game/QuickCheck";
+import { HintOverlay } from "@/components/game/QuickCheck";
 import type { QuickCheck } from "@/types/game";
 
 export interface ChatMsg {
@@ -87,12 +87,19 @@ export function ChatPanel({
   const [typedIds, setTypedIds] = useState<Set<string>>(new Set());
   const lastMsgId = messages.length > 0 ? messages[messages.length - 1].id : "";
 
-  // The "stuck?" helper is opened on demand from the HINT button. It resets
-  // whenever the step's check changes so it never carries into the next step.
+  // The "stuck?" helper is opened on demand from the HINT button. It stays shut
+  // unless the player opens it, and snaps shut again the moment the step changes
+  // or Maya moves the story on (a new message lands) — so it never lingers over
+  // fresh narration.
   const [hintOpen, setHintOpen] = useState(false);
   const [lastCheck, setLastCheck] = useState(quickCheck);
   if (quickCheck !== lastCheck) {
     setLastCheck(quickCheck);
+    setHintOpen(false);
+  }
+  const [lastSeenMsgId, setLastSeenMsgId] = useState(lastMsgId);
+  if (lastMsgId !== lastSeenMsgId) {
+    setLastSeenMsgId(lastMsgId);
     setHintOpen(false);
   }
   const showQuickCheck = hintOpen && !!quickCheck && !busy;
@@ -218,10 +225,6 @@ export function ChatPanel({
           </div>
         )}
 
-        {showQuickCheck && quickCheck && (
-          <ChatQuickCheck check={quickCheck} />
-        )}
-
         {/* Pause + continue/explain buttons */}
         {waitingForContinue && !busy && messages.length > 0 && (
           <div className="mt-1.5">
@@ -332,6 +335,10 @@ export function ChatPanel({
           </button>
         </div>
       </div>
+
+      {showQuickCheck && quickCheck && (
+        <HintOverlay check={quickCheck} onClose={() => setHintOpen(false)} />
+      )}
     </div>
   );
 }

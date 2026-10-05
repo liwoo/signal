@@ -19,7 +19,14 @@ export type KiraVerdict = "trusted" | "rejected" | null;
 export interface ChallengeStep {
   id: string;                        // e.g. "chapter-01:scaffold"
   title: string;                     // e.g. "SCAFFOLD"
-  brief: string;                     // what the player needs to do
+  /**
+   * The WHY, in one plain-language sentence with zero code words — what this
+   * step does for Maya / the escape. This is the first thing a non-coder needs
+   * so they understand the point before the task. Shown prominently (ObjectiveBar
+   * + MissionPanel). Optional so older chapters fall back to `brief` alone.
+   */
+  stake?: string;
+  brief: string;                     // the WHAT — the concrete action, kept short
   starterCode: string | null;        // null = carry forward from previous step
   expectedBehavior: string;
   hints: ChallengeHint[];

@@ -81,7 +81,7 @@ export function isValidScaffold(code: string): boolean {
 // Chapter 01: Step 1 — Scaffold
 const ch01ScaffoldBank: StepBank = {
   intro:
-    "...signal received. you're in.\ni'm maya — cell B-09, sublevel 3. this terminal runs go. prove it's live: make it print `Hello World`. that one line forces the whole skeleton — package, import, main.",
+    "...signal received. you're in.\ni'm maya — they've locked me in a cell and this terminal is my only way to reach anyone. right now it's dead. make it print `Hello World` so i know the channel's actually live.",
 
   conceptFAQ: [
     {
@@ -214,7 +214,7 @@ const ch01ScaffoldBank: StepBank = {
 // Chapter 01: Step 2 — Transmit Location
 const ch01LocationBank: StepBank = {
   intro:
-    "good, we're live. now let's print something that actually means something — my location. don't type it in by hand: it's already on this terminal in a package called `cellblock`. import `terminal/cellblock`, then print its `Cell` constant and `Sublevel` variable as `CELL B-09 · SUBLEVEL 3`. pull the values from the package — no hardcoding.",
+    "good, the channel's live. now i need you to lock in where they're holding me — and it has to be exact, a wrong location gets someone hurt. don't type it by hand: my real cell is already on this terminal in a package called `cellblock`. import `terminal/cellblock` and print its `Cell` and `Sublevel` as `CELL B-09 · SUBLEVEL 3`.",
 
   conceptFAQ: [
     {

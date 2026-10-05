@@ -54,6 +54,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#040810",
+  // Let the soft keyboard shrink the layout viewport (not just the visual one),
+  // so the code editor's accessory row + SUBMIT button stay above the keyboard
+  // instead of being covered by it on mobile.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

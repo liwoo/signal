@@ -51,7 +51,8 @@ describe("ch01 scaffold — intro", () => {
     const r = call("chapter-01:scaffold", "i'm here", { isFirst: true });
     expect(r.reply).toContain("signal received");
     expect(r.reply).toContain("maya");
-    expect(r.reply).toContain("package");
+    // Intro leads with the WHY + the task, not a package/import/main enumeration.
+    expect(r.reply).toContain("Hello World");
     expect(r.isComplete).toBe(false);
   });
 });
