@@ -29,6 +29,8 @@ import { GameOver } from "@/components/story/GameOver";
 import { WinModal } from "@/components/game/WinModal";
 import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
+import { ConceptTracker } from "@/components/game/ConceptTracker";
+import { summarizeCurriculum } from "@/lib/game/curriculum";
 import { CinematicScene } from "@/components/story/CinematicScene";
 import { MayaAnimation } from "@/components/story/MayaAnimation";
 import { PixiScene } from "@/components/story/PixiScene";
@@ -861,6 +863,13 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
             />
           }
+          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id).pct}
+          conceptsPanel={
+            <ConceptTracker
+              completedChapterIds={completedChapterIds}
+              currentChapterId={challenge.id}
+            />
+          }
         />
       ) : (
       <div
@@ -1072,6 +1081,18 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
               />
             )}
+          </div>
+
+          {/* Far right: whole-game concept map, always on (desktop ≥ lg) */}
+          <div
+            className="hidden lg:flex shrink-0 flex-col overflow-hidden"
+            style={{ width: 210, borderLeft: "1px solid var(--color-border)" }}
+          >
+            <ConceptTracker
+              compact
+              completedChapterIds={completedChapterIds}
+              currentChapterId={challenge.id}
+            />
           </div>
         </div>
       </div>

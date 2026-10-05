@@ -63,15 +63,30 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
         </ol>
       )}
 
-      {/* The instructions */}
+      {/* Why this matters — plain language, no code. The point before the task. */}
+      {currentStep.stake ? (
+        <div
+          className="mb-3 p-4"
+          style={{ borderLeft: "3px solid var(--color-signal)", background: "rgba(110,255,160,.05)" }}
+        >
+          <div className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-signal)" }}>
+            ▸ WHY
+          </div>
+          <p className="text-[14px] leading-[1.6]" style={{ color: "var(--color-foreground)" }}>
+            {currentStep.stake}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Do this — the concrete action. */}
       <div
         className="mb-5 p-4"
         style={{ borderLeft: "3px solid var(--color-alert)", background: "rgba(255,159,28,.05)" }}
       >
         <div className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-alert)" }}>
-          ▸ OBJECTIVE · {currentStep.title}
+          ▸ {currentStep.stake ? "DO THIS" : "OBJECTIVE"} · {currentStep.title}
         </div>
-        <p className="text-[14px] leading-[1.8] whitespace-pre-line" style={{ color: "var(--color-foreground)" }}>
+        <p className="text-[14px] leading-[1.6] whitespace-pre-line" style={{ color: "var(--color-foreground)" }}>
           {currentStep.brief}
         </p>
       </div>

@@ -12,8 +12,9 @@ export const chapter01: Challenge = {
     {
       id: "chapter-01:scaffold",
       title: "HELLO WORLD",
-      brief:
-        "Get Maya's terminal live: write a Go program that prints `Hello World`. That one line forces the whole skeleton into place — package declaration, import, and a main function.",
+      stake:
+        "Maya's locked in a cell and this terminal is your only line to her — right now it's dead. Get it to say one thing back so you know you're actually connected.",
+      brief: "Make the program print `Hello World`.",
       starterCode: ``,
       expectedBehavior: "valid-go-scaffold",
       quickCheck: {
@@ -79,8 +80,10 @@ export const chapter01: Challenge = {
     {
       id: "chapter-01:location",
       title: "TRANSMIT",
+      stake:
+        "To send help you need to know exactly where Maya is held — and a guessed location gets people killed. Pull her real cell straight from the terminal instead of typing it by hand.",
       brief:
-        "Don't type Maya's location by hand — the terminal already knows it. Import the `cellblock` package (`terminal/cellblock`), which holds a `Cell` constant and a `Sublevel` variable, and print them as: CELL B-09 · SUBLEVEL 3",
+        "Import `terminal/cellblock` and print its `Cell` and `Sublevel` as: CELL B-09 · SUBLEVEL 3",
       starterCode: null, // carry the player's own code forward — guidance lives in the chat, not the editor
 
       expectedBehavior: "CELL B-09 · SUBLEVEL 3",

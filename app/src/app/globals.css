@@ -395,6 +395,18 @@ textarea {
 }
 .hint-pulse { animation: hint-pulse 1.8s ease-in-out infinite; }
 
+/* Stuck? helper: pops out over a blurred backdrop so it reads as the one thing to look at */
+@keyframes hint-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+  to { opacity: 1; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+}
+.hint-backdrop { animation: hint-backdrop-in .22s ease-out both; }
+@keyframes hint-pop-in {
+  0% { opacity: 0; transform: translateY(12px) scale(.96); }
+  100% { opacity: 1; transform: none; }
+}
+.hint-pop { animation: hint-pop-in .26s cubic-bezier(.22,1,.36,1) both; }
+
 /* Landing hero: slow breathing glow behind the live picture */
 @keyframes hero-halo {
   0%, 100% { opacity: 0.55; transform: scale(1); }

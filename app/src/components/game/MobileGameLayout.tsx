@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type MobileView = "chat" | "code" | "mission" | "more";
-type SecondaryView = "library" | "notes" | null;
+type SecondaryView = "library" | "notes" | "concepts" | null;
 
 interface MobileGameLayoutProps {
   height: number | null;
@@ -13,6 +13,10 @@ interface MobileGameLayoutProps {
   missionPanel: ReactNode;
   libraryPanel: ReactNode;
   notesPanel: ReactNode;
+  /** Whole-game concept map, opened from the MORE tab behind a completion %. */
+  conceptsPanel: ReactNode;
+  /** Percent of the game's concepts the player has covered (0–100). */
+  conceptPct: number;
   latestMessage?: string;
   waitingForContinue: boolean;
   inRush: boolean;
@@ -40,6 +44,8 @@ export function MobileGameLayout({
   missionPanel,
   libraryPanel,
   notesPanel,
+  conceptsPanel,
+  conceptPct,
   latestMessage,
   waitingForContinue,
   inRush,
@@ -175,7 +181,11 @@ export function MobileGameLayout({
                 ‹ BACK TO MORE
               </button>
               <div className="min-h-0 flex-1 overflow-hidden">
-                {secondaryView === "library" ? libraryPanel : notesPanel}
+                {secondaryView === "library"
+                  ? libraryPanel
+                  : secondaryView === "concepts"
+                    ? conceptsPanel
+                    : notesPanel}
               </div>
             </div>
           ) : (
@@ -183,6 +193,11 @@ export function MobileGameLayout({
               <div className="mb-1 text-[8px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
                 ▸ FIELD RESOURCES
               </div>
+              <MobileMoreButton
+                label={`CONCEPTS LEARNED · ${conceptPct}%`}
+                description="Every Go concept in the game — see what you've covered and what's next."
+                onClick={() => setSecondaryView("concepts")}
+              />
               <MobileMoreButton
                 label="ZEN LIBRARY"
                 description="Review principles earned from your code."

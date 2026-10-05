@@ -77,12 +77,29 @@ export function ObjectiveBar({
             {currentStep.title}
           </span>
         </div>
-        <div
-          className={`truncate ${compact ? "text-[12px]" : "text-[13px]"}`}
-          style={{ color: "var(--color-foreground)" }}
-        >
-          {currentStep.brief}
-        </div>
+        {currentStep.stake ? (
+          <>
+            <div
+              className={`truncate ${compact ? "text-[12px]" : "text-[13px]"}`}
+              style={{ color: "var(--color-foreground)" }}
+            >
+              {currentStep.stake}
+            </div>
+            <div
+              className={`truncate ${compact ? "text-[10px]" : "text-[11px]"}`}
+              style={{ color: "rgba(255,159,28,.75)" }}
+            >
+              ▸ DO · {currentStep.brief}
+            </div>
+          </>
+        ) : (
+          <div
+            className={`truncate ${compact ? "text-[12px]" : "text-[13px]"}`}
+            style={{ color: "var(--color-foreground)" }}
+          >
+            {currentStep.brief}
+          </div>
+        )}
       </button>
 
       {/* Hazards */}
