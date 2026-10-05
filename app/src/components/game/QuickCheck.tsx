@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { QuickCheck as QuickCheckData } from "@/types/game";
 
 interface QuickCheckProps {
@@ -83,9 +84,16 @@ export function HintOverlay({ check, onClose }: { check: QuickCheckData; onClose
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  // Portal to <body> so the overlay escapes the chat column's stacking context —
+  // otherwise the code editor's autocomplete popup (and other z-indexed panels)
+  // bleed through on top of the hint. z-[900] clears everything else on screen.
+  // The overlay only ever renders client-side (it opens from user interaction),
+  // but guard document for SSR safety.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="hint-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="hint-backdrop fixed inset-0 z-[900] flex items-center justify-center p-4"
       style={{ background: "rgba(2,6,10,.5)" }}
       onClick={onClose}
       role="presentation"
@@ -120,7 +128,8 @@ export function HintOverlay({ check, onClose }: { check: QuickCheckData; onClose
           <StuckList check={check} large />
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
 

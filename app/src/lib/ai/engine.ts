@@ -744,7 +744,7 @@ const ch02ClassifyBank: StepBank = {
 // Chapter 02: Step 3 — Rewrite
 const ch02RewriteBank: StepBank = {
   intro:
-    "redundancy protocol. the keypad needs the same classification written a different way.\n\nif you used switch before, rewrite it with if/else chains. if you used if/else, rewrite with switch/case.\n\nsame output. +45s on the clock if you clear it.",
+    "redundancy protocol. the keypad needs the same classification written a different way.\n\nif you used switch before, rewrite it with if/else chains. if you used if/else, rewrite with switch/case.\n\nsame output. i'm putting +2:00 on the clock for this one.",
 
   conceptFAQ: [
     {

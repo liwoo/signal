@@ -186,7 +186,7 @@ export const chapter02: Challenge = {
       id: "chapter-02:rewrite",
       title: "REWRITE",
       brief:
-        "redundancy protocol. your classification carries over — rewrite it using the other approach. if you used switch, switch to if/else chains. if you used if/else, use switch/case. same output. +45s bonus time.",
+        "redundancy protocol. your classification carries over — rewrite it using the other approach. if you used switch, switch to if/else chains. if you used if/else, use switch/case. same output. +2:00 on the clock.",
       starterCode: null, // carry the player's classification forward — they rewrite it in place
       expectedBehavior:
         "1 DENY\n2 DENY\n3 DENY\n4 WARN\n5 WARN\n6 WARN\n7 GRANT\n8 GRANT\n9 GRANT\n10 OVERRIDE",
@@ -228,7 +228,7 @@ export const chapter02: Challenge = {
         durationSeconds: 120,
         label: "REDUNDANCY CHECK",
         onExpiry: "energy_drain",
-        bonusTimeSeconds: 45,
+        bonusTimeSeconds: 120,
       },
       xp: {
         base: 75,
