@@ -24,7 +24,6 @@ import {
   getMasteredRuleIds,
   type LibraryState,
 } from "@/lib/game/library";
-import { isMainTimerExpired } from "@/lib/game/timer";
 import {
   TOKEN_GRANT_CHAPTER_03,
   useToken,
@@ -106,8 +105,6 @@ export interface GameState {
   level: number;
   attempts: number;
   inRush: boolean;
-  rushLabel: string;
-  rushSeconds: number;
   powerCut: boolean;
   interrupt: { who: string; text: string } | null;
   twist: TwistData | null;
@@ -161,7 +158,6 @@ export interface GameActions {
   setCode: (v: string) => void;
   setTab: (t: "code" | "mission" | "library" | "notes") => void;
   dismissInterrupt: () => void;
-  dismissRush: () => void;
   dismissTwist: () => void;
   removeParticle: (id: number) => void;
   removeStreak: (id: number) => void;
@@ -220,8 +216,6 @@ export function useGame(
   const [code, setCode] = useState(currentStep.starterCode ?? "");
 
   const [inRush, setInRush] = useState(false);
-  const [rushLabel, setRushLabel] = useState("");
-  const [rushSeconds, setRushSeconds] = useState(0);
   const [powerCut, setPowerCut] = useState(false);
   const [interrupt, setInterrupt] = useState<{ who: string; text: string } | null>(null);
   const [twist, setTwist] = useState<TwistData | null>(null);
@@ -249,14 +243,15 @@ export function useGame(
   xpRef.current = xp;
   const levelRef = useRef(level);
   levelRef.current = level;
-  const inRushRef = useRef(inRush);
-  inRushRef.current = inRush;
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const timerStoppedRef = useRef(timerStopped);
   timerStoppedRef.current = timerStopped;
   const backgroundPauseStartRef = useRef(0);
   const resumeAfterBackgroundRef = useRef(false);
+  // Step ids whose rush bonus has already been added to the main clock, so a
+  // re-armed scheduler can never grant the same bonus twice.
+  const rushGrantedRef = useRef<Set<string>>(new Set());
 
   // Maya typing → timer pause (mutable ref for synchronous reads)
   const pauseRef = useRef<PauseState>(createPauseState());
@@ -392,18 +387,27 @@ export function useGame(
         setInterrupt({ who: "SYSTEM", text: event.message });
         addMsg("SYS", event.message, "sys", true);
       } else if (event.type === "rush") {
-        // Find the rush config for the current step, or fall back to null
+        // Rush is a pressure *moment*, not a second countdown. It pours its
+        // bonus time straight onto the single main clock (granted up front so
+        // the player has room to do the harder step) and flips the UI into its
+        // red "rush" state. There is no separate rush timer anymore.
         const step = challenge.steps[stepIndex];
-        if (step?.rushMode) {
+        if (step?.rushMode && !rushGrantedRef.current.has(step.id)) {
+          rushGrantedRef.current.add(step.id);
+          const bonus = Math.round(step.rushMode.bonusTimeSeconds * timingScale);
           setInRush(true);
-          setRushLabel(step.rushMode.label);
-          setRushSeconds(Math.round(step.rushMode.durationSeconds * timingScale));
+          setTimerBonusSeconds((prev) => prev + bonus);
+          trackTimerBonus(challenge.id, bonus);
+          const mins = Math.floor(bonus / 60);
+          const secs = bonus % 60;
+          const clk = mins > 0 ? `+${mins}:${String(secs).padStart(2, "0")}` : `+${secs}s`;
+          addMsg("SYS", `▸ ${step.rushMode.label} · ${clk} on the clock`, "dim");
         }
       } else if (event.type === "powercut") {
         setPowerCut(true);
       }
     },
-    [addMsg, challenge.steps, stepIndex, timingScale]
+    [addMsg, challenge.id, challenge.steps, stepIndex, timingScale]
   );
 
   // Clean up schedulers on unmount
@@ -434,12 +438,9 @@ export function useGame(
     [handleEvent]
   );
 
-  // Level timer expired
+  // Level timer expired. The main clock is the only timer — rush moments just
+  // pour bonus time onto it — so its expiry always governs, even mid-rush.
   const handleTimerExpire = useCallback(() => {
-    // If rush is active, let the rush timer control the game — don't trigger game over yet.
-    // handleRushExpire will check isMainTimerExpired when the rush ends.
-    if (inRushRef.current) return;
-
     levelSchedulerRef.current.stop();
     stepSchedulerRef.current.stop();
     pauseRef.current = createPauseState();
@@ -461,23 +462,6 @@ export function useGame(
       addMsg("SYS", "▸ TIME EXPIRED · jeopardy active", "dim");
     }
   }, [challenge.timer.gameOverOnExpiry, fireJeopardy, addMsg]);
-
-  // Rush expired — check if main timer still has time
-  const handleRushExpire = useCallback(() => {
-    setInRush(false);
-    // Sync the ref immediately so handleTimerExpire doesn't early-return
-    inRushRef.current = false;
-    trackTimerExpire(challenge.id, "rush");
-    const step = challenge.steps[stepIndex];
-    if (step?.rushMode) {
-      fireJeopardy(step.rushMode.onExpiry);
-    }
-    // Check if main timer has already expired while rush was running
-    if (startTimeRef.current > 0 &&
-        isMainTimerExpired(startTimeRef.current, Date.now(), effectiveTimeLimitSeconds, timerBonusSeconds)) {
-      handleTimerExpire();
-    }
-  }, [challenge.steps, effectiveTimeLimitSeconds, stepIndex, timerBonusSeconds, fireJeopardy, handleTimerExpire]);
 
   const beginMission = useCallback(() => {
     const now = Date.now();
@@ -588,14 +572,12 @@ export function useGame(
 
     if (isComplete) {
       setSubmissionFeedback(null);
-      // Stop step-scoped events/rush
+      // Stop step-scoped events/rush. The rush bonus was already poured onto
+      // the main clock when the rush fired, so clearing it here just drops the
+      // red "rush" UI state.
       stepSchedulerRef.current.stop();
       if (wasRush) {
         setInRush(false);
-        if (currentStep.rushMode) {
-          trackTimerBonus(challenge.id, currentStep.rushMode.bonusTimeSeconds);
-          setTimerBonusSeconds((prev) => prev + currentStep.rushMode!.bonusTimeSeconds);
-        }
       }
 
       // Award XP for this step
@@ -935,6 +917,7 @@ export function useGame(
     setParticles([]);
     setStreaks([]);
     setTimerBonusSeconds(0);
+    rushGrantedRef.current.clear();
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
@@ -984,8 +967,6 @@ export function useGame(
     level,
     attempts,
     inRush,
-    rushLabel,
-    rushSeconds,
     powerCut,
     interrupt,
     twist,
@@ -1026,7 +1007,6 @@ export function useGame(
     setCode,
     setTab,
     dismissInterrupt: () => setInterrupt(null),
-    dismissRush: handleRushExpire,
     dismissTwist,
     removeParticle: (id) =>
       setParticles((p) => p.filter((x) => x.id !== id)),

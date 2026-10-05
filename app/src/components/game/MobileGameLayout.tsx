@@ -19,7 +19,6 @@ interface MobileGameLayoutProps {
   conceptPct: number;
   latestMessage?: string;
   waitingForContinue: boolean;
-  inRush: boolean;
   /**
    * Whose turn it is right now: "narrative" (Maya is speaking / paused) or
    * "code" (the player's turn to type). On each change we auto-switch the phone
@@ -48,7 +47,6 @@ export function MobileGameLayout({
   conceptPct,
   latestMessage,
   waitingForContinue,
-  inRush,
   focusMode = null,
 }: MobileGameLayoutProps) {
   const [view, setView] = useState<MobileView>("code");
@@ -79,7 +77,6 @@ export function MobileGameLayout({
       style={{
         height: height ? `${height}px` : "100dvh",
         background: "var(--color-background)",
-        paddingBottom: inRush ? "calc(48px + env(safe-area-inset-bottom))" : undefined,
       }}
     >
       <div data-tour="top-bar">{topBar}</div>

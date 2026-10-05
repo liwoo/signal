@@ -18,7 +18,6 @@ import { isStuck } from "@/lib/game/hints";
 import { extraPackagesFromModule } from "@/lib/go/completions";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
-import { RushBar } from "@/components/story/RushBar";
 import { PowerCut } from "@/components/story/PowerCut";
 import { TwistReveal } from "@/components/story/TwistReveal";
 import { XPBurst } from "@/components/story/XPBurst";
@@ -723,15 +722,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           onDone={actions.dismissTwist}
         />
       )}
-      {state.inRush && (
-        <RushBar
-          seconds={state.rushSeconds}
-          label={state.rushLabel}
-          onExpire={actions.dismissRush}
-          paused={state.timerStopped}
-          compact={isMobile}
-        />
-      )}
 
       {/* Scanline */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
@@ -748,7 +738,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       {isMobile ? (
         <MobileGameLayout
           height={mobileViewportHeight}
-          inRush={state.inRush}
           waitingForContinue={state.waitingForContinue}
           focusMode={focusMode}
           latestMessage={latestMayaMessage}
@@ -876,7 +865,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         className="h-dvh flex flex-col transition-colors duration-1000"
         style={{
           background: "var(--color-background)",
-          paddingBottom: state.inRush ? 58 : 0,
         }}
       >
         <div data-tour="top-bar">
