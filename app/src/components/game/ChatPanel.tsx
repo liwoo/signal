@@ -104,6 +104,19 @@ export function ChatPanel({
   }
   const showQuickCheck = hintOpen && !!quickCheck && !busy;
 
+  // Completed steps collapse into their divider so only the step you're on shows
+  // by default — the history is one tap away, not a wall of text. Keyed by the
+  // divider message id so expansions survive re-renders; the current step (last
+  // segment) is always open.
+  const [openSteps, setOpenSteps] = useState<Set<string>>(new Set());
+  const toggleStep = (id: string) =>
+    setOpenSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, waitingForContinue, typedIds, busy]);
@@ -124,6 +137,130 @@ export function ChatPanel({
     setTypedIds((prev) => new Set(prev).add(id));
     onEndRef.current?.();
   }, []);
+
+  // Split the transcript into step segments. A step divider ("STEP 2/4 · LOOP")
+  // starts a new segment; the leading segment (before the first divider) is the
+  // scaffold step and carries no divider of its own. Only the current step (the
+  // last segment) stays expanded by default.
+  const collapsed = collapseSystemNoise(messages);
+  const isStepDivider = (m: ChatMsg) => m.type === "dim" && /STEP\s+\d+\s*\/\s*\d+/i.test(m.text);
+  type Entry = { msg: ChatMsg; repeats: number; gi: number };
+  type Segment = { divider: ChatMsg | null; items: Entry[] };
+  const segments: Segment[] = [];
+  let seg: Segment = { divider: null, items: [] };
+  collapsed.forEach(({ msg, repeats }, gi) => {
+    if (isStepDivider(msg)) {
+      if (seg.divider || seg.items.length) segments.push(seg);
+      seg = { divider: msg, items: [] };
+    } else {
+      seg.items.push({ msg, repeats, gi });
+    }
+  });
+  segments.push(seg);
+  const total = collapsed.length;
+  const lastSegIdx = segments.length - 1;
+
+  // A completed step collapses to a single clickable divider; the current one is
+  // a plain (non-interactive) divider so it never looks dismissable.
+  const stepHeader = (key: string, label: string, done: boolean, open: boolean, onClick?: () => void) => {
+    const inner = (
+      <>
+        <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+        <span className="shrink-0 max-w-[85%] truncate inline-flex items-center gap-1.5">
+          {done && <span style={{ color: "var(--color-signal)" }}>✓</span>}
+          {label}
+          {onClick && (
+            <span className="text-[8px]" style={{ opacity: 0.6 }}>
+              {open ? "▾" : "▸"}
+            </span>
+          )}
+        </span>
+        <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+      </>
+    );
+    const cls = "msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700";
+    return onClick ? (
+      <button
+        key={key}
+        type="button"
+        onClick={onClick}
+        aria-expanded={open}
+        className={`${cls} w-full text-left cursor-pointer`}
+        style={{ color: "var(--color-dim)", opacity: 0.7 }}
+      >
+        {inner}
+      </button>
+    ) : (
+      <div key={key} className={cls} style={{ color: "var(--color-dim)" }}>
+        {inner}
+      </div>
+    );
+  };
+
+  const renderMessage = ({ msg: m, repeats, gi }: Entry) => {
+    const distFromEnd = total - 1 - gi;
+    // Recency fade: older messages recede but stay readable.
+    const opacity = distFromEnd < 2 ? 1 : Math.max(0.4, 1 - (distFromEnd - 1) * 0.15);
+    const isMaya = MAYA_TYPES.has(m.type);
+    const isLastMsg = m.id === lastMsgId;
+    const hasFinishedTyping = typedIds.has(m.id);
+    const isSystem = m.type === "dim" || m.type === "sys";
+
+    // Non-step system lines are status chips, not conversation.
+    if (isSystem) {
+      return (
+        <div
+          key={m.id}
+          className="msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700"
+          style={{ opacity, color: m.type === "sys" ? "var(--color-alert)" : "var(--color-dim)" }}
+        >
+          <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+          <span className="shrink-0 max-w-[85%] truncate">
+            {m.text.replace(/^▸\s*/, "")}
+            {repeats > 1 ? ` ×${repeats}` : ""}
+          </span>
+          <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
+        </div>
+      );
+    }
+
+    const isZen = m.type === "zen";
+    return (
+      <div
+        key={m.id}
+        className={`msg-enter leading-[1.6] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[15px]"} ${isZen ? "border-l-[3px] px-3 py-2" : ""}`}
+        style={{
+          opacity,
+          ...(isZen ? {
+            borderColor: "var(--color-info)",
+            background: "color-mix(in srgb, var(--color-info) 6%, transparent)",
+          } : {}),
+        }}
+      >
+        <div className="mb-px">
+          <span
+            className="text-[8px] tracking-[2px]"
+            style={{ color: MSG_COLORS[m.type], opacity: 0.7 }}
+          >
+            {isZen ? "ZEN NOTE · MAYA" : m.from}
+          </span>
+        </div>
+        <div
+          className="whitespace-pre-wrap break-words"
+          style={{ color: MSG_COLORS[m.type] }}
+        >
+          <MessageContent
+            msg={m}
+            isMaya={isMaya}
+            isLastMsg={isLastMsg}
+            hasFinishedTyping={hasFinishedTyping}
+            onTypingStart={handleTypingStart}
+            onTypingEnd={handleTypingEnd}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -152,67 +289,30 @@ export function ChatPanel({
             routing<span className="cursor-blink">...</span>
           </div>
         )}
-        {collapseSystemNoise(messages).map(({ msg: m, repeats }, i, list) => {
-          const distFromEnd = list.length - 1 - i;
-          // Recency fade: older messages recede but stay readable.
-          const opacity = distFromEnd < 2 ? 1 : Math.max(0.4, 1 - (distFromEnd - 1) * 0.15);
-          const isMaya = MAYA_TYPES.has(m.type);
-          const isLastMsg = m.id === lastMsgId;
-          const hasFinishedTyping = typedIds.has(m.id);
-          const isSystem = m.type === "dim" || m.type === "sys";
+        {segments.map((segment, si) => {
+          const isCurrent = si === lastSegIdx;
+          const dividerLabel = segment.divider
+            ? segment.divider.text.replace(/^▸\s*/, "")
+            : "STEP 1";
+          const headerKey = segment.divider ? segment.divider.id : "__scaffold__";
+          const open = isCurrent || openSteps.has(headerKey);
 
-          // System lines are status chips, not conversation.
-          if (isSystem) {
-            return (
-              <div
-                key={m.id}
-                className="msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700"
-                style={{ opacity, color: m.type === "sys" ? "var(--color-alert)" : "var(--color-dim)" }}
-              >
-                <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
-                <span className="shrink-0 max-w-[85%] truncate">
-                  {m.text.replace(/^▸\s*/, "")}
-                  {repeats > 1 ? ` ×${repeats}` : ""}
-                </span>
-                <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
-              </div>
-            );
-          }
-
-          const isZen = m.type === "zen";
           return (
-            <div
-              key={m.id}
-              className={`msg-enter leading-[1.6] transition-opacity duration-700 ${compact ? "text-[14px]" : "text-[15px]"} ${isZen ? "border-l-[3px] px-3 py-2" : ""}`}
-              style={{
-                opacity,
-                ...(isZen ? {
-                  borderColor: "var(--color-info)",
-                  background: "color-mix(in srgb, var(--color-info) 6%, transparent)",
-                } : {}),
-              }}
-            >
-              <div className="mb-px">
-                <span
-                  className="text-[8px] tracking-[2px]"
-                  style={{ color: MSG_COLORS[m.type], opacity: 0.7 }}
-                >
-                  {isZen ? "ZEN NOTE · MAYA" : m.from}
-                </span>
-              </div>
-              <div
-                className="whitespace-pre-wrap break-words"
-                style={{ color: MSG_COLORS[m.type] }}
-              >
-                <MessageContent
-                  msg={m}
-                  isMaya={isMaya}
-                  isLastMsg={isLastMsg}
-                  hasFinishedTyping={hasFinishedTyping}
-                  onTypingStart={handleTypingStart}
-                  onTypingEnd={handleTypingEnd}
-                />
-              </div>
+            <div key={headerKey} className="flex flex-col gap-2">
+              {/* Divider / collapse toggle. The scaffold step has no divider of
+                  its own, so it only shows a header once a later step exists. */}
+              {segment.divider
+                ? stepHeader(
+                    headerKey,
+                    dividerLabel,
+                    !isCurrent,
+                    open,
+                    isCurrent ? undefined : () => toggleStep(headerKey),
+                  )
+                : !isCurrent &&
+                  stepHeader(headerKey, dividerLabel, true, open, () => toggleStep(headerKey))}
+
+              {open && segment.items.map((entry) => renderMessage(entry))}
             </div>
           );
         })}
