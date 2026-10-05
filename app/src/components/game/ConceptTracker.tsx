@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { summarizeCurriculum, type ConceptStatus } from "@/lib/game/curriculum";
 
 interface ConceptTrackerProps {
@@ -31,6 +32,25 @@ const STATUS_MARK: Record<ConceptStatus, string> = {
  */
 export function ConceptTracker({ completedChapterIds, currentChapterId, compact = false }: ConceptTrackerProps) {
   const summary = summarizeCurriculum(completedChapterIds, currentChapterId);
+
+  // Only the act you're inside is exploded into chips; every other act stays a
+  // quiet one-line header so the road ahead is still visible without the wall of
+  // ~40 chips. The current act auto-opens (and re-opens when it changes); the
+  // player can expand any other act to peek ahead or review what they've done.
+  const currentAct = summary.acts.find((a) => a.chapters.some((c) => c.status === "current"))?.act ?? null;
+  const [openActs, setOpenActs] = useState<Set<string>>(new Set(currentAct ? [currentAct] : []));
+  const [lastCurrentAct, setLastCurrentAct] = useState<string | null>(currentAct);
+  if (currentAct !== lastCurrentAct) {
+    setLastCurrentAct(currentAct);
+    if (currentAct) setOpenActs((prev) => new Set(prev).add(currentAct));
+  }
+  const toggleAct = (act: string) =>
+    setOpenActs((prev) => {
+      const next = new Set(prev);
+      if (next.has(act)) next.delete(act);
+      else next.add(act);
+      return next;
+    });
 
   return (
     <div className="flex h-full flex-col" style={{ background: "rgba(4,9,15,.6)" }}>
@@ -69,7 +89,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
       {/* Concepts grouped only by act number — chapter/boss names are hidden to
           keep the story a mystery; the concepts themselves are the whole point. */}
       <div className={`min-h-0 flex-1 overflow-y-auto ${compact ? "px-3 py-2.5" : "px-4 py-3"}`}>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           {summary.acts.map((act) => {
             // Flatten the act's chapters into concept chips, each keeping its
             // own coverage status. Bosses carry no concepts, so they drop out.
@@ -78,37 +98,72 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
               .flatMap((chapter) => chapter.concepts.map((concept) => ({ concept, status: chapter.status })));
             if (items.length === 0) return null;
 
+            const hasCurrent = items.some((it) => it.status === "current");
+            const isOpen = openActs.has(act.act);
+            // Header tone follows the act's own state so the eye lands on the
+            // live act first, then completed ones, then the dim road ahead.
+            const headColor = hasCurrent
+              ? "var(--color-alert)"
+              : act.covered
+                ? "var(--color-signal)"
+                : "var(--color-dim)";
+
             return (
-              <div key={act.act}>
-                <div className="mb-2">
-                  <span
-                    className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
-                    style={{ color: act.covered ? "var(--color-signal)" : "var(--color-foreground)" }}
-                  >
-                    ACT {act.act}
+              <div key={act.act} className="py-1">
+                <button
+                  type="button"
+                  onClick={() => toggleAct(act.act)}
+                  className="flex w-full items-center justify-between gap-2 text-left cursor-pointer"
+                  aria-expanded={isOpen}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block w-2 text-[8px] transition-transform"
+                      style={{ color: "var(--color-dim)", transform: isOpen ? "rotate(90deg)" : "none" }}
+                    >
+                      ▸
+                    </span>
+                    <span
+                      className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
+                      style={{ color: headColor }}
+                    >
+                      ACT {act.act}
+                    </span>
                   </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {items.map(({ concept, status }) => {
-                    const color = STATUS_COLOR[status];
-                    const faded = status === "upcoming" || status === "planned";
-                    return (
-                      <span
-                        key={concept}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] leading-none"
-                        style={{
-                          color,
-                          border: `1px solid color-mix(in srgb, ${color} ${faded ? "20%" : "45%"}, transparent)`,
-                          background: faded ? "transparent" : `color-mix(in srgb, ${color} 8%, transparent)`,
-                          opacity: status === "planned" ? 0.6 : 1,
-                        }}
-                      >
-                        <span style={{ fontSize: "9px" }}>{STATUS_MARK[status]}</span>
-                        {concept}
-                      </span>
-                    );
-                  })}
-                </div>
+                  <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+                    {act.covered ? "✓" : `${items.length}`}
+                  </span>
+                </button>
+
+                {isOpen && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 pl-3.5">
+                    {items.map(({ concept, status }) => {
+                      const color = STATUS_COLOR[status];
+                      // Hierarchy: done/active chips keep a soft box; reachable
+                      // ones get a hairline; planned ones lose the box entirely
+                      // and recede so they read as "later, not now".
+                      const boxed = status === "covered" || status === "current";
+                      const borderless = status === "planned";
+                      return (
+                        <span
+                          key={concept}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] leading-none"
+                          style={{
+                            color,
+                            border: borderless
+                              ? "none"
+                              : `1px solid color-mix(in srgb, ${color} ${boxed ? "45%" : "15%"}, transparent)`,
+                            background: boxed ? `color-mix(in srgb, ${color} 8%, transparent)` : "transparent",
+                            opacity: status === "planned" ? 0.5 : status === "upcoming" ? 0.8 : 1,
+                          }}
+                        >
+                          <span style={{ fontSize: "9px" }}>{STATUS_MARK[status]}</span>
+                          {concept}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
