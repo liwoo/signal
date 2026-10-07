@@ -1,0 +1,13 @@
+import { chromium } from "@playwright/test";
+const browser = await chromium.launch({ args: ["--headless=new", "--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
+await page.goto("http://localhost:3131/play", { waitUntil: "networkidle" });
+await page.waitForTimeout(800);
+await page.getByRole("button", { name: /CONNECT TO MAYA|START CHAPTER/ }).first().tap();
+await page.waitForTimeout(4000);
+await page.screenshot({ path: "../.context/adventure/mobile-01.png" });
+await page.touchscreen.tap(250, 420);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: "../.context/adventure/mobile-02-tapped.png" });
+await browser.close();

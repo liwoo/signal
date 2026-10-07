@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Orbitron, JetBrains_Mono } from "next/font/google";
+import { Orbitron, JetBrains_Mono, Crimson_Pro, Caveat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { FirebaseInit } from "@/components/FirebaseInit";
 import "./globals.css";
@@ -12,6 +12,20 @@ const orbitron = Orbitron({
 
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+// The field manual: a book serif for the chapters, a hand for Reeves' margin notes.
+const crimson = Crimson_Pro({
+  variable: "--font-book",
+  subsets: ["latin"],
+  display: "swap",
+  style: ["normal", "italic"],
+});
+
+const caveat = Caveat({
+  variable: "--font-hand",
   subsets: ["latin"],
   display: "swap",
 });
@@ -68,7 +82,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${orbitron.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${orbitron.variable} ${jetbrainsMono.variable} ${crimson.variable} ${caveat.variable} antialiased`}
       >
         {children}
         <Analytics />

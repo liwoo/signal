@@ -1,0 +1,24 @@
+// Scripted scenario: chapter 1 intro — pry the panel, take the chapter, see the found card.
+import { chromium } from "@playwright/test";
+const out = process.argv[2] ?? "/tmp/adventure";
+const browser = await chromium.launch({ args: ["--headless=new", "--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
+await page.goto("http://localhost:3131/dev/adventure?level=chapter-01-intro&autoplay=1&sound=0", { waitUntil: "networkidle" });
+const read = () => page.evaluate(() => { const s = window.__adventure.sim; return { t: Math.round(s.time), status: s.status, obj: s.objectiveIndex, maya: [s.maya.x.toFixed(1), s.maya.y.toFixed(1)], taken: [...s.taken], thought: s.thought }; });
+await page.waitForTimeout(3400);
+await page.evaluate(() => window.__adventure.moveTo(3.5, 6.5));
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${out}/book-01-in-cell.png` });
+await page.evaluate(() => window.__adventure.interactWith("crate-1"));
+await page.waitForTimeout(3400);
+console.log("after panel", JSON.stringify(await read()));
+await page.evaluate(() => window.__adventure.interactWith("book-1"));
+await page.waitForTimeout(4200);
+console.log("after book", JSON.stringify(await read()));
+await page.screenshot({ path: `${out}/book-02-found-card.png` });
+await page.keyboard.press("Enter");
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/book-03-kept.png` });
+console.log("kept", JSON.stringify(await read()));
+await browser.close();

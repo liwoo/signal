@@ -25,6 +25,17 @@
 
   --font-display: "Orbitron", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  --font-book: "Crimson Pro", Georgia, "Times New Roman", serif;
+  --font-hand: "Caveat", cursive;
+
+  /* The field manual — paper, ink, leather, gilt */
+  --color-paper: #f1e8d6;
+  --color-paper-shade: #d6c8aa;
+  --color-ink: #2a2420;
+  --color-ink-soft: #5c5046;
+  --color-leather: #4a1e22;
+  --color-leather-dark: #2a1013;
+  --color-gilt: #c9a55a;
 }
 
 body {
@@ -358,6 +369,37 @@ textarea {
   transform-origin: center;
 }
 
+/* Adventure stage (playable story beats): cue flash, alarm wash, pulsing prompt */
+@keyframes adventure-flash {
+  0% { opacity: 0.55; }
+  100% { opacity: 0; }
+}
+
+.adventure-flash {
+  animation: adventure-flash 520ms ease-out both;
+  pointer-events: none;
+}
+
+@keyframes adventure-alarm {
+  0%, 100% { opacity: 0.04; }
+  50% { opacity: 0.16; }
+}
+
+.adventure-alarm {
+  animation: adventure-alarm 1100ms ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+@keyframes adventure-prompt {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.adventure-prompt {
+  animation: adventure-prompt 900ms ease-in-out infinite;
+}
+
 /* Secondary actions ("or ENTER", skip, don't show again): visible at rest, bright on hover/focus */
 .btn-secondary:hover,
 .btn-secondary:focus-visible {
@@ -448,4 +490,116 @@ textarea {
   40% { transform: translateX(3px); }
   60% { transform: translateX(-2px); }
   80% { transform: translateX(2px); }
+}
+
+/* ── The field manual (BookReader / BookCover) ──
+   A real book without border-radius or box-shadow: paper grain is an SVG noise
+   layer, page shading and spine shadow are gradients. */
+.book-paper {
+  background-color: var(--color-paper);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--color-ink);
+}
+
+.book-page-left {
+  background-image:
+    linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 86%, rgba(60,40,20,0.10) 94%, rgba(40,25,10,0.32) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0) 12%, rgba(0,0,0,0) 90%, rgba(0,0,0,0.06));
+}
+
+.book-page-right {
+  background-image:
+    linear-gradient(270deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 86%, rgba(60,40,20,0.10) 94%, rgba(40,25,10,0.32) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0) 12%, rgba(0,0,0,0) 90%, rgba(0,0,0,0.06));
+}
+
+/* Stacked page edges peeking out below and beside the open book */
+.book-edges-bottom {
+  background-image: repeating-linear-gradient(180deg, var(--color-paper) 0 1px, var(--color-paper-shade) 1px 2px);
+}
+
+.book-leather {
+  background-color: var(--color-leather);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23l)'/%3E%3C/svg%3E"),
+    linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 9%, rgba(255,255,255,0.06) 14%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.25) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0) 20%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.3));
+}
+
+.book-gilt {
+  color: var(--color-gilt);
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6), 0 0 6px rgba(201,165,90,0.35);
+}
+
+.book-emboss {
+  color: rgba(0,0,0,0.35);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.book-desk {
+  background-color: #1a1210;
+  background-image:
+    radial-gradient(ellipse at 50% 42%, rgba(255,214,140,0.16), rgba(0,0,0,0) 55%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0 2px, rgba(0,0,0,0) 2px 9px),
+    linear-gradient(180deg, #221815, #120c0a);
+}
+
+@keyframes book-turn-next {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(-88deg); }
+}
+
+@keyframes book-turn-prev {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(88deg); }
+}
+
+@keyframes book-land {
+  0% { transform: rotateY(-88deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+.book-turning-next .book-page-right {
+  transform-origin: left center;
+  animation: book-turn-next 300ms ease-in both;
+}
+
+.book-turning-prev .book-page-left {
+  transform-origin: right center;
+  animation: book-turn-prev 300ms ease-in both;
+}
+
+.book-landing .book-page-left {
+  transform-origin: right center;
+  animation: book-land 260ms ease-out both;
+}
+
+.book-drop-cap::first-letter {
+  float: left;
+  font-size: 3.1em;
+  line-height: 0.82;
+  padding: 0.08em 0.1em 0 0;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.book-hotspot {
+  cursor: pointer;
+  border-bottom: 1px dotted var(--color-ink-soft);
+  background: rgba(201,165,90,0.18);
+}
+
+.book-hotspot-read {
+  border-bottom: 1px solid var(--color-ink-soft);
+  background: rgba(201,165,90,0.05);
+}
+
+@keyframes book-found-in {
+  0% { opacity: 0; transform: translate3d(0, 24px, 0) rotate(-4deg) scale(0.92); }
+  100% { opacity: 1; transform: none; }
+}
+
+.book-found-in {
+  animation: book-found-in 620ms cubic-bezier(.22, 1, .36, 1) both;
 }

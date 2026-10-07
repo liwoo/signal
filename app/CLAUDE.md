@@ -60,6 +60,12 @@ src/
 - **Autocomplete for shipped packages is automatic.** `extraPackagesFromModule(compileModule)` (in `src/lib/go/completions.ts`) parses exported `const`/`var`/`func`/`type`; `play/page.tsx` passes the result as `CodeEditor`'s `extraPackages` prop. So `pkg.` lists members and a bare prefix suggests the package once imported. Don't hardcode game packages into the stdlib registry.
 - **Every chapter's scaffold step starts by printing `Hello World` into an empty editor** (`starterCode: ""`, no injected code) — printing teases out package/import/main naturally. Don't frame scaffold steps as "set up the skeleton." Example follow-on: Ch1 Step 2 imports `terminal/cellblock` and prints `Cell`/`Sublevel` (teaches importing a package's exported members, blocks hardcoding).
 
+### Adventure Levels (playable story beats)
+
+- **Cinematics are now playable.** Each chapter's intro and aftermath is an `AdventureLevel` (`src/lib/adventure/levels.ts`): a Sims-style 3D stealth beat where the player steers Maya and she only relinquishes control at her terminal. `ChapterConfig.introLevel` / `completeLevel` in `play/page.tsx`; the old `introScenes` / `completeScenes` are the WebGL fallback only.
+- **The field manual.** Reeves' book *GO: A Field Manual* (`src/data/book.ts`) is the teaching device: every intro level hides exactly one chapter (`B` tile + `TAKE THE PAGES` objective before the terminal — enforced by tests), and the found chapter is the chapter's beginner notes rendered as a real book by `src/components/book/BookReader.tsx` (which replaced `BeginnerOverlay` in the pre-round flow). Preview: `/dev/book?chapter=<id>`. Reeves is she/her.
+- **Sim logic is pure** (`src/lib/adventure/{grid,sim}.ts`, no React/DOM); rendering lives in `src/components/adventure/`. New levels must pass `src/lib/adventure/levels.test.ts` (reachability, guard routes, lowercase voice). See `.claude/skills/adventure-level/` for the map legend, objective/cue shapes, and the `/dev/adventure` + `test-visual/*adventure*.mjs` QA loop.
+
 ## Reference Files
 
 - **Design doc:** `../docs/design.md` — game mechanics, story arc, curriculum map

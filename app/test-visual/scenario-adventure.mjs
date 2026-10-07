@@ -1,0 +1,24 @@
+// Scripted scenario: walk the boss intro from Reeves to the sirens, screenshotting along the way.
+import { chromium } from "@playwright/test";
+const out = process.argv[2] ?? "/tmp/adventure";
+const browser = await chromium.launch({ args: ["--headless=new", "--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
+await page.goto("http://localhost:3131/dev/adventure?level=boss-01-intro&autoplay=1&sound=0", { waitUntil: "networkidle" });
+const read = () => page.evaluate(() => { const s = window.__adventure.sim; return { t: Math.round(s.time), status: s.status, obj: s.objectiveIndex, maya: [s.maya.x.toFixed(1), s.maya.y.toFixed(1)], alarm: s.alarm, doors: [...s.openDoors], guards: s.guards.map((g) => [g.id, g.active, g.x.toFixed(1), g.y.toFixed(1), g.seesMaya]), thought: s.thought };});
+await page.waitForTimeout(3400);
+await page.evaluate(() => window.__adventure.interactWith("npc-1"));
+await page.waitForTimeout(2500);
+console.log("listening", JSON.stringify(await read()));
+await page.screenshot({ path: `${out}/scenario-01-listening.png` });
+await page.waitForTimeout(4500);
+console.log("sirens", JSON.stringify(await read()));
+await page.screenshot({ path: `${out}/scenario-02-sirens.png` });
+await page.evaluate(() => window.__adventure.moveTo(13.5, 3.5));
+await page.waitForTimeout(3200);
+console.log("corridor", JSON.stringify(await read()));
+await page.screenshot({ path: `${out}/scenario-03-corridor.png` });
+await page.waitForTimeout(2500);
+console.log("later", JSON.stringify(await read()));
+await page.screenshot({ path: `${out}/scenario-04-later.png` });
+await browser.close();
