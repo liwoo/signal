@@ -30,7 +30,22 @@ import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
 import { ConceptTracker } from "@/components/game/ConceptTracker";
 import { summarizeCurriculum } from "@/lib/game/curriculum";
-import { CinematicScene } from "@/components/story/CinematicScene";
+import { AdventureLevel } from "@/components/adventure/AdventureLevel";
+import type { AdventureLevel as AdventureLevelDef } from "@/lib/adventure/types";
+import {
+  CHAPTER_01_INTRO_LEVEL,
+  CHAPTER_01_COMPLETE_LEVEL,
+  CHAPTER_02_INTRO_LEVEL,
+  CHAPTER_02_COMPLETE_LEVEL,
+  CHAPTER_03_INTRO_LEVEL,
+  CHAPTER_03_COMPLETE_LEVEL,
+  BOSS_01_INTRO_LEVEL,
+  BOSS_01_COMPLETE_LEVEL,
+  CHAPTER_04_INTRO_LEVEL,
+  CHAPTER_04_COMPLETE_LEVEL,
+  CHAPTER_04_2_INTRO_LEVEL,
+  CHAPTER_04_2_COMPLETE_LEVEL,
+} from "@/lib/adventure/levels";
 import { MayaAnimation } from "@/components/story/MayaAnimation";
 import { PixiScene } from "@/components/story/PixiScene";
 import {
@@ -50,7 +65,8 @@ import {
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
-import { BeginnerOverlay } from "@/components/game/BeginnerOverlay";
+import { BookReader } from "@/components/book/BookReader";
+import { bookChapterFor } from "@/data/book";
 import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGameLayout } from "@/components/game/MobileGameLayout";
 import { Warmup } from "@/components/game/Warmup";
@@ -94,8 +110,12 @@ const DEFAULT_CAM = { scene: "cell" as SceneType, animation: "hack" as CharAnima
 interface ChapterConfig {
   challenge: Challenge;
   twist?: { headline: string; lines: string[] };
+  /** Legacy film shots — now the WebGL fallback for the playable beats. */
   introScenes: SceneDefinition[];
   completeScenes: SceneDefinition[];
+  /** Playable story beats: the player steers Maya until she reaches her terminal. */
+  introLevel: AdventureLevelDef;
+  completeLevel: AdventureLevelDef;
   introTitle: string;
   introSubtitle: string;
   completeTitle: string;
@@ -114,6 +134,8 @@ const CHAPTERS: ChapterConfig[] = [
     twist: chapter01Twist,
     introScenes: INTRO_SCENES,
     completeScenes: CHAPTER_01_COMPLETE_SCENES,
+    introLevel: CHAPTER_01_INTRO_LEVEL,
+    completeLevel: CHAPTER_01_COMPLETE_LEVEL,
     introTitle: "SIGNAL",
     introSubtitle: "FIRST CONTACT",
     completeTitle: "CHAPTER 1 COMPLETE",
@@ -130,6 +152,8 @@ const CHAPTERS: ChapterConfig[] = [
     twist: chapter02Twist,
     introScenes: CHAPTER_02_INTRO_SCENES,
     completeScenes: CHAPTER_02_COMPLETE_SCENES,
+    introLevel: CHAPTER_02_INTRO_LEVEL,
+    completeLevel: CHAPTER_02_COMPLETE_LEVEL,
     introTitle: "CHAPTER 2",
     introSubtitle: "DOOR CODE",
     completeTitle: "CHAPTER 2 COMPLETE",
@@ -146,6 +170,8 @@ const CHAPTERS: ChapterConfig[] = [
     twist: chapter03Twist,
     introScenes: CHAPTER_03_INTRO_SCENES,
     completeScenes: CHAPTER_03_COMPLETE_SCENES,
+    introLevel: CHAPTER_03_INTRO_LEVEL,
+    completeLevel: CHAPTER_03_COMPLETE_LEVEL,
     introTitle: "CHAPTER 3",
     introSubtitle: "SHAFT CODES",
     completeTitle: "CHAPTER 3 COMPLETE",
@@ -162,6 +188,8 @@ const CHAPTERS: ChapterConfig[] = [
     bossFightConfig: boss01Config,
     introScenes: BOSS_01_INTRO_SCENES,
     completeScenes: BOSS_01_COMPLETE_SCENES,
+    introLevel: BOSS_01_INTRO_LEVEL,
+    completeLevel: BOSS_01_COMPLETE_LEVEL,
     introTitle: "BOSS FIGHT",
     introSubtitle: "LOCKMASTER",
     completeTitle: "BOSS DEFEATED",
@@ -178,6 +206,8 @@ const CHAPTERS: ChapterConfig[] = [
     twist: chapter04Twist,
     introScenes: CHAPTER_04_INTRO_SCENES,
     completeScenes: CHAPTER_04_COMPLETE_SCENES,
+    introLevel: CHAPTER_04_INTRO_LEVEL,
+    completeLevel: CHAPTER_04_COMPLETE_LEVEL,
     introTitle: "CHAPTER 4",
     introSubtitle: "GUARD ROSTER",
     completeTitle: "CHAPTER 4 COMPLETE",
@@ -194,6 +224,8 @@ const CHAPTERS: ChapterConfig[] = [
     twist: chapter04_2Twist,
     introScenes: CHAPTER_04_2_INTRO_SCENES,
     completeScenes: CHAPTER_04_2_COMPLETE_SCENES,
+    introLevel: CHAPTER_04_2_INTRO_LEVEL,
+    completeLevel: CHAPTER_04_2_COMPLETE_LEVEL,
     introTitle: "CHAPTER 4.2",
     introSubtitle: "CIPHER RELAY",
     completeTitle: "CHAPTER 4.2 COMPLETE",
@@ -475,12 +507,14 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   if (showCinematic) {
     return (
-      <CinematicScene
-        scenes={introScenes}
-        title={config.introTitle}
-        subtitle={config.introSubtitle}
+      <AdventureLevel
+        level={config.introLevel}
+        fallbackScenes={introScenes}
+        fallbackTitle={config.introTitle}
+        fallbackSubtitle={config.introSubtitle}
         soundEnabled={settings.soundEnabled}
         loopsEnabled={musicOn}
+        compact={isMobile}
         onComplete={() => {
           // The gesture-anchored drone from the intro screen ends with the film.
           audio.stopLoop("dark-drone-1", 1500);
@@ -513,8 +547,9 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   if (showBeginner && beginnerNotes) {
     return (
-      <BeginnerOverlay
+      <BookReader
         notes={beginnerNotes}
+        chapter={bookChapterFor(challenge.id)}
         chapterId={challenge.id}
         soundEnabled={settings.soundEnabled}
         fontScale={settings.tutorialFontScale ?? 2}
@@ -583,12 +618,14 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   if (bossVictory) {
     if (!showWinCinematic) {
       return (
-        <CinematicScene
-          scenes={completeScenes}
-          title={config.completeTitle}
-          subtitle={config.completeSubtitle}
+        <AdventureLevel
+          level={config.completeLevel}
+          fallbackScenes={completeScenes}
+          fallbackTitle={config.completeTitle}
+          fallbackSubtitle={config.completeSubtitle}
           soundEnabled={settings.soundEnabled}
           loopsEnabled={musicOn}
+          compact={isMobile}
           onComplete={() => setShowWinCinematic(true)}
         />
       );
@@ -627,12 +664,14 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   if (state.phase === "win") {
     if (!showWinCinematic) {
       return (
-        <CinematicScene
-          scenes={completeScenes}
-          title={config.completeTitle}
-          subtitle={config.completeSubtitle}
+        <AdventureLevel
+          level={config.completeLevel}
+          fallbackScenes={completeScenes}
+          fallbackTitle={config.completeTitle}
+          fallbackSubtitle={config.completeSubtitle}
           soundEnabled={settings.soundEnabled}
           loopsEnabled={musicOn}
+          compact={isMobile}
           onComplete={() => setShowWinCinematic(true)}
         />
       );

@@ -11,12 +11,14 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
+    "@types/three": "^0.186.0",
     "@vercel/analytics": "^1.6.1",
     "firebase": "^12.10.0",
     "next": "16.1.6",
     "pixi.js": "^8.16.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
