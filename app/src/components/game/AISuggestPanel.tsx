@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AISuggestion } from "@/lib/game/ai-tokens";
 
 interface AISuggestPanelProps {
@@ -18,6 +18,19 @@ export function AISuggestPanel({
 }: AISuggestPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = suggestions.find((s) => s.id === selectedId);
+
+  // Escape always dismisses the panel — it's a full-cover overlay, so there's
+  // no backdrop to tap. Players kept getting stuck inside it otherwise.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
     <div
@@ -54,16 +67,22 @@ export function AISuggestPanel({
         </div>
         <button
           onClick={onClose}
-          className="bg-transparent text-[var(--color-dim)] text-[9px] cursor-pointer px-2 py-1 transition-colors"
-          style={{ border: "1px solid rgba(255,255,255,.06)" }}
+          aria-label="Close AI assist"
+          className="flex min-h-9 items-center gap-1.5 bg-transparent text-[10px] tracking-[1px] cursor-pointer px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
+          style={{
+            color: "var(--color-foreground)",
+            border: "1px solid rgba(255,255,255,.18)",
+          }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--color-foreground)";
+            e.currentTarget.style.background = "rgba(255,255,255,.06)";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,.35)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--color-dim)";
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.borderColor = "rgba(255,255,255,.18)";
           }}
         >
-          ESC
+          <span className="text-[12px] leading-none">✕</span> CLOSE
         </button>
       </div>
 

@@ -253,6 +253,10 @@ export function useGame(
   // re-armed scheduler can never grant the same bonus twice.
   const rushGrantedRef = useRef<Set<string>>(new Set());
 
+  // Step ids that have already paid out a one-time "reached the final
+  // checkpoint" time grant, so a retry/replay can't award it twice.
+  const finalCheckpointBonusRef = useRef<Set<string>>(new Set());
+
   // Maya typing → timer pause (mutable ref for synchronous reads)
   const pauseRef = useRef<PauseState>(createPauseState());
   const queuedEventsRef = useRef<TimedEvent[]>([]);
@@ -685,6 +689,24 @@ export function useGame(
             if (nextStep.starterCode !== null) setCode(nextStep.starterCode);
             startStepEvents(nextStep);
             showStreak(`STEP ${nextStepIndex + 1}/${challenge.steps.length}`);
+            // Reaching the final checkpoint of the variadic round pours two
+            // extra minutes onto the single main clock, up front, so there's
+            // room to finish the hardest step. One-time, guarded against replay.
+            const isFinalCheckpoint = nextStepIndex === challenge.steps.length - 1;
+            if (
+              challenge.id === "chapter-03" &&
+              isFinalCheckpoint &&
+              !finalCheckpointBonusRef.current.has(nextStep.id)
+            ) {
+              finalCheckpointBonusRef.current.add(nextStep.id);
+              const bonus = Math.round(120 * timingScale);
+              setTimerBonusSeconds((prev) => prev + bonus);
+              trackTimerBonus(challenge.id, bonus);
+              const mins = Math.floor(bonus / 60);
+              const secs = bonus % 60;
+              const clk = mins > 0 ? `+${mins}:${String(secs).padStart(2, "0")}` : `+${secs}s`;
+              addMsg("SYS", `▸ final checkpoint · ${clk} on the clock`, "dim");
+            }
             // Persist mid-chapter state
             onSaveRef.current?.({
               xp: xp + totalEarned,
@@ -918,6 +940,7 @@ export function useGame(
     setStreaks([]);
     setTimerBonusSeconds(0);
     rushGrantedRef.current.clear();
+    finalCheckpointBonusRef.current.clear();
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
