@@ -7,6 +7,7 @@
 // x → x and y → z, with tile size 1. Angles are atan2(dy, dx) in grid space.
 
 import type { CharAnimation } from "@/lib/sprites/character-painter";
+import type { BossAnimation } from "@/lib/sprites/boss-painter";
 
 export type TileKind =
   | "void"
@@ -208,6 +209,73 @@ export interface AdventureLevel {
   opening?: string;
   /** Hand-off label when control passes to the player's editor. Default "CONTROL → TERMINAL". */
   handoff?: string;
+  /** When present, this is a boss-fight level: a real-time physical duel in 3D, with coding at cover. */
+  boss?: BossDef;
+}
+
+// ── Boss fight (physical 3D duel + code-at-cover) ──
+// The boss fight reuses the adventure grid/movement/renderer. The player steers
+// Maya through the arena dodging the boss's fire; her weapon is parameterised by
+// a config she *codes* — ducking to a cover tile freezes the fight and opens the
+// editor. Better code = a better weapon. Boss HP falls to a floor per phase; each
+// floor "hardens" the boss until Maya recodes at cover for the next tier.
+
+/** The weapon's behaviour, produced by the player's Go program and parsed from its stdout. */
+export interface WeaponConfig {
+  /** HP removed per shot. */
+  damage: number;
+  /** Milliseconds between shots (lower = faster). */
+  fireRateMs: number;
+  /** Firing range in tiles. Maya must be this close with a clear line to hit. */
+  range: number;
+}
+
+/** One escalating coding beat. Reaching cover while a phase is un-armed opens its task. */
+export interface BossPhase {
+  id: string;
+  /** Boss HP floor for this phase — the weapon can't drain below it until the next phase is coded. 0 for the last phase. */
+  floor: number;
+  /** Plain-language WHY this rearm matters (green WHY line). */
+  stake: string;
+  /** Short WHAT — the action, one line. */
+  brief: string;
+  /** Code the player starts from in the cover editor. */
+  starterCode: string;
+  /** Exact stdout (trimmed) the correct program prints. */
+  expectedOutput: string;
+  /** The weapon the correct program yields. Applied when the output matches. */
+  weapon: WeaponConfig;
+  /** One-line hint shown if the player is stuck. */
+  hint: string;
+  /** Maya's line when this phase arms. */
+  armed?: string;
+  /** Maya's line when the boss hardens into this phase. */
+  onGate?: string;
+}
+
+export interface BossDef {
+  name: string;
+  /** Starting (and max) HP. */
+  hp: number;
+  /** Interactable id of the boss anchor tile in the map (e.g. "lockmaster-1"). */
+  anchor: string;
+  /** Milliseconds between boss attacks (randomised in range). */
+  attackMinMs: number;
+  attackMaxMs: number;
+  /** How long the boss charges before a shot lands (telegraph window). */
+  telegraphMs: number;
+  /** Projectile travel speed, tiles/second. */
+  projectileSpeed: number;
+  /** A shot within this radius of Maya (and not in cover) costs a heart. */
+  blastRadius: number;
+  /** Ordered coding beats. The last phase must have floor 0. */
+  phases: BossPhase[];
+  /** XP for a full defeat. */
+  defeatXP: number;
+  /** XP per phase armed. */
+  perPhaseXP: number;
+  /** XP bonus for taking no damage. */
+  flawlessBonus: number;
 }
 
 // ── Simulation ──
@@ -312,4 +380,80 @@ export interface SimInput {
   moveTo?: Vec2;
   /** Tap/click on an interactable. */
   interactWith?: string;
+}
+
+// ── Boss fight runtime ──
+
+export type BossFightStatus = "fighting" | "coding" | "won" | "lost";
+
+/** A boss shot in flight. Targets the spot Maya stood when it was fired. */
+export interface Projectile {
+  id: number;
+  /** Launch point (the boss). */
+  x0: number;
+  y0: number;
+  /** Landing point (locked at fire time). */
+  tx: number;
+  ty: number;
+  firedAt: number;
+  landAt: number;
+  landed: boolean;
+}
+
+export interface BossRuntime {
+  hp: number;
+  maxHp: number;
+  /** Current phase index into def.phases. */
+  phaseIndex: number;
+  /** Is the weapon functional right now? False until the current phase is coded at cover. */
+  armed: boolean;
+  weapon: WeaponConfig | null;
+  /** Sim time of the next attack (start of telegraph). */
+  nextAttackAt: number;
+  /** While > time, the boss is charging a shot; the pending shot lands when telegraph ends. */
+  telegraphUntil: number;
+  anim: BossAnimation;
+}
+
+export type BossFightEvent =
+  | { type: "sfx"; name: SfxCue; volume?: number }
+  | { type: "thought"; text: string }
+  | { type: "weapon-fire"; to: Vec2 }
+  | { type: "boss-hit"; damage: number; hp: number }
+  | { type: "boss-telegraph" }
+  | { type: "boss-attack"; target: Vec2 }
+  | { type: "projectile-land"; x: number; y: number; hit: boolean }
+  | { type: "heart-lost"; hearts: number }
+  | { type: "enter-cover"; phaseIndex: number }
+  | { type: "phase-armed"; phaseIndex: number }
+  | { type: "shake"; intensity: number }
+  | { type: "won" }
+  | { type: "lost" };
+
+export interface BossFightState {
+  level: AdventureLevel;
+  def: BossDef;
+  grid: Grid;
+  time: number;
+  maya: MayaState;
+  /** Boss anchor position (tile centre). */
+  bossPos: Vec2;
+  boss: BossRuntime;
+  projectiles: Projectile[];
+  nextProjectileId: number;
+  /** Next sim time Maya's weapon may fire. */
+  weaponReadyAt: number;
+  hearts: number;
+  heartsLost: number;
+  status: BossFightStatus;
+  statusSince: number;
+  thought: string | null;
+  events: BossFightEvent[];
+}
+
+export interface BossFightInput {
+  /** Direct movement vector in grid space (not necessarily normalised). */
+  move: Vec2;
+  /** Tap/click on the floor at a world position. */
+  moveTo?: Vec2;
 }
