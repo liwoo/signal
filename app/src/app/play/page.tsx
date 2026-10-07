@@ -65,6 +65,8 @@ import {
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { BossArena } from "@/components/boss/BossArena";
+import { BossFight3D } from "@/components/boss/BossFight3D";
+import { LOCKMASTER_ARENA } from "@/lib/adventure/boss-levels";
 import { BookReader } from "@/components/book/BookReader";
 import { bookChapterFor } from "@/data/book";
 import { GuidedTour } from "@/components/game/GuidedTour";
@@ -126,6 +128,8 @@ interface ChapterConfig {
   ctaLabel: string;
   // Boss fight config (only for boss chapters)
   bossFightConfig?: BossFightConfig;
+  /** 3D boss arena (the physical duel + code-at-cover). Replaces the 2D BossArena when set. */
+  bossLevel?: AdventureLevelDef;
 }
 
 const CHAPTERS: ChapterConfig[] = [
@@ -186,6 +190,7 @@ const CHAPTERS: ChapterConfig[] = [
   {
     challenge: boss01,
     bossFightConfig: boss01Config,
+    bossLevel: LOCKMASTER_ARENA,
     introScenes: BOSS_01_INTRO_SCENES,
     completeScenes: BOSS_01_COMPLETE_SCENES,
     introLevel: BOSS_01_INTRO_LEVEL,
@@ -578,7 +583,44 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     );
   }
 
-  // ── Boss Arena ──
+  // ── Boss Fight (3D physical duel + code-at-cover) ──
+  if (showBossArena && config.bossLevel) {
+    return (
+      <BossFight3D
+        level={config.bossLevel}
+        chapterNumber={challenge.chapter}
+        initialXP={initialState.xp}
+        initialLevel={initialState.level}
+        initialHearts={initialState.hearts}
+        soundEnabled={settings.soundEnabled}
+        loopsEnabled={musicOn}
+        vimEnabled={settings.vimModeEnabled}
+        compact={isMobile}
+        onSave={(payload) => {
+          onSave({
+            xp: payload.xp,
+            level: payload.level,
+            hearts: payload.hearts,
+            library: initialState.library,
+            completedChapter: payload.completedChapter,
+          });
+        }}
+        onVictory={() => {
+          setShowBossArena(false);
+          setBossVictory(true);
+          trackBossVictory(challenge.id, 0, 0);
+        }}
+        onGameOver={() => {
+          trackGameOver(challenge.id, "boss_attack");
+        }}
+        onRetry={() => {
+          trackRetry(challenge.id);
+        }}
+      />
+    );
+  }
+
+  // ── Boss Arena (legacy 2D — fallback for any chapter without a 3D arena) ──
   if (showBossArena && config.bossFightConfig) {
     return (
       <BossArena
