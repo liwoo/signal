@@ -826,10 +826,15 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   <button
                     type="button"
                     onClick={actions.openAISuggest}
-                    className="min-h-11 bg-transparent px-3 text-[9px] tracking-[1px]"
-                    style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
+                    className="ai-glow min-h-11 px-3 text-[10px] tracking-[1px] font-[family-name:var(--font-display)]"
+                    style={{
+                      color: "var(--color-info)",
+                      background: "rgba(122,184,216,.16)",
+                      border: "1px solid rgba(122,184,216,.6)",
+                      textShadow: "0 0 8px rgba(122,184,216,.6)",
+                    }}
                   >
-                    ◆ AI · {state.aiTokens}
+                    ◆ AI ASSIST · {state.aiTokens}
                   </button>
                 ) : undefined}
               />
@@ -1027,24 +1032,25 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                     <button
                       onClick={actions.openAISuggest}
-                      className="ai-glow bg-transparent text-[7px] tracking-[2px] px-2.5 py-1 cursor-pointer font-[family-name:var(--font-display)]"
+                      className="ai-glow text-[9px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)]"
                       style={{
                         color: "var(--color-info)",
-                        border: "1px solid rgba(122,184,216,.3)",
-                        textShadow: "0 0 8px rgba(122,184,216,.5)",
+                        background: "rgba(122,184,216,.14)",
+                        border: "1px solid rgba(122,184,216,.55)",
+                        textShadow: "0 0 8px rgba(122,184,216,.6)",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(122,184,216,.1)";
-                        e.currentTarget.style.borderColor = "rgba(122,184,216,.6)";
+                        e.currentTarget.style.background = "rgba(122,184,216,.24)";
+                        e.currentTarget.style.borderColor = "rgba(122,184,216,.85)";
                         e.currentTarget.style.animation = "none";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.borderColor = "rgba(122,184,216,.3)";
+                        e.currentTarget.style.background = "rgba(122,184,216,.14)";
+                        e.currentTarget.style.borderColor = "rgba(122,184,216,.55)";
                         e.currentTarget.style.animation = "";
                       }}
                     >
-                      ◆ AI · {state.aiTokens}
+                      ◆ AI ASSIST · {state.aiTokens}
                     </button>
                   ) : undefined}
                 />
