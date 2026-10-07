@@ -13,7 +13,6 @@ interface CinematicSceneProps {
   title?: string;
   subtitle?: string;
   onComplete: () => void;
-  skipLabel?: string;
   soundEnabled?: boolean;
   /** Background loops (drones, ambience). Off = the film plays with SFX only. */
   loopsEnabled?: boolean;
@@ -27,7 +26,6 @@ export function CinematicScene({
   title,
   subtitle,
   onComplete,
-  skipLabel = "SKIP INTRO",
   soundEnabled = true,
   loopsEnabled = true,
 }: CinematicSceneProps) {
@@ -209,20 +207,20 @@ export function CinematicScene({
     };
   }, [audio, currentScene, fadePhase, sceneIndex]);
 
-  // Escape skips the whole film; any other key steps to the next shot.
+  // The film can't be skipped — any key just steps to the next shot (it also
+  // auto-advances on its own), so a fast reader isn't held back.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       event.preventDefault();
-      if (event.key === "Escape") finish();
-      else advanceShot();
+      advanceShot();
     };
     const timer = setTimeout(() => window.addEventListener("keydown", handler), 500);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("keydown", handler);
     };
-  }, [advanceShot, finish]);
+  }, [advanceShot]);
 
   useEffect(() => {
     return () => {
@@ -256,7 +254,9 @@ export function CinematicScene({
       <section
         className="cinematic-stage relative overflow-hidden border cursor-pointer select-none"
         style={{
-          width: "min(94vw, 1200px, 118dvh)",
+          // Fill the width on phones (portrait), cap by height on landscape so
+          // the film is never a tiny floating strip.
+          width: "min(96vw, 1200px, 158dvh)",
           aspectRatio: "16 / 10",
           borderColor: "color-mix(in srgb, var(--color-signal) 18%, transparent)",
           background: "var(--color-background)",
@@ -410,22 +410,11 @@ export function CinematicScene({
 
       <div className="absolute bottom-2 right-4 flex items-center gap-3 sm:bottom-3">
         <span
-          className="hidden text-[7px] tracking-[0.24em] sm:block"
+          className="text-[7px] tracking-[0.24em]"
           style={{ color: "color-mix(in srgb, var(--color-foreground) 42%, transparent)" }}
         >
           TAP · NEXT SHOT
         </span>
-        <button
-          type="button"
-          className="cursor-pointer bg-transparent px-3 py-1.5 text-[8px] tracking-[0.28em] transition-colors sm:text-[9px]"
-          style={{
-            color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--color-foreground) 28%, transparent)",
-          }}
-          onClick={finish}
-        >
-          {skipLabel} ▸▸
-        </button>
       </div>
     </div>
   );

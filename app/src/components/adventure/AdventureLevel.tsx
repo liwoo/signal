@@ -147,15 +147,16 @@ export function AdventureLevel({
   const onSnapshot = useCallback((snap: AdventureSnapshot) => setSnapshot(snap), []);
   const onUnsupported = useCallback(() => setUnsupported(true), []);
 
-  // Escape skips; Enter/Space keeps a found chapter. Everything else is the stage's.
+  // The beat can't be skipped — it ends when Maya reaches her terminal. Enter /
+  // Space only dismisses a found chapter card; everything else is the stage's.
   useEffect(() => {
+    if (!foundBook) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") finish();
-      if (foundBook && (e.key === "Enter" || e.key === " ")) setFoundBook(null);
+      if (e.key === "Enter" || e.key === " ") setFoundBook(null);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [finish, foundBook]);
+  }, [foundBook]);
 
   if (unsupported && fallbackScenes) {
     return (
@@ -197,7 +198,6 @@ export function AdventureLevel({
         compact={compact}
         onInteract={() => apiRef.current?.interact()}
         onRotate={(delta) => apiRef.current?.rotate(delta)}
-        onSkip={finish}
       />
     </div>
   );
