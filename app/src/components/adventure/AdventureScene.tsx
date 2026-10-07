@@ -7,7 +7,7 @@ import type { CharAnimation } from "@/lib/sprites/character-painter";
 import { C } from "@/lib/sprites/palette";
 import { createSim, stepSim, drainEvents, currentObjective, objectiveTarget, interactPrompt, interactionProgress, DEFAULT_GUARD_HALF_ANGLE, DEFAULT_GUARD_RANGE } from "@/lib/adventure/sim";
 import { visionPolygon } from "@/lib/adventure/grid";
-import { buildWorld, setWallHeight, updateConeGeometry, blobShadowTexture, THEMES, WALL_H, CUTAWAY_H } from "@/lib/adventure/world";
+import { buildWorld, setWallHeight, updateConeGeometry, blobShadowTexture, radialGlowTexture, THEMES, WALL_H, CUTAWAY_H } from "@/lib/adventure/world";
 import type { World } from "@/lib/adventure/world";
 import { WALKABLE } from "@/lib/adventure/types";
 import type { AdventureLevel, SimEvent, SimInput, SimState } from "@/lib/adventure/types";
@@ -299,6 +299,32 @@ export function AdventureScene({ level, onSnapshot, onEvent, apiRef, onUnsupport
     dots.count = 0;
     scene.add(dots);
 
+    // ── Objective beacon ──
+    // A bright marker that hovers above the current objective's prop and draws
+    // ON TOP of the walls (depthTest off), so the terminal / panel / book you
+    // need is never lost behind geometry. A soft light at its foot lifts the
+    // prop itself out of the dark.
+    const beacon = new THREE.Group();
+    beacon.renderOrder = 999;
+    const beaconMat = new THREE.MeshBasicMaterial({ color: C.signalBright, transparent: true, opacity: 1, depthTest: false, depthWrite: false });
+    const chevron = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.66, 4), beaconMat);
+    chevron.rotation.x = Math.PI; // point the tip down at the prop
+    chevron.rotation.y = Math.PI / 4;
+    chevron.renderOrder = 1000;
+    beacon.add(chevron);
+    const haloMat = new THREE.SpriteMaterial({ map: radialGlowTexture(), color: C.signalBright, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
+    const halo = new THREE.Sprite(haloMat);
+    halo.scale.set(1.8, 1.8, 1);
+    beacon.add(halo);
+    const beamMat = new THREE.MeshBasicMaterial({ color: C.signalBright, transparent: true, opacity: 0.22, depthTest: false, depthWrite: false, side: THREE.DoubleSide });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 6, 1, true), beamMat);
+    beam.renderOrder = 998;
+    beacon.add(beam);
+    const beaconLight = new THREE.PointLight(C.signalBright, 0, 4.5, 2);
+    beacon.add(beaconLight);
+    beacon.visible = false;
+    scene.add(beacon);
+
     // ── Dust ──
     const dustCount = reducedMotion ? 0 : 160;
     const dustPositions = new Float32Array(dustCount * 3);
@@ -547,8 +573,29 @@ export function AdventureScene({ level, onSnapshot, onEvent, apiRef, onUnsupport
         ring.scale.setScalar(1 + pulse * 0.22);
         (ring.material as THREE.MeshBasicMaterial).opacity = 0.35 + pulse * 0.45;
         if (!WALKABLE.has(target.kind)) ring.position.y = 0.05;
+
+        // Beacon: hovers over the objective prop and shows through walls so the
+        // thing to use is always obvious. Tall marker for a prop, lower for a
+        // plain floor destination.
+        // Float the marker well clear of the 2.3-tall walls so it reads from
+        // across the room; the beam drops from there down onto the prop.
+        const foot = !WALKABLE.has(target.kind) ? 1.0 : 0.15;
+        const bob = Math.sin(t * 3) * 0.14;
+        const chevY = 3.0 + bob;
+        beacon.visible = true;
+        beacon.position.set(target.x + 0.5, 0, target.y + 0.5);
+        chevron.position.y = chevY;
+        chevron.scale.setScalar(0.95 + pulse * 0.25);
+        halo.position.y = chevY;
+        haloMat.opacity = 0.4 + pulse * 0.35;
+        beam.scale.y = Math.max(0.1, chevY - foot);
+        beam.position.y = (chevY + foot) / 2;
+        beaconLight.position.y = foot + 0.4;
+        beaconLight.intensity = 3.6 + pulse * 2.4;
       } else {
         ring.visible = false;
+        beacon.visible = false;
+        beaconLight.intensity = 0;
       }
       if (m.path && m.path.length > 0) {
         const n = Math.min(dots.instanceMatrix.count, m.path.length);
@@ -581,10 +628,10 @@ export function AdventureScene({ level, onSnapshot, onEvent, apiRef, onUnsupport
           if (obj.light) obj.light.intensity = taken ? 0 : 2.4 + 1.6 * Math.sin(t * 3 + obj.seed) * (isTarget ? 1 : 0.4);
           continue;
         }
-        const base = obj.kind === "terminal" ? 1.6 : obj.kind === "lockmaster" ? 2.4 : 1.3;
+        const base = obj.kind === "terminal" ? 2.2 : obj.kind === "lockmaster" ? 2.6 : 1.8;
         const pulse = 0.85 + 0.15 * Math.sin(t * (obj.kind === "server" ? 7 : 3) + obj.seed);
         obj.glow.emissiveIntensity = base * pulse * (isTarget ? 1.5 : 1);
-        if (obj.light) obj.light.intensity = (obj.kind === "terminal" ? 12 : obj.kind === "lockmaster" ? 18 : 8) * pulse * (isTarget ? 1.4 : 1);
+        if (obj.light) obj.light.intensity = (obj.kind === "terminal" ? 17 : obj.kind === "lockmaster" ? 20 : 11) * pulse * (isTarget ? 1.4 : 1);
       }
       if (sim.alarm) {
         alarmPhase.t += dtMs;
@@ -701,6 +748,12 @@ export function AdventureScene({ level, onSnapshot, onEvent, apiRef, onUnsupport
       for (const c of cones) { c.mesh.geometry.dispose(); c.material.dispose(); }
       ring.geometry.dispose();
       (ring.material as THREE.Material).dispose();
+      chevron.geometry.dispose();
+      beaconMat.dispose();
+      beam.geometry.dispose();
+      beamMat.dispose();
+      haloMat.map?.dispose();
+      haloMat.dispose();
       dotGeo.dispose();
       dotMat.dispose();
       dustGeo.dispose();

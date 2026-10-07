@@ -600,6 +600,21 @@ export function updateConeGeometry(geometry: THREE.BufferGeometry, poly: { x: nu
   geometry.computeBoundingSphere();
 }
 
+/** Soft round glow sprite — used for the objective beacon halo. */
+export function radialGlowTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,255,255,0.95)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.45)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(canvas);
+}
+
 /** Round blob shadow texture for characters. */
 export function blobShadowTexture(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");

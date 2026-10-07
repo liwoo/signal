@@ -18,7 +18,6 @@ interface AdventureHUDProps {
   onKeepBook: () => void;
   onInteract: () => void;
   onRotate: (delta: number) => void;
-  onSkip: () => void;
   compact?: boolean;
 }
 
@@ -41,7 +40,7 @@ function Keycap({ children }: { children: React.ReactNode }) {
 }
 
 /** DOM chrome over the 3D stage: objective, Maya's thoughts, detection, prompts, cards. */
-export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onKeepBook, onInteract, onRotate, onSkip, compact = false }: AdventureHUDProps) {
+export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onKeepBook, onInteract, onRotate, compact = false }: AdventureHUDProps) {
   const status = snapshot?.status ?? "playing";
   const alert = snapshot?.alert ?? 0;
   const seen = snapshot?.seen ?? false;
@@ -182,7 +181,11 @@ export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onK
           )}
         </div>
         <div className="pointer-events-auto flex shrink-0 flex-col items-end gap-1.5">
-          {!compact && (
+          {compact ? (
+            <div className="text-[7px] tracking-[0.2em]" style={{ color: "color-mix(in srgb, var(--color-foreground) 55%, transparent)" }}>
+              TAP FLOOR TO MOVE · TAP ◆ TO USE
+            </div>
+          ) : (
             <div className="hidden items-center gap-1.5 text-[6px] tracking-[0.2em] sm:flex" style={{ color: "color-mix(in srgb, var(--color-foreground) 55%, transparent)" }}>
               <Keycap>WASD</Keycap> MOVE
               <span className="mx-1 opacity-50">·</span>
@@ -198,7 +201,7 @@ export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onK
               type="button"
               aria-label="Rotate camera left"
               onClick={() => onRotate(Math.PI / 4)}
-              className="cursor-pointer border px-2 py-1 text-[9px]"
+              className="cursor-pointer border px-2.5 py-1.5 text-[11px] sm:px-2 sm:py-1 sm:text-[9px]"
               style={{ borderColor: "color-mix(in srgb, var(--color-foreground) 28%, transparent)", color: "var(--color-foreground)", background: "color-mix(in srgb, var(--color-background) 70%, transparent)" }}
             >
               ⟲
@@ -207,22 +210,10 @@ export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onK
               type="button"
               aria-label="Rotate camera right"
               onClick={() => onRotate(-Math.PI / 4)}
-              className="cursor-pointer border px-2 py-1 text-[9px]"
+              className="cursor-pointer border px-2.5 py-1.5 text-[11px] sm:px-2 sm:py-1 sm:text-[9px]"
               style={{ borderColor: "color-mix(in srgb, var(--color-foreground) 28%, transparent)", color: "var(--color-foreground)", background: "color-mix(in srgb, var(--color-background) 70%, transparent)" }}
             >
               ⟳
-            </button>
-            <button
-              type="button"
-              className="cursor-pointer border px-3 py-1 text-[8px] tracking-[0.28em] sm:text-[9px]"
-              style={{
-                color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)",
-                borderColor: "color-mix(in srgb, var(--color-foreground) 28%, transparent)",
-                background: "color-mix(in srgb, var(--color-background) 70%, transparent)",
-              }}
-              onClick={onSkip}
-            >
-              SKIP ▸▸
             </button>
           </div>
         </div>
