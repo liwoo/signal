@@ -80,7 +80,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
           {summary.planned > 0 ? ` · +${summary.planned} AHEAD` : ""}
         </div>
         {/* Progress bar */}
-        <div className="mt-2 h-1 w-full" style={{ background: "rgba(110,255,160,.12)" }}>
+        <div className="mt-2 h-1 w-full" style={{ background: "rgba(var(--signal-rgb),.12)" }}>
           <div
             className="h-full transition-[width] duration-500"
             style={{ width: `${summary.pct}%`, background: "var(--color-signal)" }}

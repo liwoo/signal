@@ -31,10 +31,10 @@ const caveat = Caveat({
 });
 
 const description =
-  "Learn Go by escaping. SIGNAL is a narrative coding game where you write real Go to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free.";
+  "Learn to code by escaping. SIGNAL is a narrative coding game where you write real Go, Python, or JavaScript to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free in all three languages.";
 
 export const metadata: Metadata = {
-  title: "SIGNAL — Learn Go by escaping",
+  title: "SIGNAL — Learn to code by escaping",
   description,
   manifest: "/manifest.json",
   openGraph: {
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SIGNAL — Learn Go by escaping",
+    title: "SIGNAL — Learn to code by escaping",
     description,
     images: ["/og.jpg"],
   },

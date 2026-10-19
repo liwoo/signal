@@ -71,7 +71,7 @@ interface Annotation { label: string; color: string }
 
 function CodePanel({ highlightLines = [], annotate = {} }: { highlightLines?: number[]; annotate?: Record<number, Annotation> }) {
   return (
-    <div style={{ background: "var(--color-code-bg, #0a0e18)", padding: 16, border: "1px solid rgba(110,255,160,.08)", fontFamily: "var(--font-mono)", fontSize: 13, overflowX: "auto" }}>
+    <div style={{ background: "var(--color-code-bg, #0a0e18)", padding: 16, border: "1px solid rgba(var(--signal-rgb),.08)", fontFamily: "var(--font-mono)", fontSize: 13, overflowX: "auto" }}>
       {ANIM_CODE.split("\n").map((line, i) => {
         const hl = highlightLines.includes(i);
         const note = annotate[i];
@@ -724,7 +724,7 @@ export function DoorCodeMachine({ onHotspotClick, clickedIds = new Set(), view =
       {/* Card view */}
       {view === "card" && (
         <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
-          <div style={{ border: "1px solid rgba(110,255,160,.08)", padding: 18 }}>
+          <div style={{ border: "1px solid rgba(var(--signal-rgb),.08)", padding: 18 }}>
             <div style={{ fontSize: 12, color: T.inkFade, marginBottom: 14, fontFamily: "var(--font-mono)" }}>tap any section of the card or the code pills to see how each part maps to Go syntax.</div>
             <AnalogCard active={cardActive} onPartClick={handleCardPartClick} />
           </div>

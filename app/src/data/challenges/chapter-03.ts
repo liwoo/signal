@@ -12,6 +12,7 @@ export const chapter03: Challenge = {
     {
       id: "chapter-03:scaffold",
       title: "SCAFFOLD",
+      ask: "Print Hello World",
       brief:
         "the ventilation shaft runs on go. get the junction panel live by printing `Hello World` — that one line pulls in the whole skeleton: package, import, and a main function. the panel won't initialize until the terminal's live.",
       starterCode: ``,
@@ -63,6 +64,7 @@ export const chapter03: Challenge = {
     {
       id: "chapter-03:sumfunc",
       title: "SUM FUNCTION",
+      ask: "Write a function that sums the codes",
       brief:
         "each shaft junction needs computed codes. write a variadic function `sumCodes` that takes any number of ints and returns their sum. add it above main and call it from main.",
       starterCode: null, // carry forward from scaffold
@@ -126,6 +128,7 @@ export const chapter03: Challenge = {
     {
       id: "chapter-03:validate",
       title: "VALIDATE",
+      ask: "Add a check that the total passes",
       brief:
         "now add `validateCode(codes ...int) (int, bool)` — it sums the codes and checks if the total is greater than 100. return both: the sum and `total > 100`. the junction won't open unless the total passes.",
       starterCode: null, // carry forward from sumfunc

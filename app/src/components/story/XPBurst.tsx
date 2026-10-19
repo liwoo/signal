@@ -19,7 +19,7 @@ export function XPBurst({ amount, onDone }: XPBurstProps) {
                  font-[family-name:var(--font-display)] text-[32px] font-black
                  text-[var(--color-signal)] xp-burst -translate-x-1/2"
       style={{
-        textShadow: "0 0 20px #6effa0, 0 0 60px rgba(110,255,160,.5)",
+        textShadow: "0 0 20px var(--color-signal), 0 0 60px rgba(var(--signal-rgb),.5)",
       }}
     >
       +{amount} XP

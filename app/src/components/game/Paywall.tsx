@@ -39,7 +39,7 @@ interface Act {
 }
 
 const DIFFICULTY_STYLES: Record<Difficulty, { color: string; bg: string; label: string }> = {
-  beginner:     { color: "var(--color-signal)", bg: "rgba(110,255,160,.1)",  label: "BEGINNER" },
+  beginner:     { color: "var(--color-signal)", bg: "rgba(var(--signal-rgb),.1)",  label: "BEGINNER" },
   intermediate: { color: "var(--color-info)",   bg: "rgba(0,212,255,.1)",    label: "INTERMEDIATE" },
   advanced:     { color: "var(--color-alert)",  bg: "rgba(255,159,28,.1)",   label: "ADVANCED" },
 };
@@ -208,8 +208,8 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    label: "REAL GO COMPILER",
-    detail: "your code compiles on the official Go Playground. real errors, real output, real learning.",
+    label: "RUNS FOR REAL",
+    detail: "go compiles on the official Go Playground; python and javascript run right in your browser. real errors, real output, real learning.",
     color: "var(--color-signal)",
   },
   {
@@ -224,9 +224,25 @@ const FEATURES: Feature[] = [
   },
   {
     label: "ZEN SYSTEM",
-    detail: "write idiomatic Go and earn bonus XP. build a personal library of Go best practices.",
+    detail: "write idiomatic code and earn bonus XP. build a personal library of best practices in your language.",
     color: "var(--color-alert)",
   },
+];
+
+// ── The three routes through Act I ──
+
+interface LanguageRoute {
+  id: string;
+  label: string;
+  accent: string;
+  accentRgb: string;
+  blurb: string;
+}
+
+const LANGUAGES: LanguageRoute[] = [
+  { id: "go", label: "GO", accent: "#6effa0", accentRgb: "110,255,160", blurb: "compiled, strict, fast. the original route — and the whole game." },
+  { id: "python", label: "PYTHON", accent: "#4ea6ff", accentRgb: "78,166,255", blurb: "readable and everywhere. no braces, just indentation." },
+  { id: "javascript", label: "JAVASCRIPT", accent: "#f7df1e", accentRgb: "247,223,30", blurb: "the language of the web. runs right in your browser." },
 ];
 
 // ── What you'll learn checkpoints ──
@@ -290,7 +306,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
 
   const activePrice = selectedPlan === "single" ? PRICE_SINGLE : PRICE_TEAM;
 
-  const tagline = useTypingEffect("learn go by escaping.", 50, 600);
+  const tagline = useTypingEffect("learn to code by escaping.", 50, 600);
 
   const handleGoogleClick = useCallback(() => {
     trackPurchaseCtaClick(selectedPlan, activePrice);
@@ -322,7 +338,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           className="fixed inset-0 pointer-events-none"
           style={{
             backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(110,255,160,.015) 2px, rgba(110,255,160,.015) 4px)",
+              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
           }}
         />
 
@@ -385,7 +401,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   {act.status === "complete" && (
                     <span
                       className="text-[10px] tracking-[1px] px-2 py-0.5"
-                      style={{ background: "rgba(110,255,160,.15)", color: "var(--color-signal)" }}
+                      style={{ background: "rgba(var(--signal-rgb),.15)", color: "var(--color-signal)" }}
                     >
                       FREE
                     </span>
@@ -400,10 +416,10 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                       style={{
                         border: "1px solid",
                         borderColor: act.status === "complete"
-                          ? "rgba(110,255,160,.12)"
+                          ? "rgba(var(--signal-rgb),.12)"
                           : "rgba(255,255,255,.05)",
                         background: act.status === "complete"
-                          ? "rgba(110,255,160,.03)"
+                          ? "rgba(var(--signal-rgb),.03)"
                           : "rgba(4,8,16,.4)",
                       }}
                     >
@@ -453,7 +469,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                               color: act.status === "complete" ? "var(--color-signal)" : "var(--color-foreground)",
                               opacity: act.status === "complete" ? 0.7 : 0.55,
                               background: act.status === "complete"
-                                ? "rgba(110,255,160,.06)"
+                                ? "rgba(var(--signal-rgb),.06)"
                                 : "rgba(255,255,255,.03)",
                             }}
                           >
@@ -499,7 +515,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(110,255,160,.015) 2px, rgba(110,255,160,.015) 4px)",
+            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
         }}
       />
 
@@ -512,7 +528,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             style={{
               fontSize: "clamp(36px, 8vw, 64px)",
               color: "var(--color-signal)",
-              textShadow: "0 0 60px rgba(110,255,160,.25), 0 0 120px rgba(110,255,160,.1)",
+              textShadow: "0 0 60px rgba(var(--signal-rgb),.25), 0 0 120px rgba(var(--signal-rgb),.1)",
               animation: "cinematic-fade-in 1s ease forwards",
             }}
           >
@@ -520,7 +536,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           </div>
 
           {/* Typing tagline */}
-          <div className="h-[24px] mb-6">
+          <div className="h-[24px] mb-5">
             <span
               className="text-[16px] sm:text-[16px] tracking-[1px]"
               style={{ color: "var(--color-dim)" }}
@@ -530,6 +546,26 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>_</span>
               )}
             </span>
+          </div>
+
+          {/* Cross-language: one story, three routes */}
+          <div className="flex flex-col items-center gap-2.5 mb-7">
+            <div className="text-[10px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
+              ONE ESCAPE &middot; THREE LANGUAGES
+            </div>
+            <div className="flex items-center gap-2.5 sm:gap-4">
+              {LANGUAGES.map((l, idx) => (
+                <div key={l.id} className="flex items-center gap-2.5 sm:gap-4">
+                  {idx > 0 && <span style={{ color: "var(--color-border)" }}>/</span>}
+                  <span
+                    className="font-[family-name:var(--font-display)] text-[13px] sm:text-[16px] tracking-[2px] font-bold"
+                    style={{ color: l.accent, textShadow: `0 0 16px rgba(${l.accentRgb},.4)` }}
+                  >
+                    {l.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Promo video */}
@@ -542,8 +578,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 color: soundEnabled ? "var(--color-signal)" : "var(--color-foreground)",
                 opacity: soundEnabled ? 1 : 0.5,
                 border: "1px solid",
-                borderColor: soundEnabled ? "rgba(110,255,160,.3)" : "rgba(255,255,255,.1)",
-                background: soundEnabled ? "rgba(110,255,160,.08)" : "rgba(0,0,0,.6)",
+                borderColor: soundEnabled ? "rgba(var(--signal-rgb),.3)" : "rgba(255,255,255,.1)",
+                background: soundEnabled ? "rgba(var(--signal-rgb),.08)" : "rgba(0,0,0,.6)",
               }}
             >
               {soundEnabled ? "\u266A ON" : "\u266A OFF"}
@@ -559,7 +595,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               color: hovered === "hero-play" ? "var(--color-background)" : "var(--color-signal)",
               background: hovered === "hero-play" ? "var(--color-signal)" : "transparent",
               textDecoration: "none",
-              textShadow: hovered === "hero-play" ? "none" : "0 0 12px rgba(110,255,160,.3)",
+              textShadow: hovered === "hero-play" ? "none" : "0 0 12px rgba(var(--signal-rgb),.3)",
             }}
             onMouseEnter={() => setHovered("hero-play")}
             onMouseLeave={() => setHovered(null)}
@@ -589,10 +625,51 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
             maya chen is a cryptography researcher trapped in a locked-down facility.
-            the only way out is through the terminal. you write real Go code to open
-            doors, decode schedules, hijack comm relays, and fight your way past
-            security systems. every chapter teaches new Go concepts. every line you write
-            compiles on the real Go Playground. by the end, you know Go.
+            the only way out is through the terminal. you write real code &mdash; in go,
+            python, or javascript &mdash; to open doors, decode schedules, hijack comm
+            relays, and fight your way past security systems. every chapter teaches real
+            concepts, and every line you write actually runs. by the end, you can code.
+          </div>
+
+          {/* Pick your language */}
+          <div className="mb-16">
+            <div
+              className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold mb-2"
+              style={{ color: "var(--color-signal)" }}
+            >
+              PICK YOUR LANGUAGE
+            </div>
+            <div
+              className="text-[13px] leading-[1.8] mb-6"
+              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+            >
+              act I is the same escape in three languages. learn the one your job, your
+              course, or your curiosity calls for &mdash; the story, the puzzles, and the
+              stakes stay the same. progress is kept per language, so you can run it again
+              in another.
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {LANGUAGES.map((l) => (
+                <div
+                  key={l.id}
+                  className="px-4 py-4"
+                  style={{ border: `1px solid rgba(${l.accentRgb},.25)`, background: `rgba(${l.accentRgb},.04)` }}
+                >
+                  <div
+                    className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold mb-2"
+                    style={{ color: l.accent, textShadow: `0 0 14px rgba(${l.accentRgb},.3)` }}
+                  >
+                    {l.label}
+                  </div>
+                  <div
+                    className="text-[12px] leading-[1.7]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+                  >
+                    {l.blurb}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Feature grid */}
@@ -665,7 +742,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             className="px-5 py-5 mb-16"
             style={{
               borderLeft: "2px solid var(--color-signal)",
-              background: "rgba(110,255,160,.02)",
+              background: "rgba(var(--signal-rgb),.02)",
             }}
           >
             <div
@@ -687,7 +764,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         {/* ═══════════ PRICING ═══════════ */}
         <section
           className="py-16 sm:py-24"
-          style={{ borderTop: "1px solid rgba(110,255,160,.06)" }}
+          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
         >
           <div className="max-w-[540px] mx-auto px-4 sm:px-6">
             <div className="text-center mb-3">
@@ -701,7 +778,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 className="text-[13px] leading-[1.8]"
                 style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
-                act I is free. unlock acts II\u2013IV for the complete Go curriculum.
+                act I is free in go, python, or javascript. unlock acts II\u2013IV to go
+                all the way \u2014 the full Go curriculum.
               </div>
             </div>
 
@@ -709,8 +787,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             <div
               className="px-4 py-3 mb-5 flex items-center justify-between"
               style={{
-                border: "1px solid rgba(110,255,160,.15)",
-                background: "rgba(110,255,160,.03)",
+                border: "1px solid rgba(var(--signal-rgb),.15)",
+                background: "rgba(var(--signal-rgb),.03)",
               }}
             >
               <div>
@@ -731,10 +809,10 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 href="/play"
                 className="text-[11px] tracking-[1px] px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
                 style={{
-                  border: "1px solid rgba(110,255,160,.3)",
+                  border: "1px solid rgba(var(--signal-rgb),.3)",
                   color: "var(--color-signal)",
                   textDecoration: "none",
-                  background: hovered === "free-cta" ? "rgba(110,255,160,.08)" : "transparent",
+                  background: hovered === "free-cta" ? "rgba(var(--signal-rgb),.08)" : "transparent",
                 }}
                 onMouseEnter={() => setHovered("free-cta")}
                 onMouseLeave={() => setHovered(null)}
@@ -752,9 +830,9 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 style={{
                   border: selectedPlan === "single"
                     ? "2px solid var(--color-signal)"
-                    : "1px solid rgba(110,255,160,.1)",
+                    : "1px solid rgba(var(--signal-rgb),.1)",
                   background: selectedPlan === "single"
-                    ? "rgba(110,255,160,.04)"
+                    ? "rgba(var(--signal-rgb),.04)"
                     : "rgba(4,8,16,.4)",
                 }}
               >
@@ -787,9 +865,9 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 style={{
                   border: selectedPlan === "team"
                     ? "2px solid var(--color-signal)"
-                    : "1px solid rgba(110,255,160,.1)",
+                    : "1px solid rgba(var(--signal-rgb),.1)",
                   background: selectedPlan === "team"
-                    ? "rgba(110,255,160,.04)"
+                    ? "rgba(var(--signal-rgb),.04)"
                     : "rgba(4,8,16,.4)",
                 }}
               >
@@ -864,7 +942,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 border: "2px solid var(--color-signal)",
                 color: hovered === "google" ? "var(--color-background)" : "var(--color-signal)",
                 background: hovered === "google" ? "var(--color-signal)" : "transparent",
-                textShadow: hovered === "google" ? "none" : "0 0 12px rgba(110,255,160,.2)",
+                textShadow: hovered === "google" ? "none" : "0 0 12px rgba(var(--signal-rgb),.2)",
               }}
               onMouseEnter={() => setHovered("google")}
               onMouseLeave={() => setHovered(null)}
@@ -882,7 +960,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   opacity: hovered === "curriculum" ? 1 : 0.5,
                   border: "none",
                   borderBottom: "1px solid",
-                  borderColor: hovered === "curriculum" ? "var(--color-signal)" : "rgba(110,255,160,.2)",
+                  borderColor: hovered === "curriculum" ? "var(--color-signal)" : "rgba(var(--signal-rgb),.2)",
                   paddingBottom: "2px",
                 }}
                 onMouseEnter={() => setHovered("curriculum")}
@@ -896,7 +974,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             {playerXP != null && playerLevel != null && (
               <div
                 className="flex justify-center gap-5 mt-8 pt-5"
-                style={{ borderTop: "1px solid rgba(110,255,160,.06)" }}
+                style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
               >
                 <div className="text-center">
                   <div className="text-[10px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>YOUR XP</div>
@@ -918,7 +996,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         {/* ═══════════ FOOTER ═══════════ */}
         <footer
           className="py-8"
-          style={{ borderTop: "1px solid rgba(110,255,160,.04)" }}
+          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.04)" }}
         >
           <div className="flex items-center justify-center gap-5 mb-4">
             {([
@@ -966,13 +1044,13 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             className="relative w-full max-w-[420px] mx-4"
             style={{
               background: "#060a10",
-              border: "1px solid rgba(110,255,160,.15)",
+              border: "1px solid rgba(var(--signal-rgb),.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className="px-5 py-3 flex items-center justify-between"
-              style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
+              style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
             >
               <span
                 className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold"
@@ -993,8 +1071,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               <div
                 className="px-4 py-3 mb-5"
                 style={{
-                  background: "rgba(110,255,160,.03)",
-                  border: "1px solid rgba(110,255,160,.08)",
+                  background: "rgba(var(--signal-rgb),.03)",
+                  border: "1px solid rgba(var(--signal-rgb),.08)",
                 }}
               >
                 <div className="flex justify-between items-baseline">
@@ -1042,8 +1120,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <div
                   className="shrink-0 mt-0.5 w-[18px] h-[18px] flex items-center justify-center cursor-pointer"
                   style={{
-                    border: `1px solid ${consentChecked ? "var(--color-signal)" : "rgba(110,255,160,.2)"}`,
-                    background: consentChecked ? "rgba(110,255,160,.1)" : "transparent",
+                    border: `1px solid ${consentChecked ? "var(--color-signal)" : "rgba(var(--signal-rgb),.2)"}`,
+                    background: consentChecked ? "rgba(var(--signal-rgb),.1)" : "transparent",
                     transition: "all 150ms",
                   }}
                 >
@@ -1079,7 +1157,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 disabled={!consentChecked}
                 className="w-full py-3 cursor-pointer text-[13px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)] disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
-                  border: `2px solid ${consentChecked ? "var(--color-signal)" : "rgba(110,255,160,.15)"}`,
+                  border: `2px solid ${consentChecked ? "var(--color-signal)" : "rgba(var(--signal-rgb),.15)"}`,
                   color: consentChecked ? "var(--color-signal)" : "var(--color-dim)",
                   background: "transparent",
                 }}

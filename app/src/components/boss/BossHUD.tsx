@@ -73,7 +73,7 @@ export function BossHUD({
                 height: "100%",
                 background: hearts <= 1 ? "var(--color-danger)" : hearts <= 2 ? "var(--color-alert)" : "var(--color-signal)",
                 transition: "width 400ms ease-out, background 400ms",
-                boxShadow: hearts <= 1 ? "0 0 6px rgba(255,64,64,.5)" : "0 0 4px rgba(110,255,160,.3)",
+                boxShadow: hearts <= 1 ? "0 0 6px rgba(255,64,64,.5)" : "0 0 4px rgba(var(--signal-rgb),.3)",
               }}
             />
             {/* Segments */}

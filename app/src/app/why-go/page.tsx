@@ -112,7 +112,7 @@ export default function WhyGoPage() {
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(110,255,160,.015) 2px, rgba(110,255,160,.015) 4px)",
+            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
         }}
       />
 
@@ -147,9 +147,9 @@ export default function WhyGoPage() {
         <div
           className="px-4 py-4 mb-6"
           style={{
-            border: "1px solid rgba(110,255,160,.1)",
+            border: "1px solid rgba(var(--signal-rgb),.1)",
             borderLeft: "3px solid var(--color-signal)",
-            background: "rgba(110,255,160,.02)",
+            background: "rgba(var(--signal-rgb),.02)",
           }}
         >
           <p
@@ -221,7 +221,7 @@ export default function WhyGoPage() {
                 href={url}
                 className="opacity-[60%] text-[12px] tracking-[1px] px-2.5 py-1 hover:bg-slate-800 hover:text-green-600 cursor-pointer"
                 style={{
-                  border: "1px solid rgba(110,255,160,.08)",
+                  border: "1px solid rgba(var(--signal-rgb),.08)",
                 }}
               >
                 {title}

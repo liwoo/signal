@@ -34,7 +34,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
         className="flex gap-2 mb-3 px-2 py-1.5"
         style={{
           border: "1px solid var(--color-border)",
-          background: "rgba(110,255,160,.02)",
+          background: "rgba(var(--signal-rgb),.02)",
         }}
       >
         <Stat label="LEARNED" value={stats.learned} color="var(--color-signal)" />
@@ -52,8 +52,8 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
             key={`${entry.stepId}-${entry.id}`}
             className="px-3.5 py-3"
             style={{
-              border: `1px solid ${entry.learned ? "rgba(110,255,160,.12)" : "rgba(255,159,28,.12)"}`,
-              background: entry.learned ? "rgba(110,255,160,.02)" : "rgba(255,159,28,.02)",
+              border: `1px solid ${entry.learned ? "rgba(var(--signal-rgb),.12)" : "rgba(255,159,28,.12)"}`,
+              background: entry.learned ? "rgba(var(--signal-rgb),.02)" : "rgba(255,159,28,.02)",
             }}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -61,7 +61,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
                 className="text-[9px] tracking-[1px] px-1.5 py-0.5"
                 style={{
                   color: entry.learned ? "var(--color-signal)" : "var(--color-alert)",
-                  border: `1px solid ${entry.learned ? "rgba(110,255,160,.2)" : "rgba(255,159,28,.2)"}`,
+                  border: `1px solid ${entry.learned ? "rgba(var(--signal-rgb),.2)" : "rgba(255,159,28,.2)"}`,
                 }}
               >
                 {entry.learned ? "✓ LEARNED" : "○ MISSED"}

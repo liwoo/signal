@@ -133,8 +133,8 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
               key={i}
               className="my-1.5 px-3 py-2 text-[13px] leading-[1.6] overflow-x-auto"
               style={{
-                background: "rgba(110,255,160,.06)",
-                border: "1px solid rgba(110,255,160,.12)",
+                background: "rgba(var(--signal-rgb),.06)",
+                border: "1px solid rgba(var(--signal-rgb),.12)",
                 fontFamily: "var(--font-mono)",
                 color: "var(--color-text)",
               }}
@@ -149,8 +149,8 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
               key={i}
               className="text-[13px] px-1.5 py-0.5 mx-px"
               style={{
-                background: "rgba(110,255,160,.08)",
-                border: "1px solid rgba(110,255,160,.12)",
+                background: "rgba(var(--signal-rgb),.08)",
+                border: "1px solid rgba(var(--signal-rgb),.12)",
                 color: "var(--color-signal)",
                 fontFamily: "var(--font-mono)",
               }}
@@ -165,8 +165,8 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
               key={i}
               className="inline-block text-[9px] tracking-[2px] px-1.5 py-px mx-0.5 font-[family-name:var(--font-display)] font-bold"
               style={{
-                background: "rgba(110,255,160,.1)",
-                border: "1px solid rgba(110,255,160,.2)",
+                background: "rgba(var(--signal-rgb),.1)",
+                border: "1px solid rgba(var(--signal-rgb),.2)",
                 color: "var(--color-signal)",
               }}
             >

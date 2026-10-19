@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-type MobileView = "chat" | "code" | "mission" | "more";
+type MobileView = "chat" | "code" | "more";
 type SecondaryView = "library" | "notes" | "concepts" | null;
 
 interface MobileGameLayoutProps {
@@ -10,7 +10,6 @@ interface MobileGameLayoutProps {
   topBar: ReactNode;
   chatPanel: ReactNode;
   codePanel: ReactNode;
-  missionPanel: ReactNode;
   libraryPanel: ReactNode;
   notesPanel: ReactNode;
   /** Whole-game concept map, opened from the MORE tab behind a completion %. */
@@ -23,7 +22,7 @@ interface MobileGameLayoutProps {
    * Whose turn it is right now: "narrative" (Maya is speaking / paused) or
    * "code" (the player's turn to type). On each change we auto-switch the phone
    * to CHAT or CODE so the player focuses on one thing at a time. null = don't
-   * force a switch (keeps a deliberate MISSION/MORE tap put).
+   * force a switch (keeps a deliberate MORE tap put).
    */
   focusMode?: "narrative" | "code" | null;
 }
@@ -31,7 +30,6 @@ interface MobileGameLayoutProps {
 const PRIMARY_TABS: Array<{ id: MobileView; label: string }> = [
   { id: "chat", label: "CHAT" },
   { id: "code", label: "CODE" },
-  { id: "mission", label: "MISSION" },
   { id: "more", label: "MORE" },
 ];
 
@@ -40,7 +38,6 @@ export function MobileGameLayout({
   topBar,
   chatPanel,
   codePanel,
-  missionPanel,
   libraryPanel,
   notesPanel,
   conceptsPanel,
@@ -84,7 +81,7 @@ export function MobileGameLayout({
       <nav
         data-tour="tab-bar"
         aria-label="Game panels"
-        className="grid shrink-0 grid-cols-4"
+        className="grid shrink-0 grid-cols-3"
         style={{ background: "#04090f", borderBottom: "1px solid var(--color-border)" }}
       >
         {PRIMARY_TABS.map((tab) => {
@@ -130,8 +127,8 @@ export function MobileGameLayout({
           }}
           className="flex min-h-11 shrink-0 items-center gap-2 px-3 text-left"
           style={{
-            background: "rgba(110,255,160,.04)",
-            borderBottom: "1px solid rgba(110,255,160,.14)",
+            background: "rgba(var(--signal-rgb),.04)",
+            borderBottom: "1px solid rgba(var(--signal-rgb),.14)",
             color: "var(--color-signal)",
           }}
         >
@@ -162,9 +159,6 @@ export function MobileGameLayout({
         </div>
         <div className={view === "code" ? "h-full" : "hidden"} data-tour="code-editor">
           {codePanel}
-        </div>
-        <div className={view === "mission" ? "h-full overflow-hidden" : "hidden"}>
-          {missionPanel}
         </div>
         {view === "more" ? (
           secondaryView ? (

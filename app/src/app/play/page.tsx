@@ -12,7 +12,7 @@ import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
 import { TopBar } from "@/components/game/TopBar";
 import { ChatPanel } from "@/components/game/ChatPanel";
 import { CodeEditor } from "@/components/game/CodeEditor";
-import { MissionPanel } from "@/components/game/MissionPanel";
+import { LevelObjectivesOverlay } from "@/components/game/MissionPanel";
 import { ObjectiveBar } from "@/components/game/ObjectiveBar";
 import { isStuck } from "@/lib/game/hints";
 import { getLanguageService, LANGUAGE_OPTIONS } from "@/lib/lang/registry";
@@ -435,6 +435,12 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [forceBeginner, setForceBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
+  // The full level brief, opened on demand from the objective bar. Closes itself
+  // on step change so it never lingers over a new task.
+  const [showObjectives, setShowObjectives] = useState(false);
+  useEffect(() => {
+    setShowObjectives(false);
+  }, [state.currentStepIndex]);
   const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile && settings.beginnerMode);
   const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id, language);
@@ -867,7 +873,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         <div
           className="absolute w-full h-px"
           style={{
-            background: "linear-gradient(transparent, rgba(110,255,160,.07), transparent)",
+            background: "linear-gradient(transparent, rgba(var(--signal-rgb),.07), transparent)",
             animation: "scanline 7s linear infinite",
           }}
         />
@@ -933,7 +939,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 currentStep={state.currentStep}
                 currentStepIndex={state.currentStepIndex}
                 jeopardy={state.jeopardy.activeEffects}
-                onOpenMission={() => actions.setTab("mission")}
+                onOpenMission={() => setShowObjectives(true)}
               />
               {state.aiSuggestOpen && state.aiSuggestions.length > 0 ? (
                 <AISuggestPanel
@@ -979,14 +985,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 ) : undefined}
               />
             </div>
-          }
-          missionPanel={
-            <MissionPanel
-              challenge={challenge}
-              currentStep={state.currentStep}
-              currentStepIndex={state.currentStepIndex}
-              totalSteps={state.totalSteps}
-            />
           }
           libraryPanel={<LibraryPanel library={state.library} />}
           notesPanel={
@@ -1079,7 +1077,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           >
             <div
               className="w-px h-8 transition-colors group-hover:h-12"
-              style={{ background: "rgba(110,255,160,.2)" }}
+              style={{ background: "rgba(var(--signal-rgb),.2)" }}
             />
           </div>
 
@@ -1094,7 +1092,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 borderBottom: "1px solid #0a1820",
               }}
             >
-              {([["code", "CODE"], ["mission", "MISSION"], ["notes", "NOTES"], ["library", "LIBRARY"]] as const).map(
+              {([["code", "CODE"], ["notes", "NOTES"], ["library", "LIBRARY"]] as const).map(
                 ([t, label]) => {
                   const isHelp = t === "notes";
                   const active = state.tab === t;
@@ -1126,7 +1124,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               currentStep={state.currentStep}
               currentStepIndex={state.currentStepIndex}
               jeopardy={state.jeopardy.activeEffects}
-              onOpenMission={() => actions.setTab("mission")}
+              onOpenMission={() => setShowObjectives(true)}
             />
 
             {/* Tab content */}
@@ -1197,14 +1195,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 />
               </div>
             )}
-            {state.tab === "mission" && (
-              <MissionPanel
-                challenge={challenge}
-                currentStep={state.currentStep}
-                currentStepIndex={state.currentStepIndex}
-                totalSteps={state.totalSteps}
-              />
-            )}
             {state.tab === "library" && (
               <LibraryPanel library={state.library} />
             )}
@@ -1231,6 +1221,16 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           </div>
         </div>
       </div>
+      )}
+
+      {showObjectives && (
+        <LevelObjectivesOverlay
+          challenge={challenge}
+          currentStep={state.currentStep}
+          currentStepIndex={state.currentStepIndex}
+          totalSteps={state.totalSteps}
+          onClose={() => setShowObjectives(false)}
+        />
       )}
     </>
   );
@@ -1308,7 +1308,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
         <div
           className="absolute w-full h-0.5"
           style={{
-            background: "linear-gradient(transparent, rgba(110,255,160,.12), transparent)",
+            background: "linear-gradient(transparent, rgba(var(--signal-rgb),.12), transparent)",
             animation: "scanline 5s linear infinite",
           }}
         />
@@ -1450,9 +1450,9 @@ function LanguagePicker({ language, highlight, onChange }: {
               onClick={() => onChange(opt.id)}
               className="flex-1 py-2 text-[9px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
               style={{
-                color: selected ? "var(--color-background)" : "var(--color-signal)",
-                background: selected ? "var(--color-signal)" : "rgba(0,255,80,.015)",
-                border: `1px solid ${selected ? "var(--color-signal)" : highlight ? "rgba(110,255,160,.45)" : "#0a2a1a"}`,
+                color: selected ? "var(--color-background)" : opt.accent,
+                background: selected ? opt.accent : `rgba(${opt.accentRgb}, .04)`,
+                border: `1px solid ${selected ? opt.accent : `rgba(${opt.accentRgb}, ${highlight ? ".45" : ".2"})`}`,
               }}
             >
               {opt.label}

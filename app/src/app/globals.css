@@ -38,6 +38,26 @@
   --color-gilt: #c9a55a;
 }
 
+/* ── Per-language theming ──
+   One story, three routes. The signal accent reskins to the language you're
+   learning — Go stays the signature green, Python runs cool blue, JavaScript
+   burns amber-yellow. `data-lang` is set on <html> by the LanguageProvider.
+   --signal-rgb feeds every rgba(...) glow so halos shift with --color-signal.
+   The world itself (canvas sprites, scenes, Maya) stays green on purpose. */
+:root {
+  --signal-rgb: 110, 255, 160;
+}
+
+[data-lang="python"] {
+  --color-signal: #4ea6ff;
+  --signal-rgb: 78, 166, 255;
+}
+
+[data-lang="javascript"] {
+  --color-signal: #f7df1e;
+  --signal-rgb: 247, 223, 30;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
@@ -256,8 +276,8 @@ textarea {
 
 /* Glow pulse for logo */
 @keyframes glow-pulse {
-  0%, 100% { text-shadow: 0 0 10px rgba(110,255,160,.37), 0 0 30px rgba(110,255,160,.12); }
-  50% { text-shadow: 0 0 24px rgba(110,255,160,.62), 0 0 60px rgba(110,255,160,.31); }
+  0%, 100% { text-shadow: 0 0 10px rgba(var(--signal-rgb),.37), 0 0 30px rgba(var(--signal-rgb),.12); }
+  50% { text-shadow: 0 0 24px rgba(var(--signal-rgb),.62), 0 0 60px rgba(var(--signal-rgb),.31); }
 }
 
 .glow-pulse {

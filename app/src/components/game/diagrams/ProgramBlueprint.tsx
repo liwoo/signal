@@ -109,14 +109,14 @@ export function ProgramBlueprint({ onHotspotClick, clickedIds = new Set() }: Pro
       {/* Blueprint container */}
       <div
         style={{
-          border: "1px solid rgba(110,255,160,.15)",
+          border: "1px solid rgba(var(--signal-rgb),.15)",
           background: "rgba(4,8,16,.6)",
         }}
       >
         {/* Header */}
         <div
           className="px-4 py-2 flex items-center justify-between"
-          style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
+          style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
         >
           <span
             className="text-[7px] tracking-[3px] font-[family-name:var(--font-display)]"
@@ -152,7 +152,7 @@ export function ProgramBlueprint({ onHotspotClick, clickedIds = new Set() }: Pro
                     ? `2px solid ${zone.accent}`
                     : "2px solid transparent",
                   background: isActive
-                    ? "rgba(110,255,160,.04)"
+                    ? "rgba(var(--signal-rgb),.04)"
                     : "transparent",
                   opacity: isClicked && !isActive ? 0.6 : 1,
                 }}
@@ -203,7 +203,7 @@ export function ProgramBlueprint({ onHotspotClick, clickedIds = new Set() }: Pro
         <div
           className="mx-3 mb-3 px-3 py-2 flex items-center gap-2"
           style={{
-            borderTop: "1px solid rgba(110,255,160,.06)",
+            borderTop: "1px solid rgba(var(--signal-rgb),.06)",
             background: "rgba(0,20,8,.4)",
           }}
         >
@@ -223,7 +223,7 @@ export function ProgramBlueprint({ onHotspotClick, clickedIds = new Set() }: Pro
               style={{
                 fontFamily: "var(--font-mono)",
                 color: "var(--color-signal)",
-                textShadow: "0 0 8px rgba(110,255,160,.3)",
+                textShadow: "0 0 8px rgba(var(--signal-rgb),.3)",
               }}
             >
               {line}

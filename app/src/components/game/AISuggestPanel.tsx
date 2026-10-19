@@ -37,13 +37,13 @@ export function AISuggestPanel({
       className="absolute inset-0 z-40 flex flex-col"
       style={{
         background: "rgba(2,6,10,.95)",
-        border: "1px solid rgba(110,255,160,.12)",
+        border: "1px solid rgba(var(--signal-rgb),.12)",
       }}
     >
       {/* Header */}
       <div
         className="flex items-center justify-between px-3 py-2 shrink-0"
-        style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
+        style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
       >
         <div className="flex items-center gap-2">
           <span
@@ -59,7 +59,7 @@ export function AISuggestPanel({
             className="text-[8px] px-1.5 py-0.5"
             style={{
               color: tokens > 0 ? "var(--color-signal)" : "var(--color-danger)",
-              border: `1px solid ${tokens > 0 ? "rgba(110,255,160,.2)" : "rgba(255,64,64,.2)"}`,
+              border: `1px solid ${tokens > 0 ? "rgba(var(--signal-rgb),.2)" : "rgba(255,64,64,.2)"}`,
             }}
           >
             {tokens} TOKEN{tokens !== 1 ? "S" : ""}
@@ -95,11 +95,11 @@ export function AISuggestPanel({
             className="w-full bg-transparent text-left px-3 py-2 cursor-pointer transition-colors block"
             style={{
               borderBottom: "1px solid rgba(255,255,255,.03)",
-              background: s.id === selectedId ? "rgba(110,255,160,.04)" : "transparent",
+              background: s.id === selectedId ? "rgba(var(--signal-rgb),.04)" : "transparent",
             }}
             onMouseEnter={(e) => {
               if (s.id !== selectedId) {
-                e.currentTarget.style.background = "rgba(110,255,160,.02)";
+                e.currentTarget.style.background = "rgba(var(--signal-rgb),.02)";
               }
             }}
             onMouseLeave={(e) => {
@@ -137,7 +137,7 @@ export function AISuggestPanel({
         <div
           className="shrink-0 px-3 py-2"
           style={{
-            borderTop: "1px solid rgba(110,255,160,.1)",
+            borderTop: "1px solid rgba(var(--signal-rgb),.1)",
             background: "rgba(4,12,8,.8)",
           }}
         >

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Challenge, ChallengeStep } from "@/types/game";
 
 interface MissionPanelProps {
@@ -50,7 +52,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
                 key={step.id}
                 className="flex-1 py-1.5 px-2 text-[8px] tracking-[2px] flex items-center gap-2"
                 style={{
-                  border: `1px solid ${done ? "rgba(110,255,160,.3)" : active ? "var(--color-alert)" : "rgba(184,212,160,.15)"}`,
+                  border: `1px solid ${done ? "rgba(var(--signal-rgb),.3)" : active ? "var(--color-alert)" : "rgba(184,212,160,.15)"}`,
                   background: active ? "rgba(255,159,28,.06)" : "transparent",
                   color: done ? "var(--color-signal)" : active ? "var(--color-alert)" : "var(--color-dim)",
                 }}
@@ -67,7 +69,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
       {currentStep.stake ? (
         <div
           className="mb-3 p-4"
-          style={{ borderLeft: "3px solid var(--color-signal)", background: "rgba(110,255,160,.05)" }}
+          style={{ borderLeft: "3px solid var(--color-signal)", background: "rgba(var(--signal-rgb),.05)" }}
         >
           <div className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-signal)" }}>
             ▸ WHY
@@ -99,5 +101,72 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The full brief as a focused popout over a blurred backdrop — opened from
+ * "SEE LEVEL OBJECTIVES" so the editor never gets replaced. Closed by the ✕,
+ * Escape, or a backdrop tap. The caller unmounts it on step change so it never
+ * lingers. Mirrors the HintOverlay pattern (QuickCheck.tsx).
+ */
+export function LevelObjectivesOverlay({
+  challenge,
+  currentStep,
+  currentStepIndex,
+  totalSteps,
+  onClose,
+}: MissionPanelProps & { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="hint-backdrop fixed inset-0 z-[900] flex items-center justify-center p-4"
+      style={{ background: "rgba(2,6,10,.5)" }}
+      onClick={onClose}
+      role="presentation"
+    >
+      <section
+        className="hint-pop flex max-h-[86vh] w-full max-w-[780px] flex-col overflow-hidden"
+        style={{ border: "1px solid rgba(255,159,28,.5)", background: "var(--color-panel)" }}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="Level objectives"
+      >
+        <header
+          className="flex shrink-0 items-center justify-between gap-3 px-5 py-3"
+          style={{ borderBottom: "1px solid rgba(255,159,28,.24)" }}
+        >
+          <span className="font-[family-name:var(--font-display)] text-[11px] tracking-[3px]" style={{ color: "var(--color-alert)" }}>
+            LEVEL OBJECTIVES
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-transparent cursor-pointer px-2 py-1 text-[12px] leading-none"
+            style={{ color: "var(--color-dim)" }}
+            aria-label="Close objectives"
+          >
+            ✕
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <MissionPanel
+            challenge={challenge}
+            currentStep={currentStep}
+            currentStepIndex={currentStepIndex}
+            totalSteps={totalSteps}
+          />
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }

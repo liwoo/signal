@@ -700,7 +700,7 @@ export function DoorCodeVideo({ autoPlay = true, soundEnabled = true }: DoorCode
           {/* Overlays: title card, recap */}
           {st.overlay === "title" && (
             <div style={{ position: "absolute", left: 0, top: 0, width: "66%", height: "84%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 50, textAlign: "center" }}>
-              <div style={{ fontFamily: "var(--font-display)", fontSize: u * 3.8, fontWeight: 900, color: "var(--color-signal)", textShadow: "0 0 24px rgba(110,255,160,.5)", animation: "dv-title 1s cubic-bezier(.22,1,.36,1) both", letterSpacing: ".25em" }}>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: u * 3.8, fontWeight: 900, color: "var(--color-signal)", textShadow: "0 0 24px rgba(var(--signal-rgb),.5)", animation: "dv-title 1s cubic-bezier(.22,1,.36,1) both", letterSpacing: ".25em" }}>
                 CRACKING THE DOOR CODE
               </div>
               <div style={{ marginTop: u * 1.2, fontSize: u * 1.5, letterSpacing: 4, color: T.inkMid, textTransform: "uppercase", animation: "dv-fade-in .8s .5s both" }}>a loop and a switch · under two minutes</div>

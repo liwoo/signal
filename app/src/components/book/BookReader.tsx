@@ -131,7 +131,7 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
   return (
     <div className="book-desk fixed inset-0 z-[60] flex flex-col" role="dialog" aria-modal="true" aria-label={`${BOOK.title} — chapter ${chapter?.numeral ?? ""}`}>
       {/* Toolbar — the game's chrome, over the desk */}
-      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderBottom: "1px solid rgba(110,255,160,0.08)" }}>
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderBottom: "1px solid rgba(var(--signal-rgb),0.08)" }}>
         <div className="min-w-0 text-[7px] tracking-[3px] sm:text-[8px]" style={{ color: "var(--color-dim)" }}>
           ▸ FIELD MANUAL{chapter ? ` · CHAPTER ${chapter.numeral}` : ""} · {notes.title}
         </div>
@@ -144,7 +144,7 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
                   type="button"
                   onClick={() => switchEdition(e)}
                   className="cursor-pointer bg-transparent px-2 py-1 text-[7px] tracking-[2px]"
-                  style={{ color: edition === e ? "var(--color-signal)" : "var(--color-dim)", background: edition === e ? "rgba(110,255,160,0.08)" : "transparent" }}
+                  style={{ color: edition === e ? "var(--color-signal)" : "var(--color-dim)", background: edition === e ? "rgba(var(--signal-rgb),0.08)" : "transparent" }}
                 >
                   {e === "manual" ? "THE MANUAL" : "PLAIN EDITION"}
                 </button>
@@ -212,7 +212,7 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
       </div>
 
       {/* Navigation */}
-      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderTop: "1px solid rgba(110,255,160,0.08)" }}>
+      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderTop: "1px solid rgba(var(--signal-rgb),0.08)" }}>
         <button type="button" onClick={() => turn("prev")} disabled={spread === 0} className="cursor-pointer bg-transparent px-4 py-2 text-[9px] tracking-[3px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,0.3)" }}>
           ◂ BACK
         </button>
@@ -220,11 +220,11 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
           {spread + 1} / {spreadCount}
         </div>
         {atEnd ? (
-          <button type="button" onClick={onReady} className="cursor-pointer bg-transparent px-5 py-2.5 text-[9px] tracking-[3px] hover:bg-[rgba(110,255,160,.08)] sm:text-[10px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(110,255,160,0.35)" }}>
+          <button type="button" onClick={onReady} className="cursor-pointer bg-transparent px-5 py-2.5 text-[9px] tracking-[3px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:text-[10px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
             CLOSE THE BOOK · START LEVEL <span style={{ opacity: 0.35, fontSize: 8 }}>⏎</span>
           </button>
         ) : (
-          <button type="button" onClick={() => turn("next")} className="cursor-pointer bg-transparent px-5 py-2.5 text-[9px] tracking-[3px] hover:bg-[rgba(110,255,160,.08)] sm:text-[10px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(110,255,160,0.35)" }}>
+          <button type="button" onClick={() => turn("next")} className="cursor-pointer bg-transparent px-5 py-2.5 text-[9px] tracking-[3px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:text-[10px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
             TURN THE PAGE ▸
           </button>
         )}

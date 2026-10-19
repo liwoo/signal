@@ -182,10 +182,10 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                   onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))}
                   disabled={fontScale <= SCALE_MIN}
                   className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                             hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                             hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
                   style={{
                     color: "var(--color-dim)",
-                    border: "1px solid rgba(110,255,160,.1)",
+                    border: "1px solid rgba(var(--signal-rgb),.1)",
                   }}
                 >
                   A−
@@ -197,10 +197,10 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                   onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))}
                   disabled={fontScale >= SCALE_MAX}
                   className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                             hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                             hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
                   style={{
                     color: "var(--color-dim)",
-                    border: "1px solid rgba(110,255,160,.1)",
+                    border: "1px solid rgba(var(--signal-rgb),.1)",
                   }}
                 >
                   A+
@@ -233,7 +233,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
 
           {/* Tab switcher — only shown when beginner blocks exist */}
           {hasBeginner && (
-            <div className="flex gap-0 mt-3" style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}>
+            <div className="flex gap-0 mt-3" style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}>
               {(["beginner", "expert"] as const).map((tab) => (
                 <button
                   key={tab}
@@ -263,7 +263,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                       ? "var(--color-signal)"
                       : i === currentSection
                         ? "var(--color-alert)"
-                        : "rgba(110,255,160,.1)",
+                        : "rgba(var(--signal-rgb),.1)",
                 }}
               />
             ))}
@@ -276,7 +276,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           ref={scrollRef}
           className={isDiagramSection ? "flex-1 min-h-0 flex flex-col" : "flex-1 overflow-y-auto pr-4 space-y-4"}
           style={isDiagramSection ? {} : {
-            borderLeft: "2px solid rgba(110,255,160,.15)",
+            borderLeft: "2px solid rgba(var(--signal-rgb),.15)",
             paddingLeft: 24,
           }}
         >
@@ -296,7 +296,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           ))}
 
           {!isDiagramSection && completedBlocks.length > 0 && (
-            <div className="h-px my-2" style={{ background: "rgba(110,255,160,.08)" }} />
+            <div className="h-px my-2" style={{ background: "rgba(var(--signal-rgb),.08)" }} />
           )}
 
           {sectionBlocks.map((block, i) => {
@@ -365,7 +365,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
         </div>
 
         {/* Actions */}
-        <div className="shrink-0 flex items-center gap-3 mt-5 pt-3" style={{ borderTop: "1px solid rgba(110,255,160,.08)" }}>
+        <div className="shrink-0 flex items-center gap-3 mt-5 pt-3" style={{ borderTop: "1px solid rgba(var(--signal-rgb),.08)" }}>
           {!sectionDone ? (
             <button
               onClick={skipSection}
@@ -381,10 +381,10 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
             <button
               onClick={advanceSection}
               className="bg-transparent text-[10px] tracking-[4px] px-5 py-2.5 cursor-pointer transition-colors
-                         hover:bg-[rgba(110,255,160,.08)]"
+                         hover:bg-[rgba(var(--signal-rgb),.08)]"
               style={{
                 color: "var(--color-signal)",
-                border: "1px solid rgba(110,255,160,.3)",
+                border: "1px solid rgba(var(--signal-rgb),.3)",
               }}
             >
               {advanceLabel}{" "}
@@ -537,7 +537,7 @@ function BlockRenderer({
           style={{
             fontSize: codeSize,
             background: "var(--color-code-bg)",
-            border: "1px solid rgba(110,255,160,.08)",
+            border: "1px solid rgba(var(--signal-rgb),.08)",
             color: "var(--color-signal)",
             fontFamily: "var(--font-mono)",
           }}
