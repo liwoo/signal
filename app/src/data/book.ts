@@ -5,14 +5,43 @@
 // hides exactly one chapter; the player finds it before reaching the terminal
 // and reads it (the beginner notes, typeset as a book) before the round.
 
-export const BOOK = {
+import type { LanguageId } from "@/types/game";
+
+export interface BookInfo {
+  title: string;
+  subtitle: string;
+  author: string;
+  edition: string;
+  dedication: string;
+  signature: string;
+}
+
+export const BOOK: BookInfo = {
   title: "GO",
   subtitle: "A FIELD MANUAL",
   author: "E. REEVES",
   edition: "second printing · annotated",
   dedication: "for whoever they put in this cell next.",
   signature: "— e.r.",
-} as const;
+};
+
+// One Reeves book, re-skinned per language: same chapters, same hiding places,
+// the primer she wrote for the language the player is learning.
+const BOOK_TITLES: Record<LanguageId, string> = {
+  go: "GO",
+  python: "PYTHON",
+  javascript: "JAVASCRIPT",
+};
+
+/** Story text that names the manual ("'go: a field manual'") names the player's language's manual instead. */
+export function localizeManualMention(text: string, language: LanguageId): string {
+  if (language === "go") return text;
+  return text.replace(/'go: a field manual'/g, `'${BOOK_TITLES[language].toLowerCase()}: a field manual'`);
+}
+
+export function bookFor(language: LanguageId = "go"): BookInfo {
+  return language === "go" ? BOOK : { ...BOOK, title: BOOK_TITLES[language] };
+}
 
 export interface BookChapter {
   /** Challenge id this chapter teaches (key into beginner notes). */
@@ -28,6 +57,8 @@ export interface BookChapter {
   marginNote: string;
   /** Maya's thought when she finds it (lowercase). */
   found: string;
+  /** Per-language overrides where the Go wording doesn't fit (e.g. no "skeleton" outside Go). */
+  byLanguage?: Partial<Record<LanguageId, Partial<Pick<BookChapter, "title" | "marginNote">>>>;
 }
 
 export const BOOK_CHAPTERS: BookChapter[] = [
@@ -39,6 +70,10 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     hiddenIn: "folded into the mattress · cell b-09",
     marginNote: "start with the skeleton. everything else hangs from it.",
     found: "a book chapter, torn out and folded small. 'go: a field manual' — chapter one. someone was in this cell before me.",
+    byLanguage: {
+      python: { title: "The First Line", marginNote: "one line that runs. everything else follows from it." },
+      javascript: { title: "The First Line", marginNote: "one line that runs. everything else follows from it." },
+    },
   },
   {
     challengeId: "chapter-02",
@@ -87,12 +122,18 @@ export const BOOK_CHAPTERS: BookChapter[] = [
   },
 ];
 
-export function bookChapterFor(challengeId: string): BookChapter | null {
-  return BOOK_CHAPTERS.find((c) => c.challengeId === challengeId) ?? null;
+export function bookChapterFor(challengeId: string, language: LanguageId = "go"): BookChapter | null {
+  const chapter = BOOK_CHAPTERS.find((c) => c.challengeId === challengeId) ?? null;
+  if (!chapter || language === "go") return chapter;
+  return {
+    ...chapter,
+    ...chapter.byLanguage?.[language],
+    found: localizeManualMention(chapter.found, language),
+  };
 }
 
 /** The chapter a level hands over: "chapter-01-intro" → chapter for "chapter-01". */
-export function bookChapterForLevel(levelId: string): BookChapter | null {
+export function bookChapterForLevel(levelId: string, language: LanguageId = "go"): BookChapter | null {
   const challengeId = levelId.replace(/-(intro|complete)$/, "").replace(/^chapter-04-2$/, "chapter-04.2");
-  return bookChapterFor(challengeId);
+  return bookChapterFor(challengeId, language);
 }

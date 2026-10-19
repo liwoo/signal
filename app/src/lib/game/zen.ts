@@ -5,6 +5,9 @@
 // Pure functions only.
 
 import { tokenize, type Token } from "@/lib/go/tokenizer";
+import type { LanguageId } from "@/types/game";
+import { JAVASCRIPT_ZEN_RULES } from "./zen-javascript";
+import { PYTHON_ZEN_RULES } from "./zen-python";
 
 // ── Types ──
 
@@ -1032,6 +1035,18 @@ const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
   "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
 };
 
+// Each language coaches its own idioms under the shared step ids.
+const RULES_BY_LANGUAGE: Record<LanguageId, Record<string, ZenRule[]>> = {
+  go: STEP_ZEN_RULES,
+  javascript: JAVASCRIPT_ZEN_RULES,
+  python: PYTHON_ZEN_RULES,
+};
+
+/** The zen rules a step checks, in the language being taught. */
+export function getZenRules(stepId: string, language: LanguageId = "go"): ZenRule[] {
+  return RULES_BY_LANGUAGE[language]?.[stepId] ?? [];
+}
+
 // ── Analysis ──
 
 /**
@@ -1042,9 +1057,10 @@ const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
 export function analyzeZen(
   stepId: string,
   code: string,
-  masteredIds?: Set<string>
+  masteredIds?: Set<string>,
+  language: LanguageId = "go"
 ): ZenResult {
-  const rules = STEP_ZEN_RULES[stepId];
+  const rules = getZenRules(stepId, language);
   if (!rules || rules.length === 0) {
     return { bonusXP: 0, jolts: [], suggestions: [] };
   }
@@ -1072,7 +1088,7 @@ export function analyzeZen(
   return { bonusXP, jolts, suggestions };
 }
 
-export function buildZenMessage(result: ZenResult, missedXP?: number): string | null {
+export function buildZenMessage(result: ZenResult, missedXP?: number, languageName = "go"): string | null {
   if (result.jolts.length === 0 && result.suggestions.length === 0) return null;
 
   const parts: string[] = [];
@@ -1097,15 +1113,15 @@ export function buildZenMessage(result: ZenResult, missedXP?: number): string | 
 
   // Show missed XP to motivate idiomatic code
   if (missedXP && missedXP > 0) {
-    parts.push(`next time you could earn +${missedXP} more XP with cleaner go.`);
+    parts.push(`next time you could earn +${missedXP} more XP with cleaner ${languageName}.`);
   }
 
   return parts.join("\n\n");
 }
 
-export function calculateMissedXP(stepId: string, result: ZenResult, code?: string): number {
-  const rules = STEP_ZEN_RULES[stepId];
-  if (!rules) return 0;
+export function calculateMissedXP(stepId: string, result: ZenResult, code?: string, language: LanguageId = "go"): number {
+  const rules = getZenRules(stepId, language);
+  if (rules.length === 0) return 0;
   const relevant = code
     ? rules.filter((r) => !r.isRelevant || r.isRelevant(code))
     : rules;

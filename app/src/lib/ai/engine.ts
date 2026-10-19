@@ -1,39 +1,17 @@
-import type { Challenge, CompileModule } from "@/types/game";
-import { diagnose } from "@/lib/go/diagnostics";
-import { compileGo, type CompileResult } from "@/lib/go/playground";
+import type { CompileModule, LanguageId } from "@/types/game";
+import { getLanguageService } from "@/lib/lang/registry";
+import type { LanguageService } from "@/lib/lang/types";
+import type { StepBank } from "./banks/types";
+import { JAVASCRIPT_BANKS } from "./banks/javascript";
+import { PYTHON_BANKS } from "./banks/python";
+
+export type { StepBank };
 
 // ── Types ──
 
 export interface MayaResponse {
   reply: string;
   isComplete: boolean;
-}
-
-interface CodePattern {
-  match: (code: string) => boolean;
-  response: string;
-}
-
-interface OutputPattern {
-  match: (output: string) => boolean;
-  response: string;
-}
-
-interface ConceptEntry {
-  keywords: string[];
-  response: string;
-}
-
-interface StepBank {
-  intro: string;
-  conceptFAQ: ConceptEntry[];
-  codePatterns: CodePattern[];
-  outputPatterns?: OutputPattern[];
-  correctResponse: string;
-  genericWrong: string[];
-  rushDialogue: string[];
-  stuckResponses: string[];
-  deflections: string[];
 }
 
 // ── Keyword Matching ──
@@ -2082,7 +2060,9 @@ const ch04_2RelayheaderBank: StepBank = {
 
 // ── Registry ──
 
-const BANKS: Record<string, StepBank> = {
+// Go is the original realization. Other languages author their own banks under
+// the same step ids (see ./banks/*).
+const GO_BANKS: Record<string, StepBank> = {
   "chapter-01:scaffold": ch01ScaffoldBank,
   "chapter-01:location": ch01LocationBank,
   "chapter-02:scaffold": ch02ScaffoldBank,
@@ -2103,62 +2083,15 @@ const BANKS: Record<string, StepBank> = {
   "boss-01:predict": boss01PredictBank,
 };
 
-// ── Format Compile Errors ──
+const BANKS: Record<LanguageId, Record<string, StepBank>> = {
+  go: GO_BANKS,
+  javascript: JAVASCRIPT_BANKS,
+  python: PYTHON_BANKS,
+};
 
-function formatCompileError(errors: string, inRush: boolean): string {
-  const raw = errors.trim();
-  const prefix = inRush ? "no time for bugs. " : "";
-
-  // Runtime panics — give targeted feedback
-  if (raw.includes("assignment to entry in nil map")) {
-    return `${prefix}your map is nil — you declared it but never initialized it.\n\nuse \`occupied := map[string]bool{}\` (with the curly braces) to create an empty map. \`var m map[string]bool\` gives you nil, and writing to nil panics.`;
-  }
-  if (raw.includes("index out of range")) {
-    return `${prefix}index out of range — you're accessing a position that doesn't exist in the slice or string.`;
-  }
-  if (raw.includes("nil pointer dereference")) {
-    return `${prefix}nil pointer — you're using a variable that was never initialized.`;
-  }
-  if (raw.includes("divide by zero")) {
-    return `${prefix}division by zero. check your math.`;
-  }
-  if (raw.includes("goroutine") && raw.includes("panic")) {
-    const panicMatch = raw.match(/panic:\s*(.+)/);
-    if (panicMatch) {
-      return `${prefix}runtime panic: ${panicMatch[1].trim()}`;
-    }
-    return `${prefix}your code panicked at runtime. check for nil maps, out-of-range indices, or uninitialized variables.`;
-  }
-
-  // Go compiler errors look like: ./prog.go:4:6: undefined: fmt.WriteLine
-  // Strip the ./prog.go: prefix and take the first error
-  const lines = raw.split("\n").filter((l) => l.trim());
-  if (lines.length === 0) return "the terminal rejected that. check your code.";
-
-  const first = lines[0]
-    .replace(/^\.\/prog\.go:/, "")
-    .trim();
-
-  return `${prefix}${first}`;
-}
-
-function formatVetError(vetErrors: string, inRush: boolean): string {
-  // Go vet errors look like: ./prog.go:7:2: fmt.Println call has possible Printf formatting directive %s
-  const lines = vetErrors.trim().split("\n").filter((l) => l.trim());
-  if (lines.length === 0) return "the terminal flagged a warning. check your code.";
-
-  const first = lines[0]
-    .replace(/^\.\/prog\.go:/, "")
-    .trim();
-
-  const prefix = inRush ? "hurry — " : "";
-
-  // Common vet: Println with format verbs → give clear Maya-style guidance
-  if (first.includes("Println") && first.includes("Printf")) {
-    return `${prefix}${first}\n\nyou're using format verbs like \`%s\` or \`%d\` inside \`Println\`. that's \`Printf\` territory.\n\n\`Println\` just prints its args separated by spaces. \`Printf\` interprets the format string. switch to \`fmt.Printf(...)\` and add \`\\n\` at the end.`;
-  }
-
-  return `${prefix}go vet: ${first}`;
+/** Maya's answer bank for one step, in the language being taught. */
+export function getStepBank(stepId: string, language: LanguageId = "go"): StepBank | undefined {
+  return BANKS[language]?.[stepId];
 }
 
 // ── Sync Engine (chat + offline fallback) ──
@@ -2169,9 +2102,10 @@ export function callMayaEngine(
   isCode: boolean,
   isFirstMessage: boolean,
   inRush: boolean,
-  attempts: number
+  attempts: number,
+  language: LanguageId = "go"
 ): MayaResponse {
-  const bank = BANKS[stepId];
+  const bank = getStepBank(stepId, language);
   if (!bank) {
     return {
       reply: "...signal lost. no data for this sector.",
@@ -2184,7 +2118,7 @@ export function callMayaEngine(
   }
 
   if (isCode) {
-    return evaluateCodeLocal(bank, userMessage, inRush, attempts);
+    return evaluateCodeLocal(bank, userMessage, inRush, attempts, getLanguageService(language));
   }
 
   return handleChat(bank, userMessage, inRush);
@@ -2206,20 +2140,22 @@ export async function callMayaEngineAsync(
   isFirstMessage: boolean,
   inRush: boolean,
   attempts: number,
-  stepTest?: StepTestConfig
+  stepTest?: StepTestConfig,
+  language: LanguageId = "go"
 ): Promise<MayaResponse> {
   // Chat messages don't need compilation
   if (!isCode) {
-    return callMayaEngine(stepId, userMessage, isCode, isFirstMessage, inRush, attempts);
+    return callMayaEngine(stepId, userMessage, isCode, isFirstMessage, inRush, attempts, language);
   }
 
-  const bank = BANKS[stepId];
+  const bank = getStepBank(stepId, language);
   if (!bank) {
     return { reply: "...signal lost. no data for this sector.", isComplete: false };
   }
+  const lang = getLanguageService(language);
 
   // 1. Local diagnostics first (instant)
-  const diagnostics = diagnose(userMessage);
+  const diagnostics = lang.diagnose(userMessage);
   const localErrors = diagnostics.filter((d) => d.severity === "error");
   if (localErrors.length > 0) {
     const first = localErrors[0];
@@ -2227,41 +2163,36 @@ export async function callMayaEngineAsync(
     return { reply: `${prefix}line ${first.line}: ${first.message}`, isComplete: false };
   }
 
-  // 2. Build source to compile — if testHarness is provided, swap main()
-  const base = stepTest?.testHarness
-    ? replaceMain(userMessage, stepTest.testHarness)
-    : userMessage;
-
-  // If the step ships a package to import, wrap everything in a txtar module so
-  // the player's import resolves against a real compiled package.
-  const source = stepTest?.compileModule
-    ? buildModuleSource(base, stepTest.compileModule)
-    : base;
-
-  // 3. Compile with Go Playground
-  const compiled = await compileGo(source);
+  // 2–3. Run it. The language injects the test harness and bundles any shipped
+  // module its own way (Go swaps func main + builds a txtar module).
+  const run = await lang.run({
+    code: userMessage,
+    harness: stepTest?.testHarness,
+    module: stepTest?.compileModule,
+  });
 
   // 4. Offline fallback → use local pattern matching
-  if (compiled.errors === "__OFFLINE__") {
-    return evaluateCodeLocal(bank, userMessage, inRush, attempts);
+  if (run.status === "offline") {
+    return evaluateCodeLocal(bank, userMessage, inRush, attempts, lang);
   }
 
-  // 5. Compile errors → Maya reports them
-  if (!compiled.success) {
-    return { reply: formatCompileError(compiled.errors, inRush), isComplete: false };
+  // 5. Compile/runtime errors → Maya reports them
+  if (run.status === "error") {
+    return { reply: lang.explainError(run.error, inRush), isComplete: false };
   }
 
-  // 5b. Vet warnings (code compiles but has issues like Println with format verbs)
-  if (compiled.vetErrors) {
-    return { reply: formatVetError(compiled.vetErrors, inRush), isComplete: false };
+  // 5b. Analyzer warnings (code runs but has issues like Println with format verbs)
+  if (run.warning) {
+    return { reply: lang.explainWarning(run.warning, inRush), isComplete: false };
   }
 
   // 6. Test harness — output comparison (the scalable path)
   if (stepTest?.expectedOutput) {
-    if (outputsMatch(compiled.output, stepTest.expectedOutput)) {
+    if (outputsMatch(run.stdout, stepTest.expectedOutput)) {
       // Check requiredCode — prevent hardcoding the answer
       if (stepTest.requiredCode && stepTest.requiredCode.length > 0) {
-        const missing = stepTest.requiredCode.find((pat) => !userMessage.includes(pat));
+        const checked = lang.codeForRequiredCheck(userMessage);
+        const missing = stepTest.requiredCode.find((pat) => !checked.includes(pat));
         if (missing) {
           return {
             reply: `output is correct but you're not using the right approach. your code must include \`${missing}\`.`,
@@ -2274,13 +2205,13 @@ export async function callMayaEngineAsync(
     }
     // Output didn't match — use outputPatterns for targeted feedback, then a
     // concrete diff so the player can see exactly what's off.
-    return evaluateWrongOutput(bank, compiled.output, inRush, stepTest.expectedOutput);
+    return evaluateWrongOutput(bank, run.stdout, inRush, stepTest.expectedOutput);
   }
 
   // 7. Output pattern matching (for steps without test harness)
   if (bank.outputPatterns) {
     for (const pattern of bank.outputPatterns) {
-      if (pattern.match(compiled.output)) {
+      if (pattern.match(run.stdout)) {
         const isComplete = pattern.response.includes("||COMPLETE||");
         const reply = pattern.response.replace("||COMPLETE||", "").trim();
         return { reply, isComplete };
@@ -2290,47 +2221,6 @@ export async function callMayaEngineAsync(
 
   // 9. Fall back to code pattern matching
   return evaluateCodePatterns(bank, userMessage, inRush, attempts);
-}
-
-// ── Wrap the player's code + a shipped package into a txtar module ──
-// The Go Playground (version 2) compiles a multi-file txtar body: each file is
-// introduced by a `-- path --` marker. We emit go.mod, the player's main.go,
-// and every package file the step provides.
-
-function buildModuleSource(mainGo: string, mod: CompileModule): string {
-  const sections: string[] = [
-    `-- go.mod --\nmodule ${mod.module}\n\ngo ${mod.goVersion ?? "1.21"}\n`,
-    `-- main.go --\n${mainGo.trimEnd()}\n`,
-    ...mod.files.map((f) => `-- ${f.path} --\n${f.content.trimEnd()}\n`),
-  ];
-  return sections.join("");
-}
-
-// ── Replace user's main() with test harness ──
-
-function replaceMain(code: string, harness: string): string {
-  // Remove user's func main() { ... } and replace with the harness
-  // Match func main() { ... } accounting for nested braces
-  const mainStart = code.search(/func\s+main\s*\(\s*\)\s*\{/);
-  if (mainStart === -1) {
-    // No main found — just append the harness
-    return code + "\n" + harness;
-  }
-
-  // Find the matching closing brace
-  const braceStart = code.indexOf("{", mainStart);
-  let depth = 0;
-  let braceEnd = braceStart;
-  for (let i = braceStart; i < code.length; i++) {
-    if (code[i] === "{") depth++;
-    if (code[i] === "}") depth--;
-    if (depth === 0) {
-      braceEnd = i;
-      break;
-    }
-  }
-
-  return code.slice(0, mainStart) + harness + code.slice(braceEnd + 1);
 }
 
 // ── Wrong output feedback ──
@@ -2377,10 +2267,11 @@ function evaluateCodeLocal(
   bank: StepBank,
   code: string,
   inRush: boolean,
-  attempts: number
+  attempts: number,
+  lang: LanguageService
 ): MayaResponse {
   // Run diagnostics first — catch syntax errors before pattern matching
-  const diagnostics = diagnose(code);
+  const diagnostics = lang.diagnose(code);
   const errors = diagnostics.filter((d) => d.severity === "error");
 
   if (errors.length > 0) {

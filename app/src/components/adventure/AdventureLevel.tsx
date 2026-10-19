@@ -10,6 +10,7 @@ import type { SfxName, AmbienceName, MusicName } from "@/hooks/useAudio";
 import type { AdventureLevel as AdventureLevelDef, SimEvent, SimState } from "@/lib/adventure/types";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import { bookChapterForLevel } from "@/data/book";
+import { useLanguage } from "@/components/game/LanguageContext";
 import type { BookChapter } from "@/data/book";
 
 interface AdventureLevelProps {
@@ -46,6 +47,7 @@ export function AdventureLevel({
   fallbackTitle,
   fallbackSubtitle,
 }: AdventureLevelProps) {
+  const language = useLanguage();
   const audio = useAudio(soundEnabled, loopsEnabled);
   const apiRef = useRef<AdventureApi | null>(null);
   const [snapshot, setSnapshot] = useState<AdventureSnapshot | null>(null);
@@ -131,7 +133,7 @@ export function AdventureLevel({
         break;
       case "book":
         audio.playSfx("handshake-confirm", 0.35);
-        setFoundBook(bookChapterForLevel(state.level.id));
+        setFoundBook(bookChapterForLevel(state.level.id, language));
         break;
       case "ending":
         audio.playSfx(state.level.ending === "relinquish" ? "handshake-confirm" : "message-receive", 0.45);
@@ -142,7 +144,7 @@ export function AdventureLevel({
       default:
         break;
     }
-  }, [audio, finish]);
+  }, [audio, finish, language]);
 
   const onSnapshot = useCallback((snap: AdventureSnapshot) => setSnapshot(snap), []);
   const onUnsupported = useCallback(() => setUnsupported(true), []);

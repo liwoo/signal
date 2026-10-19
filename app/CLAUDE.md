@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A narrative coding game teaching Go through an escape thriller. Next.js 16 + React 19 + Tailwind 4 + TypeScript 5.
+A narrative coding game teaching Go (and, for Act I, Python and JavaScript) through an escape thriller. Next.js 16 + React 19 + Tailwind 4 + TypeScript 5.
 
 ## Non-Negotiable Rules
 
@@ -21,7 +21,8 @@ A narrative coding game teaching Go through an escape thriller. Next.js 16 + Rea
 - **All game types live in `src/types/game.ts`.** Don't create parallel interfaces elsewhere.
 - **Named exports only.** `export function X()`, never `export default`.
 - **`"use client"` on any component with state, effects, or event handlers.**
-- **Code editor uses transparent-textarea overlay pattern.** Syntax highlighting via `src/lib/go/tokenizer.ts` renders into a `<pre>`, input captured by a transparent `<textarea>` on top. Vim mode lives in `src/hooks/useVim.ts` — never add vim logic to the editor component directly.
+- **Code editor uses transparent-textarea overlay pattern.** Syntax highlighting via the active language's tokenizer renders into a `<pre>`, input captured by a transparent `<textarea>` on top. Vim mode lives in `src/hooks/useVim.ts` — never add vim logic to the editor component directly.
+- **Never import a language directly.** Editor, engine, zen, notes, and boss code resolve `getLanguageService(language)` (`src/lib/lang/registry.ts`); components below `GameRouter` read it from `LanguageProvider` (`useLanguage()`/`useLanguageService()`). `lib/go/*`, `lib/javascript/*`, `lib/python/*` sit behind that seam. See `../spec/infrastructure/languages.md`.
 
 ### Content
 
@@ -30,6 +31,15 @@ A narrative coding game teaching Go through an escape thriller. Next.js 16 + Rea
 - **Every challenge needs a spec first.** Specs live in `../spec/levels/`. Don't create challenge data without a corresponding spec.
 - **The Concept Tracker shows the WHOLE game, built + unbuilt.** `src/data/curriculum.ts` is a forward-looking roadmap: all 9 acts / 24 chapters (from `docs/design.md`). Built chapters pull `concepts` straight from their `Challenge` (auto-synced) and carry a `chapterId`; planned chapters list static concepts and have NO `chapterId` → rendered dim with a "SOON" tag so players see the road ahead. `src/lib/game/curriculum.ts` → `summarizeCurriculum()` marks each chapter covered/current/upcoming/planned from `completedChapterIds` + active `challenge.id`; the % is over PLAYABLE (built) concepts, with `planned` surfaced as "+N AHEAD". Renders as a far-right rail on desktop (`ConceptTracker`, ≥lg) and behind a "CONCEPTS LEARNED · N%" entry in the mobile MORE tab. **When you build a planned chapter, set its `chapterId` in curriculum.ts** so it lights up; concepts stay deduped (first occurrence wins).
 - **Every step leads with the WHY.** Set `ChallengeStep.stake` — one plain-language sentence, ZERO code words, on what this step does for Maya / the escape. Playtests (Oct 2026) showed non-coders can finish a step without ever knowing why they wrote it. `stake` renders as the green "WHY" block (MissionPanel) + the prominent ObjectiveBar line; `brief` is the short WHAT (the action, one line). Maya's step `intro` (engine bank) should also open with the stake, not a package/import/main enumeration. Keep all three short — reading is the #1 complaint.
+
+### Languages (Go · Python · JavaScript)
+
+- **The step is the spine; the code is the realization.** A `ChallengeStep`'s story fields (stake, XP, events, rush, timer) are shared. Code-shaped fields are realized per language in `src/data/challenges/<lang>/` and merged by `realizeChallenge(challenge, lang)`. Go is authored inline in the chapter files. A chapter appears in a language only if it has a realization for every step.
+- **Every non-Go step grades by `expectedOutput`** (scaffolds too — `Hello World`). Use per-language `expectedOutput` when idiomatic output differs (Python's `True`); don't contort code to force identical bytes.
+- **`requiredCode` must not be satisfiable by the hardcoded answer string** — JS/Python check it against code with import lines stripped. Pick names that don't appear in the expected output (JS `cell`/`sublevel`).
+- **Per-language content keys off the shared ids:** banks `src/lib/ai/banks/<lang>.ts`, zen `src/lib/game/zen-<lang>.ts` (ids `js_*`/`py_*`) + `src/data/zen-examples.<lang>.ts`, notes `src/data/beginner-notes.<lang>.ts` (no Go diagram blocks). Add a reference solution to `src/lib/lang/act1.fixtures.ts` for every new step; `act1-golden.test.ts` and `act1-content.test.ts` enforce the rest.
+- **JS template literals in Maya's text:** inline code can't nest backticks — wrap it in a double-backtick span: ``console.log(`x ${y}`)``.
+- **Progress is per language** (`ProgressStore.byLanguage`); XP/hearts/library are shared. Never read `progress.completedChapters` directly — use `progressFor(store, lang)`.
 
 ### File Organization
 

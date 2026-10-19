@@ -4,7 +4,7 @@
  */
 
 import type { GamePersistence, PersistedState } from "./persistence";
-import { DEFAULTS } from "./persistence";
+import { DEFAULTS, migrateProgress } from "./persistence";
 
 const DB_NAME = "signal-game";
 const DB_VERSION = 1;
@@ -61,7 +61,8 @@ export function createIDBPersistence(): GamePersistence {
           KEYS.map((k) => idbGet(db, k))
         );
         return {
-          progress: (progress as PersistedState["progress"]) ?? DEFAULTS.progress,
+          // v1 saves held one Go progress block; fold it into the per-language store.
+          progress: migrateProgress(progress),
           stats: (stats as PersistedState["stats"]) ?? DEFAULTS.stats,
           unlocks: (unlocks as PersistedState["unlocks"]) ?? DEFAULTS.unlocks,
           // Merge so settings added in later releases pick up their defaults.

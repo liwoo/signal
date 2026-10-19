@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BeginnerNotes, NoteBlock } from "@/data/beginner-notes";
 import { getSectionCountFromBlocks } from "@/data/beginner-notes";
-import { BOOK } from "@/data/book";
+import { bookFor } from "@/data/book";
+import { useLanguage } from "@/components/game/LanguageContext";
 import type { BookChapter } from "@/data/book";
 import { BookCover } from "./BookCover";
 import { ProgramBlueprint } from "@/components/game/diagrams/ProgramBlueprint";
@@ -60,6 +61,7 @@ function buildPages(blocks: NoteBlock[]): Page[] {
  * become footnotes and still pay the +5 XP.
  */
 export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP, soundEnabled = true }: BookReaderProps) {
+  const BOOK = bookFor(useLanguage());
   const hasPlain = !!notes.beginnerBlocks && notes.beginnerBlocks.length > 0;
   const [edition, setEdition] = useState<Edition>("manual");
   const blocks = edition === "plain" && notes.beginnerBlocks ? notes.beginnerBlocks : notes.blocks;
@@ -249,6 +251,7 @@ interface BookPageProps {
 }
 
 function BookPage({ side, page, number, notes, chapter, bodyPx, clicked, onHotspot, soundEnabled, onTurn, onReady, atEnd }: BookPageProps) {
+  const BOOK = bookFor(useLanguage());
   const sideClass = side === "right" ? "book-page-right" : "book-page-left";
   const running = chapter ? `${BOOK.title} · ${BOOK.subtitle}` : notes.title;
   return (
@@ -289,6 +292,7 @@ function BookPage({ side, page, number, notes, chapter, bodyPx, clicked, onHotsp
 }
 
 function InsideCover({ chapter }: { chapter: BookChapter | null }) {
+  const BOOK = bookFor(useLanguage());
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
       <BookCover chapter={chapter} width={120} className="mb-6 opacity-90" />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { summarizeCurriculum, type ConceptStatus } from "@/lib/game/curriculum";
+import { useLanguage } from "./LanguageContext";
 
 interface ConceptTrackerProps {
   completedChapterIds: string[];
@@ -25,13 +26,14 @@ const STATUS_MARK: Record<ConceptStatus, string> = {
 };
 
 /**
- * The whole-game concept map — every Go concept across all nine acts, built and
+ * The whole-game concept map — every concept across all nine acts, built and
  * planned. Covered concepts glow green, the active chapter is amber, reachable
  * ones sit neutral, and not-yet-built chapters are dim with a "SOON" tag so the
  * player always sees the road ahead. Desktop rail + mobile (behind a %).
  */
 export function ConceptTracker({ completedChapterIds, currentChapterId, compact = false }: ConceptTrackerProps) {
-  const summary = summarizeCurriculum(completedChapterIds, currentChapterId);
+  const language = useLanguage();
+  const summary = summarizeCurriculum(completedChapterIds, currentChapterId, language);
 
   // Only the act you're inside is exploded into chips; every other act stays a
   // quiet one-line header so the road ahead is still visible without the wall of

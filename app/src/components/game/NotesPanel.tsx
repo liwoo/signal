@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { getBeginnerNotes, type BeginnerNotes, type NoteBlock } from "@/data/beginner-notes";
-import { tokenize, type Token } from "@/lib/go/tokenizer";
+import type { Token } from "@/lib/lang/types";
+import type { LanguageId } from "@/types/game";
+import { useLanguage, useLanguageService } from "./LanguageContext";
 
 const SCALE_MIN = 1;
 const SCALE_MAX = 3;
@@ -18,7 +20,8 @@ interface NotesPanelProps {
 /** Collects beginner notes for current + completed chapters. */
 function collectNotes(
   currentChapterId: string,
-  completedChapterIds: string[]
+  completedChapterIds: string[],
+  language: LanguageId
 ): Array<{ chapterId: string; notes: BeginnerNotes }> {
   const result: Array<{ chapterId: string; notes: BeginnerNotes }> = [];
   const seen = new Set<string>();
@@ -27,13 +30,13 @@ function collectNotes(
   for (const id of completedChapterIds) {
     if (seen.has(id)) continue;
     seen.add(id);
-    const notes = getBeginnerNotes(id);
+    const notes = getBeginnerNotes(id, language);
     if (notes) result.push({ chapterId: id, notes });
   }
 
   // Current chapter
   if (!seen.has(currentChapterId)) {
-    const notes = getBeginnerNotes(currentChapterId);
+    const notes = getBeginnerNotes(currentChapterId, language);
     if (notes) result.push({ chapterId: currentChapterId, notes });
   }
 
@@ -41,7 +44,8 @@ function collectNotes(
 }
 
 export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, onFontScaleChange }: NotesPanelProps) {
-  const allNotes = collectNotes(currentChapterId, completedChapterIds);
+  const language = useLanguage();
+  const allNotes = collectNotes(currentChapterId, completedChapterIds, language);
   const [expandedChapter, setExpandedChapter] = useState<string>(currentChapterId);
 
   if (allNotes.length === 0) {
@@ -179,6 +183,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
 }
 
 function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: number }) {
+  const { tokenize } = useLanguageService();
   // In-challenge reference: compact by default, the A+/A− scale nudges it up
   // gently (the tutorial-sized 2× default would swamp the side panel).
   const textSize = `${Math.round(12 + (fontScale - 1) * 3)}px`;
@@ -232,7 +237,7 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
           border: "1px solid rgba(110,255,160,.06)",
           tabSize: 4,
         }}
-        dangerouslySetInnerHTML={{ __html: highlightGo(block.content) }}
+        dangerouslySetInnerHTML={{ __html: highlightCode(block.content, tokenize) }}
       />
       {block.hotspots && block.hotspots.length > 0 && (
         <div className="mt-1 flex flex-col gap-0.5">
@@ -280,8 +285,8 @@ function HotspotTip({ text, tip }: { text: string; tip: string }) {
   );
 }
 
-/** Simple Go syntax highlight using the tokenizer. */
-function highlightGo(code: string): string {
+/** Syntax highlight with the active language's tokenizer. */
+function highlightCode(code: string, tokenize: (src: string) => Token[]): string {
   const TOKEN_COLORS: Record<string, string> = {
     keyword: "var(--color-syn-keyword)",
     string: "var(--color-syn-string)",

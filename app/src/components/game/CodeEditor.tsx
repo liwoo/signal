@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState, useEffect } from "react";
-import { tokenize } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
-import { getCompletions, getKnownPackages, getSymbolCompletions, isPackageImported, type Completion, type ExtraPackage } from "@/lib/go/completions";
-import { formatGo } from "@/lib/go/playground";
+import { getLanguageService } from "@/lib/lang/registry";
+import type { Completion, ExtraPackage, LanguageService } from "@/lib/lang/types";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
-import type { SubmissionFeedback } from "@/types/game";
+import type { LanguageId, SubmissionFeedback } from "@/types/game";
 
 interface CodeEditorProps {
   code: string;
@@ -31,6 +30,8 @@ interface CodeEditorProps {
   onDismissSubmissionFeedback?: () => void;
   /** Non-stdlib packages the current step ships, so their members autocomplete. */
   extraPackages?: ExtraPackage[];
+  /** The language being written — drives highlighting, autocomplete, and formatting. */
+  language?: LanguageId;
 }
 
 const TOKEN_COLORS: Record<string, string> = {
@@ -47,8 +48,8 @@ const TOKEN_COLORS: Record<string, string> = {
   unknown: "var(--color-foreground)",
 };
 
-function highlightCode(source: string): React.ReactNode[] {
-  const tokens = tokenize(source);
+function highlightCode(source: string, lang: LanguageService): React.ReactNode[] {
+  const tokens = lang.tokenize(source);
   const nodes: React.ReactNode[] = [];
   let lastEnd = 0;
 
@@ -84,6 +85,13 @@ function vimModeLabel(mode: VimMode): string {
   }
 }
 
+// The one language-specific operator on the mobile accessory row.
+const ACCESSORY_OPERATOR: Record<LanguageId, { label: string; insert: string }> = {
+  go: { label: ":=", insert: " := " },
+  javascript: { label: "=>", insert: " => " },
+  python: { label: ":", insert: ":" },
+};
+
 // Stable default so the useCallback deps don't churn when no extra packages exist.
 const EMPTY_EXTRA_PACKAGES: ExtraPackage[] = [];
 
@@ -91,27 +99,15 @@ type AcContext =
   | { type: "pkg"; pkg: string; partial: string; start: number }
   | { type: "symbol"; partial: string; start: number };
 
-function isInsideString(code: string, pos: number): boolean {
-  let inDouble = false;
-  let inBack = false;
-  for (let i = 0; i < pos; i++) {
-    const ch = code[i];
-    if (ch === "\\" && (inDouble || inBack)) { i++; continue; }
-    if (ch === '"' && !inBack) inDouble = !inDouble;
-    else if (ch === "`" && !inDouble) inBack = !inBack;
-  }
-  return inDouble || inBack;
-}
-
-function detectAutocomplete(code: string, pos: number, extra: ExtraPackage[]): AcContext | null {
+function detectAutocomplete(code: string, pos: number, extra: ExtraPackage[], lang: LanguageService): AcContext | null {
   const before = code.slice(0, pos);
 
   // No completions inside string literals
-  if (isInsideString(code, pos)) return null;
+  if (lang.isInsideString(code, pos)) return null;
 
   // Check for pkg.partial pattern first — only if the package is actually imported
   const pkgMatch = before.match(/(\w+)\.(\w*)$/);
-  if (pkgMatch && getKnownPackages(extra).includes(pkgMatch[1]) && isPackageImported(code, pkgMatch[1], extra)) {
+  if (pkgMatch && lang.getKnownPackages(extra).includes(pkgMatch[1]) && lang.isPackageImported(code, pkgMatch[1], extra)) {
     return { type: "pkg", pkg: pkgMatch[1], partial: pkgMatch[2], start: pos - pkgMatch[2].length };
   }
 
@@ -145,7 +141,9 @@ export function CodeEditor({
   submissionFeedback,
   onDismissSubmissionFeedback,
   extraPackages = EMPTY_EXTRA_PACKAGES,
+  language = "go",
 }: CodeEditorProps) {
+  const lang = getLanguageService(language);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const lineNumRef = useRef<HTMLDivElement>(null);
@@ -210,10 +208,10 @@ export function CodeEditor({
   // Format
   const [formatting, setFormatting] = useState(false);
   const handleFormat = useCallback(async () => {
-    if (formatting || disabled || busy) return;
+    if (formatting || disabled || busy || !lang.format) return;
     setFormatting(true);
     try {
-      const result = await formatGo(code);
+      const result = await lang.format(code);
       trackCodeFormat(result.success);
       if (result.success && result.body !== code) {
         onCodeChange(result.body);
@@ -221,7 +219,7 @@ export function CodeEditor({
     } finally {
       setFormatting(false);
     }
-  }, [code, onCodeChange, formatting, disabled, busy]);
+  }, [code, onCodeChange, formatting, disabled, busy, lang]);
 
   const isBlockCursor = vim.enabled && vim.mode === "normal";
   // Show a thick terminal cursor either in vim-normal, or when the terminal is
@@ -235,19 +233,19 @@ export function CodeEditor({
 
   // Update autocomplete on code/cursor change
   const updateAutocomplete = useCallback((newCode: string, pos: number) => {
-    const ctx = detectAutocomplete(newCode, pos, extraPackages);
+    const ctx = detectAutocomplete(newCode, pos, extraPackages, lang);
     if (!ctx) {
       setAcVisible(false);
       return;
     }
     let filtered: Completion[];
     if (ctx.type === "pkg") {
-      const all = getCompletions(ctx.pkg, extraPackages);
+      const all = lang.getCompletions(ctx.pkg, extraPackages);
       filtered = ctx.partial
         ? all.filter((c) => c.label.toLowerCase().startsWith(ctx.partial.toLowerCase()))
         : all;
     } else {
-      filtered = getSymbolCompletions(newCode, ctx.start, ctx.partial, extraPackages);
+      filtered = lang.getSymbolCompletions(newCode, ctx.start, ctx.partial, extraPackages);
       // Don't show if the only match is exactly what's typed
       if (filtered.length === 1 && filtered[0].label === ctx.partial) {
         setAcVisible(false);
@@ -287,7 +285,7 @@ export function CodeEditor({
         y: markerRect.top - measureRect.top + parseInt(lh) - ta.scrollTop,
       });
     }
-  }, [extraPackages]);
+  }, [extraPackages, lang]);
 
   const acceptCompletion = useCallback((item: Completion) => {
     trackAutocomplete(item.label);
@@ -611,7 +609,7 @@ export function CodeEditor({
         {!isMobile ? <div
           className="absolute top-1.5 right-2.5 z-40 flex items-center gap-2"
         >
-          <button
+          {lang.format ? <button
             type="button"
             onClick={handleFormat}
             disabled={formatting || disabled || busy}
@@ -629,7 +627,7 @@ export function CodeEditor({
             title="Format code (gofmt)"
           >
             {formatting ? "FMT..." : "FMT"}
-          </button>
+          </button> : null}
           <div
             className="flex items-center gap-1"
             style={{
@@ -694,7 +692,7 @@ export function CodeEditor({
               tabSize: 4,
             }}
           >
-            {highlightCode(code)}
+            {highlightCode(code, lang)}
             {/* Ensure trailing newline renders */}
             {"\n"}
           </pre>
@@ -815,9 +813,9 @@ export function CodeEditor({
           }}
           aria-label="Code keyboard shortcuts"
         >
-          <EditorAccessoryKey label={formatting ? "FMT…" : "FMT"} onPress={handleFormat} />
+          {lang.format ? <EditorAccessoryKey label={formatting ? "FMT…" : "FMT"} onPress={handleFormat} /> : null}
           <EditorAccessoryKey label="TAB" onPress={() => insertSnippet("    ")} />
-          <EditorAccessoryKey label=":=" onPress={() => insertSnippet(" := ")} />
+          <EditorAccessoryKey label={ACCESSORY_OPERATOR[language].label} onPress={() => insertSnippet(ACCESSORY_OPERATOR[language].insert)} />
           <EditorAccessoryKey label="{ }" onPress={() => insertSnippet("{", "}")} />
           <EditorAccessoryKey label="( )" onPress={() => insertSnippet("(", ")")} />
           <EditorAccessoryKey label={'" "'} onPress={() => insertSnippet('"', '"')} />

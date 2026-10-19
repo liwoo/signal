@@ -2,12 +2,14 @@
 
 import type { LibraryState } from "@/lib/game/library";
 import { getLibraryStats, entryLesson } from "@/lib/game/library";
+import { useLanguageService } from "./LanguageContext";
 
 interface LibraryPanelProps {
   library: LibraryState;
 }
 
 export function LibraryPanel({ library }: LibraryPanelProps) {
+  const lang = useLanguageService();
   const stats = getLibraryStats(library);
 
   if (library.entries.length === 0) {
@@ -18,7 +20,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
             ▸ ZEN LIBRARY
           </div>
           <div className="text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
-            complete steps to collect go idioms
+            complete steps to collect {lang.label.toLowerCase()} idioms
           </div>
         </div>
       </div>

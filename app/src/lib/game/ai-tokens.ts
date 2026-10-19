@@ -4,6 +4,8 @@
 // Tokens deplete with each suggestion used.
 // Pure functions only.
 
+import type { LanguageId } from "@/types/game";
+
 export const INITIAL_TOKENS = 0;
 export const TOKEN_GRANT_CHAPTER_03 = 5;
 export const TOKEN_COST_PER_USE = 1;
@@ -15,9 +17,10 @@ export interface AISuggestion {
   description: string;    // Maya's explanation
 }
 
-/** Get AI suggestions for a given step. Returns empty if not available. */
-export function getAISuggestions(stepId: string): AISuggestion[] {
-  return STEP_SUGGESTIONS[stepId] ?? [];
+/** Get AI suggestions for a given step, in the language being taught. Returns empty if not available. */
+export function getAISuggestions(stepId: string, language: LanguageId = "go"): AISuggestion[] {
+  const bank = language === "go" ? STEP_SUGGESTIONS : language === "javascript" ? JS_SUGGESTIONS : PY_SUGGESTIONS;
+  return bank[stepId] ?? [];
 }
 
 /** Use a token. Returns new token count, or null if can't afford it. */
@@ -80,6 +83,102 @@ const STEP_SUGGESTIONS: Record<string, AISuggestion[]> = {
       label: "direct bool return",
       code: `    return total, total > 100`,
       description: "total > 100 IS a boolean — return it directly, no if/else needed",
+    },
+  ],
+};
+
+const JS_SUGGESTIONS: Record<string, AISuggestion[]> = {
+  "chapter-03:sumfunc": [
+    {
+      id: "sum-rest-sig",
+      label: "function signature",
+      code: `function sumCodes(...codes) {`,
+      description: "rest parameter — ...codes gathers every argument into one array",
+    },
+    {
+      id: "sum-for-of",
+      label: "for...of loop",
+      code: `  for (const c of codes) {
+    total += c;
+  }`,
+      description: "walk the array with for...of — each pass hands you the next value",
+    },
+    {
+      id: "sum-full-body",
+      label: "full function body",
+      code: `  let total = 0;
+  for (const c of codes) {
+    total += c;
+  }
+  return total;`,
+      description: "complete sum logic — start at 0, accumulate, return",
+    },
+  ],
+  "chapter-03:validate": [
+    {
+      id: "validate-sig",
+      label: "function signature",
+      code: `function validateCode(...codes) {`,
+      description: "same rest parameter — any number of codes",
+    },
+    {
+      id: "validate-compose",
+      label: "reuse sumCodes",
+      code: `  const total = sumCodes(...codes);`,
+      description: "spread the array back out with ...codes so sumCodes gets every value",
+    },
+    {
+      id: "validate-two-values",
+      label: "return both values",
+      code: `  return [total, total > 100];`,
+      description: "return an array of two — the caller unpacks it with const [sum, valid] = ...",
+    },
+  ],
+};
+
+const PY_SUGGESTIONS: Record<string, AISuggestion[]> = {
+  "chapter-03:sumfunc": [
+    {
+      id: "sum-star-sig",
+      label: "function signature",
+      code: `def sum_codes(*codes):`,
+      description: "*codes gathers every argument into one tuple",
+    },
+    {
+      id: "sum-for-loop",
+      label: "for loop",
+      code: `    for c in codes:
+        total += c`,
+      description: "walk the tuple — each pass hands you the next value",
+    },
+    {
+      id: "sum-full-body",
+      label: "full function body",
+      code: `    total = 0
+    for c in codes:
+        total += c
+    return total`,
+      description: "complete sum logic — start at 0, accumulate, return",
+    },
+  ],
+  "chapter-03:validate": [
+    {
+      id: "validate-sig",
+      label: "function signature",
+      code: `def validate_code(*codes):`,
+      description: "same *codes — any number of codes",
+    },
+    {
+      id: "validate-compose",
+      label: "reuse sum_codes",
+      code: `    total = sum_codes(*codes)`,
+      description: "unpack the tuple back out with *codes so sum_codes gets every value",
+    },
+    {
+      id: "validate-two-values",
+      label: "return both values",
+      code: `    return total, total > 100`,
+      description: "a comma returns a tuple — the caller unpacks it with s, v = ...",
     },
   ],
 };

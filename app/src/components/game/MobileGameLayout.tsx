@@ -192,7 +192,7 @@ export function MobileGameLayout({
               </div>
               <MobileMoreButton
                 label={`CONCEPTS LEARNED · ${conceptPct}%`}
-                description="Every Go concept in the game — see what you've covered and what's next."
+                description="Every concept in the game — see what you've covered and what's next."
                 onClick={() => setSecondaryView("concepts")}
               />
               <MobileMoreButton

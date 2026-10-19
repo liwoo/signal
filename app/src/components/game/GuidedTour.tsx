@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { trackTourStart, trackTourStep, trackTourSkip, trackTourComplete } from "@/lib/analytics";
+import type { LanguageService } from "@/lib/lang/types";
+import { useLanguageService } from "./LanguageContext";
 
 interface TourStep {
   target: string;       // data-tour attribute value to find the element
@@ -10,7 +12,14 @@ interface TourStep {
   position: "top" | "bottom" | "left" | "right";
 }
 
-const STEPS: TourStep[] = [
+function tourSteps(lang: LanguageService): TourStep[] {
+  const name = lang.label;
+  const runs = lang.id === "go"
+    ? "sends your code to the Go compiler."
+    : lang.id === "python"
+      ? "runs your code on a real python interpreter, right in your browser."
+      : "runs your code right here in your browser.";
+  const steps: TourStep[] = [
   {
     target: "chat-panel",
     title: "MAYA'S TERMINAL",
@@ -26,7 +35,7 @@ const STEPS: TourStep[] = [
   {
     target: "code-editor",
     title: "CODE EDITOR",
-    description: "write your Go code here. maya's survival depends on what you type. when you're ready, hit TRANSMIT to compile and run it.",
+    description: `write your ${name} code here. maya's survival depends on what you type. when you're ready, hit TRANSMIT to run it.`,
     position: "left",
   },
   {
@@ -38,13 +47,13 @@ const STEPS: TourStep[] = [
   {
     target: "transmit-btn",
     title: "TRANSMIT",
-    description: "sends your code to the Go compiler. if it compiles and passes the challenge, maya moves forward. if not, she'll tell you what went wrong.",
+    description: `${runs} if it runs and passes the challenge, maya moves forward. if not, she'll tell you what went wrong.`,
     position: "top",
   },
   {
     target: "tab-bar",
     title: "CODE · MISSION · NOTES · LIBRARY",
-    description: "the full mission brief and your hints live under MISSION. NOTES is the concept reference from the tutorial. LIBRARY collects the go idioms you earn.",
+    description: `the full mission brief and your hints live under MISSION. NOTES is the concept reference from the tutorial. LIBRARY collects the ${name.toLowerCase()} idioms you earn.`,
     position: "bottom",
   },
   {
@@ -53,7 +62,10 @@ const STEPS: TourStep[] = [
     description: "your XP, level, hearts, and the countdown timer. lose all hearts and maya gets captured. move fast — the clock is ticking.",
     position: "bottom",
   },
-];
+  ];
+  // No formatter outside Go, so no FMT button to point at.
+  return lang.format ? steps : steps.filter((s) => s.target !== "fmt-btn");
+}
 
 interface GuidedTourProps {
   onComplete: () => void;
@@ -64,6 +76,8 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [visible, setVisible] = useState(false);
   const rafRef = useRef(0);
+  const lang = useLanguageService();
+  const STEPS = useMemo(() => tourSteps(lang), [lang]);
 
   const current = STEPS[step];
 
@@ -107,7 +121,7 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
       trackTourComplete();
       onComplete();
     }
-  }, [step, onComplete]);
+  }, [step, onComplete, STEPS]);
 
   const skip = useCallback(() => {
     trackTourSkip(step);

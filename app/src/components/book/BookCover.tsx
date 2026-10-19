@@ -1,6 +1,7 @@
 "use client";
 
-import { BOOK } from "@/data/book";
+import { bookFor } from "@/data/book";
+import { useLanguage } from "@/components/game/LanguageContext";
 import type { BookChapter } from "@/data/book";
 
 interface BookCoverProps {
@@ -17,6 +18,7 @@ interface BookCoverProps {
  * gradients and an SVG grain, no images, no border-radius, no box-shadow.
  */
 export function BookCover({ chapter = null, width = 220, className = "" }: BookCoverProps) {
+  const BOOK = bookFor(useLanguage());
   const height = Math.round(width * 1.5);
   const unit = width / 220;
   return (

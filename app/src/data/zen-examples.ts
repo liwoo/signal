@@ -3,6 +3,9 @@
 // lesson is something the player *sees*, not just reads. Keyed by rule id
 // (see src/lib/game/zen.ts). Rules without an entry show the principle only.
 
+import { JAVASCRIPT_ZEN_EXAMPLES } from "./zen-examples.javascript";
+import { PYTHON_ZEN_EXAMPLES } from "./zen-examples.python";
+
 export interface ZenExample {
   before: string;
   after: string;
@@ -10,7 +13,9 @@ export interface ZenExample {
   change: string;
 }
 
-export const ZEN_EXAMPLES: Record<string, ZenExample> = {
+// Rule ids are unique across languages (JS rules are js_*, Python py_*), so one
+// map serves every language.
+const GO_ZEN_EXAMPLES: Record<string, ZenExample> = {
   grouped_import: {
     before: 'import "fmt"',
     after: 'import (\n    "fmt"\n)',
@@ -61,4 +66,10 @@ export const ZEN_EXAMPLES: Record<string, ZenExample> = {
     after: 'const (\n    deny = "DENY"\n    warn = "WARN"\n)\nfmt.Println(i, deny)',
     change: "name the labels — change them in one place, not ten",
   },
+};
+
+export const ZEN_EXAMPLES: Record<string, ZenExample> = {
+  ...GO_ZEN_EXAMPLES,
+  ...JAVASCRIPT_ZEN_EXAMPLES,
+  ...PYTHON_ZEN_EXAMPLES,
 };

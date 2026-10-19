@@ -5,6 +5,11 @@
 // Blocks with the same `section` number are revealed together.
 // The player presses CONTINUE between sections.
 // Code blocks can have `hotspots` — clickable regions with tooltips.
+// Go notes live here; other languages' notes live in beginner-notes.<lang>.ts.
+
+import type { LanguageId } from "@/types/game";
+import { JAVASCRIPT_BEGINNER_NOTES } from "./beginner-notes.javascript";
+import { PYTHON_BEGINNER_NOTES } from "./beginner-notes.python";
 
 export interface Hotspot {
   text: string;     // exact substring in the code to highlight
@@ -1345,8 +1350,15 @@ Combo("HIT", "HIT", "HIT")   // "HIT | HIT | HIT"
   },
 };
 
-export function getBeginnerNotes(challengeId: string): BeginnerNotes | null {
-  return BEGINNER_NOTES[challengeId] ?? null;
+// Each language's field-manual chapters, under the shared challenge ids.
+const NOTES_BY_LANGUAGE: Record<LanguageId, Record<string, BeginnerNotes>> = {
+  go: BEGINNER_NOTES,
+  javascript: JAVASCRIPT_BEGINNER_NOTES,
+  python: PYTHON_BEGINNER_NOTES,
+};
+
+export function getBeginnerNotes(challengeId: string, language: LanguageId = "go"): BeginnerNotes | null {
+  return NOTES_BY_LANGUAGE[language]?.[challengeId] ?? null;
 }
 
 export function getSectionCount(notes: BeginnerNotes): number {

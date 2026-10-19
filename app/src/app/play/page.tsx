@@ -15,7 +15,9 @@ import { CodeEditor } from "@/components/game/CodeEditor";
 import { MissionPanel } from "@/components/game/MissionPanel";
 import { ObjectiveBar } from "@/components/game/ObjectiveBar";
 import { isStuck } from "@/lib/game/hints";
-import { extraPackagesFromModule } from "@/lib/go/completions";
+import { getLanguageService, LANGUAGE_OPTIONS } from "@/lib/lang/registry";
+import { LanguageProvider } from "@/components/game/LanguageContext";
+import { isChallengeAvailable, realizeAdventureLevel, realizeBossLevel, realizeChallenge } from "@/data/challenges/realizations";
 import { LevelTimer } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
 import { PowerCut } from "@/components/story/PowerCut";
@@ -79,9 +81,11 @@ import { useMobileViewport } from "@/hooks/useMobileViewport";
 import {
   loadPersistedState,
   savePersistedState,
+  progressFor,
+  withProgress,
   type PersistedState,
 } from "@/lib/storage/persistence";
-import type { Challenge, PlayerSettings, BossFightConfig } from "@/types/game";
+import type { Challenge, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import {
   trackChapterStart,
@@ -147,7 +151,7 @@ const CHAPTERS: ChapterConfig[] = [
     tagline: "▸ ENCRYPTED SIGNAL · ACT I",
     storyLines: [
       "maya chen. missing 72hrs. she's alive — hacked a terminal in sublevel 3.",
-      "she needs a Go programmer. write the code. get her out.",
+      "she needs a {LANG} programmer. write the code. get her out.",
     ],
     ctaLabel: "CONNECT TO MAYA",
   },
@@ -165,7 +169,7 @@ const CHAPTERS: ChapterConfig[] = [
     tagline: "▸ SUBLEVEL 3 · CELL B-09",
     storyLines: [
       "the keypad on maya's cell door cycles codes 1-10. she needs them classified.",
-      "for loops. switch statements. crack the sequence. open the door.",
+      "for loops. branching logic. crack the sequence. open the door.",
     ],
     ctaLabel: "START CHAPTER",
   },
@@ -248,9 +252,29 @@ export default function PlayPage() {
   return <GameRouter />;
 }
 
+/** The chapters playable in a language, each realized in it (Act I ships in every language). */
+function chaptersFor(language: LanguageId): ChapterConfig[] {
+  return CHAPTERS.filter((c) => isChallengeAvailable(c.challenge.id, language)).map((c) => ({
+    ...c,
+    challenge: realizeChallenge(c.challenge, language),
+    introLevel: realizeAdventureLevel(c.introLevel, language),
+    completeLevel: realizeAdventureLevel(c.completeLevel, language),
+    bossLevel: c.bossLevel ? realizeBossLevel(c.bossLevel, language) : undefined,
+    storyLines: c.storyLines.map((l) => l.replace("{LANG}", getLanguageService(language).label)) as [string, string],
+  }));
+}
+
+/** Resume where this language's progress left off. */
+function resumeIndex(state: PersistedState, language: LanguageId, chapterCount: number): number {
+  const completedCount = progressFor(state.progress, language).completedChapters.length;
+  return completedCount > 0 && completedCount < chapterCount ? completedCount : 0;
+}
+
 function GameRouter() {
   const [persisted, setPersisted] = useState<PersistedState | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
+  const language: LanguageId = persisted?.settings.language ?? "go";
+  const chapters = useMemo(() => chaptersFor(language), [language]);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileChecked, setMobileChecked] = useState(false);
 
@@ -270,29 +294,30 @@ function GameRouter() {
   useEffect(() => {
     loadPersistedState().then((state) => {
       setPersisted(state);
-      // Resume from last completed chapter
-      const completedCount = state.progress.completedChapters.length;
-      if (completedCount > 0 && completedCount < CHAPTERS.length) {
-        setChapterIndex(completedCount);
-      }
+      // Resume from this language's last completed chapter
+      const lang = state.settings.language ?? "go";
+      setChapterIndex(resumeIndex(state, lang, chaptersFor(lang).length));
     });
   }, []);
 
   const handleSave = useCallback((payload: SavePayload) => {
     setPersisted((prev) => {
       if (!prev) return prev;
+      // Story progress belongs to the language being played; XP and hearts are the player's.
+      const lang = prev.settings.language ?? "go";
+      const current = progressFor(prev.progress, lang);
       const updated: PersistedState = {
         ...prev,
         stats: { ...prev.stats, xp: payload.xp, level: payload.level, hearts: payload.hearts },
         library: payload.library,
         progress: payload.completedChapter
-          ? {
-              ...prev.progress,
-              completedChapters: prev.progress.completedChapters.includes(payload.completedChapter)
-                ? prev.progress.completedChapters
-                : [...prev.progress.completedChapters, payload.completedChapter],
+          ? withProgress(prev.progress, lang, {
+              ...current,
+              completedChapters: current.completedChapters.includes(payload.completedChapter)
+                ? current.completedChapters
+                : [...current.completedChapters, payload.completedChapter],
               currentChapter: payload.completedChapter + 1,
-            }
+            })
           : prev.progress,
       };
       savePersistedState(updated);
@@ -316,8 +341,21 @@ function GameRouter() {
   }, []);
 
   const advanceChapter = useCallback(() => {
-    setChapterIndex((i) => Math.min(i + 1, CHAPTERS.length - 1));
-  }, []);
+    setChapterIndex((i) => Math.min(i + 1, chapters.length - 1));
+  }, [chapters.length]);
+
+  // Switching language resumes that language's own progress.
+  const changeLanguage = useCallback((next: LanguageId) => {
+    if (!persisted) return;
+    trackSettingChange("language", next);
+    const updated: PersistedState = {
+      ...persisted,
+      settings: { ...persisted.settings, language: next, languageChosen: true },
+    };
+    setPersisted(updated);
+    savePersistedState({ settings: updated.settings });
+    setChapterIndex(resumeIndex(updated, next, chaptersFor(next).length));
+  }, [persisted]);
 
   // Show loading state while persistence + mobile check complete
   if (!persisted || !mobileChecked) {
@@ -333,7 +371,7 @@ function GameRouter() {
     );
   }
 
-  const config = CHAPTERS[chapterIndex];
+  const config = chapters[Math.min(chapterIndex, chapters.length - 1)];
   const initialState: InitialPersistedState = {
     xp: persisted.stats.xp,
     level: persisted.stats.level,
@@ -342,18 +380,22 @@ function GameRouter() {
   };
 
   return (
-    <GameScreen
-      key={config.challenge.id}
-      config={config}
-      hasNextChapter={chapterIndex < CHAPTERS.length - 1}
-      onNextChapter={advanceChapter}
-      initialState={initialState}
-      onSave={handleSave}
-      onSaveSettings={handleSaveSettings}
-      settings={persisted.settings}
-      isMobile={isMobile}
-      completedChapterIds={CHAPTERS.slice(0, chapterIndex).map((c) => c.challenge.id)}
-    />
+    <LanguageProvider language={language}>
+      <GameScreen
+        key={`${language}:${config.challenge.id}`}
+        config={config}
+        hasNextChapter={chapterIndex < chapters.length - 1}
+        onNextChapter={advanceChapter}
+        initialState={initialState}
+        onSave={handleSave}
+        onSaveSettings={handleSaveSettings}
+        onChangeLanguage={changeLanguage}
+        language={language}
+        settings={persisted.settings}
+        isMobile={isMobile}
+        completedChapterIds={chapters.slice(0, chapterIndex).map((c) => c.challenge.id)}
+      />
+    </LanguageProvider>
   );
 }
 
@@ -364,14 +406,21 @@ interface GameScreenProps {
   initialState: InitialPersistedState;
   onSave: (payload: SavePayload) => void;
   onSaveSettings: (settings: Partial<PlayerSettings>) => void;
+  onChangeLanguage: (language: LanguageId) => void;
+  language: LanguageId;
   completedChapterIds: string[];
   settings: PlayerSettings;
   isMobile: boolean;
 }
 
-function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, settings, completedChapterIds, isMobile }: GameScreenProps) {
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
-  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1);
+  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language);
+  const lang = getLanguageService(language);
+  // Heavy backends (Python's interpreter) start loading while the intro plays.
+  useEffect(() => {
+    lang.warmup?.();
+  }, [lang]);
   const musicOn = settings.musicEnabled ?? true;
   const audio = useGameAudio(state, settings.soundEnabled, musicOn);
   const toggleMusic = () => onSaveSettings({ musicEnabled: !musicOn });
@@ -388,7 +437,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const [bossVictory, setBossVictory] = useState(false);
   const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile && settings.beginnerMode);
   const mobileViewportHeight = useMobileViewport(isMobile);
-  const beginnerNotes = getBeginnerNotes(challenge.id);
+  const beginnerNotes = getBeginnerNotes(challenge.id, language);
 
   // "Stuck" re-evaluates every few seconds so the hint button can light up on
   // idle time as well as on failed attempts.
@@ -406,8 +455,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   // Packages this step ships (e.g. cellblock) so their members autocomplete.
   const extraPackages = useMemo(
-    () => (state.currentStep.compileModule ? extraPackagesFromModule(state.currentStep.compileModule) : []),
-    [state.currentStep.compileModule],
+    () => (state.currentStep.compileModule ? lang.extraPackagesFromModule(state.currentStep.compileModule) : []),
+    [state.currentStep.compileModule, lang],
   );
 
   // The terminal is "on" (lit, thick cursor) when it's the player's turn to type.
@@ -492,13 +541,18 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   if (state.phase === "intro" && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
     return <IntroScreen
       config={config}
+      language={language}
+      languageChosen={settings.languageChosen}
+      onChangeLanguage={onChangeLanguage}
       onStart={() => {
+        if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
         audio.startLoop("dark-drone-1", 0.08, 5000);
         setShowCinematic(true);
         trackChapterStart(challenge.id, challenge.chapter);
         trackCinematicStart(challenge.id, "intro");
       }}
       onGuidedStart={() => {
+        if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
         setForceBeginner(true);
         onSaveSettings({ beginnerMode: true });
         if (!isMobile) setShowTour(true);
@@ -554,7 +608,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     return (
       <BookReader
         notes={beginnerNotes}
-        chapter={bookChapterFor(challenge.id)}
+        chapter={bookChapterFor(challenge.id, language)}
         chapterId={challenge.id}
         soundEnabled={settings.soundEnabled}
         fontScale={settings.tutorialFontScale ?? 2}
@@ -596,6 +650,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         loopsEnabled={musicOn}
         vimEnabled={settings.vimModeEnabled}
         compact={isMobile}
+        language={language}
         onSave={(payload) => {
           onSave({
             xp: payload.xp,
@@ -744,6 +799,9 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           actions.retryFromCheckpoint();
         }}
         onContinue={hasNextChapter ? onNextChapter : () => { window.location.href = "/"; }}
+        note={!hasNextChapter && language !== "go"
+          ? `act ii is go-only for now. your ${lang.label.toLowerCase()} progress is saved — pick go on any chapter intro to keep going.`
+          : undefined}
       />
     );
   }
@@ -903,6 +961,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 onFontSizeChange={(size) => onSaveSettings({ fontSize: size })}
                 vimEnabled={false}
                 extraPackages={extraPackages}
+                language={language}
                 aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                   <button
                     type="button"
@@ -938,7 +997,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
             />
           }
-          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id).pct}
+          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id, language).pct}
           conceptsPanel={
             <ConceptTracker
               completedChapterIds={completedChapterIds}
@@ -1100,6 +1159,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   vimEnabled={settings.vimModeEnabled}
                   onVimToggle={(enabled) => onSaveSettings({ vimModeEnabled: enabled })}
                   extraPackages={extraPackages}
+                  language={language}
                   camFeed={(() => {
                     const cam = CAM_FEED_CONFIG[challenge.id] ?? DEFAULT_CAM;
                     return (
@@ -1194,12 +1254,16 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, onStart, onGuidedStart }: {
+function IntroScreen({ config, language, languageChosen, onChangeLanguage, onStart, onGuidedStart }: {
   config: ChapterConfig;
+  language: LanguageId;
+  languageChosen: boolean;
+  onChangeLanguage: (language: LanguageId) => void;
   onStart: () => void;
   onGuidedStart: () => void;
 }) {
   const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
+  const langLabel = getLanguageService(language).label;
   const ambient = useMemo(() => introAmbientShot(config), [config]);
 
   return (
@@ -1282,7 +1346,6 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
             [String(challenge.steps.length), challenge.steps.length === 1 ? "STEP" : "STEPS"],
             [String(challenge.steps.reduce((s, st) => s + st.xp.base, 0)), "BASE XP"],
             [challenge.timer.gameOverOnExpiry ? "TIMED" : "OPEN", "EVENTS"],
-            ["GO", "LANGUAGE"],
           ].map(([v, l]) => (
             <div
               key={l}
@@ -1298,6 +1361,9 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
             </div>
           ))}
         </div>
+
+        {/* Language — asked once (defaults to Go), switchable on any chapter intro */}
+        <LanguagePicker language={language} highlight={!languageChosen} onChange={onChangeLanguage} />
 
         {/* Story */}
         <div
@@ -1339,13 +1405,63 @@ function IntroScreen({ config, onStart, onGuidedStart }: {
             className="w-full mt-2.5 py-2.5 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
             style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
           >
-            NEW TO GO? START GUIDED MODE
+            NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
           </button>
           <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
             <span className="cursor-blink">█</span>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function LanguagePicker({ language, highlight, onChange }: {
+  language: LanguageId;
+  highlight: boolean;
+  onChange: (language: LanguageId) => void;
+}) {
+  const active = LANGUAGE_OPTIONS.find((o) => o.id === language) ?? LANGUAGE_OPTIONS[0];
+  return (
+    <div
+      className="mb-3.5 opacity-0"
+      style={{ animation: "intro-in .6s ease .18s forwards" }}
+      role="radiogroup"
+      aria-label="Language to learn in"
+    >
+      <div className="flex items-baseline justify-between mb-1.5">
+        <span className="text-[8px] tracking-[3px]" style={{ color: highlight ? "var(--color-signal)" : "#1a6a4a" }}>
+          {highlight ? "▸ CHOOSE YOUR LANGUAGE" : "▸ LEARNING IN"}
+        </span>
+        <span className="text-[8px] tracking-[1px]" style={{ color: "#1a6a4a" }}>
+          progress is kept per language
+        </span>
+      </div>
+      <div className="flex gap-1.5">
+        {LANGUAGE_OPTIONS.map((opt) => {
+          const selected = opt.id === language;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(opt.id)}
+              className="flex-1 py-2 text-[9px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+              style={{
+                color: selected ? "var(--color-background)" : "var(--color-signal)",
+                background: selected ? "var(--color-signal)" : "rgba(0,255,80,.015)",
+                border: `1px solid ${selected ? "var(--color-signal)" : highlight ? "rgba(110,255,160,.45)" : "#0a2a1a"}`,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "#3a7a5a" }}>
+        {active.blurb}
       </div>
     </div>
   );

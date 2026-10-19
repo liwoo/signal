@@ -12,6 +12,13 @@ export type JeopardyEvent =
   | "hint_burned";
 
 export type StoryBranch = "a" | "b" | null;
+
+// ── Language ──
+
+/** A language the player can learn in. The story is shared; lessons are realized per language. */
+export type LanguageId = "go" | "python" | "javascript";
+
+export const LANGUAGE_IDS: readonly LanguageId[] = ["go", "python", "javascript"];
 export type KiraVerdict = "trusted" | "rejected" | null;
 
 // ── Challenge ──
@@ -39,10 +46,39 @@ export interface ChallengeStep {
   expectedOutput?: string;
   /** Patterns the user's code must contain (even if output matches) to prevent hardcoding answers. */
   requiredCode?: string[];
-  /** Extra Go package files compiled alongside the user's code so they can practice a real import. */
+  /** Extra files shipped alongside the user's code (a Go package, a JS/Python module) so they can practice a real import. */
   compileModule?: CompileModule;
   /** Optional "stuck?" helper shown beside the active objective. */
   quickCheck?: QuickCheck;
+}
+
+/**
+ * The code-shaped half of a step, authored per language. The step itself (story,
+ * stake, XP, events, rush, timer) is the language-neutral spine; a realization
+ * overrides only the fields that depend on the language being taught. Go is the
+ * spine's own realization, so Go needs none. `brief` and `hints` are required
+ * because they nearly always name code; optional fields the realization omits
+ * (harness, module, quickCheck…) are dropped rather than inherited from Go.
+ */
+export interface StepRealization {
+  title?: string;
+  stake?: string;
+  brief: string;
+  starterCode?: string | null;
+  expectedBehavior?: string;
+  testHarness?: string;
+  expectedOutput?: string;
+  requiredCode?: string[];
+  compileModule?: CompileModule;
+  hints: ChallengeHint[];
+  quickCheck?: QuickCheck;
+}
+
+/** A whole chapter realized in one language, keyed by the shared step ids. */
+export interface ChallengeRealization {
+  /** Concepts as this language names them (e.g. "console.log" instead of "fmt.Println"). */
+  concepts?: string[];
+  steps: Record<string, StepRealization>;
 }
 
 /**
@@ -143,6 +179,16 @@ export interface PlayerProgress {
   checkpointData: CheckpointData;
 }
 
+/**
+ * Progress is tracked per language: chapter 3 in Python is a different place
+ * than chapter 3 in Go. Version 1 saves held a single PlayerProgress; they
+ * migrate into `byLanguage.go`.
+ */
+export interface ProgressStore {
+  version: 2;
+  byLanguage: Partial<Record<LanguageId, PlayerProgress>>;
+}
+
 export interface CheckpointData {
   chapter: number;
   energy: number;
@@ -188,6 +234,10 @@ export interface PlayerSettings {
   /** Tutorial text size multiplier (1 = original 11px, 2 = default 22px) */
   tutorialFontScale: number;
   tourCompleted: boolean;
+  /** The language the player is learning in. */
+  language: LanguageId;
+  /** True once the player has seen the language picker (asked once, defaults to Go). */
+  languageChosen: boolean;
 }
 
 // ── Chat ──

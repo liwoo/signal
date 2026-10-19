@@ -4,15 +4,9 @@
 
 import { tokenize, isGoKeyword, type Token } from "./tokenizer";
 
-export type Severity = "error" | "warning" | "info";
+import type { Diagnostic, Severity } from "@/lib/lang/types";
 
-export interface Diagnostic {
-  severity: Severity;
-  message: string;
-  line: number;
-  col: number;
-  length: number;
-}
+export type { Diagnostic, Severity };
 
 // ── Public API ──
 

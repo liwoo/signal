@@ -1,10 +1,11 @@
 "use client";
 
 import { Fragment } from "react";
-import { tokenize, type Token } from "@/lib/go/tokenizer";
+import type { Token } from "@/lib/lang/types";
+import { useLanguageService } from "./LanguageContext";
 
 // Parses Maya's messages into styled segments:
-// - ```code``` → fenced code block with Go syntax highlighting
+// - ```code``` → fenced code block, highlighted in the language being taught
 // - `code` → inline code
 // - [ZEN +10 XP] → styled XP badge
 // - plain text → normal prose
@@ -40,7 +41,9 @@ function parseSegments(text: string): Segment[] {
 
 function parseInlineSegments(text: string): Segment[] {
   const segments: Segment[] = [];
-  const pattern = /`([^`]+)`|\[ZEN\s*\+(\d+)\s*XP\]/g;
+  // ``a `b` c`` spans (CommonMark) let inline code contain backticks — JS
+  // template literals need them.
+  const pattern = /``\s?(.+?)\s?``|`([^`]+)`|\[ZEN\s*\+(\d+)\s*XP\]/g;
   let lastIndex = 0;
   let match;
 
@@ -49,10 +52,11 @@ function parseInlineSegments(text: string): Segment[] {
       segments.push({ type: "text", content: text.slice(lastIndex, match.index) });
     }
 
-    if (match[1] !== undefined) {
-      segments.push({ type: "code", content: match[1] });
-    } else if (match[2] !== undefined) {
-      segments.push({ type: "zen", content: `+${match[2]} XP` });
+    const code = match[1] ?? match[2];
+    if (code !== undefined) {
+      segments.push({ type: "code", content: code });
+    } else if (match[3] !== undefined) {
+      segments.push({ type: "zen", content: `+${match[3]} XP` });
     }
 
     lastIndex = match.index + match[0].length;
@@ -82,7 +86,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function highlightGo(code: string): string {
+function highlightCode(code: string, tokenize: (src: string) => Token[]): string {
   try {
     const tokens: Token[] = tokenize(code);
     let result = "";
@@ -117,6 +121,7 @@ interface MayaMarkdownProps {
 }
 
 export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdownProps) {
+  const { tokenize } = useLanguageService();
   const segments = parseSegments(text);
 
   return (
@@ -133,7 +138,7 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
                 fontFamily: "var(--font-mono)",
                 color: "var(--color-text)",
               }}
-              dangerouslySetInnerHTML={{ __html: highlightGo(seg.content) }}
+              dangerouslySetInnerHTML={{ __html: highlightCode(seg.content, tokenize) }}
             />
           );
         }
@@ -149,7 +154,7 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
                 color: "var(--color-signal)",
                 fontFamily: "var(--font-mono)",
               }}
-              dangerouslySetInnerHTML={{ __html: highlightGo(seg.content) }}
+              dangerouslySetInnerHTML={{ __html: highlightCode(seg.content, tokenize) }}
             />
           );
         }
