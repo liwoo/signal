@@ -8,7 +8,7 @@ export default function PrivacyPage() {
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(110,255,160,.015) 2px, rgba(110,255,160,.015) 4px)",
+            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
         }}
       />
 
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
                 style={{
                   color: "var(--color-foreground)",
                   opacity: 0.7,
-                  borderLeft: "2px solid rgba(110,255,160,.1)",
+                  borderLeft: "2px solid rgba(var(--signal-rgb),.1)",
                 }}
               >
                 {section.content}
@@ -126,8 +126,8 @@ export default function PrivacyPage() {
         <div
           className="mt-10 px-4 py-4 text-center"
           style={{
-            border: "1px solid rgba(110,255,160,.08)",
-            background: "rgba(110,255,160,.02)",
+            border: "1px solid rgba(var(--signal-rgb),.08)",
+            background: "rgba(var(--signal-rgb),.02)",
           }}
         >
           <div

@@ -29,7 +29,7 @@ function tourSteps(lang: LanguageService): TourStep[] {
   {
     target: "objective-bar",
     title: "OBJECTIVE",
-    description: "what to do right now, always one line above your code. the pips are your steps. if you get stuck, HINT unlocks one clue at a time — it costs a little XP, and maya will nudge you when it's time.",
+    description: "the one thing to do right now, always above your code. the pips are your steps. tap SEE LEVEL OBJECTIVES for the full brief, and the HINT button in maya's chat when you're stuck.",
     position: "bottom",
   },
   {
@@ -52,8 +52,8 @@ function tourSteps(lang: LanguageService): TourStep[] {
   },
   {
     target: "tab-bar",
-    title: "CODE · MISSION · NOTES · LIBRARY",
-    description: `the full mission brief and your hints live under MISSION. NOTES is the concept reference from the tutorial. LIBRARY collects the ${name.toLowerCase()} idioms you earn.`,
+    title: "CODE · NOTES · LIBRARY",
+    description: `NOTES is the concept reference from the tutorial. LIBRARY collects the ${name.toLowerCase()} idioms you earn. the full brief is one tap away under SEE LEVEL OBJECTIVES, above your code.`,
     position: "bottom",
   },
   {
@@ -221,13 +221,13 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
         <div
           style={{
             background: "#060a10",
-            border: "1px solid rgba(110,255,160,.2)",
+            border: "1px solid rgba(var(--signal-rgb),.2)",
           }}
         >
           {/* Header */}
           <div
             className="px-4 py-2.5 flex items-center justify-between"
-            style={{ borderBottom: "1px solid rgba(110,255,160,.08)" }}
+            style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
           >
             <span
               className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px] font-bold"
@@ -256,7 +256,7 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
           {/* Actions */}
           <div
             className="px-4 py-2.5 flex items-center justify-between"
-            style={{ borderTop: "1px solid rgba(110,255,160,.08)" }}
+            style={{ borderTop: "1px solid rgba(var(--signal-rgb),.08)" }}
           >
             <button
               onClick={skip}
@@ -274,8 +274,8 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
               className="bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[9px] tracking-[2px] px-4 py-1.5 transition-colors"
               style={{
                 color: "var(--color-signal)",
-                border: "1px solid rgba(110,255,160,.3)",
-                background: "rgba(110,255,160,.05)",
+                border: "1px solid rgba(var(--signal-rgb),.3)",
+                background: "rgba(var(--signal-rgb),.05)",
               }}
             >
               {step < STEPS.length - 1 ? "NEXT" : "START MISSION"}

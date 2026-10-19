@@ -71,7 +71,7 @@ export function LevelTimer({
     ? "0 0 12px rgba(255,64,64,.7), 0 0 30px rgba(255,64,64,.3)"
     : warn
       ? "0 0 10px rgba(255,159,28,.5), 0 0 24px rgba(255,159,28,.2)"
-      : "0 0 8px rgba(110,255,160,.4), 0 0 20px rgba(110,255,160,.15)";
+      : "0 0 8px rgba(var(--signal-rgb),.4), 0 0 20px rgba(var(--signal-rgb),.15)";
 
   const mins = Math.floor(remaining / 60);
   const secs = Math.floor(remaining % 60);

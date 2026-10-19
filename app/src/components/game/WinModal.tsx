@@ -57,7 +57,7 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
         style={{
           width: "min(640px, 94vw)",
           maxHeight: "min(720px, 92dvh)",
-          border: "1px solid rgba(110,255,160,.12)",
+          border: "1px solid rgba(var(--signal-rgb),.12)",
           background: "var(--color-background)",
         }}
       >
@@ -189,8 +189,8 @@ function StatBox({ label, value, warn }: { label: string; value: string | number
     <div
       className="border px-3 py-1.5 text-center"
       style={{
-        borderColor: warn ? "rgba(255,159,28,.2)" : "rgba(110,255,160,.15)",
-        background: warn ? "rgba(255,159,28,.02)" : "rgba(110,255,160,.02)",
+        borderColor: warn ? "rgba(255,159,28,.2)" : "rgba(var(--signal-rgb),.15)",
+        background: warn ? "rgba(255,159,28,.02)" : "rgba(var(--signal-rgb),.02)",
       }}
     >
       <div className="text-[9px] tracking-[2px] text-[var(--color-dim)]">{label}</div>

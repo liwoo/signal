@@ -12,6 +12,7 @@ export const chapter02: Challenge = {
     {
       id: "chapter-02:scaffold",
       title: "SCAFFOLD",
+      ask: "Print Hello World",
       brief:
         "the keypad is wired to a go program. get it live by printing `Hello World` — that one line pulls in the whole skeleton: package, import, and a main function. the keypad won't respond until the terminal's live.",
       starterCode: ``,
@@ -62,6 +63,7 @@ export const chapter02: Challenge = {
     {
       id: "chapter-02:loop",
       title: "LOOP",
+      ask: "Print the codes 1 to 10",
       brief:
         "the keypad cycles codes 1-10. write a for loop that prints each number on its own line. just the numbers — nothing else.\n\nexpected output:\n1\n2\n3\n...\n10",
       starterCode: null, // carry forward from scaffold
@@ -114,6 +116,7 @@ export const chapter02: Challenge = {
     {
       id: "chapter-02:classify",
       title: "CLASSIFY",
+      ask: "Label each code's access level",
       brief:
         "now modify your loop to classify each code. print the number followed by its access level — separated by a space.\n\n1-3 → DENY\n4-6 → WARN\n7-9 → GRANT\n10 → OVERRIDE\n\nexact output:\n1 DENY\n2 DENY\n...\n10 OVERRIDE",
       starterCode: null, // carry forward from loop
@@ -185,6 +188,7 @@ export const chapter02: Challenge = {
     {
       id: "chapter-02:rewrite",
       title: "REWRITE",
+      ask: "Rewrite it the other way",
       brief:
         "redundancy protocol. your classification carries over — rewrite it using the other approach. if you used switch, switch to if/else chains. if you used if/else, use switch/case. same output. +2:00 on the clock.",
       starterCode: null, // carry the player's classification forward — they rewrite it in place

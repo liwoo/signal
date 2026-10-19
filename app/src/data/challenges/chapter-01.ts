@@ -12,6 +12,7 @@ export const chapter01: Challenge = {
     {
       id: "chapter-01:scaffold",
       title: "HELLO WORLD",
+      ask: "Print Hello World",
       stake:
         "Maya's locked in a cell and this terminal is your only line to her — right now it's dead. Get it to say one thing back so you know you're actually connected.",
       brief: "Make the program print `Hello World`.",
@@ -80,6 +81,7 @@ export const chapter01: Challenge = {
     {
       id: "chapter-01:location",
       title: "TRANSMIT",
+      ask: "Print Maya's cell and sublevel",
       stake:
         "To send help you need to know exactly where Maya is held — and a guessed location gets people killed. Pull her real cell straight from the terminal instead of typing it by hand.",
       brief:

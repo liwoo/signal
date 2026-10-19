@@ -74,7 +74,7 @@ export default function FAQPage() {
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(110,255,160,.015) 2px, rgba(110,255,160,.015) 4px)",
+            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
         }}
       />
 
@@ -116,10 +116,10 @@ export default function FAQPage() {
                   style={{
                     border: "1px solid",
                     borderColor: isOpen
-                      ? "rgba(110,255,160,.15)"
+                      ? "rgba(var(--signal-rgb),.15)"
                       : "rgba(255,255,255,.04)",
                     background: isOpen
-                      ? "rgba(110,255,160,.03)"
+                      ? "rgba(var(--signal-rgb),.03)"
                       : "rgba(4,8,16,.4)",
                   }}
                 >
@@ -149,10 +149,10 @@ export default function FAQPage() {
                   <div
                     className="px-4 py-3"
                     style={{
-                      borderLeft: "1px solid rgba(110,255,160,.1)",
-                      borderRight: "1px solid rgba(110,255,160,.1)",
-                      borderBottom: "1px solid rgba(110,255,160,.1)",
-                      background: "rgba(110,255,160,.015)",
+                      borderLeft: "1px solid rgba(var(--signal-rgb),.1)",
+                      borderRight: "1px solid rgba(var(--signal-rgb),.1)",
+                      borderBottom: "1px solid rgba(var(--signal-rgb),.1)",
+                      background: "rgba(var(--signal-rgb),.015)",
                     }}
                   >
                     <p

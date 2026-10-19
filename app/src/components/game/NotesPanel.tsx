@@ -71,10 +71,10 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
           onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))}
           disabled={fontScale <= SCALE_MIN}
           className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                     hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                     hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
           style={{
             color: "var(--color-dim)",
-            border: "1px solid rgba(110,255,160,.1)",
+            border: "1px solid rgba(var(--signal-rgb),.1)",
           }}
         >
           A−
@@ -86,10 +86,10 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
           onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))}
           disabled={fontScale >= SCALE_MAX}
           className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                     hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                     hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
           style={{
             color: "var(--color-dim)",
-            border: "1px solid rgba(110,255,160,.1)",
+            border: "1px solid rgba(var(--signal-rgb),.1)",
           }}
         >
           A+
@@ -125,8 +125,8 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
               onClick={() => setExpandedChapter(isExpanded ? "" : chapterId)}
               className="w-full bg-transparent text-left px-4 py-2.5 cursor-pointer transition-colors flex items-center gap-2"
               style={{
-                border: `1px solid ${isCurrent ? "rgba(110,255,160,.15)" : "rgba(110,255,160,.06)"}`,
-                background: isExpanded ? "rgba(110,255,160,.03)" : "transparent",
+                border: `1px solid ${isCurrent ? "rgba(var(--signal-rgb),.15)" : "rgba(var(--signal-rgb),.06)"}`,
+                background: isExpanded ? "rgba(var(--signal-rgb),.03)" : "transparent",
               }}
             >
               <span
@@ -152,7 +152,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
                   className="ml-auto text-[6px] tracking-[2px] px-1.5 py-0.5"
                   style={{
                     color: "var(--color-signal)",
-                    border: "1px solid rgba(110,255,160,.2)",
+                    border: "1px solid rgba(var(--signal-rgb),.2)",
                   }}
                 >
                   CURRENT
@@ -165,9 +165,9 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
               <div
                 className="px-4 py-3"
                 style={{
-                  borderLeft: "1px solid rgba(110,255,160,.06)",
-                  borderRight: "1px solid rgba(110,255,160,.06)",
-                  borderBottom: "1px solid rgba(110,255,160,.06)",
+                  borderLeft: "1px solid rgba(var(--signal-rgb),.06)",
+                  borderRight: "1px solid rgba(var(--signal-rgb),.06)",
+                  borderBottom: "1px solid rgba(var(--signal-rgb),.06)",
                 }}
               >
                 {(notes.notesBlocks ?? notes.blocks).map((block, i) => (
@@ -234,7 +234,7 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
           whiteSpace: "pre",
           fontSize: codeSize,
           background: "rgba(4,8,16,.6)",
-          border: "1px solid rgba(110,255,160,.06)",
+          border: "1px solid rgba(var(--signal-rgb),.06)",
           tabSize: 4,
         }}
         dangerouslySetInnerHTML={{ __html: highlightCode(block.content, tokenize) }}
@@ -258,8 +258,8 @@ function HotspotTip({ text, tip }: { text: string; tip: string }) {
       onClick={() => setOpen(!open)}
       className="w-full bg-transparent text-left px-2 py-1 cursor-pointer transition-colors"
       style={{
-        border: "1px solid rgba(110,255,160,.04)",
-        background: open ? "rgba(110,255,160,.03)" : "transparent",
+        border: "1px solid rgba(var(--signal-rgb),.04)",
+        background: open ? "rgba(var(--signal-rgb),.03)" : "transparent",
       }}
     >
       <div className="flex items-center gap-1.5">

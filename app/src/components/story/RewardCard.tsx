@@ -82,7 +82,7 @@ export function RewardCard({ reward, soundEnabled = true, onDone }: RewardCardPr
         </div>
         <div
           className="font-[family-name:var(--font-display)] font-black mt-4 leading-none"
-          style={{ fontSize: "clamp(34px, 7.5vw, 76px)", color: "var(--color-signal)", textShadow: "0 0 24px rgba(110,255,160,.6)" }}
+          style={{ fontSize: "clamp(34px, 7.5vw, 76px)", color: "var(--color-signal)", textShadow: "0 0 24px rgba(var(--signal-rgb),.6)" }}
         >
           +{shown} XP
         </div>

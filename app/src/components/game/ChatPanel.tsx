@@ -331,8 +331,8 @@ export function ChatPanel({
             <div
               className="flex items-center gap-2 px-2 py-1.5 mb-1.5"
               style={{
-                border: "1px solid rgba(110,255,160,.1)",
-                background: "rgba(110,255,160,.02)",
+                border: "1px solid rgba(var(--signal-rgb),.1)",
+                background: "rgba(var(--signal-rgb),.02)",
               }}
             >
               <span
@@ -494,15 +494,15 @@ function ContinueButton({ onContinue, compact = false }: { onContinue: () => voi
       className={`bg-transparent text-[9px] tracking-[1px] px-2.5
                  cursor-pointer transition-colors ${compact ? "min-h-11 py-2" : "py-1"}`}
       style={{
-        border: "1px solid rgba(110,255,160,.2)",
+        border: "1px solid rgba(var(--signal-rgb),.2)",
         color: "var(--color-signal)",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = "var(--color-signal)";
-        e.currentTarget.style.background = "rgba(110,255,160,.05)";
+        e.currentTarget.style.background = "rgba(var(--signal-rgb),.05)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "rgba(110,255,160,.2)";
+        e.currentTarget.style.borderColor = "rgba(var(--signal-rgb),.2)";
         e.currentTarget.style.background = "transparent";
       }}
     >

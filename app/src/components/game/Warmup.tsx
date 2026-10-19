@@ -193,7 +193,7 @@ function XPFloat({ amount, large, onDone }: XPFloatProps) {
         top: large ? "42%" : "45%",
         fontSize: large ? "48px" : "32px",
         color: "var(--color-signal)",
-        textShadow: "0 0 20px #6effa0, 0 0 60px rgba(110,255,160,.5)",
+        textShadow: "0 0 20px var(--color-signal), 0 0 60px rgba(var(--signal-rgb),.5)",
       }}
     >
       +{amount} XP
@@ -218,8 +218,8 @@ function SuccessFlash({ label, large }: SuccessFlashProps) {
         className="absolute inset-0"
         style={{
           background: large
-            ? "radial-gradient(ellipse at center, rgba(110,255,160,.12) 0%, transparent 70%)"
-            : "radial-gradient(ellipse at center, rgba(110,255,160,.07) 0%, transparent 65%)",
+            ? "radial-gradient(ellipse at center, rgba(var(--signal-rgb),.12) 0%, transparent 70%)"
+            : "radial-gradient(ellipse at center, rgba(var(--signal-rgb),.07) 0%, transparent 65%)",
           animation: "pulse-dim-kf 600ms ease-in-out 1",
         }}
       />
@@ -228,7 +228,7 @@ function SuccessFlash({ label, large }: SuccessFlashProps) {
         style={{
           fontSize: large ? "28px" : "18px",
           color: "var(--color-signal)",
-          textShadow: "0 0 14px #6effa0, 0 0 40px rgba(110,255,160,.4)",
+          textShadow: "0 0 14px var(--color-signal), 0 0 40px rgba(var(--signal-rgb),.4)",
         }}
       >
         {label}
@@ -410,7 +410,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
           className="absolute w-full h-px"
           style={{
             background:
-              "linear-gradient(transparent, rgba(110,255,160,.07), transparent)",
+              "linear-gradient(transparent, rgba(var(--signal-rgb),.07), transparent)",
             animation: "scanline 7s linear infinite",
           }}
         />
@@ -422,7 +422,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
         style={{
           background: "var(--color-background)",
           backgroundImage: isLastSuccess
-            ? "radial-gradient(ellipse at 50% 50%, rgba(110,255,160,.06) 0%, transparent 60%)"
+            ? "radial-gradient(ellipse at 50% 50%, rgba(var(--signal-rgb),.06) 0%, transparent 60%)"
             : "radial-gradient(ellipse at 50% 110%, rgba(0,60,20,.15) 0%, transparent 60%)",
           transition: "background-image 600ms ease",
         }}
@@ -445,10 +445,10 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                 onClick={() => { const s = Math.max(FONT_SCALE_MIN, fontScale - FONT_SCALE_STEP); onFontScaleChange(s); trackWarmupFontScale(s); }}
                 disabled={fontScale <= FONT_SCALE_MIN}
                 className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                           hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                           hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
                 style={{
                   color: "var(--color-dim)",
-                  border: "1px solid rgba(110,255,160,.1)",
+                  border: "1px solid rgba(var(--signal-rgb),.1)",
                 }}
               >
                 A−
@@ -457,10 +457,10 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                 onClick={() => { const s = Math.min(FONT_SCALE_MAX, fontScale + FONT_SCALE_STEP); onFontScaleChange(s); trackWarmupFontScale(s); }}
                 disabled={fontScale >= FONT_SCALE_MAX}
                 className="bg-transparent text-[10px] px-1.5 py-0.5 cursor-pointer transition-colors
-                           hover:bg-[rgba(110,255,160,.05)] disabled:opacity-20 disabled:cursor-default"
+                           hover:bg-[rgba(var(--signal-rgb),.05)] disabled:opacity-20 disabled:cursor-default"
                 style={{
                   color: "var(--color-dim)",
-                  border: "1px solid rgba(110,255,160,.1)",
+                  border: "1px solid rgba(var(--signal-rgb),.1)",
                 }}
               >
                 A+
@@ -491,7 +491,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                 fontSize: "clamp(22px, 5vw, 36px)",
                 color: "var(--color-signal)",
                 textShadow:
-                  "0 0 16px rgba(110,255,160,.3), 0 0 40px rgba(110,255,160,.1)",
+                  "0 0 16px rgba(var(--signal-rgb),.3), 0 0 40px rgba(var(--signal-rgb),.1)",
               }}
             >
               {config.title}
@@ -565,7 +565,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                   fontSize: codeSize,
                   color: "var(--color-signal)",
                   borderBottom: `2px solid ${
-                    isSuccess ? "var(--color-signal)" : "rgba(110,255,160,.4)"
+                    isSuccess ? "var(--color-signal)" : "rgba(var(--signal-rgb),.4)"
                   }`,
                   caretColor: "var(--color-signal)",
                   transition: "border-color 200ms ease, font-size 150ms ease",
@@ -589,7 +589,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                   fontSize: codeSize,
                   color: "var(--color-signal)",
                   borderBottom: `2px solid ${
-                    isSuccess ? "var(--color-signal)" : "rgba(110,255,160,.4)"
+                    isSuccess ? "var(--color-signal)" : "rgba(var(--signal-rgb),.4)"
                   }`,
                   caretColor: "var(--color-signal)",
                   paddingBottom: "6px",
@@ -608,11 +608,11 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
               style={{
                 borderColor:
                   exState !== "idle"
-                    ? "rgba(110,255,160,.2)"
+                    ? "rgba(var(--signal-rgb),.2)"
                     : "var(--color-signal)",
                 color:
                   exState !== "idle"
-                    ? "rgba(110,255,160,.4)"
+                    ? "rgba(var(--signal-rgb),.4)"
                     : "var(--color-signal)",
                 background: "transparent",
                 cursor: exState !== "idle" ? "not-allowed" : "pointer",
@@ -630,9 +630,9 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                 className="px-2 py-1 text-[10px] tracking-[1px] font-[family-name:var(--font-mono)]"
                 style={{
                   color: "var(--color-signal)",
-                  border: "1px solid rgba(110,255,160,.45)",
+                  border: "1px solid rgba(var(--signal-rgb),.45)",
                   borderBottomWidth: 3,
-                  background: "rgba(110,255,160,.06)",
+                  background: "rgba(var(--signal-rgb),.06)",
                 }}
               >
                 {config.multiline ? "⌘ + ENTER" : "⏎ ENTER"}
@@ -647,7 +647,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                 className="text-[9px] tracking-[3px] msg-enter"
                 style={{
                   color: "var(--color-signal)",
-                  textShadow: "0 0 8px rgba(110,255,160,.5)",
+                  textShadow: "0 0 8px rgba(var(--signal-rgb),.5)",
                 }}
               >
                 {config.successLabel}&nbsp;&nbsp;
@@ -676,7 +676,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
                     n < exercise
                       ? "var(--color-signal)"
                       : n === exercise
-                        ? "rgba(110,255,160,.5)"
+                        ? "rgba(var(--signal-rgb),.5)"
                         : "var(--color-border)",
                   transition: "background 400ms ease",
                 }}

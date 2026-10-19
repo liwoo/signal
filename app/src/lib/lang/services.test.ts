@@ -74,11 +74,15 @@ describe("tokenizers share one shape", () => {
 
   it("python", () => {
     const toks = getLanguageService("python").tokenize('def f(*a):\n    return f"x{a}"  # c');
+    // The f-string splits so its `{a}` interpolation is highlighted as code.
     expect(toks.map((t) => t.type)).toEqual([
       "keyword", "identifier", "punctuation", "operator", "identifier", "punctuation", "punctuation",
-      "keyword", "string", "comment",
+      "keyword", "string", "punctuation", "identifier", "punctuation", "string", "comment",
     ]);
     expect(toks[7].line).toBe(2);
+    // The interpolated name is a real identifier token at the right offset.
+    const interp = toks[10];
+    expect(interp).toMatchObject({ type: "identifier", value: "a", line: 2 });
   });
 
   it("knows when the cursor is inside a string", () => {

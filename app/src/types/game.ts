@@ -27,10 +27,18 @@ export interface ChallengeStep {
   id: string;                        // e.g. "chapter-01:scaffold"
   title: string;                     // e.g. "SCAFFOLD"
   /**
+   * The ASK — the single, very short imperative headline (ideally ≤ ~7 words,
+   * e.g. "Print Hello World"). This is the one distinct, succinct line the
+   * ObjectiveBar shows above the editor so the player always knows what to do
+   * right now. The full WHY/WHAT live behind "SEE LEVEL OBJECTIVES". Optional:
+   * falls back to `brief` when unset.
+   */
+  ask?: string;
+  /**
    * The WHY, in one plain-language sentence with zero code words — what this
    * step does for Maya / the escape. This is the first thing a non-coder needs
-   * so they understand the point before the task. Shown prominently (ObjectiveBar
-   * + MissionPanel). Optional so older chapters fall back to `brief` alone.
+   * so they understand the point before the task. Shown in the level-objectives
+   * brief. Optional so older chapters fall back to `brief` alone.
    */
   stake?: string;
   brief: string;                     // the WHAT — the concrete action, kept short

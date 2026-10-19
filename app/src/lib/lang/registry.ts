@@ -28,10 +28,14 @@ export interface LanguageOption {
   label: string;
   /** One-line pitch for the picker. */
   blurb: string;
+  /** Signature accent for this route. Mirrors the [data-lang] theme in globals.css. */
+  accent: string;
+  /** Same accent as an "r, g, b" triple, for rgba(...) glows. */
+  accentRgb: string;
 }
 
 export const LANGUAGE_OPTIONS: LanguageOption[] = [
-  { id: "go", label: "GO", blurb: "compiled, strict, fast. the original route." },
-  { id: "python", label: "PYTHON", blurb: "readable and everywhere. no braces, just indentation." },
-  { id: "javascript", label: "JAVASCRIPT", blurb: "the language of the web. runs right here in your browser." },
+  { id: "go", label: "GO", blurb: "compiled, strict, fast. the original route.", accent: "#6effa0", accentRgb: "110, 255, 160" },
+  { id: "python", label: "PYTHON", blurb: "readable and everywhere. no braces, just indentation.", accent: "#4ea6ff", accentRgb: "78, 166, 255" },
+  { id: "javascript", label: "JAVASCRIPT", blurb: "the language of the web. runs right here in your browser.", accent: "#f7df1e", accentRgb: "247, 223, 30" },
 ];

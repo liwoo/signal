@@ -41,7 +41,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
 
   const beats = useMemo<Beat[]>(() => {
     const list: Beat[] = [
-      { kind: "title", line: `maya's memory is coming back. ${entries.length} habits of go, ${learned} already in your code.` },
+      { kind: "title", line: `maya's memory is coming back. ${entries.length} habits of ${lang.label.toLowerCase()}, ${learned} already in your code.` },
       ...entries.map<Beat>((entry) => ({
         kind: "rule",
         entry,
@@ -55,7 +55,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
       },
     ];
     return list;
-  }, [entries, learned, earned, missedXP]);
+  }, [entries, learned, earned, missedXP, lang.label]);
 
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -132,7 +132,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
         <div className="relative flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center px-4 py-4 sm:px-6 text-center">
           {beat.kind === "title" && (
             <div key="title" className="w-full max-w-[620px] border-l-[3px] px-6 py-5 text-left" style={{ borderColor: "var(--color-info)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}>
-              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.18em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-info)" }}>THE ZEN OF GO</div>
+              <div className="font-[family-name:var(--font-display)] font-black tracking-[0.18em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-info)" }}>THE ZEN OF {lang.label.toUpperCase()}</div>
               <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>A short review of the choices that make {lang.label} code clear, calm, and easy to build on.</p>
             </div>
           )}
@@ -149,7 +149,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
                 <div className="w-full grid gap-2 sm:gap-3 text-left grid-cols-1 sm:grid-cols-[1fr_auto_1fr]" style={{ maxWidth: 720 }}>
                   <CodeBox label="first draft" code={example.before} tone="dim" />
                   <div className="self-center justify-self-center font-[family-name:var(--font-display)] text-[20px] zen-arrow rotate-90 sm:rotate-0" style={{ color: "var(--color-info)" }}>→</div>
-                  <CodeBox label="go pattern" code={example.after} tone="lit" />
+                  <CodeBox label={`${lang.label.toLowerCase()} pattern`} code={example.after} tone="lit" />
                   <div className="sm:col-span-3 text-left text-[11px] sm:text-[12px] tracking-[1px]" style={{ color: "var(--color-info)" }}>
                     THE TAKEAWAY · {example.change}
                   </div>
@@ -195,7 +195,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
             onClick={onDone}
             className="cursor-pointer px-6 py-2.5 text-[12px] tracking-[3px] font-[family-name:var(--font-display)] transition-colors"
             style={{
-              border: `2px solid ${ended ? "var(--color-signal)" : "rgba(110,255,160,.4)"}`,
+              border: `2px solid ${ended ? "var(--color-signal)" : "rgba(var(--signal-rgb),.4)"}`,
               color: ended ? "var(--color-background)" : "var(--color-signal)",
               background: ended ? "var(--color-signal)" : "transparent",
             }}
@@ -212,7 +212,7 @@ function CodeBox({ label, code, tone }: { label: string; code: string; tone: "di
   const { tokenize } = useLanguageService();
   const lit = tone === "lit";
   return (
-    <div className={lit ? "zen-after" : "zen-before"} style={{ border: `1px solid ${lit ? "rgba(110,255,160,.45)" : "rgba(184,212,160,.15)"}`, background: lit ? "rgba(110,255,160,.05)" : "rgba(4,8,16,.6)" }}>
+    <div className={lit ? "zen-after" : "zen-before"} style={{ border: `1px solid ${lit ? "rgba(var(--signal-rgb),.45)" : "rgba(184,212,160,.15)"}`, background: lit ? "rgba(var(--signal-rgb),.05)" : "rgba(4,8,16,.6)" }}>
       <div className="px-3 py-1 text-[9px] tracking-[3px]" style={{ color: lit ? "var(--color-signal)" : "var(--color-foreground)", opacity: lit ? 1 : 0.6, borderBottom: "1px solid var(--color-border)" }}>
         {label.toUpperCase()}
       </div>

@@ -12,10 +12,11 @@ interface ObjectiveBarProps {
 }
 
 /**
- * The one line that always answers "what am I supposed to do right now?".
- * Sits above the code. Amber = mission voice (instructions), distinct from
- * Maya's green narration in the chat. Holds the step pips, the current
- * objective, and hazards. Hints live behind the HINT button in the chat.
+ * One distinct, succinct line that always answers "what do I do right now?".
+ * Sits above the code. The ASK is the single short imperative (step.ask, or the
+ * brief as a fallback); everything verbose — the why, the step path, the reward,
+ * the hint pointer — lives one tap away behind SEE LEVEL OBJECTIVES. Amber =
+ * mission voice, distinct from Maya's green narration in the chat.
  */
 export function ObjectiveBar({
   challenge,
@@ -25,18 +26,21 @@ export function ObjectiveBar({
   onOpenMission,
   compact = false,
 }: ObjectiveBarProps) {
+  const ask = currentStep.ask ?? currentStep.brief;
+  const multiStep = challenge.steps.length > 1;
+
   return (
     <div
       data-tour="objective-bar"
-      className={`shrink-0 flex items-stretch ${compact ? "gap-2 px-2 py-1.5" : "gap-3 px-3 py-2"}`}
+      className={`shrink-0 flex items-center ${compact ? "gap-2 px-2.5 py-2" : "gap-3 px-3 py-2.5"}`}
       style={{
-        background: "rgba(255,159,28,.04)",
+        background: "rgba(255,159,28,.05)",
         borderBottom: "1px solid rgba(255,159,28,.18)",
         borderLeft: "3px solid var(--color-alert)",
       }}
     >
       {/* Step pips */}
-      {challenge.steps.length > 1 && (
+      {multiStep && (
         <div className="flex items-center gap-1 shrink-0" aria-label={`Step ${currentStepIndex + 1} of ${challenge.steps.length}`}>
           {challenge.steps.map((step, i) => {
             const done = i < currentStepIndex;
@@ -58,51 +62,24 @@ export function ObjectiveBar({
         </div>
       )}
 
-      {/* Objective */}
-      <button
-        type="button"
-        onClick={onOpenMission}
-        className="min-w-0 flex-1 bg-transparent border-0 p-0 text-left cursor-pointer"
-        title="Open the full mission brief"
-      >
-        <div className="flex items-baseline gap-2 min-w-0">
-          <span
-            className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[9px] tracking-[2px]"
-            style={{ color: "var(--color-alert)" }}
-          >
-            OBJECTIVE
-          </span>
-          <span className="min-w-0 truncate text-[8px] tracking-[2px]" style={{ color: "rgba(255,159,28,.7)" }}>
-            {challenge.steps.length > 1 ? `STEP ${currentStepIndex + 1}/${challenge.steps.length} · ` : ""}
-            {currentStep.title}
-          </span>
-        </div>
-        {currentStep.stake ? (
-          <>
-            <div
-              className={`truncate ${compact ? "text-[12px]" : "text-[13px]"}`}
-              style={{ color: "var(--color-foreground)" }}
-            >
-              {currentStep.stake}
-            </div>
-            <div
-              className={`truncate ${compact ? "text-[10px]" : "text-[11px]"}`}
-              style={{ color: "rgba(255,159,28,.75)" }}
-            >
-              ▸ DO · {currentStep.brief}
-            </div>
-          </>
-        ) : (
-          <div
-            className={`truncate ${compact ? "text-[12px]" : "text-[13px]"}`}
-            style={{ color: "var(--color-foreground)" }}
-          >
-            {currentStep.brief}
-          </div>
-        )}
-      </button>
+      {/* The ask — the single, distinct, succinct instruction */}
+      <div className="min-w-0 flex-1 flex items-center gap-2.5">
+        <span
+          className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[8px] tracking-[2px] px-1.5 py-1 leading-none"
+          style={{ color: "var(--color-background)", background: "var(--color-alert)" }}
+        >
+          {multiStep ? `TASK ${currentStepIndex + 1}/${challenge.steps.length}` : "TASK"}
+        </span>
+        <span
+          className={`min-w-0 truncate font-bold ${compact ? "text-[13px]" : "text-[15px]"}`}
+          style={{ color: "var(--color-foreground)" }}
+          title={ask}
+        >
+          {ask}
+        </span>
+      </div>
 
-      {/* Hazards */}
+      {/* Hazards — rare, real-time warnings */}
       {jeopardy.length > 0 && (
         <div className="hidden sm:flex items-center gap-1 shrink-0">
           {jeopardy.map((effect, i) => (
@@ -120,6 +97,17 @@ export function ObjectiveBar({
           ))}
         </div>
       )}
+
+      {/* The full brief, one tap away */}
+      <button
+        type="button"
+        onClick={onOpenMission}
+        className="shrink-0 bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[8px] tracking-[2px] px-2.5 py-1.5 transition-colors"
+        style={{ color: "var(--color-alert)", border: "1px solid rgba(255,159,28,.4)" }}
+        title="See the full level objectives"
+      >
+        {compact ? "OBJECTIVES ›" : "SEE LEVEL OBJECTIVES ›"}
+      </button>
     </div>
   );
 }

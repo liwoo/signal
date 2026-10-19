@@ -43,14 +43,14 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
             style={{
               width: `${pct}%`,
               background: "linear-gradient(90deg, #2a8a4a, var(--color-signal))",
-              boxShadow: "0 0 8px rgba(110,255,160,.5)",
+              boxShadow: "0 0 8px rgba(var(--signal-rgb),.5)",
               transitionTimingFunction: "cubic-bezier(.17,.67,.35,1.2)",
             }}
           />
         </div>
         {!compact ? <div
           className="text-[var(--color-signal)] text-[9px] font-bold shrink-0"
-          style={{ textShadow: "0 0 8px rgba(110,255,160,.5), 0 0 20px rgba(110,255,160,.2)" }}
+          style={{ textShadow: "0 0 8px rgba(var(--signal-rgb),.5), 0 0 20px rgba(var(--signal-rgb),.2)" }}
         >
           {xp} XP
         </div> : null}
@@ -93,7 +93,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
           className={`shrink-0 bg-transparent cursor-pointer tracking-[1px] transition-colors ${compact ? "h-7 px-2 text-[11px] leading-none" : "px-2 py-0.5 text-[8px] tracking-[2px]"}`}
           style={{
             color: musicEnabled ? "var(--color-signal)" : "var(--color-dim)",
-            border: `1px solid ${musicEnabled ? "rgba(110,255,160,.25)" : "rgba(255,255,255,.12)"}`,
+            border: `1px solid ${musicEnabled ? "rgba(var(--signal-rgb),.25)" : "rgba(255,255,255,.12)"}`,
             textDecoration: musicEnabled ? "none" : "line-through",
           }}
         >
