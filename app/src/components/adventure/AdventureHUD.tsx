@@ -2,7 +2,8 @@
 
 import { TypeText } from "@/components/story/TypeText";
 import { BookCover } from "@/components/book/BookCover";
-import { BOOK } from "@/data/book";
+import { bookFor } from "@/data/book";
+import { useLanguage } from "@/components/game/LanguageContext";
 import type { BookChapter } from "@/data/book";
 import type { AdventureSnapshot } from "./AdventureScene";
 import type { AdventureLevel } from "@/lib/adventure/types";
@@ -41,6 +42,7 @@ function Keycap({ children }: { children: React.ReactNode }) {
 
 /** DOM chrome over the 3D stage: objective, Maya's thoughts, detection, prompts, cards. */
 export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onKeepBook, onInteract, onRotate, compact = false }: AdventureHUDProps) {
+  const BOOK = bookFor(useLanguage());
   const status = snapshot?.status ?? "playing";
   const alert = snapshot?.alert ?? 0;
   const seen = snapshot?.seen ?? false;

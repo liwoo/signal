@@ -1,6 +1,6 @@
 # SIGNAL — Cross-Language Plan for Act I
 
-**Status:** proposal · **Date:** 2026-10-19 · **Scope:** Act I ("FIRST CONTACT") across **Go, Python, JavaScript**
+**Status:** Act I built in all three languages (Phases 0–3) — see §14 for what shipped and where it differs from this plan · **Date:** 2026-10-19 · **Scope:** Act I ("FIRST CONTACT") across **Go, Python, JavaScript**
 
 > Goal: let a player **choose or switch** the language they learn in, while the story, characters, scenes, maps, and mission structure stay identical. Act I is the proving ground for the architecture; Acts II–IX follow the same pattern once this holds.
 
@@ -405,3 +405,20 @@ Sequence rationale: JS validates the abstraction with the cheapest backend befor
 - **New:** `src/lib/lang/{types,registry}.ts`, `src/lib/javascript/*`, `src/lib/python/*`, `src/data/challenges/<lang>/*`, `src/data/beginner-notes.<lang>.ts`, Maya banks per language.
 - **Changed:** `src/types/game.ts` (realizations, `LanguageId`), `src/lib/storage/persistence.ts` (settings + `progressByLanguage` + migration), `src/components/game/CodeEditor.tsx` (`language` prop), `src/lib/ai/engine.ts` (`language` dispatch), `src/lib/go/*` (wrapped behind service), `src/app/play/page.tsx` (language-aware wiring + neutralized story strings), `src/data/book.ts`, `src/data/curriculum.ts` (language-aware concepts).
 - **Unchanged:** all of `lib/adventure/*`, `components/story/*`, `components/adventure/*`, `lib/sprites/*`, `lib/game/{xp,energy,streaks,timer,hearts}`.
+
+---
+
+## 14. Implementation notes (what shipped)
+
+Reference: `spec/infrastructure/languages.md`. Decisions on §13's open questions: Pyodide for Python; dict dispatch for the Python rewrite; per-language `expectedOutput`; progress fully independent per language (XP, hearts, and the zen library stay shared); one Reeves manual re-skinned per language; asked once on the chapter-1 intro, defaulting to Go, switchable on any chapter intro.
+
+Where the build differs from the plan above:
+
+1. **Go stays inline as the spine's own realization.** Rather than moving Go's code fields out of the chapter files, other languages overlay a `StepRealization` (`realizeChallenge`). Go is byte-identical by construction, and every consumer still reads a plain `Challenge`. `brief` and `hints` are required in a realization; optional fields it omits (harness, module, quickCheck) are dropped, never inherited from Go.
+2. **Zen rules live in `lib/game` registries keyed by language**, not on `LanguageService` — keeps `lib/game` pure and avoids an import cycle.
+3. **JS anti-hardcoding:** the plan's `CELL`/`SUBLEVEL` exports would let `console.log("CELL B-09 · SUBLEVEL 3")` satisfy `requiredCode`. JS exports `cell`/`sublevel`, and JS/Python check `requiredCode` with import lines stripped (`codeForRequiredCheck`).
+4. **The boss is the 3D duel** (three rearm phases at cover), not the legacy four-tab 2D boss §7 describes. Each language realizes the three phases' starter code; the spec lines are shared.
+5. **Backends:** JS runs in a fresh Web Worker per run (4s kill), with acorn for line-accurate syntax errors and a line-preserving ESM rewrite. Pyodide 314 (CPython 3.14) only ships an ES-module loader, so Python runs in a module worker (`public/pyodide-worker.mjs`) loaded from the CDN, warmed during the intro, killed and respawned on a 5s timeout. Tests run real Pyodide in Node (`pyodide` dev dependency).
+6. **Scaffold steps grade by `expectedOutput: "Hello World"`** in JS/Python (Go still uses its skeleton patterns).
+7. **Story text:** the only Go mention in the adventure layer ("'go: a field manual'") is localized by `realizeAdventureLevel`; intro story lines template the language name.
+

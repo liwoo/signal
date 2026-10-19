@@ -5,7 +5,7 @@ import { createHintState, revealNextHint } from "@/lib/game/hints";
 import type { HintState } from "@/lib/game/hints";
 import { buildReward } from "@/lib/game/reward";
 import type { Reward } from "@/lib/game/reward";
-import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent } from "@/types/game";
+import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, LanguageId } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
 import { callMayaEngine, callMayaEngineAsync } from "@/lib/ai/engine";
 import { createEventScheduler } from "@/lib/game/events";
@@ -17,7 +17,8 @@ import {
   type JeopardyState,
 } from "@/lib/game/jeopardy";
 import { INITIAL_HEARTS, loseHeart, buyHeart, canBuyHeart, HEART_COST_XP } from "@/lib/game/hearts";
-import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "@/lib/game/zen";
+import { analyzeZen, buildZenMessage, calculateMissedXP, getZenRules } from "@/lib/game/zen";
+import { getLanguageService } from "@/lib/lang/registry";
 import {
   createLibraryState,
   recordZenResults,
@@ -184,7 +185,8 @@ export function useGame(
   twistData: TwistData | null,
   initial?: InitialPersistedState,
   onSave?: (payload: SavePayload) => void,
-  timingScale = 1
+  timingScale = 1,
+  language: LanguageId = "go"
 ): [GameState, GameActions] {
   const [phase, setPhase] = useState<GameState["phase"]>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -483,7 +485,8 @@ export function useGame(
       false,
       true,
       false,
-      0
+      0,
+      language
     );
     addMayaChunked("MAYA", reply, "maya");
 
@@ -503,7 +506,7 @@ export function useGame(
       levelSchedulerRef.current.start(challenge.events, handleEvent);
     }
     startStepEvents(firstStep);
-  }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents]);
+  }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents, language]);
 
   const startGame = useCallback((options?: { deferMission?: boolean }) => {
     // A new round is always new. Drafts used to silently restore code, attempts,
@@ -531,7 +534,8 @@ export function useGame(
       false,
       false,
       inRush,
-      attempts
+      attempts,
+      language
     );
     addMayaChunked("MAYA", reply, "maya");
     logChatMessage({
@@ -542,7 +546,7 @@ export function useGame(
       is_complete: false,
       attempt: attempts,
     });
-  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked]);
+  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language]);
 
   const submitCode = useCallback(async () => {
     if (!code.trim() || busy) return;
@@ -562,7 +566,8 @@ export function useGame(
       attempts,
       currentStep.testHarness || currentStep.expectedOutput || currentStep.compileModule
         ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput, requiredCode: currentStep.requiredCode, compileModule: currentStep.compileModule }
-        : undefined
+        : undefined,
+      language
     );
 
     logChatMessage({
@@ -598,11 +603,11 @@ export function useGame(
         1
       );
       const masteredIds = getMasteredRuleIds(libraryRef.current);
-      const zenResult = analyzeZen(currentStep.id, code, masteredIds);
+      const zenResult = analyzeZen(currentStep.id, code, masteredIds, language);
       const totalEarned = earned + zenResult.bonusXP;
 
       // Record zen results in library — only rules relevant to the player's code
-      const stepRules = ZEN_RULES[currentStep.id] || [];
+      const stepRules = getZenRules(currentStep.id, language);
       const relevantRules = stepRules.filter(
         (r) => !r.isRelevant || r.isRelevant(code)
       );
@@ -653,8 +658,8 @@ export function useGame(
       addMayaChunked("MAYA", reply, "win");
 
       // Queue zen message chunks
-      const missedXP = calculateMissedXP(currentStep.id, zenResult, code);
-      const zenMsg = buildZenMessage(zenResult, missedXP);
+      const missedXP = calculateMissedXP(currentStep.id, zenResult, code, language);
+      const zenMsg = buildZenMessage(zenResult, missedXP, getLanguageService(language).label.toLowerCase());
       if (zenMsg) {
         const zenChunks = splitMayaMessage(zenMsg);
         for (let i = 0; i < zenChunks.length; i++) {
@@ -673,7 +678,7 @@ export function useGame(
       if (nextStepIndex < challenge.steps.length) {
         const nextStep = challenge.steps[nextStepIndex];
         const { reply: introReply } = callMayaEngine(
-          nextStep.id, "next step", false, true, false, 0
+          nextStep.id, "next step", false, true, false, 0, language
         );
         // Queue step header (non-animated, triggers state transition)
         pendingMsgRef.current.push({
@@ -773,6 +778,7 @@ export function useGame(
       code,
       reply,
       currentStep.hints[0]?.text,
+      language,
     ));
     addMsg("MAYA", reply, "err");
     setBusy(false);
@@ -792,6 +798,7 @@ export function useGame(
     showStreak,
     startStepEvents,
     syncPauseState,
+    language,
   ]);
 
   const dismissTwist = useCallback(() => {
@@ -913,11 +920,12 @@ export function useGame(
       false,
       false,
       inRush,
-      attempts
+      attempts,
+      language
     );
     addMayaChunked("MAYA", reply, "maya");
     // Maya will type again → onMayaTypingStart/End cycle repeats
-  }, [xp, currentStep, inRush, attempts, addMsg, addMayaChunked, syncPauseState]);
+  }, [xp, currentStep, inRush, attempts, addMsg, addMayaChunked, syncPauseState, language]);
 
   const retryFromCheckpoint = useCallback(() => {
     clearGameDraft(challenge.id);
@@ -1014,7 +1022,7 @@ export function useGame(
     library,
     aiTokens,
     aiSuggestOpen,
-    aiSuggestions: getAISuggestions(currentStep.id),
+    aiSuggestions: getAISuggestions(currentStep.id, language),
     hints: hintState,
     stepStartedAt,
     submissionFeedback,

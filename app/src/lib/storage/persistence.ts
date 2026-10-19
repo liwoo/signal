@@ -6,13 +6,14 @@
  * is an implementation detail — swap it without touching consumers.
  */
 
-import type { PlayerProgress, PlayerStats, PlayerUnlocks, PlayerSettings } from "@/types/game";
+import type { LanguageId, PlayerProgress, PlayerStats, PlayerUnlocks, PlayerSettings, ProgressStore } from "@/types/game";
 import type { LibraryState } from "@/lib/game/library";
 
 // ── Schema ──
 
 export interface PersistedState {
-  progress: PlayerProgress;
+  /** Story progress, one slice per language. */
+  progress: ProgressStore;
   stats: PlayerStats;
   unlocks: PlayerUnlocks;
   settings: PlayerSettings;
@@ -29,17 +30,19 @@ export interface GamePersistence {
 
 // ── Defaults ──
 
+export const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
+  version: 1,
+  currentAct: 1,
+  currentChapter: 1,
+  completedChapters: [],
+  bossesDefeated: [],
+  kiraVerdict: null,
+  storyBranch: null,
+  checkpointData: { chapter: 1, energy: 100, jeopardyCarryover: [] },
+};
+
 export const DEFAULTS: PersistedState = {
-  progress: {
-    version: 1,
-    currentAct: 1,
-    currentChapter: 1,
-    completedChapters: [],
-    bossesDefeated: [],
-    kiraVerdict: null,
-    storyBranch: null,
-    checkpointData: { chapter: 1, energy: 100, jeopardyCarryover: [] },
-  },
+  progress: { version: 2, byLanguage: {} },
   stats: {
     xp: 0,
     level: 1,
@@ -75,9 +78,40 @@ export const DEFAULTS: PersistedState = {
     chatWidthPercent: 42,
     tutorialFontScale: 2,
     tourCompleted: false,
+    language: "go",
+    languageChosen: false,
   },
   library: { entries: [] },
 };
+
+// ── Progress per language ──
+
+/**
+ * Normalize whatever is stored under `progress` into the per-language store.
+ * A version-1 save is a single PlayerProgress — it was always Go, so it folds
+ * into `byLanguage.go`. Anything unrecognized falls back to an empty store.
+ */
+export function migrateProgress(raw: unknown): ProgressStore {
+  if (!raw || typeof raw !== "object") return { version: 2, byLanguage: {} };
+  const r = raw as Partial<ProgressStore> & Partial<PlayerProgress>;
+  if (r.version === 2 && r.byLanguage && typeof r.byLanguage === "object") {
+    return { version: 2, byLanguage: { ...r.byLanguage } };
+  }
+  if (Array.isArray(r.completedChapters)) {
+    return { version: 2, byLanguage: { go: { ...DEFAULT_PLAYER_PROGRESS, ...(r as PlayerProgress) } } };
+  }
+  return { version: 2, byLanguage: {} };
+}
+
+/** The progress slice for one language (a fresh start if they've never played it). */
+export function progressFor(store: ProgressStore, language: LanguageId): PlayerProgress {
+  return store.byLanguage[language] ?? DEFAULT_PLAYER_PROGRESS;
+}
+
+/** Return a new store with one language's slice replaced. Other languages are untouched. */
+export function withProgress(store: ProgressStore, language: LanguageId, progress: PlayerProgress): ProgressStore {
+  return { version: 2, byLanguage: { ...store.byLanguage, [language]: progress } };
+}
 
 // ── Active backend ──
 // Lazy-loaded so we don't import IDB on the server during SSR.

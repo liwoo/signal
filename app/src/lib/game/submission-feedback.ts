@@ -1,5 +1,5 @@
-import { diagnose } from "@/lib/go/diagnostics";
-import type { SubmissionFeedback } from "@/types/game";
+import { getLanguageService } from "@/lib/lang/registry";
+import type { LanguageId, SubmissionFeedback } from "@/types/game";
 
 /**
  * Turn a rejected submission into a compact, editor-local explanation. Local
@@ -10,8 +10,9 @@ export function buildSubmissionFeedback(
   code: string,
   message: string,
   lesson?: string,
+  language: LanguageId = "go",
 ): SubmissionFeedback {
-  const localError = diagnose(code).find((diagnostic) => diagnostic.severity === "error");
+  const localError = getLanguageService(language).diagnose(code).find((diagnostic) => diagnostic.severity === "error");
   if (localError) {
     return { message, line: localError.line, lesson };
   }

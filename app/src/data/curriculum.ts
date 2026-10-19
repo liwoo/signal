@@ -3,6 +3,9 @@ import { chapter02 } from "./challenges/chapter-02";
 import { chapter03 } from "./challenges/chapter-03";
 import { chapter04 } from "./challenges/chapter-04";
 import { chapter04_2 } from "./challenges/chapter-04.2";
+import { boss01 } from "./challenges/boss-01";
+import { isChallengeAvailable, realizeChallenge } from "./challenges/realizations";
+import type { Challenge, LanguageId } from "@/types/game";
 
 /**
  * One chapter in the game's curriculum. `chapterId` ties it to a built Challenge
@@ -123,9 +126,9 @@ const RAW_ACTS: CurriculumAct[] = [
 
 // Dedupe concepts across the whole game: each is listed once, under the chapter
 // that first teaches it (case-insensitive).
-export const CURRICULUM_ACTS: CurriculumAct[] = (() => {
+function dedupe(rawActs: CurriculumAct[]): CurriculumAct[] {
   const seen = new Set<string>();
-  return RAW_ACTS.map((act) => ({
+  return rawActs.map((act) => ({
     ...act,
     chapters: act.chapters.map((chapter) => ({
       ...chapter,
@@ -137,7 +140,39 @@ export const CURRICULUM_ACTS: CurriculumAct[] = (() => {
       }),
     })),
   }));
-})();
+}
+
+export const CURRICULUM_ACTS: CurriculumAct[] = dedupe(RAW_ACTS);
+
+const BUILT: Record<string, Challenge> = Object.fromEntries(
+  [chapter01, chapter02, chapter03, boss01, chapter04, chapter04_2].map((c) => [c.id, c]),
+);
+
+/**
+ * The roadmap as seen in one language: built chapters list the concepts as
+ * that language names them, and chapters not yet realized in it fall back to
+ * "planned" (SOON) — they exist in Go but not here yet.
+ */
+export function curriculumFor(language: LanguageId): CurriculumAct[] {
+  if (language === "go") return CURRICULUM_ACTS;
+  return dedupe(
+    RAW_ACTS.map((act) => ({
+      ...act,
+      chapters: act.chapters.map((chapter) => {
+        if (!chapter.chapterId) return chapter;
+        if (!isChallengeAvailable(chapter.chapterId, language)) {
+          const { chapterId: _drop, ...planned } = chapter;
+          void _drop;
+          return planned;
+        }
+        const built = BUILT[chapter.chapterId];
+        return built && !chapter.isBoss
+          ? { ...chapter, concepts: realizeChallenge(built, language).concepts }
+          : chapter;
+      }),
+    })),
+  );
+}
 
 /** Concepts in built (playable) chapters — the denominator for "learned" %. */
 export const PLAYABLE_CONCEPTS = CURRICULUM_ACTS.reduce(

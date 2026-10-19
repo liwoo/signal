@@ -2,27 +2,9 @@
 // Single-pass regex-based tokenizer for Go source code.
 // Shared between syntax highlighting and the diagnostic/LSP layer.
 
-export type TokenType =
-  | "keyword"
-  | "builtin"
-  | "type"
-  | "string"
-  | "number"
-  | "comment"
-  | "operator"
-  | "punctuation"
-  | "identifier"
-  | "whitespace"
-  | "unknown";
+import type { Token, TokenType } from "@/lib/lang/types";
 
-export interface Token {
-  type: TokenType;
-  value: string;
-  line: number;
-  col: number;
-  start: number;
-  end: number;
-}
+export type { Token, TokenType };
 
 const GO_KEYWORDS = new Set([
   "break", "case", "chan", "const", "continue", "default", "defer",

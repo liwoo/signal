@@ -9,6 +9,8 @@ import {
   trackWarmupSkipExercise,
   trackWarmupFontScale,
 } from "@/lib/analytics";
+import type { LanguageId } from "@/types/game";
+import { useLanguage, useLanguageService } from "./LanguageContext";
 
 // ── Types ──
 
@@ -72,6 +74,24 @@ const EXERCISES: Record<ExerciseNum, ExerciseConfig> = {
     successLabel: "✓ TERMINAL ONLINE",
     placeholder: `package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("i'm in")\n}`,
     multiline: true,
+  },
+};
+
+// The same four drills in each language: print, a variable, text with a value
+// in it, and the thing level 1 builds on — Go's skeleton, or (with no skeleton
+// to build) importing a value from another file.
+const EXERCISES_BY_LANGUAGE: Record<Exclude<LanguageId, "go">, Record<ExerciseNum, ExerciseConfig>> = {
+  javascript: {
+    1: { title: "ECHO", maya: "type it exactly. this prints one line to the terminal — how you tell me you're alive.", xp: 10, successLabel: "✓ SIGNAL SENT", placeholder: `console.log("i'm in");`, multiline: false },
+    2: { title: "A VARIABLE", maya: "store a value with const, then print it back.", xp: 15, successLabel: "✓ VARIABLE STORED", placeholder: `const cell = "B-09";\nconsole.log(cell);`, multiline: true },
+    3: { title: "A TEMPLATE", maya: "backticks make a template. ${cell} is a blank the value fills in.", xp: 15, successLabel: "✓ SIGNAL FORMATTED", placeholder: "console.log(`CELL ${cell}`);", multiline: false },
+    4: { title: "AN IMPORT", maya: "no skeleton in javascript — the file is the program. but the facility keeps its data in other files. pull a value in by name.", xp: 25, successLabel: "✓ TERMINAL ONLINE", placeholder: `import { cell } from "./cellblock.js";\nconsole.log(cell);`, multiline: true },
+  },
+  python: {
+    1: { title: "ECHO", maya: "type it exactly. this prints one line to the terminal — how you tell me you're alive.", xp: 10, successLabel: "✓ SIGNAL SENT", placeholder: `print("i'm in")`, multiline: false },
+    2: { title: "A VARIABLE", maya: "store a value with =, then print it back.", xp: 15, successLabel: "✓ VARIABLE STORED", placeholder: `cell = "B-09"\nprint(cell)`, multiline: true },
+    3: { title: "AN F-STRING", maya: "an f before the quotes, braces where the value goes. {cell} is a blank the value fills in.", xp: 15, successLabel: "✓ SIGNAL FORMATTED", placeholder: `print(f"CELL {cell}")`, multiline: false },
+    4: { title: "AN IMPORT", maya: "no skeleton in python — the file is the program. but the facility keeps its data in other files. import one and reach in with a dot.", xp: 25, successLabel: "✓ TERMINAL ONLINE", placeholder: `import cellblock\nprint(cellblock.CELL)`, multiline: true },
   },
 };
 
@@ -217,7 +237,41 @@ function SuccessFlash({ label, large }: SuccessFlashProps) {
   );
 }
 
+/** Any language's drill, coloured by that language's own tokenizer. */
+function TokenSnippet({ code, fontSize }: { code: string; fontSize: string }) {
+  const { tokenize } = useLanguageService();
+  const colors: Record<string, string> = { keyword: KW, builtin: FN, type: KW, string: STR, identifier: ID, number: STR, comment: FG };
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  tokenize(code).forEach((t, i) => {
+    if (t.start > last) nodes.push(code.slice(last, t.start));
+    nodes.push(<C key={i} c={colors[t.type] ?? FG}>{t.value}</C>);
+    last = t.end;
+  });
+  if (last < code.length) nodes.push(code.slice(last));
+  return (
+    <span className="font-[family-name:var(--font-mono)] whitespace-pre" style={{ fontSize }}>
+      {nodes}
+    </span>
+  );
+}
+
 // ── Validators ──
+
+const VALIDATORS_BY_LANGUAGE: Record<Exclude<LanguageId, "go">, Record<ExerciseNum, (value: string) => boolean>> = {
+  javascript: {
+    1: (v) => v.includes("console.log(") && v.includes(`"i'm in"`),
+    2: (v) => /const\s+cell\s*=\s*["']B-09["']/.test(v) && v.includes("console.log(cell)"),
+    3: (v) => v.includes("console.log(`") && v.includes("${cell}"),
+    4: (v) => /import\s*\{\s*cell\s*\}\s*from\s*["']\.\/cellblock\.js["']/.test(v) && v.includes("console.log(cell)"),
+  },
+  python: {
+    1: (v) => v.includes("print(") && v.includes(`"i'm in"`),
+    2: (v) => /cell\s*=\s*["']B-09["']/.test(v) && v.includes("print(cell)"),
+    3: (v) => /print\(f["']CELL \{cell\}["']\)/.test(v),
+    4: (v) => /^\s*import\s+cellblock\s*$/m.test(v) && v.includes("print(cellblock.CELL)"),
+  },
+};
 
 const VALIDATORS: Record<ExerciseNum, (value: string) => boolean> = {
   1: (v) => v.includes("fmt.Println(") && v.includes(`"i'm in"`),
@@ -233,6 +287,9 @@ const VALIDATORS: Record<ExerciseNum, (value: string) => boolean> = {
 // ── Main component ──
 
 export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps) {
+  const language = useLanguage();
+  const EXERCISES_ACTIVE = language === "go" ? EXERCISES : EXERCISES_BY_LANGUAGE[language];
+  const VALIDATORS_ACTIVE = language === "go" ? VALIDATORS : VALIDATORS_BY_LANGUAGE[language];
   const [exercise, setExercise] = useState<ExerciseNum>(1);
   const [exState, setExState] = useState<ExerciseState>("idle");
   const [showXP, setShowXP] = useState(false);
@@ -269,7 +326,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
     if (exState !== "idle") return;
     attemptsRef.current[exercise] += 1;
 
-    if (!VALIDATORS[exercise](inputs[exercise])) {
+    if (!VALIDATORS_ACTIVE[exercise](inputs[exercise])) {
       trackWarmupError(exercise, inputs[exercise]);
       setShake(true);
       setTimeout(() => setShake(false), 400);
@@ -295,13 +352,13 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
         setExState("idle");
       }
     }, delay);
-  }, [exState, exercise, inputs, onComplete]);
+  }, [exState, exercise, inputs, onComplete, VALIDATORS_ACTIVE]);
 
   // ── Key handlers ──
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const config = EXERCISES[exercise];
+      const config = EXERCISES_ACTIVE[exercise];
       if (config.multiline) {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
@@ -311,7 +368,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
         if (e.key === "Enter") handleSubmit();
       }
     },
-    [exercise, handleSubmit]
+    [exercise, handleSubmit, EXERCISES_ACTIVE]
   );
 
   const handleSkip = useCallback(() => {
@@ -322,7 +379,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
 
   // ── Render ──
 
-  const config = EXERCISES[exercise];
+  const config = EXERCISES_ACTIVE[exercise];
   const isSuccess = exState === "success";
   const isLast = exercise === TOTAL_EXERCISES;
   const isLastSuccess = isSuccess && isLast;
@@ -475,7 +532,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
             >
               TARGET
             </div>
-            <SnippetComponent fontSize={codeSize} />
+            {language === "go" ? <SnippetComponent fontSize={codeSize} /> : <TokenSnippet code={config.placeholder} fontSize={codeSize} />}
           </div>
 
           {/* Input area */}

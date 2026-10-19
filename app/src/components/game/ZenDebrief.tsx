@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import type { LibraryEntry } from "@/lib/game/library";
 import { entryLesson } from "@/lib/game/library";
 import { ZEN_EXAMPLES } from "@/data/zen-examples";
-import { tokenize, type Token } from "@/lib/go/tokenizer";
+import type { Token } from "@/lib/lang/types";
+import { useLanguageService } from "./LanguageContext";
 import { useAudio } from "@/hooks/useAudio";
 
 interface ZenDebriefProps {
@@ -32,6 +33,7 @@ function beatDuration(beat: Beat): number {
  * not another amber mission instruction or chat exchange.
  */
 export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone }: ZenDebriefProps) {
+  const lang = useLanguageService();
   const audio = useAudio(soundEnabled);
   const learned = entries.filter((e) => e.learned).length;
   const earned = entries.filter((e) => e.learned).reduce((s, e) => s + e.bonusXP, 0);
@@ -131,7 +133,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
           {beat.kind === "title" && (
             <div key="title" className="w-full max-w-[620px] border-l-[3px] px-6 py-5 text-left" style={{ borderColor: "var(--color-info)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}>
               <div className="font-[family-name:var(--font-display)] font-black tracking-[0.18em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-info)" }}>THE ZEN OF GO</div>
-              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>A short review of the choices that make Go code clear, calm, and easy to build on.</p>
+              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>A short review of the choices that make {lang.label} code clear, calm, and easy to build on.</p>
             </div>
           )}
 
@@ -159,7 +161,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
           {beat.kind === "outro" && (
             <div key="outro" className="w-full max-w-[620px] border-l-[3px] px-6 py-5 text-left" style={{ borderColor: "var(--color-signal)", background: "color-mix(in srgb, var(--color-signal) 6%, transparent)" }}>
               <div className="font-[family-name:var(--font-display)] font-black tracking-[0.12em]" style={{ fontSize: "clamp(22px, 4.5vw, 44px)", color: "var(--color-signal)" }}>{learned}/{entries.length} · +{earned} XP</div>
-              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>These patterns stay in your library for the next time you write Go.</p>
+              <p className="mt-3 text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)" }}>These patterns stay in your library for the next time you write {lang.label}.</p>
             </div>
           )}
         </div>
@@ -207,13 +209,14 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
 }
 
 function CodeBox({ label, code, tone }: { label: string; code: string; tone: "dim" | "lit" }) {
+  const { tokenize } = useLanguageService();
   const lit = tone === "lit";
   return (
     <div className={lit ? "zen-after" : "zen-before"} style={{ border: `1px solid ${lit ? "rgba(110,255,160,.45)" : "rgba(184,212,160,.15)"}`, background: lit ? "rgba(110,255,160,.05)" : "rgba(4,8,16,.6)" }}>
       <div className="px-3 py-1 text-[9px] tracking-[3px]" style={{ color: lit ? "var(--color-signal)" : "var(--color-foreground)", opacity: lit ? 1 : 0.6, borderBottom: "1px solid var(--color-border)" }}>
         {label.toUpperCase()}
       </div>
-      <pre className="px-3 py-2 text-[13px] leading-[1.6] overflow-x-auto font-[family-name:var(--font-mono)]" style={{ whiteSpace: "pre", opacity: lit ? 1 : 0.75 }} dangerouslySetInnerHTML={{ __html: highlight(code) }} />
+      <pre className="px-3 py-2 text-[13px] leading-[1.6] overflow-x-auto font-[family-name:var(--font-mono)]" style={{ whiteSpace: "pre", opacity: lit ? 1 : 0.75 }} dangerouslySetInnerHTML={{ __html: highlight(code, tokenize) }} />
     </div>
   );
 }
@@ -227,7 +230,7 @@ const COLORS: Record<string, string> = {
   type: "var(--color-syn-type)",
 };
 
-function highlight(code: string): string {
+function highlight(code: string, tokenize: (src: string) => Token[]): string {
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   try {
     const tokens: Token[] = tokenize(code);

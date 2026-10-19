@@ -21,6 +21,8 @@ interface WinModalProps {
   subtitle: string;
   onRetry: () => void;
   onContinue: () => void;
+  /** Shown above the actions — e.g. why there's no next chapter in this language yet. */
+  note?: string;
 }
 
 const TABS: Array<[WinTab, string]> = [
@@ -30,7 +32,7 @@ const TABS: Array<[WinTab, string]> = [
   ["store", "STORE"],
 ];
 
-export function WinModal({ xp, level, library, completedChapter, title, subtitle, onRetry, onContinue }: WinModalProps) {
+export function WinModal({ xp, level, library, completedChapter, title, subtitle, onRetry, onContinue, note }: WinModalProps) {
   const [tab, setTab] = useState<WinTab>("library");
   const stats = getLibraryStats(library);
 
@@ -127,6 +129,11 @@ export function WinModal({ xp, level, library, completedChapter, title, subtitle
           </div>
         </div>
 
+        {note ? (
+          <div className="shrink-0 px-4 py-2.5 text-[11px] leading-[1.6] text-center" style={{ color: "var(--color-info)", borderTop: "1px solid var(--color-border)" }}>
+            {note}
+          </div>
+        ) : null}
         {/* Action buttons — always visible */}
         <div
           className="shrink-0 flex gap-2 px-4 py-3 justify-center"

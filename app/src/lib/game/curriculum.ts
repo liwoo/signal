@@ -1,4 +1,5 @@
-import { CURRICULUM_ACTS } from "@/data/curriculum";
+import { curriculumFor } from "@/data/curriculum";
+import type { LanguageId } from "@/types/game";
 
 export type ConceptStatus = "covered" | "current" | "upcoming" | "planned";
 
@@ -41,13 +42,14 @@ export interface CurriculumSummary {
 export function summarizeCurriculum(
   completedChapterIds: string[],
   currentChapterId: string | null,
+  language: LanguageId = "go",
 ): CurriculumSummary {
   const done = new Set(completedChapterIds);
   let covered = 0;
   let playable = 0;
   let planned = 0;
 
-  const acts = CURRICULUM_ACTS.map((act): ActSummary => {
+  const acts = curriculumFor(language).map((act): ActSummary => {
     let actBuilt = 0;
     let actDone = 0;
 

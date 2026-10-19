@@ -4,25 +4,9 @@
 
 import { KNOWN_PKG_METHODS } from "./diagnostics";
 import type { CompileModule } from "@/types/game";
+import type { Completion, ExtraPackage } from "@/lib/lang/types";
 
-export interface Completion {
-  label: string;
-  detail: string;
-}
-
-/**
- * A non-stdlib package shipped with a step (via its compileModule) that the
- * player can import. Feeds autocomplete so `pkg.` lists the package's exported
- * members and a bare prefix suggests the package name once it's imported.
- */
-export interface ExtraPackage {
-  /** The name the player writes before the dot, e.g. "cellblock". */
-  name: string;
-  /** The full import path, e.g. "terminal/cellblock". */
-  importPath: string;
-  /** Exported members of the package. */
-  members: Completion[];
-}
+export type { Completion, ExtraPackage };
 
 /** Build the importable packages from a step's compileModule. */
 export function extraPackagesFromModule(mod: CompileModule): ExtraPackage[] {

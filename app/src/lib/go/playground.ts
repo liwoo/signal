@@ -76,11 +76,9 @@ export async function compileGo(source: string): Promise<CompileResult> {
   }
 }
 
-export interface FormatResult {
-  success: boolean;
-  body: string;
-  error: string;
-}
+import type { FormatResult } from "@/lib/lang/types";
+
+export type { FormatResult };
 
 export async function formatGo(source: string): Promise<FormatResult> {
   try {

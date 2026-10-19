@@ -75,6 +75,8 @@ const DEFAULT_SETTINGS: PlayerSettings = {
   chatWidthPercent: 42,
   tutorialFontScale: 2,
   tourCompleted: false,
+  language: "go",
+  languageChosen: false,
 };
 
 // ── Helpers ──

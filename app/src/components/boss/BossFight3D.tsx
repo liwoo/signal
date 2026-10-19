@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BossFightStage, BossSnapshot, BossStageApi } from "./BossFightStage";
 import { CodeEditor } from "@/components/game/CodeEditor";
 import { useAudio } from "@/hooks/useAudio";
-import { compileGo } from "@/lib/go/playground";
+import { getLanguageService } from "@/lib/lang/registry";
+import type { LanguageId } from "@/types/game";
 import { bossFightXP } from "@/lib/adventure/boss-sim";
 import { calculateLevel } from "@/lib/game/xp";
 import type { AdventureLevel, BossFightEvent, BossFightState, BossPhase, WeaponConfig } from "@/lib/adventure/types";
@@ -19,6 +20,8 @@ interface BossFight3DProps {
   loopsEnabled: boolean;
   vimEnabled: boolean;
   compact?: boolean;
+  /** The language the weapon is coded in (the arena's phases are already realized in it). */
+  language?: LanguageId;
   onSave: (payload: { xp: number; level: number; hearts: number; completedChapter?: number }) => void;
   onVictory: () => void;
   onGameOver: () => void;
@@ -34,15 +37,15 @@ interface Feedback {
 
 const MAX_HEARTS = 5;
 
-/** The player writes a complete program; only auto-wrap a bare snippet. */
-function wrapSource(code: string): string {
-  if (/package\s+main/.test(code)) return code;
+/** The player writes a complete program; only auto-wrap a bare Go snippet. */
+function wrapSource(code: string, language: LanguageId): string {
+  if (language !== "go" || /package\s+main/.test(code)) return code;
   return `package main\n\nimport "fmt"\n\n${code}`;
 }
 
 export function BossFight3D({
   level, chapterNumber, initialXP, initialLevel, initialHearts, soundEnabled, loopsEnabled, vimEnabled, compact = false,
-  onSave, onVictory, onGameOver, onRetry,
+  language = "go", onSave, onVictory, onGameOver, onRetry,
 }: BossFight3DProps) {
   const audio = useAudio(soundEnabled, loopsEnabled);
   const audioRef = useRef(audio);
@@ -139,26 +142,29 @@ export function BossFight3D({
     setBusy(true);
     setFeedback(null);
     try {
-      const res = await compileGo(wrapSource(code));
-      if (res.errors === "__OFFLINE__") {
+      const lang = getLanguageService(language);
+      const res = await lang.run({ code: wrapSource(code, language) });
+      if (res.status === "offline") {
         setFeedback({ kind: "malfunction", text: "no connection to the compiler. check your network and run it again." });
-      } else if (!res.success) {
-        const first = res.errors.split("\n").find((l) => l.trim()) ?? "it won't compile.";
-        setFeedback({ kind: "malfunction", text: first });
+      } else if (res.status === "error") {
+        const text = language === "go"
+          ? res.error.split("\n").find((l) => l.trim()) ?? "it won't compile."
+          : lang.explainError(res.error, false);
+        setFeedback({ kind: "malfunction", text });
         audioRef.current.playSfx("dread-sting", 0.4);
-      } else if (res.output.trim() === codingPhase.expectedOutput.trim()) {
+      } else if (res.stdout.trim() === codingPhase.expectedOutput.trim()) {
         const weapon: WeaponConfig = codingPhase.weapon;
         apiRef.current?.arm(weapon);
         setFeedback({ kind: "armed", text: codingPhase.armed ?? "weapon online." });
         setCodingPhase(null);
       } else {
-        setFeedback({ kind: "miss", text: `the spec reads: ${res.output.trim() || "(nothing)"} — ${codingPhase.hint}` });
+        setFeedback({ kind: "miss", text: `the spec reads: ${res.stdout.trim() || "(nothing)"} — ${codingPhase.hint}` });
         audioRef.current.playSfx("warning-beep", 0.35);
       }
     } finally {
       setBusy(false);
     }
-  }, [code, codingPhase, busy]);
+  }, [code, codingPhase, busy, language]);
 
   const retry = useCallback(() => {
     savedRef.current = false;
@@ -213,6 +219,7 @@ export function BossFight3D({
           feedback={feedback}
           vimEnabled={vimEnabled}
           isMobile={compact}
+          language={language}
           onCode={setCode}
           onSubmit={submit}
         />
@@ -313,10 +320,10 @@ function BossHud({ snap, name }: { snap: BossSnapshot; name: string }) {
 
 // ── Cover coding overlay ──
 function CoverEditor({
-  phase, code, busy, feedback, vimEnabled, isMobile, onCode, onSubmit,
+  phase, code, busy, feedback, vimEnabled, isMobile, language, onCode, onSubmit,
 }: {
   phase: BossPhase; code: string; busy: boolean; feedback: Feedback | null; vimEnabled: boolean; isMobile: boolean;
-  onCode: (c: string) => void; onSubmit: () => void;
+  language: LanguageId; onCode: (c: string) => void; onSubmit: () => void;
 }) {
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 p-3 sm:p-6">
@@ -338,6 +345,7 @@ function CoverEditor({
             rushBonus={0}
             vimEnabled={vimEnabled}
             isMobile={isMobile}
+            language={language}
           />
         </div>
         {feedback && (

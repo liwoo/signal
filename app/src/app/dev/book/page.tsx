@@ -6,10 +6,13 @@ import { BookReader } from "@/components/book/BookReader";
 import { BookCover } from "@/components/book/BookCover";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { BOOK_CHAPTERS, bookChapterFor } from "@/data/book";
+import { LanguageProvider } from "@/components/game/LanguageContext";
+import { isLanguageId } from "@/lib/lang/registry";
 
 // Development-only field-manual preview:
 //   /dev/book?chapter=chapter-03          → the reader, opened on chapter III
 //   /dev/book?chapter=chapter-03&cover=1  → the closed cover with the chapter slip
+//   /dev/book?chapter=chapter-03&lang=python → the same chapter from the python manual
 
 function BookPreview() {
   const params = useSearchParams();
@@ -19,8 +22,10 @@ function BookPreview() {
   if (process.env.NODE_ENV === "production") notFound();
 
   const chapterId = params.get("chapter") ?? "chapter-01";
-  const notes = getBeginnerNotes(chapterId);
-  const chapter = bookChapterFor(chapterId);
+  const rawLang = params.get("lang");
+  const language = isLanguageId(rawLang) ? rawLang : "go";
+  const notes = getBeginnerNotes(chapterId, language);
+  const chapter = bookChapterFor(chapterId, language);
 
   if (params.get("cover") === "1" || !notes) {
     return (
@@ -28,7 +33,7 @@ function BookPreview() {
         <BookCover chapter={chapter} width={260} />
         <div className="flex flex-wrap justify-center gap-2 text-[8px] tracking-[2px]">
           {BOOK_CHAPTERS.map((c) => (
-            <a key={c.challengeId} href={`/dev/book?chapter=${c.challengeId}`} style={{ color: "var(--color-signal)" }}>
+            <a key={c.challengeId} href={`/dev/book?chapter=${c.challengeId}&lang=${language}`} style={{ color: "var(--color-signal)" }}>
               {c.numeral} · {c.title}
             </a>
           ))}
@@ -64,10 +69,20 @@ function BookPreview() {
   );
 }
 
+function BookPreviewWithLanguage() {
+  const params = useSearchParams();
+  const rawLang = params.get("lang");
+  return (
+    <LanguageProvider language={isLanguageId(rawLang) ? rawLang : "go"}>
+      <BookPreview />
+    </LanguageProvider>
+  );
+}
+
 export default function BookPreviewPage() {
   return (
     <Suspense fallback={null}>
-      <BookPreview />
+      <BookPreviewWithLanguage />
     </Suspense>
   );
 }
