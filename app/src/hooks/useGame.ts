@@ -66,6 +66,16 @@ import { clearGameDraft } from "@/lib/storage/local";
 import { buildSubmissionFeedback } from "@/lib/game/submission-feedback";
 import type { SubmissionFeedback } from "@/types/game";
 
+/**
+ * Clearing a step buys time back on the level clock. Getting it right should
+ * feel like it pays off, and it keeps the countdown from being pure punishment:
+ * every correct answer is a breath of room for the next one. Scaled by the
+ * chapter's timingScale alongside the rest of the clock.
+ */
+const STEP_TIME_REWARD_SECONDS = 30;
+/** Extra seconds back when the step is cleared on the first attempt. */
+const FIRST_TRY_TIME_REWARD_SECONDS = 15;
+
 export interface InitialPersistedState {
   xp: number;
   level: number;
@@ -632,6 +642,22 @@ export function useGame(
         trackZenBonus(challenge.id, currentStep.id, zenResult.bonusXP, zenResult.jolts.length);
       }
 
+      // Getting it right buys time back on the clock — a tangible reward that
+      // also eases the next step. Only meaningful mid-chapter (the clock stops
+      // on chapter clear) and only when running out actually costs the player.
+      const isLastStep = stepIndex >= challenge.steps.length - 1;
+      const timeReward =
+        isLastStep || !challenge.timer.gameOverOnExpiry
+          ? 0
+          : Math.round(
+              (STEP_TIME_REWARD_SECONDS + (isFirst ? FIRST_TRY_TIME_REWARD_SECONDS : 0)) *
+                timingScale
+            );
+      if (timeReward > 0) {
+        setTimerBonusSeconds((prev) => prev + timeReward);
+        trackTimerBonus(challenge.id, timeReward);
+      }
+
       // The payoff: one card that says what was earned and why.
       setReward(buildReward({
         stepTitle: currentStep.title,
@@ -641,6 +667,7 @@ export function useGame(
         firstTry: isFirst,
         speedXP: speedBonus,
         zenXP: zenResult.bonusXP,
+        timeBonusSeconds: timeReward,
       }));
       setXp((prev) => {
         const next = prev + totalEarned;

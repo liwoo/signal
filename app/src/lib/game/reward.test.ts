@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReward } from "./reward";
+import { buildReward, formatTimeBonus } from "./reward";
 
 describe("buildReward", () => {
   it("totals base + first-try + speed + zen and lists badges in order", () => {
@@ -17,5 +17,34 @@ describe("buildReward", () => {
     expect(r.chapterClear).toBe(true);
     expect(r.badges).toEqual([]);
     expect(r.breakdown.total).toBe(60);
+  });
+
+  it("carries a time-bonus reward without turning it into a badge", () => {
+    const r = buildReward({ stepTitle: "SCAFFOLD", stepIndex: 0, totalSteps: 2, base: 40, firstTry: false, speedXP: 0, zenXP: 0, timeBonusSeconds: 45 });
+    expect(r.timeBonusSeconds).toBe(45);
+    // The card shows time on its own "ON THE CLOCK" line, not as a badge.
+    expect(r.badges).toEqual([]);
+  });
+
+  it("defaults the time bonus to zero and never goes negative", () => {
+    expect(buildReward({ stepTitle: "S", stepIndex: 0, totalSteps: 2, base: 10, firstTry: false, speedXP: 0, zenXP: 0 }).timeBonusSeconds).toBe(0);
+    expect(buildReward({ stepTitle: "S", stepIndex: 0, totalSteps: 2, base: 10, firstTry: false, speedXP: 0, zenXP: 0, timeBonusSeconds: -30 }).timeBonusSeconds).toBe(0);
+  });
+});
+
+describe("formatTimeBonus", () => {
+  it("renders sub-minute bonuses in seconds", () => {
+    expect(formatTimeBonus(30)).toBe("+30s");
+    expect(formatTimeBonus(45)).toBe("+45s");
+  });
+
+  it("renders minute-or-more bonuses as a clock", () => {
+    expect(formatTimeBonus(60)).toBe("+1:00");
+    expect(formatTimeBonus(75)).toBe("+1:15");
+    expect(formatTimeBonus(125)).toBe("+2:05");
+  });
+
+  it("rounds fractional seconds", () => {
+    expect(formatTimeBonus(29.6)).toBe("+30s");
   });
 });

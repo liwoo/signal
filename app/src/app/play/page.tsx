@@ -18,7 +18,7 @@ import { isStuck } from "@/lib/game/hints";
 import { getLanguageService, LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 import { LanguageProvider } from "@/components/game/LanguageContext";
 import { isChallengeAvailable, realizeAdventureLevel, realizeBossLevel, realizeChallenge } from "@/data/challenges/realizations";
-import { LevelTimer } from "@/components/game/LevelTimer";
+import { LevelTimer, type TimerUrgency } from "@/components/game/LevelTimer";
 import { Interrupt } from "@/components/story/Interrupt";
 import { PowerCut } from "@/components/story/PowerCut";
 import { TwistReveal } from "@/components/story/TwistReveal";
@@ -441,6 +441,10 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     setShowObjectives(false);
   }, [state.currentStepIndex]);
   const [showTour, setShowTour] = useState(!settings.tourCompleted && !isMobile && settings.beginnerMode);
+  // Clock urgency drives the "running out of time" screen shake. The timer
+  // reports its own tier (none/warn/crit); we only shake on crit.
+  const [timeUrgency, setTimeUrgency] = useState<TimerUrgency>("none");
+  const timeCritical = timeUrgency === "crit" && state.phase === "playing";
   const mobileViewportHeight = useMobileViewport(isMobile);
   const beginnerNotes = getBeginnerNotes(challenge.id, language);
 
@@ -873,6 +877,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       {isMobile ? (
         <MobileGameLayout
           height={mobileViewportHeight}
+          shake={timeCritical}
           waitingForContinue={state.waitingForContinue}
           focusMode={focusMode}
           latestMessage={latestMayaMessage}
@@ -896,6 +901,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   gameOverOnExpiry={state.timerGameOver}
                   onExpire={actions.handleTimerExpire}
                   stopped={state.timerStopped}
+                  onUrgencyChange={setTimeUrgency}
+                  soundEnabled={settings.soundEnabled}
                 />
               ) : undefined}
             />
@@ -995,7 +1002,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         />
       ) : (
       <div
-        className="h-dvh flex flex-col transition-colors duration-1000"
+        className={`h-dvh flex flex-col transition-colors duration-1000${timeCritical ? " time-danger-shake" : ""}`}
         style={{
           background: "var(--color-background)",
         }}
@@ -1019,6 +1026,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 gameOverOnExpiry={state.timerGameOver && !showTour}
                 onExpire={actions.handleTimerExpire}
                 stopped={state.timerStopped || showTour}
+                onUrgencyChange={setTimeUrgency}
+                soundEnabled={settings.soundEnabled}
               />
             )
           }

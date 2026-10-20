@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Reward } from "@/lib/game/reward";
+import { formatTimeBonus, type Reward } from "@/lib/game/reward";
 import { useAudio } from "@/hooks/useAudio";
 
 interface RewardCardProps {
@@ -86,6 +86,18 @@ export function RewardCard({ reward, soundEnabled = true, onDone }: RewardCardPr
         >
           +{shown} XP
         </div>
+        {reward.timeBonusSeconds > 0 && (
+          <div
+            className="reward-badge mt-3 text-[13px] tracking-[3px] font-[family-name:var(--font-display)]"
+            style={{
+              animationDelay: "380ms",
+              color: "var(--color-signal)",
+              textShadow: "0 0 10px rgba(var(--signal-rgb),.5)",
+            }}
+          >
+            ⏱ {formatTimeBonus(reward.timeBonusSeconds)} ON THE CLOCK
+          </div>
+        )}
         {reward.badges.length > 0 && (
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {reward.badges.map((badge, i) => (
