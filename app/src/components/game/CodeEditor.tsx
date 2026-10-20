@@ -22,6 +22,8 @@ interface CodeEditorProps {
   disabled?: boolean;
   /** True when it's the player's turn — lights up the terminal + thick cursor. */
   awaitingInput?: boolean;
+  /** Why the terminal is on standby (e.g. "maya is transmitting") — shown under the STANDBY label. */
+  standbyReason?: string;
   aiButton?: React.ReactNode;
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
@@ -134,6 +136,7 @@ export function CodeEditor({
   onVimToggle,
   disabled,
   awaitingInput = false,
+  standbyReason = "",
   aiButton,
   fontSize: fontSizeProp,
   onFontSizeChange,
@@ -150,6 +153,16 @@ export function CodeEditor({
   const cursorRef = useRef<HTMLDivElement>(null);
   const [vim, vimActions] = useVim(vimEnabled);
   const [cursorPos, setCursorPos] = useState(0);
+  // Bumped each time a keystroke is rejected while the terminal is locked; drives
+  // the amber shake so the player sees their input bounce rather than vanish.
+  const [rejectTick, setRejectTick] = useState(0);
+  const rejectClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fireRejectPulse = useCallback(() => {
+    setRejectTick((n) => n + 1);
+    if (rejectClearRef.current) clearTimeout(rejectClearRef.current);
+    rejectClearRef.current = setTimeout(() => setRejectTick(0), 650);
+  }, []);
+  useEffect(() => () => { if (rejectClearRef.current) clearTimeout(rejectClearRef.current); }, []);
 
   // Autocomplete state
   const [acItems, setAcItems] = useState<Completion[]>([]);
@@ -364,9 +377,15 @@ export function CodeEditor({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Block all input when disabled (Maya typing / game paused)
-      if (disabled) {
+      // Block all input while the terminal is on standby (Maya talking / paused /
+      // checking a submission). Bounce the keystroke with a visible pulse rather
+      // than swallowing it silently, so the lock never reads as a freeze —
+      // modifier-only presses don't count as a real attempt to type.
+      if (disabled || busy) {
         e.preventDefault();
+        if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace" || e.key === "Tab") {
+          fireRejectPulse();
+        }
         return;
       }
 
@@ -519,7 +538,7 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
+    [code, codeChangeWithUndo, onSubmit, busy, disabled, fireRejectPulse, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -575,33 +594,58 @@ export function CodeEditor({
     <div className="flex flex-col h-full">
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
-        {/* Terminal power state — lit + pulsing when awaiting input, dimmed (standby) while Maya narrates */}
+        {/* Terminal power state — lit + pulsing when it's the player's turn,
+            dimmed (standby) while Maya narrates or a submission is checked. The
+            two states are deliberately high-contrast so "can I type now?" is never
+            a guess; a rejected keystroke on standby shakes the whole frame amber. */}
         {awaitingInput ? (
           <div
             className="absolute inset-0 z-30 pointer-events-none"
             style={{
-              border: "1px solid var(--color-signal)",
-              background: "radial-gradient(ellipse at 50% 100%, rgba(110,255,160,.07), transparent 62%)",
+              border: "2px solid var(--color-signal)",
+              boxShadow: "inset 0 0 22px rgba(var(--signal-rgb),.16)",
+              background: "radial-gradient(ellipse at 50% 100%, rgba(var(--signal-rgb),.08), transparent 62%)",
               animation: "terminal-ready 1.8s ease-in-out infinite",
             }}
           >
             <div
-              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
-              style={{ color: "var(--color-signal)" }}
+              className={`absolute top-2 flex items-center gap-1.5 text-[10px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
+              style={{ color: "var(--color-signal)", textShadow: "0 0 8px rgba(var(--signal-rgb),.7)" }}
             >
-              ▮ READY
+              ● LIVE · YOUR TURN
             </div>
           </div>
         ) : busy || disabled ? (
           <div
-            className="absolute inset-0 z-30 pointer-events-none"
-            style={{ background: "rgba(4,8,16,.5)" }}
+            key={rejectTick}
+            className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center"
+            style={{
+              background: rejectTick ? "rgba(20,8,4,.66)" : "rgba(2,6,12,.62)",
+              border: `2px solid ${rejectTick ? "var(--color-alert)" : "var(--color-dim)"}`,
+              opacity: rejectTick ? 1 : undefined,
+              animation: rejectTick
+                ? "terminal-reject .5s ease-in-out"
+                : "terminal-standby 2.4s ease-in-out infinite",
+            }}
           >
             <div
-              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
-              style={{ color: "var(--color-dim)" }}
+              className={`absolute top-2 text-[10px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
+              style={{ color: rejectTick ? "var(--color-alert)" : "var(--color-dim)" }}
             >
               ▯ STANDBY
+            </div>
+            <div className="flex flex-col items-center gap-1 text-center px-4">
+              <div
+                className="text-[11px] tracking-[2px] font-[family-name:var(--font-display)]"
+                style={{ color: rejectTick ? "var(--color-alert)" : "var(--color-dim)" }}
+              >
+                {rejectTick ? "TERMINAL LOCKED" : "TERMINAL ON STANDBY"}
+              </div>
+              {(rejectTick ? "wait for the channel" : standbyReason) ? (
+                <div className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)", opacity: 0.85 }}>
+                  {rejectTick ? "wait for the channel" : standbyReason}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -763,7 +807,7 @@ export function CodeEditor({
           <textarea
             ref={textareaRef}
             value={code}
-            readOnly={disabled}
+            readOnly={disabled || busy}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onKeyUp={trackCursor}
@@ -786,11 +830,11 @@ export function CodeEditor({
               fontSize: `${fontSize}px`,
               lineHeight: `${lineHeight}px`,
               tabSize: 4,
-              caretColor: disabled || showBlockCursor ? "transparent" : "var(--color-signal)",
+              caretColor: disabled || busy || showBlockCursor ? "transparent" : "var(--color-signal)",
               fontFamily: "var(--font-mono)",
               whiteSpace: isMobile ? "pre" : "pre-wrap",
               wordBreak: isMobile ? "normal" : "break-all",
-              opacity: disabled ? 0.5 : 1,
+              opacity: disabled || busy ? 0.5 : 1,
             }}
           />
         </div>

@@ -482,6 +482,17 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     prevAwaitingRef.current = awaitingInput;
   }, [awaitingInput, audio]);
 
+  // The terminal is locked whenever it isn't the player's turn. Blocking input
+  // on the tap-to-continue beat (not just while Maya types) keeps "not your turn"
+  // a single, obvious state instead of a silent dead editor. The reason is shown
+  // under STANDBY so a locked terminal never looks like a frozen one.
+  const terminalLocked = state.gamePaused || state.waitingForContinue;
+  const standbyReason = state.busy
+    ? "checking your code"
+    : state.waitingForContinue
+      ? "tap to continue"
+      : "maya is transmitting";
+
   // Mobile focus: one thing at a time. When Maya is talking (generating, mid-
   // message, or waiting for the player to read), the phone should be on CHAT;
   // when it's the player's turn to type, it should be on CODE. Hint reveals post
@@ -952,7 +963,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 onCodeChange={actions.setCode}
                 onSubmit={actions.submitCode}
                 busy={state.busy}
-                disabled={state.gamePaused}
+                disabled={terminalLocked}
+                standbyReason={standbyReason}
                 submissionFeedback={state.submissionFeedback}
                 onDismissSubmissionFeedback={actions.dismissSubmissionFeedback}
                 awaitingInput={awaitingInput}
@@ -1143,7 +1155,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   onCodeChange={actions.setCode}
                   onSubmit={actions.submitCode}
                   busy={state.busy}
-                  disabled={state.gamePaused}
+                  disabled={terminalLocked}
+                  standbyReason={standbyReason}
                   submissionFeedback={state.submissionFeedback}
                   onDismissSubmissionFeedback={actions.dismissSubmissionFeedback}
                   awaitingInput={awaitingInput}
