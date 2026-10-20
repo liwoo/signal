@@ -62,7 +62,6 @@ function BookPreview() {
       fontScale={fontScale}
       onFontScaleChange={setFontScale}
       onReady={() => setClosed(true)}
-      onDisable={() => setClosed(true)}
       onHotspotXP={() => {}}
       soundEnabled={params.get("sound") !== "0"}
     />

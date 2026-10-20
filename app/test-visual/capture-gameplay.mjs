@@ -19,7 +19,7 @@ await page.waitForTimeout(1500);
 await page.getByRole("button", { name: /SKIP WARMUP/i }).click();
 await page.waitForTimeout(1200);
 // Leave the briefing via its secondary action, which starts the level.
-await page.getByRole("button", { name: /DON'T SHOW AGAIN/i }).click();
+await page.getByRole("button", { name: /SKIP · START LEVEL/i }).click();
 await page.waitForTimeout(1500);
 // First-run order: guided tour → mission brief modal → play.
 for (let i = 0; i < 3; i++) {
