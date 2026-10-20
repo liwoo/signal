@@ -62,7 +62,8 @@ import {
   trackJeopardy,
 } from "@/lib/analytics";
 import { logChatMessage } from "@/lib/supabase/chat-log";
-import { clearGameDraft } from "@/lib/storage/local";
+import { clearGameDraft, saveGameDraft } from "@/lib/storage/local";
+import type { GameDraft } from "@/types/game";
 import { buildSubmissionFeedback } from "@/lib/game/submission-feedback";
 import type { SubmissionFeedback } from "@/types/game";
 
@@ -173,6 +174,8 @@ export interface GameActions {
   removeParticle: (id: number) => void;
   removeStreak: (id: number) => void;
   retryFromCheckpoint: () => void;
+  /** Resume an interrupted session at the saved step with the saved code (no intro). */
+  resumeFromDraft: (draft: GameDraft) => void;
   restartGame: () => void;
   handleTimerExpire: () => void;
   purchaseHeart: () => void;
@@ -368,6 +371,27 @@ export function useGame(
     return () => clearTimeout(timer);
   }, [jeopardy.chatLocked, jeopardy.chatLockUntilMs, addMsg]);
 
+  // Checkpoint autosave. While a mission is live, mirror the player's step and
+  // the code they've typed to a local draft (debounced) so a refresh or a
+  // dropped connection resumes from the last task instead of the chapter start.
+  // Cleared on chapter completion and on a deliberate fresh start.
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const handle = setTimeout(() => {
+      saveGameDraft({
+        version: 1,
+        challengeId: challenge.id,
+        language,
+        stepId: currentStep.id,
+        stepIndex,
+        code,
+        attempts,
+        updatedAt: Date.now(),
+      });
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [phase, challenge.id, language, currentStep.id, stepIndex, code, attempts]);
+
   // Sync ref → React state helper
   const syncPauseState = useCallback((ps: PauseState) => {
     pauseRef.current = ps;
@@ -519,13 +543,14 @@ export function useGame(
   }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents, language]);
 
   const startGame = useCallback((options?: { deferMission?: boolean }) => {
-    // A new round is always new. Drafts used to silently restore code, attempts,
-    // and a substep from an earlier visit; checkpoints are the only explicit retry.
-    clearGameDraft(challenge.id);
+    // Starting from the intro is a deliberate fresh run — drop any in-progress
+    // draft so step 1 opens clean. (A refresh mid-chapter resumes earlier, via
+    // resumeFromDraft, and never reaches this path.)
+    clearGameDraft(challenge.id, language);
     setPhase("playing");
     setSubmissionFeedback(null);
     if (!options?.deferMission) beginMission();
-  }, [challenge.id, beginMission]);
+  }, [challenge.id, beginMission, language]);
 
   const sendChat = useCallback(() => {
     if (!chatInput.trim() || busy) return;
@@ -773,7 +798,7 @@ export function useGame(
           type: "dim",
           animated: false,
           onShow: () => {
-            clearGameDraft(challenge.id);
+            clearGameDraft(challenge.id, language);
             levelSchedulerRef.current.stop();
             setTimerStopped(true);
             if (twistData) {
@@ -955,7 +980,7 @@ export function useGame(
   }, [xp, currentStep, inRush, attempts, addMsg, addMayaChunked, syncPauseState, language]);
 
   const retryFromCheckpoint = useCallback(() => {
-    clearGameDraft(challenge.id);
+    clearGameDraft(challenge.id, language);
     // A checkpoint is the mission start, not the chapter's opening. Re-enter
     // play directly so a loss never makes the player replay cinematics,
     // warm-ups, or beginner briefings.
@@ -1005,7 +1030,58 @@ export function useGame(
       }
       return carried;
     });
-  }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState]);
+  }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState, language]);
+
+  // Resume an interrupted session (refresh / lost connection) straight into play
+  // at the step the player had reached, with the code they had typed — no intro,
+  // no cinematics. Built like retryFromCheckpoint, but targets the saved step
+  // instead of step 1 and keeps the player's draft code. Fresh entries (no draft)
+  // never call this; they go through the normal intro → beginMission flow.
+  const resumeFromDraft = useCallback((draft: GameDraft) => {
+    const idx = Math.max(0, Math.min(draft.stepIndex, challenge.steps.length - 1));
+    const step = challenge.steps[idx];
+
+    setPhase("playing");
+    setStepIndex(idx);
+    setCode(draft.code);
+    setAttempts(draft.attempts);
+    setChatInput("");
+    setBusy(false);
+    setTab("code");
+    setInRush(false);
+    setPowerCut(false);
+    setInterrupt(null);
+    setTwist(null);
+    setParticles([]);
+    setStreaks([]);
+    setTimerBonusSeconds(0);
+    setSubmissionFeedback(null);
+    rushGrantedRef.current.clear();
+    finalCheckpointBonusRef.current.clear();
+    syncPauseState(createPauseState());
+    pendingMsgRef.current.length = 0;
+
+    const now = Date.now();
+    startTimeRef.current = now;
+    setTimerStartMs(now);
+    setTimerStopped(false);
+
+    setMessages([{
+      id: `msg-${++msgIdCounter.current}`,
+      from: "SYS",
+      text: `▸ SESSION RESTORED · STEP ${idx + 1}/${challenge.steps.length} · ${step.title}`,
+      type: "dim",
+      animated: false,
+    }]);
+    // Re-ground the player in the step they were on, picking up mid-mission.
+    const { reply } = callMayaEngine(step.id, "i'm back. where were we.", false, true, false, draft.attempts, language);
+    addMayaChunked("MAYA", reply, "maya");
+
+    if (challenge.events.length > 0) {
+      levelSchedulerRef.current.start(challenge.events, handleEvent);
+    }
+    startStepEvents(step);
+  }, [challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState, addMayaChunked, language]);
 
   // Full restart after being captured with no lives left: restore lives and
   // re-enter the mission from step 1. XP/library progress is kept.
@@ -1071,6 +1147,7 @@ export function useGame(
     removeStreak: (id) =>
       setStreaks((s) => s.filter((x) => x.id !== id)),
     retryFromCheckpoint,
+    resumeFromDraft,
     restartGame,
     handleTimerExpire,
     purchaseHeart,
