@@ -277,6 +277,8 @@ export interface EditorState {
 export interface GameDraft {
   version: 1;
   challengeId: string;
+  /** Drafts are per language — the same chapter is different code in Go vs Python vs JS. */
+  language: LanguageId;
   stepId: string;
   stepIndex: number;
   code: string;

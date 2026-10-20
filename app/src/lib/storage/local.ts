@@ -7,6 +7,7 @@ import type {
   EditorState,
   GameDraft,
   JeopardyEvent,
+  LanguageId,
 } from "@/types/game";
 
 // ── Keys ──
@@ -20,7 +21,7 @@ const KEYS = {
   syncQueue: "signal_sync_queue",
   chat: (challengeId: string) => `signal_chat_${challengeId}`,
   editor: (challengeId: string) => `signal_editor_${challengeId}`,
-  draft: (challengeId: string) => `signal_draft_${challengeId}`,
+  draft: (challengeId: string, language: LanguageId) => `signal_draft_${challengeId}_${language}`,
   warmupCompleted: "signal_warmup_completed",
   jeopardy: "signal_jeopardy_active",
 } as const;
@@ -159,17 +160,17 @@ export function saveWarmupCompleted(): void {
   safeSet(KEYS.warmupCompleted, true);
 }
 
-export function loadGameDraft(challengeId: string): GameDraft | null {
-  return safeGet<GameDraft | null>(KEYS.draft(challengeId), null);
+export function loadGameDraft(challengeId: string, language: LanguageId): GameDraft | null {
+  return safeGet<GameDraft | null>(KEYS.draft(challengeId, language), null);
 }
 
 export function saveGameDraft(draft: GameDraft): void {
-  safeSet(KEYS.draft(draft.challengeId), draft);
+  safeSet(KEYS.draft(draft.challengeId, draft.language), draft);
 }
 
-export function clearGameDraft(challengeId: string): void {
+export function clearGameDraft(challengeId: string, language: LanguageId): void {
   try {
-    localStorage.removeItem(KEYS.draft(challengeId));
+    localStorage.removeItem(KEYS.draft(challengeId, language));
   } catch {
     // Private browsing or unavailable storage — silently fail
   }

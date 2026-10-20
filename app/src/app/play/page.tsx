@@ -85,7 +85,8 @@ import {
   withProgress,
   type PersistedState,
 } from "@/lib/storage/persistence";
-import type { Challenge, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
+import { loadGameDraft } from "@/lib/storage/local";
+import type { Challenge, GameDraft, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import {
   trackChapterStart,
@@ -263,6 +264,18 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
   }));
 }
 
+/**
+ * A draft is worth resuming only if the player had actually made progress past
+ * the clean start — reached a later step, or typed code that diverged from the
+ * step-1 starter. A stale empty draft should fall through to the normal intro.
+ */
+function isResumableDraft(draft: GameDraft | null, challenge: Challenge): boolean {
+  if (!draft || draft.challengeId !== challenge.id) return false;
+  if (draft.stepIndex > 0) return true;
+  const starter = challenge.steps[0]?.starterCode ?? "";
+  return draft.code.trim().length > 0 && draft.code !== starter;
+}
+
 /** Resume where this language's progress left off. */
 function resumeIndex(state: PersistedState, language: LanguageId, chapterCount: number): number {
   const completedCount = progressFor(state.progress, language).completedChapters.length;
@@ -416,6 +429,25 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const { challenge, twist, introScenes, completeScenes } = config;
   const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language);
   const lang = getLanguageService(language);
+
+  // A refresh or dropped connection mid-chapter resumes the last task instead of
+  // replaying the intro. GameScreen only ever renders on the client (GameRouter
+  // holds a LOADING screen until persistence resolves), so reading the local
+  // draft in a lazy initializer is safe. Resuming bypasses the whole intro flow.
+  const pendingResume = useState(() =>
+    typeof window === "undefined" ? null : loadGameDraft(challenge.id, language)
+  )[0];
+  const willResume = isResumableDraft(pendingResume, challenge);
+  const resumeActionRef = useRef(actions.resumeFromDraft);
+  resumeActionRef.current = actions.resumeFromDraft;
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (willResume && pendingResume && !resumedRef.current) {
+      resumedRef.current = true;
+      resumeActionRef.current(pendingResume);
+    }
+  }, [willResume, pendingResume]);
+
   // Heavy backends (Python's interpreter) start loading while the intro plays.
   useEffect(() => {
     lang.warmup?.();
@@ -547,6 +579,18 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       startRound();
     }
   };
+
+  // A resumable session jumps straight into play; hold a brief loading frame
+  // rather than flashing the intro before the resume effect fires.
+  if (willResume && state.phase === "intro") {
+    return (
+      <div className="h-dvh flex items-center justify-center" style={{ background: "var(--color-background)" }}>
+        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
+          RESTORING SESSION<span className="cursor-blink">...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (state.phase === "intro" && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
     return <IntroScreen
