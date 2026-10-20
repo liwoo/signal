@@ -17,6 +17,8 @@ interface MobileGameLayoutProps {
   /** Percent of the game's concepts the player has covered (0–100). */
   conceptPct: number;
   latestMessage?: string;
+  /** Shake the whole phone surface while the level clock is critical. */
+  shake?: boolean;
   waitingForContinue: boolean;
   /**
    * Whose turn it is right now: "narrative" (Maya is speaking / paused) or
@@ -43,6 +45,7 @@ export function MobileGameLayout({
   conceptsPanel,
   conceptPct,
   latestMessage,
+  shake = false,
   waitingForContinue,
   focusMode = null,
 }: MobileGameLayoutProps) {
@@ -70,7 +73,7 @@ export function MobileGameLayout({
 
   return (
     <div
-      className="flex w-full flex-col overflow-hidden"
+      className={`flex w-full flex-col overflow-hidden${shake ? " time-danger-shake" : ""}`}
       style={{
         height: height ? `${height}px` : "100dvh",
         background: "var(--color-background)",
