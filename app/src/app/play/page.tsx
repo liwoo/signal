@@ -92,7 +92,6 @@ import {
   trackCinematicStart,
   trackBeginnerStart,
   trackBeginnerComplete,
-  trackBeginnerDisable,
   trackBossVictory,
   trackGameOver,
   trackRetry,
@@ -532,9 +531,10 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   // beneath it. Her mission briefing begins only when the player completes/skips it.
   const startRound = () => actions.startGame({ deferMission: showTour });
 
-  // After the warm-up: go to the explanation briefing (beginner mode) or straight to play.
+  // After the warm-up: open the field manual. Every level opens the book first —
+  // you can't skip opening it, only skip reading it (close it straight away).
   const enterExplanations = () => {
-    if ((settings.beginnerMode || forceBeginner) && beginnerNotes) {
+    if (beginnerNotes) {
       trackBeginnerStart(challenge.id);
       setShowBeginner(true);
     } else if (config.bossFightConfig) {
@@ -622,16 +622,6 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onReady={() => {
           setShowBeginner(false);
           trackBeginnerComplete(challenge.id, 0);
-          if (config.bossFightConfig) {
-            setShowBossArena(true);
-          } else {
-            startRound();
-          }
-        }}
-        onDisable={() => {
-          onSaveSettings({ beginnerMode: false });
-          setShowBeginner(false);
-          trackBeginnerDisable(challenge.id);
           if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {

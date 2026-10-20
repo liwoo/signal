@@ -30,8 +30,6 @@ interface BookReaderProps {
   onFontScaleChange: (scale: number) => void;
   /** Close the book and start the round. */
   onReady: () => void;
-  /** Turn beginner mode off (skip the reading from now on). */
-  onDisable: () => void;
   onHotspotXP: (amount: number) => void;
   soundEnabled?: boolean;
 }
@@ -55,12 +53,13 @@ function buildPages(blocks: NoteBlock[]): Page[] {
 }
 
 /**
- * The found chapter, read before the round: the beginner notes typeset as a
+ * The found chapter, opened before every round: the beginner notes typeset as a
  * real book. Two-page spread on wide screens, one page on phones; pages turn
  * with ▸/◂, the arrow keys, or a tap on the page edge. Hotspots in listings
- * become footnotes and still pay the +5 XP.
+ * become footnotes and still pay the +5 XP. Opening the book is mandatory, but
+ * reading it is not — "SKIP · START LEVEL" closes it straight away (→ onReady).
  */
-export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleChange, onReady, onDisable, onHotspotXP, soundEnabled = true }: BookReaderProps) {
+export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleChange, onReady, onHotspotXP, soundEnabled = true }: BookReaderProps) {
   const BOOK = bookFor(useLanguage());
   const hasPlain = !!notes.beginnerBlocks && notes.beginnerBlocks.length > 0;
   const [edition, setEdition] = useState<Edition>("manual");
@@ -158,8 +157,8 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
           {earnedXP > 0 && (
             <div className="text-[8px] tracking-[2px]" style={{ color: "var(--color-win)" }}>+{earnedXP} XP</div>
           )}
-          <button type="button" onClick={onDisable} className="cursor-pointer bg-transparent px-2 py-1 text-[7px] tracking-[2px] sm:text-[8px]" style={{ color: "var(--color-dim)", border: "1px solid rgba(184,212,160,0.2)" }}>
-            DON&apos;T SHOW AGAIN
+          <button type="button" onClick={onReady} className="cursor-pointer bg-transparent px-2 py-1 text-[7px] tracking-[2px] sm:text-[8px]" style={{ color: "var(--color-dim)", border: "1px solid rgba(184,212,160,0.2)" }}>
+            SKIP · START LEVEL ▸▸
           </button>
         </div>
       </div>

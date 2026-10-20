@@ -42,7 +42,7 @@ await watch.waitFor({ timeout: 15000 });
 await watch.click();
 await page.waitForTimeout(9000);
 await shot("08-video");
-await page.getByRole("button", { name: /DON'T SHOW AGAIN/i }).click();
+await page.getByRole("button", { name: /SKIP · START LEVEL/i }).click();
 await page.waitForTimeout(1500);
 const begin = page.getByRole("button", { name: /GOT IT/i });
 if (await begin.count()) await begin.first().click();
