@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getLanguageService } from "@/lib/lang/registry";
 import type { Completion, ExtraPackage, LanguageService } from "@/lib/lang/types";
@@ -205,6 +205,12 @@ export function CodeEditor({
   }, [fontSize, onFontSizeChange]);
   const lineHeight = Math.round(fontSize * 1.4);
 
+  // Re-tokenizing the whole buffer on every render is the dominant per-keystroke
+  // cost (it grows with the file). The output only depends on the text and the
+  // language, so memoize it — a parent re-render (timers, chat) no longer
+  // re-highlights, and a keystroke highlights exactly once.
+  const highlightedNodes = useMemo(() => highlightCode(code, lang), [code, lang]);
+
   // Format
   const [formatting, setFormatting] = useState(false);
   const handleFormat = useCallback(async () => {
@@ -303,6 +309,11 @@ export function CodeEditor({
     });
   }, [code, acStart, cursorPos, codeChangeWithUndo]);
 
+  // A single reused measuring element, so cursor positioning doesn't churn the
+  // DOM (create → append → remove) on every keystroke.
+  const measureElRef = useRef<HTMLSpanElement | null>(null);
+  const cursorRafRef = useRef<number | null>(null);
+
   // Update block cursor position
   const updateCursorOverlay = useCallback(() => {
     if (!showBlockCursor || !cursorRef.current || !textareaRef.current || !highlightRef.current) return;
@@ -310,19 +321,22 @@ export function CodeEditor({
     const pos = ta.selectionStart;
     setCursorPos(pos);
 
-    // Measure character position using a hidden span
-    const measure = document.createElement("span");
+    // Measure the cursor's pixel position with a hidden mirror of the text.
+    let measure = measureElRef.current;
+    if (!measure) {
+      measure = document.createElement("span");
+      measureElRef.current = measure;
+      document.body.appendChild(measure);
+    }
     measure.style.cssText = `
       position: absolute; visibility: hidden; white-space: pre-wrap; word-break: break-all;
       font-family: var(--font-mono); font-size: ${fontSize}px; line-height: ${lineHeight}px; tab-size: 4;
-      padding: 12px; width: ${highlightRef.current.clientWidth}px; box-sizing: border-box;
+      padding: 12px; width: ${highlightRef.current.clientWidth}px; box-sizing: border-box; top: 0; left: 0;
     `;
-    const textBefore = code.slice(0, pos);
-    measure.textContent = textBefore;
+    measure.textContent = code.slice(0, pos);
     const marker = document.createElement("span");
     marker.textContent = code[pos] || " ";
     measure.appendChild(marker);
-    document.body.appendChild(measure);
 
     const markerRect = marker.getBoundingClientRect();
     const measureRect = measure.getBoundingClientRect();
@@ -330,7 +344,7 @@ export function CodeEditor({
     const y = markerRect.top - measureRect.top;
     const w = markerRect.width;
 
-    document.body.removeChild(measure);
+    measure.textContent = ""; // drop the marker; keep the element for next time
 
     const cursor = cursorRef.current;
     cursor.style.transform = `translate(${x}px, ${y - ta.scrollTop}px)`;
@@ -338,9 +352,30 @@ export function CodeEditor({
     cursor.style.width = readyCursor ? `${Math.max(w, Math.round(fontSize * 0.6))}px` : `${Math.max(w, 7)}px`;
   }, [showBlockCursor, readyCursor, code, fontSize, lineHeight]);
 
+  // Measure in an animation frame rather than synchronously inside the commit:
+  // the browser lays out once and rapid keystrokes coalesce to one measurement
+  // per frame, so the forced reflow no longer lands on the typing critical path.
   useEffect(() => {
-    updateCursorOverlay();
+    if (cursorRafRef.current !== null) cancelAnimationFrame(cursorRafRef.current);
+    cursorRafRef.current = requestAnimationFrame(() => {
+      cursorRafRef.current = null;
+      updateCursorOverlay();
+    });
+    return () => {
+      if (cursorRafRef.current !== null) {
+        cancelAnimationFrame(cursorRafRef.current);
+        cursorRafRef.current = null;
+      }
+    };
   }, [updateCursorOverlay, cursorPos, code]);
+
+  // Tear down the reused measuring element with the editor.
+  useEffect(() => () => {
+    if (measureElRef.current) {
+      measureElRef.current.remove();
+      measureElRef.current = null;
+    }
+  }, []);
 
   // Sync scroll between textarea and highlight overlay
   const syncScroll = useCallback(() => {
@@ -692,7 +727,7 @@ export function CodeEditor({
               tabSize: 4,
             }}
           >
-            {highlightCode(code, lang)}
+            {highlightedNodes}
             {/* Ensure trailing newline renders */}
             {"\n"}
           </pre>

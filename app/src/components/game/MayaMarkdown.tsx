@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, memo, useMemo } from "react";
 import type { Token } from "@/lib/lang/types";
 import { useLanguageService } from "./LanguageContext";
 
@@ -120,9 +120,13 @@ interface MayaMarkdownProps {
   color?: string;
 }
 
-export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdownProps) {
+// Memoized: a chat message's rendered markdown depends only on its text and the
+// language. Without this, every keystroke in the editor re-parses and re-highlights
+// every Maya message in the backlog (the parent re-renders on each keystroke), and
+// it gets worse the longer the conversation runs.
+export const MayaMarkdown = memo(function MayaMarkdown({ text }: MayaMarkdownProps) {
   const { tokenize } = useLanguageService();
-  const segments = parseSegments(text);
+  const segments = useMemo(() => parseSegments(text), [text]);
 
   return (
     <span>
@@ -183,4 +187,4 @@ export function MayaMarkdown({ text, color = "var(--color-signal)" }: MayaMarkdo
       })}
     </span>
   );
-}
+});
