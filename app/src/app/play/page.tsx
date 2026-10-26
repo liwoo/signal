@@ -8,6 +8,8 @@ import { chapter04, chapter04Twist } from "@/data/challenges/chapter-04";
 import { chapter04_2, chapter04_2Twist } from "@/data/challenges/chapter-04.2";
 import { boss01, boss01Config } from "@/data/challenges/boss-01";
 import { useGame } from "@/hooks/useGame";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { SignInScreen } from "@/components/auth/SignInScreen";
 import type { InitialPersistedState, SavePayload } from "@/hooks/useGame";
 import { TopBar } from "@/components/game/TopBar";
 import { ChatPanel } from "@/components/game/ChatPanel";
@@ -270,6 +272,7 @@ function resumeIndex(state: PersistedState, language: LanguageId, chapterCount: 
 }
 
 function GameRouter() {
+  const { user, loading: authLoading } = useAuth();
   const [persisted, setPersisted] = useState<PersistedState | null>(null);
   const [chapterIndex, setChapterIndex] = useState(0);
   const language: LanguageId = persisted?.settings.language ?? "go";
@@ -355,6 +358,23 @@ function GameRouter() {
     savePersistedState({ settings: updated.settings });
     setChapterIndex(resumeIndex(updated, next, chaptersFor(next).length));
   }, [persisted]);
+
+  // Gate: Google sign-in is required before the game runs.
+  if (authLoading) {
+    return (
+      <div
+        className="h-dvh flex items-center justify-center"
+        style={{ background: "var(--color-background)" }}
+      >
+        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
+          AUTHENTICATING<span className="cursor-blink">...</span>
+        </div>
+      </div>
+    );
+  }
+  if (!user) {
+    return <SignInScreen />;
+  }
 
   // Show loading state while persistence + mobile check complete
   if (!persisted || !mobileChecked) {
