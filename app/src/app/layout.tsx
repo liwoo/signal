@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Orbitron, JetBrains_Mono, Crimson_Pro, Caveat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { FirebaseInit } from "@/components/FirebaseInit";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 const orbitron = Orbitron({
@@ -84,7 +85,7 @@ export default function RootLayout({
       <body
         className={`${orbitron.variable} ${jetbrainsMono.variable} ${crimson.variable} ${caveat.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <Analytics />
         <FirebaseInit />
       </body>

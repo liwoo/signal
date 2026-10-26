@@ -133,6 +133,31 @@ export function setPersistenceBackend(backend: GamePersistence): void {
   _backend = backend;
 }
 
+/**
+ * Revert to the default (IndexedDB) backend — called on sign-out so a guest
+ * falls back to local-only saves.
+ */
+export function resetToDefaultBackend(): void {
+  _backend = null;
+}
+
+/**
+ * Coerce a loosely-typed stored object into a full PersistedState, filling any
+ * missing slice from DEFAULTS and folding legacy progress into the per-language
+ * store. Shared by every backend so they normalize identically.
+ */
+export function normalizePersistedState(raw: unknown): PersistedState {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<PersistedState>;
+  return {
+    progress: migrateProgress(r.progress),
+    stats: (r.stats as PersistedState["stats"]) ?? DEFAULTS.stats,
+    unlocks: (r.unlocks as PersistedState["unlocks"]) ?? DEFAULTS.unlocks,
+    // Merge so settings added in later releases pick up their defaults.
+    settings: { ...DEFAULTS.settings, ...((r.settings as Partial<PersistedState["settings"]> | undefined) ?? {}) },
+    library: (r.library as PersistedState["library"]) ?? DEFAULTS.library,
+  };
+}
+
 // ── Public API (delegates to active backend) ──
 
 export async function loadPersistedState(): Promise<PersistedState> {

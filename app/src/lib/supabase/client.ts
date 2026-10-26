@@ -9,6 +9,15 @@ export function getSupabase(): SupabaseClient | null {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
 
-  instance = createClient(url, key);
+  instance = createClient(url, key, {
+    auth: {
+      // PKCE OAuth, with the session persisted + auto-refreshed in localStorage
+      // and picked back out of the URL on the post-sign-in redirect.
+      flowType: "pkce",
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
   return instance;
 }
