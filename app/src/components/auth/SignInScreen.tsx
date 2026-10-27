@@ -2,13 +2,32 @@
 
 /**
  * The gate before play. Google sign-in is required to start — progress is tied
- * to the signed-in agent so it follows them across devices.
+ * to the signed-in agent so it follows them across devices. Also gates the
+ * teacher dashboard and class join links, with their own framing copy.
  */
 
 import { useState } from "react";
 import { useAuth } from "./AuthProvider";
 
-export function SignInScreen() {
+interface SignInScreenProps {
+  /** Where to land after Google. Defaults to /play. */
+  returnPath?: string;
+  subtitle?: string;
+  eyebrow?: string;
+  lines?: [string, string];
+  footer?: string;
+}
+
+export function SignInScreen({
+  returnPath = "/play",
+  subtitle = "IDENTIFY TO PROCEED",
+  eyebrow = "▸ SECURE CHANNEL REQUIRED",
+  lines = [
+    "maya's escape data needs a secure backup.",
+    "sign in to save your progress to the cloud and pick up on any device.",
+  ],
+  footer = "PROGRESS SYNCS TO YOUR AGENT ID",
+}: SignInScreenProps = {}) {
   const { signInWithGoogle, authAvailable } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +36,7 @@ export function SignInScreen() {
     setBusy(true);
     setError(null);
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(returnPath);
       // On success the browser redirects to Google, so this frame unloads.
     } catch {
       setError("signal lost. try again.");
@@ -43,7 +62,7 @@ export function SignInScreen() {
             SIGNAL
           </div>
           <div className="text-[#1a6a3a] text-[9px] tracking-[5px] mt-1.5">
-            IDENTIFY TO PROCEED
+            {subtitle}
           </div>
         </div>
 
@@ -56,14 +75,10 @@ export function SignInScreen() {
           }}
         >
           <div className="text-[#1a6a4a] text-[8px] tracking-[3px] mb-2">
-            ▸ SECURE CHANNEL REQUIRED
+            {eyebrow}
           </div>
-          <p className="text-[#3a7a5a] text-xs leading-[1.8]">
-            maya&apos;s escape data needs a secure backup.
-          </p>
-          <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">
-            sign in to save your progress to the cloud and pick up on any device.
-          </p>
+          <p className="text-[#3a7a5a] text-xs leading-[1.8]">{lines[0]}</p>
+          <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">{lines[1]}</p>
         </div>
 
         {/* CTA */}
@@ -93,7 +108,7 @@ export function SignInScreen() {
           )}
 
           <div className="text-center mt-3 text-[#0a3a2a] text-[8px] tracking-[2px]">
-            PROGRESS SYNCS TO YOUR AGENT ID{" "}
+            {footer}{" "}
             <span className="cursor-blink">█</span>
           </div>
         </div>

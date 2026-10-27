@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface FAQItem {
   q: string;
@@ -22,7 +23,7 @@ const FAQS: FAQItem[] = [
   },
   {
     q: "How much is free?",
-    a: "Act I (4 chapters + 1 boss fight) is completely free with no account required. this covers variables, loops, conditionals, functions, slices, and multi-return values.",
+    a: "Act I (4 chapters + 1 boss fight) is completely free in go, python, or javascript. you sign in with google so your progress saves to the cloud and follows you to any device. act I covers variables, loops, conditionals, functions, slices, and multi-return values.",
   },
   {
     q: "What does the full game cost?",
@@ -57,8 +58,20 @@ const FAQS: FAQItem[] = [
     a: "Any modern browser — Chrome, Firefox, Safari, or Edge. SIGNAL uses Canvas 2D for all visuals (no WebGL required) and the Web Audio API for sound.",
   },
   {
-    q: "How do teams work?",
-    a: "Team licenses include a dashboard for tracking progress across all members. each seat gets full access to all content. ideal for bootcamps, university courses, or engineering teams learning Go.",
+    q: "Can I use SIGNAL with my class?",
+    a: "Yes. sign in at /teach and create a teacher account (your name and school). then create a class for each period or group — each gets its own 6-letter join code and invite link. students open the link or type the code at /join, sign in with their own google account, and appear on your roster.",
+  },
+  {
+    q: "What can teachers see?",
+    a: "For each student: chapters cleared, the step they're on, when they last played, XP, and a timeline of passed and failed tries, hints, and game overs. students who fail the same step 5+ times are flagged as stuck, and the roster exports to csv. teachers can't see students' code or their chats with maya, and can't change anyone's progress. students can leave a class at any time.",
+  },
+  {
+    q: "Do teachers and students need separate accounts?",
+    a: "Yes. a teacher account can't join a class as a student, and a google account that's already in a class as a student can't become a teacher. use your school account to teach.",
+  },
+  {
+    q: "How do team licenses work?",
+    a: "A team license unlocks the full game for every seat. it's built for classes, bootcamps, university courses, and engineering teams learning Go — pair it with the teacher console to follow everyone's progress.",
   },
 ];
 
@@ -79,7 +92,7 @@ export default function FAQPage() {
       />
 
       <div className="relative max-w-[640px] mx-auto px-4 py-10">
-        <a
+        <Link
           href="/"
           className="text-[12px] tracking-[2px] transition-colors"
           style={{
@@ -88,7 +101,7 @@ export default function FAQPage() {
           }}
         >
           ◂ BACK
-        </a>
+        </Link>
 
         <div className="text-center mt-8 mb-10">
           <div
@@ -172,7 +185,7 @@ export default function FAQPage() {
         </div>
 
         <div className="text-center mt-10">
-          <a
+          <Link
             href="/"
             className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
             style={{
@@ -182,7 +195,7 @@ export default function FAQPage() {
             }}
           >
             GET STARTED
-          </a>
+          </Link>
         </div>
       </div>
     </div>

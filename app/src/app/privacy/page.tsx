@@ -52,6 +52,11 @@ export default function PrivacyPage() {
                 "your email is used solely for authentication and transactional messages (purchase receipts, password resets). game progress is stored to sync across devices. usage analytics help us improve the game — we track which levels players struggle with so we can improve hints and beginner notes.",
             },
             {
+              title: "CLASSES",
+              content:
+                "if you join a teacher's class with a join code, that teacher can see your name, email, avatar, chapter progress, XP, zen library, and in-game activity (code submissions passed or failed, hints opened, game overs, and when you last played). they cannot see the code you write or your chats with maya, and they cannot change your progress. you can leave a class at any time from /join, and the teacher immediately loses access. teachers see only students in their own classes.",
+            },
+            {
               title: "ANALYTICS",
               content:
                 "we use Firebase Analytics to understand how players interact with SIGNAL. this includes anonymous events like level completions, boss fight outcomes, and feature usage. analytics data is aggregated and never sold to third parties. you can disable analytics by blocking third-party scripts in your browser.",

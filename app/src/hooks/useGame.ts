@@ -44,6 +44,7 @@ import {
   splitMayaMessage,
   type PauseState,
 } from "@/lib/game/pause";
+import { recordActivity } from "@/lib/classroom/activity";
 import {
   trackCodeSubmit,
   trackStepComplete,
@@ -472,12 +473,13 @@ export function useGame(
       trackTimerExpire(challenge.id, "main");
       trackHeartLost(challenge.id, newHearts, "timer_expired");
       trackGameOver(challenge.id, "timer_expired");
+      recordActivity({ kind: "game_over", language, chapterId: challenge.id, stepId: currentStep.id, data: { cause: "timer_expired" } });
       onSaveRef.current?.({ xp: xpRef.current, level: levelRef.current, hearts: newHearts, library: libraryRef.current });
     } else {
       fireJeopardy("energy_drain");
       addMsg("SYS", "▸ TIME EXPIRED · jeopardy active", "dim");
     }
-  }, [challenge.timer.gameOverOnExpiry, fireJeopardy, addMsg]);
+  }, [challenge.timer.gameOverOnExpiry, challenge.id, currentStep.id, language, fireJeopardy, addMsg]);
 
   const beginMission = useCallback(() => {
     const now = Date.now();
@@ -588,6 +590,13 @@ export function useGame(
       is_complete: isComplete,
       attempt: attempts + 1,
     });
+    recordActivity({
+      kind: "submit",
+      language,
+      chapterId: challenge.id,
+      stepId: currentStep.id,
+      data: { success: isComplete, attempt: attempts + 1 },
+    });
 
     if (isComplete) {
       setSubmissionFeedback(null);
@@ -638,6 +647,7 @@ export function useGame(
 
       trackCodeSubmit(challenge.id, stepIndex, attempts + 1, true);
       trackStepComplete(challenge.id, stepIndex, currentStep.id, totalEarned);
+      recordActivity({ kind: "step_complete", language, chapterId: challenge.id, stepId: currentStep.id, data: { xp: totalEarned, attempts: attempts + 1 } });
       if (zenResult.bonusXP > 0) {
         trackZenBonus(challenge.id, currentStep.id, zenResult.bonusXP, zenResult.jolts.length);
       }
@@ -755,6 +765,7 @@ export function useGame(
       } else {
         // All steps complete — chapter done (the reward card carries the moment)
         trackChapterComplete(challenge.id, challenge.chapter, totalEarned, Date.now() - startTimeRef.current);
+        recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id, stepId: currentStep.id, data: { xp: totalEarned } });
 
         // Zen lessons (learned + missed) are taught in the ZenDebrief screen
         // after the outro cinematic, not as chat chunks here. The library is
@@ -853,8 +864,9 @@ export function useGame(
     setHintState(result.state);
     setXp(result.xp);
     trackHintReveal(challenge.id, currentStep.id, result.hint.level, result.hint.energyCost);
+    recordActivity({ kind: "hint", language, chapterId: challenge.id, stepId: currentStep.id, data: { level: result.hint.level } });
     addMayaChunked("MAYA", `hint ${result.hint.level}: ${result.hint.text}`, "maya");
-  }, [currentStep.hints, currentStep.id, hintState, challenge.id, addMayaChunked]);
+  }, [currentStep.hints, currentStep.id, hintState, challenge.id, addMayaChunked, language]);
 
   const onMayaTypingStart = useCallback(() => {
     const result = pureStartPause(pauseRef.current, Date.now(), timerStopped);

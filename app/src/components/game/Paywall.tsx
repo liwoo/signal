@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
 import { PromoLoop } from "@/components/promo/PromoLoop";
 import {
   trackPurchaseCtaClick,
@@ -227,6 +228,42 @@ const FEATURES: Feature[] = [
     detail: "write idiomatic code and earn bonus XP. build a personal library of best practices in your language.",
     color: "var(--color-alert)",
   },
+  {
+    label: "SAVES EVERYWHERE",
+    detail: "sign in with google and your progress follows you \u2014 start on a school laptop, finish on your phone.",
+    color: "var(--color-player)",
+  },
+  {
+    label: "BUILT FOR CLASSROOMS",
+    detail: "teachers create a class, share a 6-letter code, and see every student's progress \u2014 including who's stuck.",
+    color: "var(--color-win)",
+  },
+];
+
+// ── For classrooms ──
+
+const CLASSROOM_STEPS: { label: string; detail: string }[] = [
+  { label: "CREATE A CLASS", detail: "set up a teacher account and make a class for each period or group." },
+  { label: "SHARE THE CODE", detail: "students open your link \u2014 or type the 6-letter code \u2014 and sign in with google." },
+  { label: "WATCH THEM PLAY", detail: "see who's playing, which step each student is on, and who needs help right now." },
+];
+
+type PreviewStatus = "STUCK" | "ACTIVE" | "IDLE" | "FINISHED";
+
+const PREVIEW_STATUS_COLOR: Record<PreviewStatus, string> = {
+  STUCK: "var(--color-danger)",
+  ACTIVE: "var(--color-signal)",
+  IDLE: "var(--color-alert)",
+  FINISHED: "var(--color-win)",
+};
+
+/** Illustrative roster for the classroom section — not real students. */
+const PREVIEW_ROSTER: { name: string; status: PreviewStatus; done: number; of: number; lang: string; now: string }[] = [
+  { name: "diego r.", status: "STUCK", done: 2, of: 6, lang: "GO", now: "shaft codes \u00b7 step 2 \u00b7 7 tries" },
+  { name: "amara o.", status: "ACTIVE", done: 4, of: 6, lang: "GO", now: "guard roster \u00b7 step 2" },
+  { name: "priya n.", status: "FINISHED", done: 4, of: 4, lang: "PY", now: "beat the lockmaster" },
+  { name: "kwame a.", status: "ACTIVE", done: 2, of: 4, lang: "JS", now: "shaft codes \u00b7 step 1" },
+  { name: "sam w.", status: "IDLE", done: 1, of: 6, lang: "GO", now: "last seen 9 days ago" },
 ];
 
 // ── The three routes through Act I ──
@@ -521,7 +558,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
 
       <div className="relative">
         {/* ═══════════ HERO ═══════════ */}
-        <section className="min-h-dvh flex flex-col items-center justify-center px-4 sm:px-6 relative">
+        <section className="min-h-dvh flex flex-col items-center justify-center px-4 sm:px-6 pt-10 pb-16 relative">
           {/* Title */}
           <div
             className="font-[family-name:var(--font-display)] font-black tracking-[8px] mb-3"
@@ -606,12 +643,41 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             className="text-[11px] tracking-[1px] mt-3"
             style={{ color: "var(--color-foreground)", opacity: 0.8 }}
           >
-            act I &middot; no account required
+            act I free &middot; sign in with google to save your progress
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-x-4 gap-y-2.5 mt-5 text-[11px] tracking-[1.5px]">
+            <Link
+              href="/teach"
+              className="transition-colors"
+              style={{
+                color: hovered === "hero-teach" ? "var(--color-signal)" : "var(--color-foreground)",
+                opacity: hovered === "hero-teach" ? 1 : 0.7,
+                textDecoration: "none",
+              }}
+              onMouseEnter={() => setHovered("hero-teach")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              TEACHER? SET UP A CLASS &#9656;
+            </Link>
+            <span className="hidden sm:inline" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
+            <Link
+              href="/join"
+              className="transition-colors"
+              style={{
+                color: hovered === "hero-join" ? "var(--color-signal)" : "var(--color-foreground)",
+                opacity: hovered === "hero-join" ? 1 : 0.7,
+                textDecoration: "none",
+              }}
+              onMouseEnter={() => setHovered("hero-join")}
+              onMouseLeave={() => setHovered(null)}
+            >
+              HAVE A CLASS CODE? &#9656;
+            </Link>
           </div>
 
           {/* Scroll indicator */}
           <div
-            className="absolute bottom-8 text-[12px] tracking-[2px]"
+            className="absolute bottom-4 text-[12px] tracking-[2px]"
             style={{ color: "var(--color-dim)", animation: "glow-pulse 3s ease-in-out infinite" }}
           >
             &#9660;
@@ -761,6 +827,183 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           </div>
         </section>
 
+        {/* ═══════════ FOR CLASSROOMS ═══════════ */}
+        <section
+          id="classrooms"
+          className="py-16 sm:py-24"
+          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
+        >
+          <div className="max-w-[640px] mx-auto px-4 sm:px-6">
+            <div
+              className="text-[10px] tracking-[3px] mb-2"
+              style={{ color: "var(--color-dim)" }}
+            >
+              FOR TEACHERS
+            </div>
+            <div
+              className="font-[family-name:var(--font-display)] font-black tracking-[3px] mb-3"
+              style={{ fontSize: "clamp(18px, 4.5vw, 22px)", color: "var(--color-signal)" }}
+            >
+              BRING SIGNAL TO YOUR CLASS
+            </div>
+            <div
+              className="text-[13px] leading-[1.9] mb-8"
+              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+            >
+              your students play the escape. you get a dashboard that shows where every one of
+              them is in it &mdash; chapters cleared, the exact step they&apos;re on, and who&apos;s
+              been failing the same step over and over so you know who to walk over to.
+            </div>
+
+            {/* Steps */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
+              {CLASSROOM_STEPS.map((step, i) => (
+                <div
+                  key={step.label}
+                  className="px-4 py-4"
+                  style={{ border: "1px solid rgba(255,255,255,.04)", background: "rgba(4,8,16,.6)" }}
+                >
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span
+                      className="font-[family-name:var(--font-display)] text-[14px] font-bold"
+                      style={{ color: "var(--color-dim)" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span
+                      className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold"
+                      style={{ color: "var(--color-signal)" }}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                  <div
+                    className="text-[12px] leading-[1.7]"
+                    style={{ color: "var(--color-foreground)", opacity: 0.8 }}
+                  >
+                    {step.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Roster preview */}
+            <div
+              className="mb-3"
+              style={{ border: "1px solid rgba(var(--signal-rgb),.15)", background: "rgba(var(--signal-rgb),.02)" }}
+              role="img"
+              aria-label="Example class roster: one student stuck on a step, two active, one finished, one idle."
+            >
+              <div
+                className="flex items-center justify-between gap-3 px-4 py-2.5"
+                style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.1)" }}
+              >
+                <span className="text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
+                  PERIOD 3 &middot; INTRO TO CS
+                </span>
+                <span className="text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
+                  CODE{" "}
+                  <span className="font-bold tracking-[3px]" style={{ color: "var(--color-signal)" }}>K7QM4P</span>
+                </span>
+              </div>
+              <div aria-hidden>
+                {PREVIEW_ROSTER.map((row) => (
+                  <div
+                    key={row.name}
+                    className="grid grid-cols-[72px_78px_1fr] sm:grid-cols-[90px_86px_120px_1fr] items-center gap-3 px-4 py-2.5"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}
+                  >
+                    <span className="text-[12px] truncate" style={{ color: "var(--color-foreground)" }}>{row.name}</span>
+                    <span
+                      className="text-[9px] tracking-[1.5px] px-1.5 py-0.5 justify-self-start"
+                      style={{
+                        color: PREVIEW_STATUS_COLOR[row.status],
+                        border: `1px solid color-mix(in srgb, ${PREVIEW_STATUS_COLOR[row.status]} 50%, transparent)`,
+                      }}
+                    >
+                      {row.status}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="h-1.5 flex-1" style={{ background: "rgba(var(--signal-rgb),.1)" }}>
+                        <span
+                          className="block h-full"
+                          style={{ width: `${(row.done / row.of) * 100}%`, background: "var(--color-signal)" }}
+                        />
+                      </span>
+                      <span className="text-[10px] tabular-nums" style={{ color: "var(--color-foreground)", opacity: 0.7 }}>
+                        {row.done}/{row.of}
+                      </span>
+                      <span className="text-[9px] tracking-[1px] hidden sm:inline" style={{ color: "var(--color-dim)" }}>
+                        {row.lang}
+                      </span>
+                    </span>
+                    <span
+                      className="hidden sm:block text-[11px] truncate"
+                      style={{ color: row.status === "STUCK" ? "var(--color-danger)" : "var(--color-foreground)", opacity: row.status === "STUCK" ? 1 : 0.7 }}
+                    >
+                      {row.now}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="text-[11px] mb-8" style={{ color: "var(--color-dim)" }}>
+              example roster &middot; updates live while your class plays &middot; export to csv any time
+            </div>
+
+            {/* What's included for teachers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 mb-8">
+              {[
+                "a separate teacher account for your school",
+                "unlimited classes, each with its own join code",
+                "per-student timeline: tries, hints, chapters cleared",
+                "students learn in go, python, or javascript",
+                "close joining or reset a code any time",
+                "students' code and chats with maya stay private",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-2">
+                  <span className="text-[11px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
+                  <span className="text-[12px] leading-[1.6]" style={{ color: "var(--color-foreground)", opacity: 0.85 }}>
+                    {item}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Link
+                href="/teach"
+                className="flex-1 text-center py-3 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
+                style={{
+                  border: "2px solid var(--color-signal)",
+                  color: hovered === "class-teach" ? "var(--color-background)" : "var(--color-signal)",
+                  background: hovered === "class-teach" ? "var(--color-signal)" : "transparent",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={() => setHovered("class-teach")}
+                onMouseLeave={() => setHovered(null)}
+              >
+                OPEN TEACHER CONSOLE
+              </Link>
+              <Link
+                href="/join"
+                className="flex-1 text-center py-3 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
+                style={{
+                  border: "1px solid rgba(var(--signal-rgb),.3)",
+                  color: "var(--color-signal)",
+                  background: hovered === "class-join" ? "rgba(var(--signal-rgb),.08)" : "transparent",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={() => setHovered("class-join")}
+                onMouseLeave={() => setHovered(null)}
+              >
+                I HAVE A CLASS CODE
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* ═══════════ PRICING ═══════════ */}
         <section
           className="py-16 sm:py-24"
@@ -778,8 +1021,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 className="text-[13px] leading-[1.8]"
                 style={{ color: "var(--color-foreground)", opacity: 0.8 }}
               >
-                act I is free in go, python, or javascript. unlock acts II\u2013IV to go
-                all the way \u2014 the full Go curriculum.
+                act I is free in go, python, or javascript. unlock acts II&ndash;IV to go
+                all the way &mdash; the full Go curriculum.
               </div>
             </div>
 
@@ -802,7 +1045,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   className="text-[11px]"
                   style={{ color: "var(--color-foreground)", opacity: 0.8 }}
                 >
-                  4 chapters + 1 boss fight &middot; no account needed
+                  4 chapters + 1 boss fight &middot; sign in with google
                 </div>
               </div>
               <a
@@ -878,10 +1121,16 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   SAVE {Math.round((1 - (parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)) / parseFloat(PRICE_SINGLE)) * 100)}%
                 </div>
                 <div
-                  className="text-[10px] tracking-[2px] mb-2"
+                  className="text-[10px] tracking-[2px] mb-2 pr-16 sm:pr-0"
                   style={{ color: "var(--color-foreground)", opacity: 0.85 }}
                 >
                   TEAM &middot; {TEAM_SEATS} SEATS
+                </div>
+                <div
+                  className="text-[10px] mb-1.5"
+                  style={{ color: "var(--color-foreground)", opacity: 0.6 }}
+                >
+                  classes, bootcamps, teams
                 </div>
                 <div className="flex items-baseline gap-1 mb-0.5">
                   <span
@@ -1003,6 +1252,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               { label: "faq", href: "/faq" },
               { label: "why go", href: "/why-go" },
               { label: "privacy", href: "/privacy" },
+              { label: "for teachers", href: "/teach" },
+              { label: "join a class", href: "/join" },
             ] as const).map((link, i) => (
               <span key={link.label} className="flex items-center gap-5">
                 {i > 0 && (
