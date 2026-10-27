@@ -94,7 +94,217 @@ export interface SceneDefinition {
   /** Dutch tilt in radians, eased in over the first 700ms. */
   dutch?: number;
   titleCard?: TitleCard;
+  /** Header tag over the picture. Default "LIVE FEED"; archive footage says so. */
+  feed?: string;
 }
+
+// ── PROLOGUE ───────────────────────────────────────────────────────
+// Plays once, before the first chapter: how Maya ended up in Cell B-09.
+// Recovered campus footage → the raid → transit → the cell, live. Seven
+// shots, ~27s (tap advances a shot). Three beats the player must leave with:
+// she's brilliant, they took HER (not the laptop) for what's in her head,
+// and once they have it she's expendable — so the terminal, and you, matter.
+
+const LAB_FEED = "RECOVERED · CAM 02";
+
+export const PROLOGUE_SCENES: SceneDefinition[] = [
+  // Shot 1: the lab at 23:47. Rain on the glass, Maya behind her desk, lit
+  // from below by her screens. Lightning, then thunder under the card.
+  {
+    background: "lab",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 562, y: 392, animation: "hack" }],
+    camera: [
+      { x: 560, y: 300, zoom: 1, time: 0 },
+      { x: 566, y: 296, zoom: 1.12, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "MERIDIAN UNIVERSITY · LAB 4 · 23:47",
+    feed: LAB_FEED,
+    caption: "maya chen. 22. the best cryptographer of her year.",
+    titleCard: { text: "72 HOURS EARLIER", sub: "MERIDIAN UNIVERSITY · LAB 4", atMs: 400, durationMs: 2600 },
+    flashes: [
+      { atMs: 2900, durationMs: 420, color: C.lightWash, intensity: 0.3 },
+      { atMs: 3080, durationMs: 300, color: C.lightWash, intensity: 0.18 },
+    ],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "rain-loop", volume: 0.16, fadeMs: 1800 },
+      { atMs: 0, action: "loop-start", sound: "tension-drone", volume: 0.06, fadeMs: 3000 },
+      { atMs: 500, action: "sfx", sound: "maya-typing", volume: 0.2 },
+      { atMs: 1600, action: "sfx", sound: "keypress-2", volume: 0.12 },
+      { atMs: 3200, action: "sfx", sound: "thunder", volume: 0.4 },
+    ],
+  },
+  // Shot 2: close on her face in the screen-light — the build goes green
+  // across it. Then every light on the floor stutters and dies.
+  {
+    background: "lab",
+    actors: [{ type: "maya", x: 562, y: 392, animation: "hack" }],
+    camera: [
+      { x: 566, y: 280, zoom: 1.7, time: 0 },
+      { x: 562, y: 270, zoom: 1.92, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "MERIDIAN UNIVERSITY · LAB 4 · 23:51",
+    feed: LAB_FEED,
+    caption: "her thesis: encryption no computer on earth can break.",
+    flashes: [
+      { atMs: 1900, durationMs: 520, color: C.termBright, intensity: 0.24 },
+      { atMs: 2850, durationMs: 240, color: C.void, intensity: 1 },
+      { atMs: 3100, durationMs: 180, color: C.void, intensity: 0.8 },
+      { atMs: 3260, durationMs: 340, color: C.void, intensity: 1 },
+    ],
+    audio: [
+      { atMs: 200, action: "sfx", sound: "keypress-1", volume: 0.14 },
+      { atMs: 520, action: "sfx", sound: "keypress-3", volume: 0.14 },
+      { atMs: 900, action: "sfx", sound: "keypress-2", volume: 0.14 },
+      { atMs: 1900, action: "sfx", sound: "handshake-confirm", volume: 0.26 },
+      { atMs: 2800, action: "sfx", sound: "power-down", volume: 0.5 },
+      { atMs: 2850, action: "loop-volume", sound: "tension-drone", volume: 0.02, fadeMs: 200 },
+    ],
+  },
+  // Shot 3: out of the black — the door kicked in, two silhouettes against
+  // the corridor glare, the emergency beacon sweeping red.
+  {
+    background: "lab-raid",
+    actors: [
+      { type: "maya", x: 562, y: 392, animation: "idle" },
+      {
+        type: "guard",
+        x: 880,
+        y: 388,
+        animation: "walk-left",
+        path: [{ x: 770, y: 424, duration: 1700 }],
+        endAnimation: "idle",
+      },
+      {
+        type: "guard",
+        x: 905,
+        y: 390,
+        animation: "walk-left",
+        path: [
+          { x: 905, y: 390, duration: 600 },
+          { x: 830, y: 476, duration: 1600 },
+        ],
+        endAnimation: "idle",
+      },
+    ],
+    camera: [
+      { x: 640, y: 300, zoom: 1, time: 0 },
+      { x: 660, y: 296, zoom: 1.1, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "MERIDIAN UNIVERSITY · LAB 4 · 23:52",
+    feed: LAB_FEED,
+    caption: "23:52. the power died. they didn't knock.",
+    dutch: 0.05,
+    flashes: [
+      { atMs: 0, durationMs: 1000, color: C.void, intensity: 1 },
+      { atMs: 2600, durationMs: 380, color: C.lightWash, intensity: 0.2 },
+    ],
+    shakes: [{ atMs: 120, durationMs: 520, intensity: 7 }],
+    audio: [
+      { atMs: 100, action: "sfx", sound: "knock-heavy", volume: 0.6 },
+      { atMs: 160, action: "sfx", sound: "door-slide", volume: 0.3 },
+      { atMs: 380, action: "sfx", sound: "dread-sting", volume: 0.36 },
+      { atMs: 420, action: "footsteps", count: 6, intervalMs: 300, volume: 0.36, variant: "boots" },
+      { atMs: 700, action: "loop-start", sound: "heartbeat-fast", volume: 0.14, fadeMs: 600 },
+      { atMs: 2700, action: "sfx", sound: "thunder", volume: 0.28 },
+    ],
+  },
+  // Shot 4: she bolts out from behind the desk; the first guard cuts across
+  // in front of it and closes the distance. White-out on the grab.
+  {
+    background: "lab-raid",
+    actors: [
+      { type: "maya", x: 562, y: 392, animation: "walk-left", path: [{ x: 340, y: 398, duration: 1500 }], endAnimation: "idle" },
+      { type: "guard", x: 770, y: 424, animation: "walk-left", path: [{ x: 452, y: 430, duration: 1900 }], endAnimation: "idle" },
+    ],
+    camera: [
+      { x: 560, y: 296, zoom: 1.42, time: 0 },
+      { x: 446, y: 288, zoom: 1.6, time: 3000 },
+    ],
+    durationMs: 3000,
+    location: "MERIDIAN UNIVERSITY · LAB 4 · 23:52",
+    feed: LAB_FEED,
+    caption: "they left the laptop. they took her.",
+    flashes: [{ atMs: 2100, durationMs: 650, color: C.highlight, intensity: 0.9 }],
+    shakes: [{ atMs: 2100, durationMs: 600, intensity: 9 }],
+    audio: [
+      { atMs: 300, action: "footsteps", count: 4, intervalMs: 380, volume: 0.32, variant: "boots" },
+      { atMs: 2100, action: "sfx", sound: "grunt-hit-1", volume: 0.4 },
+      { atMs: 2100, action: "sfx", sound: "captured-impact", volume: 0.5 },
+    ],
+  },
+  // Shot 5: a corridor she's never seen, alarms washing the walls. A guard
+  // hauls her away from the lens toward the heavy door.
+  {
+    background: "chase",
+    transition: "glitch",
+    actors: [
+      { type: "maya", x: 548, y: 470, animation: "captured", path: [{ x: 548, y: 350, duration: 3400 }] },
+      { type: "guard", x: 604, y: 500, animation: "walk-up", path: [{ x: 604, y: 370, duration: 3400 }] },
+    ],
+    camera: [
+      { x: 570, y: 318, zoom: 1.05, time: 0 },
+      { x: 570, y: 306, zoom: 1.16, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "UNKNOWN FACILITY · SUBLEVEL 3",
+    feed: "TRANSIT · CAM 11",
+    caption: "no ransom. no witnesses. no trace.",
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "rain-loop", fadeMs: 500 },
+      { atMs: 0, action: "loop-stop", sound: "tension-drone", fadeMs: 500 },
+      { atMs: 0, action: "loop-start", sound: "dark-drone-2", volume: 0.1, fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "alarm-loop", volume: 0.05, fadeMs: 400 },
+      { atMs: 100, action: "footsteps", count: 8, intervalMs: 420, volume: 0.3, variant: "boots" },
+    ],
+  },
+  // Shot 6: the cell door slams. She's on the floor, knees drawn up. Time
+  // jump. The stakes, said plainly.
+  {
+    background: "cell",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 770, y: 480, animation: "slumped" }],
+    camera: [
+      { x: 660, y: 340, zoom: 1.2, time: 0 },
+      { x: 690, y: 352, zoom: 1.34, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "once they have the key, they don't need her.",
+    titleCard: { text: "72 HOURS LATER", sub: "SUBLEVEL 3 · CELL B-09", atMs: 900, durationMs: 2400 },
+    shakes: [{ atMs: 200, durationMs: 460, intensity: 5 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "alarm-loop", fadeMs: 300 },
+      { atMs: 200, action: "sfx", sound: "knock-heavy", volume: 0.5 },
+      { atMs: 260, action: "sfx", sound: "game-over-slam", volume: 0.2 },
+      { atMs: 800, action: "loop-stop", sound: "heartbeat-fast", fadeMs: 900 },
+      { atMs: 900, action: "loop-start", sound: "heartbeat-slow", volume: 0.12, fadeMs: 900 },
+      { atMs: 900, action: "loop-start", sound: "facility-hum", volume: 0.05, fadeMs: 1200 },
+    ],
+  },
+  // Shot 7: the dead terminal flickers awake. Push in. Hand-off to the player.
+  {
+    background: "cell",
+    actors: [{ type: "maya", x: 610, y: 440, animation: "idle" }],
+    camera: [
+      { x: 540, y: 320, zoom: 1.1, time: 0 },
+      { x: 500, y: 290, zoom: 1.45, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "SUBLEVEL 3 · CELL B-09",
+    caption: "one dead terminal. one open line. it just reached you.",
+    titleCard: { text: "SIGNAL INCOMING", sub: "YOU ARE HER ONLY WAY OUT", atMs: 1500 },
+    flashes: [{ atMs: 900, durationMs: 520, color: C.termBright, intensity: 0.3 }],
+    audio: [
+      { atMs: 900, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+      { atMs: 1500, action: "sfx", sound: "message-receive", volume: 0.3 },
+      { atMs: 3000, action: "loop-stop", sound: "heartbeat-slow", fadeMs: 1200 },
+    ],
+  },
+];
 
 // ── INTRO SCENES ───────────────────────────────────────────────────
 // Level 1 intro — six shots, ~17s (tap advances a shot; Esc skips). Wide → close → tracking → insert → threat →

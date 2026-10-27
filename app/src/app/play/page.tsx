@@ -35,6 +35,7 @@ import { NotesPanel } from "@/components/game/NotesPanel";
 import { ConceptTracker } from "@/components/game/ConceptTracker";
 import { summarizeCurriculum } from "@/lib/game/curriculum";
 import { AdventureLevel } from "@/components/adventure/AdventureLevel";
+import { CinematicScene } from "@/components/story/CinematicScene";
 import type { AdventureLevel as AdventureLevelDef } from "@/lib/adventure/types";
 import {
   CHAPTER_01_INTRO_LEVEL,
@@ -53,6 +54,7 @@ import {
 import { MayaAnimation } from "@/components/story/MayaAnimation";
 import { PixiScene } from "@/components/story/PixiScene";
 import {
+  PROLOGUE_SCENES,
   INTRO_SCENES,
   CHAPTER_01_COMPLETE_SCENES,
   CHAPTER_02_INTRO_SCENES,
@@ -118,6 +120,8 @@ const DEFAULT_CAM = { scene: "cell" as SceneType, animation: "hack" as CharAnima
 interface ChapterConfig {
   challenge: Challenge;
   twist?: { headline: string; lines: string[] };
+  /** The opening film — how Maya got here. Plays once, before this chapter's intro. */
+  prologueScenes?: SceneDefinition[];
   /** Legacy film shots — now the WebGL fallback for the playable beats. */
   introScenes: SceneDefinition[];
   completeScenes: SceneDefinition[];
@@ -142,6 +146,7 @@ const CHAPTERS: ChapterConfig[] = [
   {
     challenge: chapter01,
     twist: chapter01Twist,
+    prologueScenes: PROLOGUE_SCENES,
     introScenes: INTRO_SCENES,
     completeScenes: CHAPTER_01_COMPLETE_SCENES,
     introLevel: CHAPTER_01_INTRO_LEVEL,
@@ -444,6 +449,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   const musicOn = settings.musicEnabled ?? true;
   const audio = useGameAudio(state, settings.soundEnabled, musicOn);
   const toggleMusic = () => onSaveSettings({ musicEnabled: !musicOn });
+  const [showPrologue, setShowPrologue] = useState(false);
   const [showCinematic, setShowCinematic] = useState(false);
   const [showWinCinematic, setShowWinCinematic] = useState(false);
   const [debriefDone, setDebriefDone] = useState(false);
@@ -569,32 +575,60 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     }
   };
 
-  if (state.phase === "intro" && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
+  // Leave the intro screen for the story: the prologue first (once, or on
+  // request), then the playable intro beat.
+  const beginStory = (replayPrologue = false) => {
+    if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
+    const prologue = !!config.prologueScenes && (replayPrologue || !settings.prologueSeen);
+    // Gesture-anchored drone for the intro beat — held silent under the
+    // prologue, which brings its own sound bed.
+    audio.startLoop("dark-drone-1", prologue ? 0 : 0.08, 5000);
+    trackChapterStart(challenge.id, challenge.chapter);
+    recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
+    if (prologue) {
+      // Marked seen as it starts: it plays once, and is replayable from here.
+      if (!settings.prologueSeen) onSaveSettings({ prologueSeen: true });
+      setShowPrologue(true);
+      trackCinematicStart(challenge.id, "prologue");
+    } else {
+      setShowCinematic(true);
+      trackCinematicStart(challenge.id, "intro");
+    }
+  };
+
+  if (state.phase === "intro" && !showPrologue && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
     return <IntroScreen
       config={config}
       language={language}
       languageChosen={settings.languageChosen}
       onChangeLanguage={onChangeLanguage}
-      onStart={() => {
-        if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
-        audio.startLoop("dark-drone-1", 0.08, 5000);
-        setShowCinematic(true);
-        trackChapterStart(challenge.id, challenge.chapter);
-        recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
-        trackCinematicStart(challenge.id, "intro");
-      }}
+      onStart={() => beginStory()}
       onGuidedStart={() => {
-        if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
         setForceBeginner(true);
         onSaveSettings({ beginnerMode: true });
         if (!isMobile) setShowTour(true);
-        audio.startLoop("dark-drone-1", 0.08, 5000);
-        setShowCinematic(true);
-        trackChapterStart(challenge.id, challenge.chapter);
-        recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
-        trackCinematicStart(challenge.id, "intro");
+        beginStory();
       }}
+      onReplayPrologue={config.prologueScenes && settings.prologueSeen ? () => beginStory(true) : undefined}
     />;
+  }
+
+  if (showPrologue && config.prologueScenes) {
+    return (
+      <CinematicScene
+        scenes={config.prologueScenes}
+        title="PROLOGUE"
+        subtitle="HOW SHE GOT HERE"
+        soundEnabled={settings.soundEnabled}
+        loopsEnabled={musicOn}
+        onComplete={() => {
+          audio.setLoopVolume("dark-drone-1", 0.08, 1500);
+          setShowPrologue(false);
+          setShowCinematic(true);
+          trackCinematicStart(challenge.id, "intro");
+        }}
+      />
+    );
   }
 
   if (showCinematic) {
@@ -1280,13 +1314,15 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, language, languageChosen, onChangeLanguage, onStart, onGuidedStart }: {
+function IntroScreen({ config, language, languageChosen, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
   config: ChapterConfig;
   language: LanguageId;
   languageChosen: boolean;
   onChangeLanguage: (language: LanguageId) => void;
   onStart: () => void;
   onGuidedStart: () => void;
+  /** Set once the prologue has played: watch it again, then into the chapter. */
+  onReplayPrologue?: () => void;
 }) {
   const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
   const langLabel = getLanguageService(language).label;
@@ -1433,6 +1469,16 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
           >
             NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
           </button>
+          {onReplayPrologue && (
+            <button
+              type="button"
+              onClick={onReplayPrologue}
+              className="btn-secondary w-full mt-2.5 py-2 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+              style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.25)" }}
+            >
+              ▶ REPLAY THE PROLOGUE · HOW SHE GOT HERE
+            </button>
+          )}
           <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
             <span className="cursor-blink">█</span>

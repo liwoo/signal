@@ -180,6 +180,9 @@ export const SCENE_PROJECTION: Record<SceneType, ProjectionOpts> = {
   vent: { vpXFrac: 0.5, vpYFrac: 0.45, farScale: 0.22 },
   server: { vpXFrac: 0.38, vpYFrac: 0.38 },
   "boss-arena": { vpXFrac: 0.5, vpYFrac: 0.38 },
+  // Wide back wall so the window + whiteboard read behind Maya's desk.
+  lab: { vpXFrac: 0.46, vpYFrac: 0.36, farScale: 0.5, farHeightFrac: 0.4 },
+  "lab-raid": { vpXFrac: 0.46, vpYFrac: 0.36, farScale: 0.5, farHeightFrac: 0.4 },
 };
 
 /** Fraction of scene height where the far floor edge sits for these options. */

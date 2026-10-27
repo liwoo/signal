@@ -34,6 +34,8 @@ const SFX = {
   "knock-2": "/audio/sfx/knock-2.ogg",
   "knock-heavy": "/audio/sfx/knock-heavy.ogg",
   "keypad-beep": "/audio/sfx/keypad-beep.ogg",
+  "thunder": "/audio/sfx/thunder.ogg",
+  "power-down": "/audio/sfx/power-down.ogg",
 
   // Game state
   "captured-impact": "/audio/sfx/captured-impact.ogg",
@@ -83,6 +85,7 @@ const AMBIENCE = {
   "tension-drone": "/audio/ambience/tension-drone.ogg",
   "heartbeat-fast": "/audio/sfx/heartbeat-fast.ogg",
   "heartbeat-slow": "/audio/sfx/heartbeat-slow.ogg",
+  "rain-loop": "/audio/ambience/rain-loop.ogg",
 } as const;
 
 const MUSIC = {

@@ -28,6 +28,7 @@ import {
   makeConeCanvas,
   makeGlowCanvas,
   makeMoteCanvas,
+  makeStreakCanvas,
   parallaxOffset,
   pulseLevel,
   shakeOffset,
@@ -74,6 +75,9 @@ interface SceneLayer {
   fore: Sprite | null;
   lights: LightState[];
   motes: Sprite[];
+  /** Rain streaks, parented to a container that rides the back plane's parallax. */
+  rain: Container | null;
+  drops: Sprite[];
   actors: ActorState[];
   textures: Texture[];
   scene: SceneDefinition;
@@ -280,6 +284,23 @@ export function PixiScene({
       }
     }
 
+    // ── Rain (behind everything but the wall it falls past) ──
+    let rain: Container | null = null;
+    const drops: Sprite[] = [];
+    if (fx.rain) {
+      rain = new Container();
+      rain.zIndex = Z_BACK + 1;
+      const streakTex = texOf(makeStreakCanvas(fx.rain.color));
+      for (let i = 0; i < fx.rain.count; i++) {
+        const sprite = new Sprite(streakTex);
+        sprite.anchor.set(0.5, 1);
+        sprite.rotation = 0.18;
+        rain.addChild(sprite);
+        drops.push(sprite);
+      }
+      world.addChild(rain);
+    }
+
     // ── Actors ──
     const actors: ActorState[] = [];
     for (const actorDef of nextScene.actors) {
@@ -366,6 +387,8 @@ export function PixiScene({
       fore,
       lights,
       motes,
+      rain,
+      drops,
       actors,
       textures,
       scene: nextScene,
@@ -491,6 +514,10 @@ export function PixiScene({
           // Parallax: planes slide relative to the actor plane by their factor.
           layer.back.x = -BACK_BLEED_PX + parallaxOffset(PARALLAX.back, centerX, sceneW / 2);
           layer.back.y = -BACK_BLEED_PX + parallaxOffset(PARALLAX.back, centerY, sceneH / 2);
+          if (layer.rain) {
+            layer.rain.x = layer.back.x + BACK_BLEED_PX;
+            layer.rain.y = layer.back.y + BACK_BLEED_PX;
+          }
           if (layer.fore) {
             layer.fore.x = parallaxOffset(PARALLAX.fore, centerX, sceneW / 2);
             layer.fore.y = parallaxOffset(PARALLAX.fore, centerY, sceneH / 2);
@@ -529,6 +556,19 @@ export function PixiScene({
               s.y = m.y;
               s.alpha = m.alpha * (0.6 + 0.4 * flick);
               s.scale.set(m.size / 2);
+            }
+          }
+
+          // Rain sheeting past the window.
+          if (fx.rain && layer.rain) {
+            layer.rain.visible = !reduced;
+            for (let i = 0; i < layer.drops.length; i++) {
+              const m = dustMote(fx.rain, i, elapsed, sceneW, sceneH);
+              const s = layer.drops[i];
+              s.x = m.x;
+              s.y = m.y;
+              s.alpha = m.alpha;
+              s.scale.set(m.size / 2, m.size * 0.7);
             }
           }
 

@@ -349,7 +349,7 @@ export function CinematicScene({
                 className="h-1.5 w-1.5 animate-pulse"
                 style={{ background: "var(--color-danger)" }}
               />
-              LIVE FEED
+              {currentScene.feed ?? "LIVE FEED"}
             </div>
           </div>
         </header>

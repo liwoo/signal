@@ -77,6 +77,7 @@ const DEFAULT_SETTINGS: PlayerSettings = {
   tourCompleted: false,
   language: "go",
   languageChosen: false,
+  prologueSeen: false,
 };
 
 // ── Helpers ──

@@ -14,7 +14,8 @@ export type CharAnimation =
   | "hack"
   | "keypad"
   | "captured"
-  | "crawl-right";
+  | "crawl-right"
+  | "slumped";
 
 const CHAR_W = 48;
 const CHAR_H = 80;
@@ -29,6 +30,7 @@ const FRAME_COUNT: Record<CharAnimation, number> = {
   "keypad": 6,
   "captured": 2,
   "crawl-right": 8,
+  "slumped": 2,
 };
 
 // ── Walk cycle pose data (8 frames) ──
@@ -109,6 +111,11 @@ function drawMaya(ctx: CanvasRenderingContext2D, anim: CharAnimation, frame: num
 
   if (anim === "crawl-right") {
     drawMayaCrawl(ctx, cx, baseY, frame);
+    return;
+  }
+
+  if (anim === "slumped") {
+    drawMayaSlumped(ctx, cx, baseY, frame);
     return;
   }
 
@@ -924,6 +931,99 @@ function drawMayaCaptured(ctx: CanvasRenderingContext2D, cx: number, baseY: numb
   ctx.fillRect(2, -21, 5, 6);
 
   ctx.restore();
+}
+
+/**
+ * Sitting on the floor, knees hugged, head bowed onto them — the prologue's
+ * "72 hours later" beat. Front view; frame 1 is the out-breath (shoulders and
+ * head sink a pixel).
+ */
+function drawMayaSlumped(ctx: CanvasRenderingContext2D, cx: number, baseY: number, frame: number) {
+  const sink = frame === 1 ? 1 : 0;
+
+  // Contact shadow — wide, she's sitting.
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(cx, baseY + 1, 15, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hoodie torso behind the knees, leaning forward.
+  ctx.fillStyle = C.hoodieDark;
+  ctx.fillRect(cx - 13, 49 + sink, 26, 26 - sink);
+  ctx.fillStyle = C.hoodieMid;
+  ctx.fillRect(cx - 13, 49 + sink, 5, 24 - sink);
+  ctx.fillRect(cx + 8, 49 + sink, 5, 24 - sink);
+  ctx.fillStyle = C.hoodieAccent;
+  ctx.fillRect(cx - 13, 50 + sink, 1, 20);
+
+  // Seat: hips and the backs of the thighs on the floor.
+  ctx.fillStyle = C.pantsDark;
+  ctx.fillRect(cx - 14, 71, 28, 7);
+
+  // Shins, drawn up; knees rounded at the top.
+  for (const side of [-1, 1]) {
+    const x0 = side < 0 ? cx - 10 : cx + 1;
+    ctx.fillStyle = C.pantsMid;
+    ctx.fillRect(x0, 57, 9, 15);
+    ctx.fillRect(x0 + 1, 55, 7, 2);
+    ctx.fillStyle = C.pantsDark;
+    ctx.fillRect(side < 0 ? x0 : x0 + 8, 57, 1, 15);
+    // Cargo pocket.
+    ctx.fillStyle = C.pantsDark;
+    ctx.fillRect(x0 + 2, 64, 5, 3);
+  }
+
+  // Boots, toes toward us.
+  for (const x0 of [cx - 11, cx + 1]) {
+    ctx.fillStyle = C.bootsDark;
+    ctx.fillRect(x0, 72, 10, 6);
+    ctx.fillStyle = "#24303e";
+    ctx.fillRect(x0, 72, 10, 1);
+    ctx.fillStyle = "#0c1018";
+    ctx.fillRect(x0, 77, 10, 1);
+  }
+
+  // Arms wrapped round the shins: sleeves down the sides, forearms across.
+  ctx.fillStyle = C.hoodieMid;
+  ctx.fillRect(cx - 15, 51 + sink, 4, 12);
+  ctx.fillRect(cx + 11, 51 + sink, 4, 12);
+  ctx.fillStyle = C.hoodieDark;
+  ctx.fillRect(cx - 14, 61, 28, 4);
+  ctx.fillStyle = C.hoodieLight;
+  ctx.fillRect(cx - 14, 61, 28, 1);
+  // Hands clasped at the middle.
+  ctx.fillStyle = C.skinMid;
+  ctx.fillRect(cx - 4, 61, 8, 4);
+  ctx.fillStyle = C.skinLight;
+  ctx.fillRect(cx - 3, 61, 3, 2);
+
+  // Shoulders hunched up around the bowed head.
+  ctx.fillStyle = C.hoodieMid;
+  ctx.fillRect(cx - 12, 46 + sink, 24, 5);
+  ctx.fillStyle = C.hoodieLight;
+  ctx.fillRect(cx - 12, 46 + sink, 24, 1);
+
+  // Head bowed onto the knees — we see the crown, a sliver of forehead.
+  const hy = 39 + sink;
+  ctx.fillStyle = C.skinDark;
+  ctx.fillRect(cx - 5, hy + 13, 10, 2);
+  ctx.fillStyle = C.hairDark;
+  ctx.fillRect(cx - 6, hy, 12, 14);
+  ctx.fillRect(cx - 8, hy + 2, 16, 10);
+  ctx.fillRect(cx - 7, hy + 1, 14, 12);
+  ctx.fillStyle = C.hairMid;
+  ctx.fillRect(cx - 4, hy + 1, 6, 2);
+  ctx.fillStyle = C.hairHighlight;
+  ctx.fillRect(cx - 3, hy + 1, 3, 1);
+  // The green streak, falling forward.
+  ctx.fillStyle = C.signalMid;
+  ctx.fillRect(cx + 2, hy + 1, 3, 9);
+  ctx.fillStyle = C.signalBright;
+  ctx.fillRect(cx + 3, hy + 2, 1, 5);
+  // Loose strands over the knees.
+  ctx.fillStyle = C.hairDark;
+  ctx.fillRect(cx - 7, hy + 12, 2, 4);
+  ctx.fillRect(cx + 5, hy + 12, 2, 3);
 }
 
 // ════════════════════════════════════════════════════════════════

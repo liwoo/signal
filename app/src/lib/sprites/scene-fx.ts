@@ -62,6 +62,7 @@ export const CHAR_ANIM_INTERVAL_MS: Record<CharAnimation, number> = {
   "keypad": 150,
   "captured": 420,
   "crawl-right": 135,
+  "slumped": 1400,
 };
 
 // ── Deterministic noise ─────────────────────────────────────────────
@@ -346,10 +347,15 @@ export interface SceneFx {
   pulse: { periodMs: number; depth: number };
   rays: RaySpec[];
   dust?: DustSpec;
+  /** Rain falling past a window — streaks on the back plane, behind actors. */
+  rain?: DustSpec;
   strobe?: StrobeSpec;
   /** Colour the actor rim light takes in this scene. */
   rim: string;
 }
+
+// Rain past the lab window (scene fractions of the window glass).
+const RAIN: DustSpec = { count: 70, x0: 0.41, y0: 0.2, x1: 0.69, y1: 0.4, color: C.lightWash, alpha: 0.3, rise: 280, wander: 0, size: 2 };
 
 export const SCENE_FX: Record<SceneType, SceneFx> = {
   cell: {
@@ -394,6 +400,26 @@ export const SCENE_FX: Record<SceneType, SceneFx> = {
     rays: [{ x: 0.5, y: 0.04, spread: 0.4, length: 0.7, color: C.dangerBright, intensity: 0.14 }],
     dust: { count: 18, x0: 0.3, y0: 0.3, x1: 0.7, y1: 1, color: C.alertBright, alpha: 0.6, rise: -26, wander: 10, size: 2.2 },
     strobe: { color: C.dangerBright, periodMs: 1100, intensity: 0.3 },
+    rim: C.dangerBright,
+  },
+  lab: {
+    flicker: { depth: 0.12, seed: 7 },
+    pulse: { periodMs: 2400, depth: 0.25 },
+    rays: [
+      { x: 0.68, y: 0.5, spread: 0.12, length: 0.12, color: C.lightWarm, intensity: 0.14 },
+      { x: 0.56, y: 0.2, spread: 0.42, length: 0.7, color: C.lightWash, intensity: 0.05 },
+    ],
+    dust: { count: 14, x0: 0.6, y0: 0.42, x1: 0.76, y1: 0.62, color: C.lightWarm, alpha: 0.4, rise: -4, wander: 5, size: 1.8 },
+    rain: RAIN,
+    rim: C.lightWarm,
+  },
+  "lab-raid": {
+    flicker: { depth: 0.8, seed: 41 },
+    pulse: { periodMs: 600, depth: 0.5 },
+    rays: [{ x: 0.87, y: 0.22, spread: 0.34, length: 0.72, color: C.lightWash, intensity: 0.16 }],
+    dust: { count: 24, x0: 0.72, y0: 0.3, x1: 0.98, y1: 0.85, color: C.lightWash, alpha: 0.5, rise: -6, wander: 8, size: 2 },
+    rain: RAIN,
+    strobe: { color: C.dangerBright, periodMs: 1200, intensity: 0.36 },
     rim: C.dangerBright,
   },
 };
@@ -459,6 +485,20 @@ export function makeMoteCanvas(color: string): HTMLCanvasElement {
   ctx.fillRect(0, 0, 4, 4);
   ctx.fillStyle = color;
   ctx.fillRect(1, 1, 2, 2);
+  return canvas;
+}
+
+/** Thin slanted streak for falling rain. */
+export function makeStreakCanvas(color: string): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = 2;
+  canvas.height = 10;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createLinearGradient(0, 0, 0, 10);
+  g.addColorStop(0, alpha(color, 0));
+  g.addColorStop(1, alpha(color, 1));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 1, 10);
   return canvas;
 }
 
