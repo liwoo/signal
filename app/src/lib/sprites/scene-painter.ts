@@ -6,7 +6,7 @@ import { C, alpha } from "./palette";
 import { createProjection, floorGrid, wallQuad, SCENE_PROJECTION } from "./projection";
 import { SCENE_LIGHTING, resolveLight, paintGlow, contactShadow } from "./lighting";
 
-export type SceneType = "cell" | "corridor" | "chase" | "vent" | "server" | "boss-arena";
+export type SceneType = "cell" | "corridor" | "chase" | "vent" | "server" | "boss-arena" | "lab" | "lab-raid";
 
 // ── Layered output ──────────────────────────────────────────────────
 // A scene paints into planes so the cinematic renderer can depth-sort actors
@@ -81,6 +81,8 @@ export function paintSceneLayers(type: SceneType, w: number, h: number): Painted
     case "vent": paintVent(ctx, w, h); break;
     case "server": paintServer(ctx, w, h); break;
     case "boss-arena": paintBossArena(ctx, w, h); break;
+    case "lab": paintLab(ctx, w, h, false, sink); break;
+    case "lab-raid": paintLab(ctx, w, h, true, sink); break;
   }
   sink.mid.sort((a, b) => a.footY - b.footY);
 
@@ -142,6 +144,8 @@ export function paintScene(type: SceneType, w: number, h: number): HTMLCanvasEle
     case "vent": paintVent(ctx, w, h); break;
     case "server": paintServer(ctx, w, h); break;
     case "boss-arena": paintBossArena(ctx, w, h); break;
+    case "lab": paintLab(ctx, w, h, false); break;
+    case "lab-raid": paintLab(ctx, w, h, true); break;
   }
   const fore = paintForePlane(type, w, h);
   if (fore) ctx.drawImage(fore, 0, 0);
@@ -2667,6 +2671,642 @@ function drawBucket(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
 
 
 // ════════════════════════════════════════════════════════════════════
+// LAB 4 — Meridian University crypto lab, the night Maya was taken.
+// Prologue only. "lab" is the calm before: rain on the glass, the city
+// beyond, one desk lamp and two monitors around Maya's silhouette. "lab-raid"
+// is the same room thirty seconds later: power cut, screens dead, the door
+// kicked open on a white corridor, an emergency beacon sweeping red.
+// ════════════════════════════════════════════════════════════════════
+
+function paintLab(ctx: CanvasRenderingContext2D, w: number, h: number, raid: boolean, sink?: LayerSink) {
+  const type = raid ? "lab-raid" : "lab";
+  const light = SCENE_LIGHTING[type];
+  const key = resolveLight(light.key, w, h);
+  const fills = (light.fills ?? []).map((f) => resolveLight(f, w, h));
+  const p = createProjection(w, h, SCENE_PROJECTION[type]);
+  const ch = h * 0.32;
+  const bw = p.farR - p.farL;
+  const bh = p.farB - p.farT;
+
+  // ── Ambient base ──
+  ctx.fillStyle = light.ambient;
+  ctx.fillRect(0, 0, w, h);
+
+  // ── Ceiling: acoustic tile grid + two (dark) fluorescent troffers ──
+  ctx.fillStyle = C.ceilingDark;
+  ctx.beginPath();
+  ctx.moveTo(p.nearL, p.nearT);
+  ctx.lineTo(p.nearR, p.nearT);
+  ctx.lineTo(p.farR, p.farT);
+  ctx.lineTo(p.farL, p.farT);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = alpha(C.ceilingMid, 0.9);
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 8; i++) {
+    const nx = (i / 8) * w;
+    const fx = p.farL + (bw * i) / 8;
+    ctx.beginPath();
+    ctx.moveTo(nx, p.nearT);
+    ctx.lineTo(fx, p.farT);
+    ctx.stroke();
+  }
+  for (let r = 1; r <= 4; r++) {
+    const t = r / 4.6;
+    const y = p.atDepth(p.nearT, p.farT, t);
+    ctx.beginPath();
+    ctx.moveTo(p.atDepth(p.nearL, p.farL, t), y);
+    ctx.lineTo(p.atDepth(p.nearR, p.farR, t), y);
+    ctx.stroke();
+  }
+  for (const t of [0.45, 0.78]) {
+    const y0 = p.atDepth(p.nearT, p.farT, t);
+    const y1 = p.atDepth(p.nearT, p.farT, t + 0.08);
+    const xl0 = p.atDepth(w * 0.34, p.farL + bw * 0.34, t);
+    const xr0 = p.atDepth(w * 0.62, p.farL + bw * 0.62, t);
+    const xl1 = p.atDepth(w * 0.34, p.farL + bw * 0.34, t + 0.08);
+    const xr1 = p.atDepth(w * 0.62, p.farL + bw * 0.62, t + 0.08);
+    ctx.fillStyle = raid ? C.void : C.metalDark;
+    ctx.beginPath();
+    ctx.moveTo(xl0, y0);
+    ctx.lineTo(xr0, y0);
+    ctx.lineTo(xr1, y1);
+    ctx.lineTo(xl1, y1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = alpha(C.lightWash, raid ? 0.02 : 0.06);
+    ctx.fillRect(xl1, y1 - 1, xr1 - xl1, 1);
+  }
+
+  // ── Side walls ──
+  wallQuad(ctx, p, "left", p.nearL, 0, 1, C.wallMid);
+  wallQuad(ctx, p, "right", p.nearR, 0, 1, C.wallDark);
+  ditherRect(ctx, 0, p.farT, p.farL, p.farB - p.farT, C.shadow, 0.03);
+  ditherRect(ctx, p.farR, p.farT, w - p.farR, p.farB - p.farT, C.shadow, 0.04);
+
+  // ── Floor: vinyl tiles, checker-tinted, with the window's wet reflection ──
+  ctx.beginPath();
+  ctx.moveTo(p.nearL, p.nearB);
+  ctx.lineTo(p.nearR, p.nearB);
+  ctx.lineTo(p.farR, p.farB);
+  ctx.lineTo(p.farL, p.farB);
+  ctx.closePath();
+  const floorGrad = ctx.createLinearGradient(0, p.farB, 0, p.nearB);
+  floorGrad.addColorStop(0, C.floorDark);
+  floorGrad.addColorStop(1, C.floorMid);
+  ctx.fillStyle = floorGrad;
+  ctx.fill();
+  const cols = 14;
+  const rows = 8;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if ((r + c) % 2 === 0) continue;
+      const t0 = r / rows;
+      const t1 = (r + 1) / rows;
+      const a = p.project(c / cols, t0);
+      const b = p.project((c + 1) / cols, t0);
+      const d = p.project((c + 1) / cols, t1);
+      const e = p.project(c / cols, t1);
+      ctx.fillStyle = alpha(C.shadow, 0.1);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.lineTo(e.x, e.y);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  floorGrid(ctx, p, cols, rows, alpha(C.wallHighlight, 0.06));
+  ditherRect(ctx, 0, p.farB, w, h - p.farB, C.shadow, 0.025);
+
+  // ── Back wall ──
+  const backGrad = ctx.createLinearGradient(0, p.farT, 0, p.farB);
+  backGrad.addColorStop(0, C.wallMid);
+  backGrad.addColorStop(1, C.wallDark);
+  ctx.fillStyle = backGrad;
+  ctx.fillRect(p.farL, p.farT, bw, bh);
+  ditherRect(ctx, p.farL, p.farT, bw, bh, C.shadow, 0.03);
+  drawBaseboard(ctx, p.farL, p.farB, bw);
+
+  // ── Window wall: the city, the rain ──
+  const winX = p.farL + bw * 0.4;
+  const winY = p.farT + bh * 0.06;
+  const winW = bw * 0.56;
+  const winH = bh * 0.5;
+  drawLabWindow(ctx, winX, winY, winW, winH, raid);
+  // The window's cool spill down onto the floor.
+  const spill = ctx.createLinearGradient(0, p.farB, 0, p.farB + ch * 0.9);
+  spill.addColorStop(0, alpha(C.lightWash, raid ? 0.05 : 0.07));
+  spill.addColorStop(1, "transparent");
+  ctx.fillStyle = spill;
+  ctx.beginPath();
+  ctx.moveTo(winX, p.farB);
+  ctx.lineTo(winX + winW, p.farB);
+  ctx.lineTo(winX + winW * 1.25, p.farB + ch * 0.9);
+  ctx.lineTo(winX - winW * 0.15, p.farB + ch * 0.9);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Whiteboard: the thesis, in marker ──
+  drawWhiteboard(ctx, p.farL + bw * 0.04, p.farT + bh * 0.1, bw * 0.31, bh * 0.44, raid);
+
+  // ── Depth fog ──
+  const fog = ctx.createRadialGradient(p.vpX, p.vpY, bw * 0.2, p.vpX, p.vpY, bw * 1.3);
+  fog.addColorStop(0, alpha(C.void, raid ? 0.4 : 0.22));
+  fog.addColorStop(1, "transparent");
+  ctx.fillStyle = fog;
+  ctx.fillRect(0, 0, w, p.nearB);
+
+  // ── Left wall: a bookcase of crypto texts + a corkboard ──
+  drawBookcase(ctx, w * 0.02, p.farB - ch * 0.98, ch * 0.42, ch * 1.02);
+  drawCorkboard(ctx, w * 0.12, p.farT + bh * 0.14, bw * 0.12, bh * 0.3);
+
+  // ── Right wall: LAB 4 door (closed, or kicked open on the corridor) ──
+  const doorX = w * 0.81;
+  const doorY = p.farT + bh * 0.02;
+  const doorW = w * 0.12;
+  const doorH = bh * 1.12;
+  drawLabDoor(ctx, doorX, doorY, doorW, doorH, raid);
+
+  // ── Under the window: a low cabinet run, books, a plant, a humming tower ──
+  drawLowCabinet(ctx, winX - bw * 0.02, p.farB - ch * 0.2, winW + bw * 0.04, ch * 0.2, raid);
+
+  // ── Contact shadows ──
+  contactShadow(ctx, w * 0.02 + ch * 0.21, p.farB + 4, ch * 0.46, key);
+  contactShadow(ctx, w * 0.54, p.farB + ch * 0.34, ch * 1.6, key);
+  contactShadow(ctx, w * 0.12, p.farB + ch * 1.0, ch * 0.6, key);
+  contactShadow(ctx, w * 0.88, p.farB + ch * 1.1, ch * 0.3, key);
+
+  // ── MID-PLANE PROPS ──
+  // FOCAL: Maya's workstation, facing her and us — she stands behind it,
+  // lit from below by her own screens. Actors north of its front edge
+  // (feet y < deskFoot) are drawn behind it.
+  const deskCx = w * 0.54;
+  const deskFoot = p.farB + ch * 0.33;
+  const deskW = ch * 1.9;
+  const deskH = ch * 0.36;
+  midProp(ctx, sink, deskCx - deskW / 2 - 4, deskFoot - deskH - ch * 0.42, deskW + 8, deskH + ch * 0.46, deskFoot, (c) => {
+    drawWorkstation(c, deskCx - deskW / 2, deskFoot - deskH, deskW, deskH, ch, raid);
+  });
+  // A second, empty desk near-left — someone else's late night, abandoned.
+  midProp(ctx, sink, w * 0.03, p.farB + ch * 0.66, ch * 0.7, ch * 0.42, p.farB + ch * 1.0, (c) => {
+    drawSideDesk(c, w * 0.03, p.farB + ch * 0.74, ch * 0.66, ch * 0.26, raid);
+  });
+  // Archive box + papers on the floor, near-right.
+  midProp(ctx, sink, w * 0.84, p.farB + ch * 0.86, ch * 0.32, ch * 0.28, p.farB + ch * 1.12, (c) => {
+    drawCrate(c, w * 0.84, p.farB + ch * 0.92, ch * 0.26, ch * 0.2);
+    drawPapers(c, w * 0.8, p.farB + ch * 1.06);
+  });
+
+  // ── Lighting ──
+  paintGlow(ctx, key);
+  for (const f of fills) paintGlow(ctx, f);
+
+  // ── Texture + post ──
+  grainPass(ctx, w, h, 0.015);
+  drawVignette(ctx, w, h, raid ? 0.55 : 0.4);
+}
+
+function drawLabWindow(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, raid: boolean) {
+  // Night sky with a low orange city haze.
+  const sky = ctx.createLinearGradient(0, y, 0, y + h);
+  sky.addColorStop(0, C.skyNight);
+  sky.addColorStop(0.7, C.skyHaze);
+  sky.addColorStop(1, alpha(C.alertDim, 0.9));
+  ctx.fillStyle = sky;
+  ctx.fillRect(x, y, w, h);
+
+  // Skyline — two depths of towers, deterministic.
+  const towers = (seed: number, color: string, minH: number, maxH: number, lit: number) => {
+    let tx = x;
+    let i = 0;
+    while (tx < x + w) {
+      const tw = w * (0.04 + hashN(seed + i * 3) * 0.07);
+      const th = h * (minH + hashN(seed + i * 3 + 1) * (maxH - minH));
+      ctx.fillStyle = color;
+      ctx.fillRect(tx, y + h - th, tw, th);
+      // Lit windows (the campus never sleeps; tonight half the grid is dark).
+      for (let wy = y + h - th + 4; wy < y + h - 3; wy += 5) {
+        for (let wx = tx + 2; wx < tx + tw - 2; wx += 4) {
+          const k = hashN(seed * 7 + Math.floor(wx) * 13 + Math.floor(wy) * 31);
+          if (k > lit) continue;
+          ctx.fillStyle = alpha(k < lit * 0.3 ? C.termBright : C.lightWarm, raid ? 0.3 : 0.5);
+          ctx.fillRect(wx, wy, 2, 2);
+        }
+      }
+      tx += tw + 1;
+      i++;
+    }
+  };
+  towers(11, C.cityMid, 0.25, 0.55, 0.12);
+  towers(37, C.cityDark, 0.12, 0.38, 0.2);
+  // An aircraft-warning light on the tallest roof.
+  ctx.fillStyle = C.dangerBright;
+  ctx.fillRect(x + w * 0.72, y + h * 0.42, 2, 2);
+
+  // Rain on the glass: slanted streaks + clinging drops.
+  ctx.strokeStyle = alpha(C.lightWash, 0.1);
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 90; i++) {
+    const sx = x + hashN(i * 5 + 1) * w;
+    const sy = y + hashN(i * 5 + 2) * h;
+    const len = 6 + hashN(i * 5 + 3) * 14;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx - len * 0.18, Math.min(y + h, sy + len));
+    ctx.stroke();
+  }
+  for (let i = 0; i < 40; i++) {
+    const dx = x + hashN(i * 9 + 4) * w;
+    const dy = y + hashN(i * 9 + 5) * h;
+    ctx.fillStyle = alpha(C.lightWash, 0.18);
+    ctx.fillRect(dx, dy, 2, 2);
+    ctx.fillStyle = alpha(C.shadow, 0.3);
+    ctx.fillRect(dx, dy + 2, 2, 1);
+  }
+
+  // Mullions + frame.
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x - 4, y - 4, w + 8, 4);
+  ctx.fillRect(x - 4, y + h, w + 8, 6);
+  ctx.fillRect(x - 4, y, 4, h);
+  ctx.fillRect(x + w, y, 4, h);
+  for (const f of [1 / 3, 2 / 3]) ctx.fillRect(x + w * f - 2, y, 4, h);
+  ctx.fillRect(x, y + h * 0.36, w, 3);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.25);
+  ctx.fillRect(x - 4, y + h, w + 8, 1);
+  // Glass sheen.
+  ctx.fillStyle = alpha(C.lightWash, 0.03);
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.05, y);
+  ctx.lineTo(x + w * 0.2, y);
+  ctx.lineTo(x + w * 0.08, y + h);
+  ctx.lineTo(x - w * 0.07, y + h);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawWhiteboard(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, raid: boolean) {
+  ctx.fillStyle = C.boardFrame;
+  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  const face = ctx.createLinearGradient(x, y, x + w, y + h);
+  face.addColorStop(0, C.boardFace);
+  face.addColorStop(1, alpha(C.boardFace, 0.75));
+  ctx.fillStyle = face;
+  ctx.fillRect(x, y, w, h);
+  if (raid) {
+    ctx.fillStyle = alpha(C.void, 0.55);
+    ctx.fillRect(x, y, w, h);
+  }
+  // Marker work: a lattice of nodes, equations, a boxed result.
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = alpha(C.markerBlue, 0.8);
+  const nodes: [number, number][] = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 4; c++) {
+      nodes.push([x + w * (0.08 + c * 0.1 + r * 0.04), y + h * (0.16 + r * 0.16)]);
+    }
+  }
+  for (let i = 0; i < nodes.length; i++) {
+    const [nx, ny] = nodes[i];
+    ctx.fillStyle = alpha(C.markerBlue, 0.85);
+    ctx.fillRect(nx - 1, ny - 1, 3, 3);
+    if (i % 4 !== 3) {
+      ctx.beginPath();
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(nodes[i + 1][0], nodes[i + 1][1]);
+      ctx.stroke();
+    }
+    if (i + 4 < nodes.length) {
+      ctx.beginPath();
+      ctx.moveTo(nx, ny);
+      ctx.lineTo(nodes[i + 4][0], nodes[i + 4][1]);
+      ctx.stroke();
+    }
+  }
+  // Scrawled lines of maths.
+  for (let i = 0; i < 6; i++) {
+    const ly = y + h * (0.12 + i * 0.13);
+    const lx = x + w * 0.58;
+    const len = w * (0.18 + hashN(i + 71) * 0.2);
+    ctx.fillStyle = alpha(i === 3 ? C.markerRed : C.shadow, 0.55);
+    for (let s = 0; s < len; s += 4) {
+      if (hashN(i * 97 + s) < 0.22) continue;
+      ctx.fillRect(lx + s, ly + (hashN(i * 13 + s) > 0.5 ? 1 : 0), 3, 1);
+    }
+  }
+  // The boxed result, circled twice in red.
+  ctx.strokeStyle = alpha(C.markerRed, 0.85);
+  ctx.strokeRect(x + w * 0.12, y + h * 0.7, w * 0.36, h * 0.16);
+  ctx.strokeRect(x + w * 0.11, y + h * 0.69, w * 0.38, h * 0.18);
+  ctx.fillStyle = alpha(C.shadow, 0.6);
+  for (let s = 0; s < w * 0.3; s += 4) ctx.fillRect(x + w * 0.15 + s, y + h * 0.78, 3, 1);
+  // Tray + marker.
+  ctx.fillStyle = C.boardFrame;
+  ctx.fillRect(x, y + h + 3, w, 3);
+  ctx.fillStyle = C.markerRed;
+  ctx.fillRect(x + w * 0.7, y + h + 1, 8, 2);
+}
+
+function drawBookcase(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  ctx.fillStyle = C.woodDark;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = C.woodMid;
+  ctx.fillRect(x, y, w, 3);
+  ctx.fillRect(x, y, 3, h);
+  const shelves = 5;
+  const spines = [C.markerBlue, C.dangerDim, C.signalDim, C.alertDim, C.termDim, C.woodLight, C.metalMid];
+  for (let s = 0; s < shelves; s++) {
+    const sy = y + 4 + (s * (h - 8)) / shelves;
+    const sh = (h - 8) / shelves;
+    let bx = x + 4;
+    let i = 0;
+    while (bx < x + w - 6) {
+      const bwid = 3 + Math.floor(hashN(s * 31 + i) * 4);
+      const bht = sh * (0.6 + hashN(s * 17 + i) * 0.3);
+      if (hashN(s * 53 + i) > 0.9) {
+        bx += bwid + 2;
+        i++;
+        continue;
+      }
+      ctx.fillStyle = spines[(s * 3 + i) % spines.length];
+      ctx.fillRect(bx, sy + sh - bht - 2, bwid, bht);
+      ctx.fillStyle = alpha(C.highlight, 0.06);
+      ctx.fillRect(bx, sy + sh - bht - 2, 1, bht);
+      bx += bwid + 1;
+      i++;
+    }
+    ctx.fillStyle = C.woodLight;
+    ctx.fillRect(x + 3, sy + sh - 2, w - 6, 2);
+  }
+  ditherRect(ctx, x, y, w, h, C.shadow, 0.05);
+}
+
+function drawCorkboard(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  ctx.fillStyle = C.woodDark;
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.fillStyle = C.woodMid;
+  ctx.fillRect(x, y, w, h);
+  ditherRect(ctx, x, y, w, h, C.shadow, 0.08);
+  // Pinned notes and one photo — a conference badge, a schedule.
+  const notes: [number, number, number, number, string][] = [
+    [0.08, 0.1, 0.36, 0.3, C.boardFace],
+    [0.52, 0.08, 0.38, 0.42, C.lightWash],
+    [0.14, 0.52, 0.3, 0.34, C.alertMid],
+    [0.56, 0.58, 0.32, 0.3, C.boardFace],
+  ];
+  for (const [nx, ny, nw, nh, color] of notes) {
+    ctx.fillStyle = alpha(color, 0.6);
+    ctx.fillRect(x + w * nx, y + h * ny, w * nw, h * nh);
+    ctx.fillStyle = C.dangerMid;
+    ctx.fillRect(x + w * (nx + nw / 2) - 1, y + h * ny - 1, 2, 2);
+  }
+}
+
+function drawLabDoor(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, raid: boolean) {
+  // Frame
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x - 5, y - 4, w + 10, h + 4);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.3);
+  ctx.fillRect(x - 5, y - 4, w + 10, 1);
+  if (raid) {
+    // Kicked open: the corridor beyond burns white, the leaf swung back.
+    const corridor = ctx.createLinearGradient(x, y, x + w, y);
+    corridor.addColorStop(0, alpha(C.lightWash, 0.95));
+    corridor.addColorStop(1, alpha(C.lightWash, 0.7));
+    ctx.fillStyle = corridor;
+    ctx.fillRect(x, y, w, h);
+    // Far corridor wall + floor line so it reads as depth, not a lamp.
+    ctx.fillStyle = alpha(C.metalLight, 0.5);
+    ctx.fillRect(x + w * 0.3, y + h * 0.15, w * 0.4, h * 0.6);
+    ctx.fillStyle = alpha(C.wallLight, 0.6);
+    ctx.fillRect(x, y + h * 0.75, w, h * 0.25);
+    // Swung leaf, edge-on against the frame.
+    ctx.fillStyle = C.woodDark;
+    ctx.fillRect(x - 3, y, w * 0.16, h);
+    ctx.fillStyle = C.woodMid;
+    ctx.fillRect(x - 3, y, 2, h);
+    // Splintered strike plate.
+    ctx.fillStyle = C.woodLight;
+    ctx.fillRect(x + w - 2, y + h * 0.48, 4, 3);
+    ctx.fillRect(x + w, y + h * 0.52, 3, 2);
+  } else {
+    fillGradientV(ctx, x, y, w, h, C.woodMid, C.woodDark);
+    // Narrow wired-glass slit, a sliver of hall light behind it.
+    ctx.fillStyle = C.void;
+    ctx.fillRect(x + w * 0.2, y + h * 0.12, w * 0.22, h * 0.34);
+    ctx.fillStyle = alpha(C.lightWash, 0.18);
+    ctx.fillRect(x + w * 0.2 + 1, y + h * 0.12 + 1, w * 0.22 - 2, h * 0.34 - 2);
+    ctx.strokeStyle = alpha(C.shadow, 0.4);
+    ctx.lineWidth = 1;
+    for (let gy = y + h * 0.12 + 4; gy < y + h * 0.46; gy += 5) {
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.2, gy);
+      ctx.lineTo(x + w * 0.42, gy);
+      ctx.stroke();
+    }
+    // Lever handle + card reader.
+    ctx.fillStyle = C.metalLight;
+    ctx.fillRect(x + w * 0.74, y + h * 0.52, w * 0.18, 3);
+    ctx.fillStyle = C.metalDark;
+    ctx.fillRect(x + w * 0.8, y + h * 0.38, 6, 10);
+    ctx.fillStyle = C.signalBright;
+    ctx.fillRect(x + w * 0.8 + 2, y + h * 0.38 + 2, 2, 2);
+    // Light leaking under the door.
+    ctx.fillStyle = alpha(C.lightWash, 0.25);
+    ctx.fillRect(x, y + h - 2, w, 2);
+  }
+  // Room plate: LAB 4.
+  ctx.fillStyle = C.metalMid;
+  ctx.fillRect(x - w * 0.36, y + h * 0.3, w * 0.24, h * 0.07);
+  ctx.fillStyle = alpha(C.highlight, 0.5);
+  ctx.fillRect(x - w * 0.33, y + h * 0.325, w * 0.08, 2);
+  ctx.fillRect(x - w * 0.22, y + h * 0.325, 2, 4);
+  // Emergency beacon above the frame (lit red in the raid).
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x + w * 0.36, y - 14, w * 0.28, 9);
+  ctx.fillStyle = raid ? C.dangerBright : C.dangerDim;
+  ctx.fillRect(x + w * 0.4, y - 12, w * 0.2, 5);
+}
+
+/**
+ * Maya's desk, seen from the front: modesty panel toward us, two monitors
+ * turned to her (we see their backs, haloed by their own light), the open
+ * laptop's lid, a desk lamp. `ch` is the scene's character reference height.
+ */
+function drawWorkstation(ctx: CanvasRenderingContext2D, x: number, top: number, w: number, h: number, ch: number, raid: boolean) {
+  const cx = x + w / 2;
+  // Monitor backs, either side of where she stands.
+  const monW = ch * 0.5;
+  const monH = monW * 0.6;
+  const monY = top - monH - ch * 0.05;
+  for (const mx of [cx - ch * 0.2 - monW, cx + ch * 0.2]) {
+    if (!raid) {
+      // Screen light spilling round the bezel toward her.
+      ctx.fillStyle = alpha(C.termBright, 0.14);
+      ctx.fillRect(mx - 4, monY - 4, monW + 8, monH + 8);
+      ctx.fillStyle = alpha(C.termBright, 0.28);
+      ctx.fillRect(mx - 1, monY - 1, monW + 2, monH + 2);
+    }
+    ctx.fillStyle = C.metalDark;
+    ctx.fillRect(mx, monY, monW, monH);
+    ctx.fillStyle = C.ceilingDark;
+    ctx.fillRect(mx + monW * 0.3, monY + monH * 0.25, monW * 0.4, monH * 0.5);
+    ctx.fillStyle = alpha(C.metalHighlight, 0.18);
+    ctx.fillRect(mx, monY, monW, 1);
+    // Stand.
+    ctx.fillStyle = C.metalDark;
+    ctx.fillRect(mx + monW / 2 - 2, monY + monH, 4, top - monY - monH);
+    ctx.fillRect(mx + monW / 2 - 8, top - 2, 16, 2);
+  }
+
+  // Laptop lid (back toward us) with her sticker.
+  const lw = ch * 0.22;
+  const lh = ch * 0.14;
+  ctx.fillStyle = C.metalMid;
+  ctx.fillRect(cx - lw / 2, top - lh, lw, lh);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.25);
+  ctx.fillRect(cx - lw / 2, top - lh, lw, 1);
+  ctx.fillStyle = raid ? C.signalDim : C.signalBright;
+  ctx.fillRect(cx - 3, top - lh * 0.62, 6, 4);
+  if (!raid) {
+    ctx.fillStyle = alpha(C.signalBright, 0.22);
+    ctx.fillRect(cx - lw / 2 - 2, top - lh - 2, lw + 4, 2);
+  }
+
+  // Desk lamp at the right end, angled at the keyboard.
+  const lampX = x + w * 0.93;
+  ctx.fillStyle = C.metalMid;
+  ctx.fillRect(lampX - 6, top - 2, 12, 2);
+  ctx.fillRect(lampX - 1, top - ch * 0.2, 2, ch * 0.2);
+  ctx.fillRect(lampX - ch * 0.09, top - ch * 0.21, ch * 0.09, 2);
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(lampX - ch * 0.13, top - ch * 0.23, ch * 0.06, 6);
+  ctx.fillStyle = raid ? C.metalDark : C.lightWarm;
+  ctx.fillRect(lampX - ch * 0.125, top - ch * 0.23 + 6, ch * 0.05, 2);
+  if (!raid) drawLightCone(ctx, lampX - ch * 0.1, top - ch * 0.2, ch * 0.32, ch * 0.24, alpha(C.lightWarm, 0.16));
+
+  // Mug + a paper stack on the left end.
+  ctx.fillStyle = C.boardFace;
+  ctx.fillRect(x + w * 0.08, top - 8, 7, 8);
+  ctx.fillStyle = C.boardFrame;
+  ctx.fillRect(x + w * 0.08 + 7, top - 6, 2, 3);
+  ctx.fillStyle = alpha(C.lightWash, 0.45);
+  ctx.fillRect(x + w * 0.14, top - 5, w * 0.08, 5);
+  ctx.fillStyle = alpha(C.shadow, 0.25);
+  ctx.fillRect(x + w * 0.14, top - 3, w * 0.08, 1);
+
+  // Desktop slab + modesty panel (hides her legs) + steel feet.
+  ctx.fillStyle = C.deskTop;
+  ctx.fillRect(x, top, w, 5);
+  ctx.fillStyle = alpha(C.highlight, raid ? 0.05 : 0.12);
+  ctx.fillRect(x, top, w, 1);
+  ctx.fillStyle = C.deskEdge;
+  ctx.fillRect(x, top + 5, w, 3);
+  const panel = ctx.createLinearGradient(0, top + 8, 0, top + h);
+  panel.addColorStop(0, C.woodDark);
+  panel.addColorStop(1, C.deskEdge);
+  ctx.fillStyle = panel;
+  ctx.fillRect(x + 6, top + 8, w - 12, h - 12);
+  ctx.fillStyle = alpha(C.shadow, 0.25);
+  for (const f of [1 / 3, 2 / 3]) ctx.fillRect(x + w * f, top + 8, 1, h - 12);
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x + 2, top + 8, 5, h - 8);
+  ctx.fillRect(x + w - 7, top + 8, 5, h - 8);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.2);
+  ctx.fillRect(x + 2, top + 8, 1, h - 8);
+  // Cable tail + a sticker on the panel (a university parking permit).
+  ctx.fillStyle = C.void;
+  ctx.fillRect(x + w * 0.62, top + h - 6, 2, 6);
+  ctx.fillStyle = alpha(C.termMid, 0.5);
+  ctx.fillRect(x + w * 0.2, top + h * 0.4, 8, 5);
+  ditherRect(ctx, x, top, w, h, C.shadow, 0.04);
+}
+
+/** Low cabinets along the window wall. */
+function drawLowCabinet(ctx: CanvasRenderingContext2D, x: number, top: number, w: number, h: number, raid: boolean) {
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x, top, w, h);
+  ctx.fillStyle = C.metalMid;
+  ctx.fillRect(x, top, w, 3);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.2);
+  ctx.fillRect(x, top, w, 1);
+  const doors = 6;
+  for (let i = 1; i < doors; i++) {
+    ctx.fillStyle = alpha(C.shadow, 0.35);
+    ctx.fillRect(x + (w * i) / doors, top + 4, 1, h - 4);
+  }
+  for (let i = 0; i < doors; i++) {
+    ctx.fillStyle = C.metalLight;
+    ctx.fillRect(x + (w * (i + 0.5)) / doors - 3, top + h * 0.3, 6, 1);
+  }
+  // On top: a stack of books, a plant, a mini tower with status LEDs.
+  ctx.fillStyle = C.markerBlue;
+  ctx.fillRect(x + w * 0.06, top - 4, w * 0.08, 4);
+  ctx.fillStyle = C.dangerDim;
+  ctx.fillRect(x + w * 0.07, top - 8, w * 0.07, 4);
+  ctx.fillStyle = C.woodMid;
+  ctx.fillRect(x + w * 0.82, top - 7, 9, 7);
+  ctx.fillStyle = C.hoodieMid;
+  ctx.fillRect(x + w * 0.82 - 3, top - 15, 15, 8);
+  ctx.fillStyle = C.hoodieLight;
+  ctx.fillRect(x + w * 0.82, top - 18, 4, 4);
+  ctx.fillStyle = C.void;
+  ctx.fillRect(x + w * 0.62, top - 20, 12, 20);
+  ctx.fillStyle = raid ? C.dangerBright : C.signalBright;
+  ctx.fillRect(x + w * 0.62 + 3, top - 17, 2, 2);
+  ctx.fillStyle = raid ? C.dangerDim : C.termBright;
+  ctx.fillRect(x + w * 0.62 + 7, top - 17, 2, 2);
+}
+
+function drawSideDesk(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, raid: boolean) {
+  ctx.fillStyle = alpha(C.shadow, 0.25);
+  ctx.fillRect(x + 4, y + h, w - 4, 4);
+  for (const lx of [x + 3, x + w - 7]) {
+    ctx.fillStyle = C.metalDark;
+    ctx.fillRect(lx, y + 4, 4, h - 4);
+  }
+  ctx.fillStyle = C.deskEdge;
+  ctx.fillRect(x, y + 3, w, 5);
+  ctx.fillStyle = C.deskTop;
+  ctx.fillRect(x, y, w, 4);
+  ctx.fillStyle = alpha(C.highlight, 0.07);
+  ctx.fillRect(x, y, w, 1);
+  // A monitor, off — the back of it faces us.
+  const mw = w * 0.4;
+  const mh = mw * 0.6;
+  ctx.fillStyle = C.metalDark;
+  ctx.fillRect(x + w * 0.3, y - mh - 6, mw, mh);
+  ctx.fillStyle = alpha(C.metalHighlight, 0.15);
+  ctx.fillRect(x + w * 0.3, y - mh - 6, mw, 1);
+  ctx.fillRect(x + w * 0.3 + mw / 2 - 2, y - 6, 4, 6);
+  // Notebook + a backpack slumped against the leg.
+  ctx.fillStyle = raid ? C.dangerDim : C.markerBlue;
+  ctx.fillRect(x + w * 0.06, y - 2, w * 0.16, 2);
+  ctx.fillStyle = C.hoodieDark;
+  ctx.fillRect(x + w - 2, y + h * 0.4, w * 0.12, h * 0.6);
+  ctx.fillStyle = C.hoodieMid;
+  ctx.fillRect(x + w - 2, y + h * 0.4, w * 0.12, 2);
+}
+
+function paintLabFore(ctx: CanvasRenderingContext2D, w: number, h: number, raid: boolean) {
+  // Out-of-focus edge of a near shelving unit + a ceiling troffer lip.
+  drawForeJamb(ctx, "left", w, h, w * 0.035);
+  ctx.fillStyle = C.void;
+  ctx.fillRect(w * 0.3, 0, w * 0.42, h * 0.04);
+  ctx.fillStyle = alpha(raid ? C.dangerBright : C.lightWash, 0.08);
+  ctx.fillRect(w * 0.3, h * 0.04 - 1, w * 0.42, 1);
+  drawForeCable(ctx, w * 0.74, 0, w, h * 0.02, h * 0.08, 2);
+}
+
+/** Deterministic 0..1 hash for painters (integer-ish input). */
+function hashN(n: number): number {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+// ════════════════════════════════════════════════════════════════════
 // FORE PLANE — near-camera occluders. Painted dark (out of focus, unlit)
 // and slid at 1.12× the camera so pans read as real depth.
 // ════════════════════════════════════════════════════════════════════
@@ -2685,6 +3325,8 @@ function paintForePlane(type: SceneType, w: number, h: number): HTMLCanvasElemen
     case "chase": paintCorridorFore(ctx, w, h, true); break;
     case "vent": paintVentFore(ctx, w, h); break;
     case "server": paintServerFore(ctx, w, h); break;
+    case "lab": paintLabFore(ctx, w, h, false); break;
+    case "lab-raid": paintLabFore(ctx, w, h, true); break;
   }
   return canvas;
 }

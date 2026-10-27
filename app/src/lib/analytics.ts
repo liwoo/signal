@@ -121,7 +121,7 @@ export function trackSettingChange(setting: string, value: string | boolean) {
 
 // ── Cinematic ──
 
-export function trackCinematicStart(chapterId: string, type: "intro" | "complete") {
+export function trackCinematicStart(chapterId: string, type: "prologue" | "intro" | "complete") {
   track("cinematic_start", { chapter_id: chapterId, cinematic_type: type });
 }
 

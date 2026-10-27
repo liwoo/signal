@@ -21,7 +21,7 @@ import {
 import { SCENE_PROJECTION, farBottomFrac } from "./projection";
 import type { SceneType } from "./scene-painter";
 
-const SCENES: SceneType[] = ["cell", "corridor", "chase", "vent", "server", "boss-arena"];
+const SCENES: SceneType[] = ["cell", "corridor", "chase", "vent", "server", "boss-arena", "lab", "lab-raid"];
 
 describe("scene-fx determinism", () => {
   it("hash01 is stable and in [0,1)", () => {
@@ -179,6 +179,24 @@ describe("parallax + depth", () => {
       expect(fx.rays.length).toBeGreaterThanOrEqual(1);
     }
     expect(SCENE_FX.chase.strobe).toBeDefined();
+  });
+
+  it("rains past the lab window — falling, not rising — in both lab states", () => {
+    for (const type of ["lab", "lab-raid"] as const) {
+      const rain = SCENE_FX[type].rain!;
+      expect(rain).toBeDefined();
+      expect(rain.rise).toBeGreaterThan(0);
+      const w = 1040;
+      const h = 600;
+      for (let i = 0; i < rain.count; i++) {
+        const m = dustMote(rain, i, 2345, w, h);
+        expect(m.y).toBeGreaterThanOrEqual(rain.y0 * h);
+        expect(m.y).toBeLessThanOrEqual(rain.y1 * h);
+      }
+    }
+    // The raid is the power cut: an emergency beacon, a dying flicker.
+    expect(SCENE_FX["lab-raid"].strobe).toBeDefined();
+    expect(SCENE_FX["lab-raid"].flicker.depth).toBeGreaterThan(SCENE_FX.lab.flicker.depth);
   });
 });
 

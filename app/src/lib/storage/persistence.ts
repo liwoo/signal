@@ -80,6 +80,7 @@ export const DEFAULTS: PersistedState = {
     tourCompleted: false,
     language: "go",
     languageChosen: false,
+    prologueSeen: false,
   },
   library: { entries: [] },
 };

@@ -57,6 +57,10 @@ function getLayout(scene: SceneType, animation: CharAnimation): SceneLayout {
       return { mayaX: SCENE_W * 0.5, mayaFeetY: SCENE_H * 0.72, charScale: CHAR_SCALE_DEFAULT };
     case "chase":
       return { mayaX: SCENE_W * 0.58, mayaFeetY: SCENE_H * 0.72, charScale: CHAR_SCALE_DEFAULT };
+    case "lab":
+    case "lab-raid":
+      // At her desk, between the two monitors.
+      return { mayaX: SCENE_W * 0.54, mayaFeetY: SCENE_H * 0.64, charScale: CHAR_SCALE_DEFAULT };
   }
 }
 

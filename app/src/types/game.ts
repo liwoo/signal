@@ -246,6 +246,8 @@ export interface PlayerSettings {
   language: LanguageId;
   /** True once the player has seen the language picker (asked once, defaults to Go). */
   languageChosen: boolean;
+  /** True once the opening "how she got here" prologue has played (it plays once). */
+  prologueSeen: boolean;
 }
 
 // ── Chat ──

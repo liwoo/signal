@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  PROLOGUE_SCENES,
   INTRO_SCENES,
   CHAPTER_01_COMPLETE_SCENES,
   CHAPTER_02_INTRO_SCENES,
@@ -22,7 +23,7 @@ import { SCENE_PROJECTION, farBottomFrac } from "./projection";
 const SFX = new Set([
   "terminal-beep", "message-receive", "maya-message", "code-submit", "handshake-confirm",
   "warning-beep", "alert-beep", "rush-warning", "dread-sting",
-  "door-slide", "machinery", "knock-1", "knock-2", "knock-heavy", "keypad-beep",
+  "door-slide", "machinery", "knock-1", "knock-2", "knock-heavy", "keypad-beep", "thunder", "power-down",
   "captured-impact", "game-over-slam", "maya-typing", "keypress-1", "keypress-2", "keypress-3",
   "grunt-hit-1", "grunt-hit-2", "grunt-hit-3", "grunt-dodge-1", "grunt-dodge-2",
   "hurry-up", "keep-coding", "taking-fire", "hit", "we-did-it", "next-one", "dying",
@@ -31,7 +32,7 @@ const SFX = new Set([
 ]);
 const LOOPS = new Set([
   "cell-ambient", "corridor-ambient", "facility-hum", "dark-drone-1", "dark-drone-2",
-  "alarm-loop", "siren-loop", "tension-drone", "heartbeat-fast", "heartbeat-slow",
+  "alarm-loop", "siren-loop", "tension-drone", "heartbeat-fast", "heartbeat-slow", "rain-loop",
   "gameplay-loop", "boss-loop",
 ]);
 
@@ -39,6 +40,7 @@ const SCENE_W = 1040;
 const SCENE_H = 600;
 
 const SEQUENCES: Record<string, SceneDefinition[]> = {
+  PROLOGUE_SCENES,
   INTRO_SCENES,
   CHAPTER_01_COMPLETE_SCENES,
   CHAPTER_02_INTRO_SCENES,
@@ -257,5 +259,74 @@ describe("level 2 cinematics", () => {
       }
       expect(started.size).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("prologue", () => {
+  const total = PROLOGUE_SCENES.reduce((sum, s) => sum + effectiveDurationMs(s), 0);
+
+  it("stands every actor on the floor band of its room", () => {
+    for (const s of PROLOGUE_SCENES) {
+      const floorTop = farBottomFrac(SCENE_PROJECTION[s.background]) * SCENE_H;
+      for (const a of s.actors) {
+        for (const p of [{ x: a.x, y: a.y }, ...(a.path ?? [])]) {
+          expect(p.y, `${s.location}: ${a.type} above the far floor edge`).toBeGreaterThanOrEqual(floorTop);
+          expect(p.y).toBeLessThanOrEqual(SCENE_H);
+          expect(p.x).toBeGreaterThanOrEqual(0);
+          expect(p.x).toBeLessThanOrEqual(SCENE_W);
+        }
+      }
+    }
+  });
+
+  it("hooks fast: under 30 seconds, every caption short enough to read at a glance", () => {
+    expect(total).toBeGreaterThanOrEqual(20000);
+    expect(total).toBeLessThanOrEqual(30000);
+    for (const s of PROLOGUE_SCENES) {
+      expect(s.caption, `${s.location}: needs a caption`).toBeDefined();
+      expect(s.caption!.length).toBeLessThanOrEqual(60);
+      expect(s.caption).toBe(s.caption!.toLowerCase());
+      expect(s.caption).not.toContain("!");
+    }
+  });
+
+  it("starts in the lab the night she was taken and ends live in her cell", () => {
+    expect(PROLOGUE_SCENES[0].background).toBe("lab");
+    expect(PROLOGUE_SCENES[0].transition).toBe("dissolve");
+    expect(PROLOGUE_SCENES[0].titleCard?.text).toContain("EARLIER");
+    expect(PROLOGUE_SCENES.some((s) => s.background === "lab-raid")).toBe(true);
+    const last = PROLOGUE_SCENES[PROLOGUE_SCENES.length - 1];
+    expect(last.background).toBe("cell");
+    // Hands off to the chapter-one intro, which opens in the same room.
+    expect(last.location).toBe(INTRO_SCENES[0].location);
+  });
+
+  it("labels the past as recovered footage and the present as live", () => {
+    for (const s of PROLOGUE_SCENES) {
+      if (s.background === "cell") expect(s.feed).toBeUndefined();
+      else expect(s.feed, `${s.location}: archive shot without a feed tag`).toBeDefined();
+    }
+  });
+
+  it("lands the stakes: the raid hits, and the guards come for her", () => {
+    const raid = PROLOGUE_SCENES.filter((s) => s.background === "lab-raid");
+    expect(raid.some((s) => s.actors.filter((a) => a.type === "guard").length >= 2)).toBe(true);
+    expect(raid.some((s) => (s.shakes ?? []).length > 0 && (s.flashes ?? []).length > 0)).toBe(true);
+    expect(PROLOGUE_SCENES.some((s) => s.actors.some((a) => a.type === "maya" && a.animation === "slumped"))).toBe(true);
+  });
+
+  it("fades out every loop it starts (or leaves it for the film's end fade)", () => {
+    const started = new Set<string>();
+    for (const s of PROLOGUE_SCENES) {
+      for (const cue of s.audio ?? []) {
+        if (cue.action === "loop-start") started.add(cue.sound!);
+      }
+    }
+    // The rain belongs to the lab — it must stop when the story leaves it.
+    expect(started.has("rain-loop")).toBe(true);
+    const stopsRain = PROLOGUE_SCENES.find((s) => s.background === "chase")?.audio?.some(
+      (c) => c.action === "loop-stop" && c.sound === "rain-loop",
+    );
+    expect(stopsRain).toBe(true);
   });
 });

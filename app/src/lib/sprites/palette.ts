@@ -80,6 +80,18 @@ export const C = {
   guardVisor: "#ff4848",
   guardArmor: "#241e2a",
 
+  // Campus night — the lab Maya was taken from (prologue only)
+  skyNight: "#060a18",
+  skyHaze: "#162440",
+  cityDark: "#0c1220",
+  cityMid: "#141c30",
+  boardFace: "#7c889a",
+  boardFrame: "#4a5668",
+  markerBlue: "#2c5cb0",
+  markerRed: "#b03a3a",
+  deskTop: "#3a3226",
+  deskEdge: "#2a241c",
+
   // Structural / utility — for shading, edges, and light washes (no bare hex in painters)
   shadow: "#000000",       // pure shadow for AO, seams, edges
   highlight: "#ffffff",    // pure highlight for rivets, wet edges

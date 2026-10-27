@@ -65,6 +65,22 @@ export const SCENE_LIGHTING: Record<SceneType, SceneLighting> = {
     fills: [{ x: 0.5, y: 0.5, color: C.dangerMid, radius: 0.4, intensity: 0.24 }],
     ambient: C.void,
   },
+  // Night lab. Key = the desk lamp; her monitors + the rain-lit window fill.
+  lab: {
+    key: { x: 0.69, y: 0.5, color: C.lightWarm, radius: 0.42, intensity: 0.4 },
+    fills: [
+      { x: 0.54, y: 0.45, color: C.termBright, radius: 0.26, intensity: 0.32 },
+      { x: 0.56, y: 0.26, color: C.lightWash, radius: 0.36, intensity: 0.12 },
+    ],
+    ambient: C.wallDark,
+  },
+  // Power cut. Key = the corridor glare through the kicked-in door; the
+  // emergency beacon above it is the only other light.
+  "lab-raid": {
+    key: { x: 0.87, y: 0.4, color: C.lightWash, radius: 0.55, intensity: 0.5 },
+    fills: [{ x: 0.87, y: 0.15, color: C.dangerBright, radius: 0.3, intensity: 0.3 }],
+    ambient: C.void,
+  },
 };
 
 export interface ResolvedLight {
