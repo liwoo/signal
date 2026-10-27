@@ -1,8 +1,26 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { PromoLoop } from "@/components/promo/PromoLoop";
+import {
+  ArrowRight,
+  Check,
+  Code2,
+  GraduationCap,
+  MessageCircle,
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import {
   trackPurchaseCtaClick,
   trackConsentModalView,
@@ -10,6 +28,17 @@ import {
   trackConsentDismissed,
   trackPurchaseStart,
 } from "@/lib/analytics";
+import styles from "./Paywall.module.css";
+
+const PromoLoop = dynamic(
+  () => import("@/components/promo/PromoLoop").then((mod) => mod.PromoLoop),
+  {
+    ssr: false,
+    loading: () => (
+      <div className={styles.previewLoading}>Loading game preview…</div>
+    ),
+  }
+);
 
 interface PaywallProps {
   playerXP?: number;
@@ -19,8 +48,6 @@ interface PaywallProps {
 const PRICE_SINGLE = process.env.NEXT_PUBLIC_PRICE_SINGLE || "9.99";
 const PRICE_TEAM = process.env.NEXT_PUBLIC_PRICE_TEAM || "69.99";
 const TEAM_SEATS = process.env.NEXT_PUBLIC_TEAM_SEATS || "10";
-
-// ── Curriculum data ──
 
 type Difficulty = "beginner" | "intermediate" | "advanced";
 
@@ -39,12 +66,6 @@ interface Act {
   chapters: Chapter[];
 }
 
-const DIFFICULTY_STYLES: Record<Difficulty, { color: string; bg: string; label: string }> = {
-  beginner:     { color: "var(--color-signal)", bg: "rgba(var(--signal-rgb),.1)",  label: "BEGINNER" },
-  intermediate: { color: "var(--color-info)",   bg: "rgba(0,212,255,.1)",    label: "INTERMEDIATE" },
-  advanced:     { color: "var(--color-alert)",  bg: "rgba(255,159,28,.1)",   label: "ADVANCED" },
-};
-
 const CURRICULUM: Act[] = [
   {
     act: "I",
@@ -54,7 +75,8 @@ const CURRICULUM: Act[] = [
     chapters: [
       {
         name: "HANDSHAKE",
-        description: "establish a terminal connection using your first Go program",
+        description:
+          "establish a terminal connection using your first Go program",
         concepts: ["package main", "import", "fmt.Println", "string literals"],
       },
       {
@@ -64,12 +86,19 @@ const CURRICULUM: Act[] = [
       },
       {
         name: "SHAFT CODES",
-        description: "compute junction codes with functions that return multiple values",
-        concepts: ["functions", "multiple returns", "slices", "variadic params"],
+        description:
+          "compute junction codes with functions that return multiple values",
+        concepts: [
+          "functions",
+          "multiple returns",
+          "slices",
+          "variadic params",
+        ],
       },
       {
         name: "LOCKMASTER",
-        description: "debug corrupted weapon code across multiple files under fire",
+        description:
+          "debug corrupted weapon code across multiple files under fire",
         concepts: ["const groups", "packages", "debugging", "strings.Join"],
         boss: true,
       },
@@ -83,32 +112,51 @@ const CURRICULUM: Act[] = [
     chapters: [
       {
         name: "GUARD ROSTER",
-        description: "decode patrol schedules using maps and the bool-set pattern",
+        description:
+          "decode patrol schedules using maps and the bool-set pattern",
         concepts: ["map[K]V", "composite literals", "range", "Sprintf"],
       },
       {
         name: "STRUCTS",
         description: "model security clearance badges as structured data",
-        concepts: ["struct types", "field access", "methods", "value receivers"],
+        concepts: [
+          "struct types",
+          "field access",
+          "methods",
+          "value receivers",
+        ],
       },
       {
         name: "POINTERS",
-        description: "modify guard patrol routes through shared memory references",
+        description:
+          "modify guard patrol routes through shared memory references",
         concepts: ["& and *", "pointer receivers", "nil safety", "mutation"],
       },
       {
         name: "INTERFACES",
-        description: "build a polymorphic access control system for different door types",
-        concepts: ["interface types", "implicit implementation", "type assertions", "empty interface"],
+        description:
+          "build a polymorphic access control system for different door types",
+        concepts: [
+          "interface types",
+          "implicit implementation",
+          "type assertions",
+          "empty interface",
+        ],
       },
       {
         name: "ERROR HANDLING",
         description: "handle cascading system failures without crashing",
-        concepts: ["error type", "fmt.Errorf", "error wrapping", "sentinel errors"],
+        concepts: [
+          "error type",
+          "fmt.Errorf",
+          "error wrapping",
+          "sentinel errors",
+        ],
       },
       {
         name: "GATEKEEPER",
-        description: "combine structs, interfaces, and error handling to breach the gate",
+        description:
+          "combine structs, interfaces, and error handling to breach the gate",
         concepts: ["all Act II concepts", "multi-file coordination"],
         boss: true,
       },
@@ -122,37 +170,66 @@ const CURRICULUM: Act[] = [
     chapters: [
       {
         name: "GOROUTINES",
-        description: "run concurrent surveillance sweeps across facility cameras",
-        concepts: ["go keyword", "sync.WaitGroup", "race conditions", "concurrent patterns"],
+        description:
+          "run concurrent surveillance sweeps across facility cameras",
+        concepts: [
+          "go keyword",
+          "sync.WaitGroup",
+          "race conditions",
+          "concurrent patterns",
+        ],
       },
       {
         name: "CHANNELS",
-        description: "coordinate a multi-agent extraction through message passing",
+        description:
+          "coordinate a multi-agent extraction through message passing",
         concepts: ["chan T", "send/receive", "buffered channels", "select"],
       },
       {
         name: "HTTP CLIENT",
         description: "tap into the facility's internal API to pull floor plans",
-        concepts: ["net/http", "GET/POST requests", "JSON decoding", "timeouts"],
+        concepts: [
+          "net/http",
+          "GET/POST requests",
+          "JSON decoding",
+          "timeouts",
+        ],
       },
       {
         name: "HTTP SERVER",
         description: "hijack a guard comm relay and serve fake status reports",
-        concepts: ["http.HandleFunc", "request handlers", "middleware", "routing"],
+        concepts: [
+          "http.HandleFunc",
+          "request handlers",
+          "middleware",
+          "routing",
+        ],
       },
       {
         name: "JSON & I/O",
         description: "parse and forge security credentials in structured data",
-        concepts: ["encoding/json", "struct tags", "Marshal/Unmarshal", "file I/O"],
+        concepts: [
+          "encoding/json",
+          "struct tags",
+          "Marshal/Unmarshal",
+          "file I/O",
+        ],
       },
       {
         name: "TESTING",
-        description: "verify exploit payloads won't crash before deploying them",
-        concepts: ["testing.T", "table-driven tests", "test helpers", "benchmarks"],
+        description:
+          "verify exploit payloads won't crash before deploying them",
+        concepts: [
+          "testing.T",
+          "table-driven tests",
+          "test helpers",
+          "benchmarks",
+        ],
       },
       {
         name: "ARCHITECT",
-        description: "orchestrate a full network takeover using goroutines and HTTP",
+        description:
+          "orchestrate a full network takeover using goroutines and HTTP",
         concepts: ["concurrency + networking", "system design under pressure"],
         boss: true,
       },
@@ -167,185 +244,166 @@ const CURRICULUM: Act[] = [
       {
         name: "GENERICS",
         description: "build type-safe utilities that work across any data type",
-        concepts: ["type parameters", "constraints", "type sets", "generic functions"],
+        concepts: [
+          "type parameters",
+          "constraints",
+          "type sets",
+          "generic functions",
+        ],
       },
       {
         name: "CONTEXT",
-        description: "manage cascading timeouts across distributed facility systems",
-        concepts: ["context.Context", "cancellation", "timeouts", "context.WithValue"],
+        description:
+          "manage cascading timeouts across distributed facility systems",
+        concepts: [
+          "context.Context",
+          "cancellation",
+          "timeouts",
+          "context.WithValue",
+        ],
       },
       {
         name: "DATABASE",
-        description: "query and modify the facility's central database to erase records",
-        concepts: ["database/sql", "parameterized queries", "transactions", "migrations"],
+        description:
+          "query and modify the facility's central database to erase records",
+        concepts: [
+          "database/sql",
+          "parameterized queries",
+          "transactions",
+          "migrations",
+        ],
       },
       {
         name: "CLI TOOLS",
-        description: "build command-line tools to automate the final extraction",
-        concepts: ["os.Args", "flag package", "cobra patterns", "stdin/stdout pipes"],
+        description:
+          "build command-line tools to automate the final extraction",
+        concepts: [
+          "os.Args",
+          "flag package",
+          "cobra patterns",
+          "stdin/stdout pipes",
+        ],
       },
       {
         name: "MODULES",
-        description: "structure the full escape toolkit as a production Go project",
-        concepts: ["go.mod", "semantic versioning", "dependencies", "workspaces"],
+        description:
+          "structure the full escape toolkit as a production Go project",
+        concepts: [
+          "go.mod",
+          "semantic versioning",
+          "dependencies",
+          "workspaces",
+        ],
       },
       {
         name: "FINAL SIGNAL",
-        description: "broadcast the signal \u2014 everything you've learned in one final mission",
-        concepts: ["the full language", "production architecture", "real-world Go"],
+        description:
+          "broadcast the signal \u2014 everything you've learned in one final mission",
+        concepts: [
+          "the full language",
+          "production architecture",
+          "real-world Go",
+        ],
         boss: true,
       },
     ],
   },
 ];
 
-// ── Feature highlights ──
+const LANGUAGES = [
+  {
+    name: "Go",
+    mark: "Go",
+    detail:
+      "Start with the fundamentals, then explore structs, concurrency, and more.",
+    note: "Free introductory chapters · Full curriculum available",
+  },
+  {
+    name: "Python",
+    mark: "Py",
+    detail:
+      "Practice readable syntax, loops, and functions in a language used across disciplines.",
+    note: "Free introductory chapters",
+  },
+  {
+    name: "JavaScript",
+    mark: "JS",
+    detail:
+      "Build a foundation in the language of the web, right in your browser.",
+    note: "Free introductory chapters",
+  },
+];
 
-interface Feature {
-  label: string;
-  detail: string;
-  color: string;
+const ROSTER = [
+  {
+    name: "Diego R.",
+    initials: "DR",
+    language: "Go",
+    progress: "2 of 6",
+    status: "Needs help",
+    kind: "help",
+  },
+  {
+    name: "Amara O.",
+    initials: "AO",
+    language: "Go",
+    progress: "4 of 6",
+    status: "Learning",
+    kind: "active",
+  },
+  {
+    name: "Priya N.",
+    initials: "PN",
+    language: "Python",
+    progress: "4 of 4",
+    status: "Completed",
+    kind: "done",
+  },
+  {
+    name: "Kwame A.",
+    initials: "KA",
+    language: "JavaScript",
+    progress: "2 of 4",
+    status: "Learning",
+    kind: "active",
+  },
+];
+
+function sentenceCase(text: string) {
+  return text.charAt(0) + text.slice(1).toLowerCase();
 }
 
-const FEATURES: Feature[] = [
-  {
-    label: "RUNS FOR REAL",
-    detail: "go compiles on the official Go Playground; python and javascript run right in your browser. real errors, real output, real learning.",
-    color: "var(--color-signal)",
-  },
-  {
-    label: "AI TUTOR",
-    detail: "maya adapts to your mistakes. she doesn't solve it for you \u2014 she pushes you in the right direction.",
-    color: "var(--color-info)",
-  },
-  {
-    label: "BOSS FIGHTS",
-    detail: "multi-file debugging challenges under fire. fix corrupted code while the clock ticks down.",
-    color: "var(--color-danger)",
-  },
-  {
-    label: "ZEN SYSTEM",
-    detail: "write idiomatic code and earn bonus XP. build a personal library of best practices in your language.",
-    color: "var(--color-alert)",
-  },
-  {
-    label: "SAVES EVERYWHERE",
-    detail: "sign in with google and your progress follows you \u2014 start on a school laptop, finish on your phone.",
-    color: "var(--color-player)",
-  },
-  {
-    label: "BUILT FOR CLASSROOMS",
-    detail: "teachers create a class, share a 6-letter code, and see every student's progress \u2014 including who's stuck.",
-    color: "var(--color-win)",
-  },
-];
-
-// ── For classrooms ──
-
-const CLASSROOM_STEPS: { label: string; detail: string }[] = [
-  { label: "CREATE A CLASS", detail: "set up a teacher account and make a class for each period or group." },
-  { label: "SHARE THE CODE", detail: "students open your link \u2014 or type the 6-letter code \u2014 and sign in with google." },
-  { label: "WATCH THEM PLAY", detail: "see who's playing, which step each student is on, and who needs help right now." },
-];
-
-type PreviewStatus = "STUCK" | "ACTIVE" | "IDLE" | "FINISHED";
-
-const PREVIEW_STATUS_COLOR: Record<PreviewStatus, string> = {
-  STUCK: "var(--color-danger)",
-  ACTIVE: "var(--color-signal)",
-  IDLE: "var(--color-alert)",
-  FINISHED: "var(--color-win)",
-};
-
-/** Illustrative roster for the classroom section — not real students. */
-const PREVIEW_ROSTER: { name: string; status: PreviewStatus; done: number; of: number; lang: string; now: string }[] = [
-  { name: "diego r.", status: "STUCK", done: 2, of: 6, lang: "GO", now: "shaft codes \u00b7 step 2 \u00b7 7 tries" },
-  { name: "amara o.", status: "ACTIVE", done: 4, of: 6, lang: "GO", now: "guard roster \u00b7 step 2" },
-  { name: "priya n.", status: "FINISHED", done: 4, of: 4, lang: "PY", now: "beat the lockmaster" },
-  { name: "kwame a.", status: "ACTIVE", done: 2, of: 4, lang: "JS", now: "shaft codes \u00b7 step 1" },
-  { name: "sam w.", status: "IDLE", done: 1, of: 6, lang: "GO", now: "last seen 9 days ago" },
-];
-
-// ── The three routes through Act I ──
-
-interface LanguageRoute {
-  id: string;
-  label: string;
-  accent: string;
-  accentRgb: string;
-  blurb: string;
+function subscribeToMotionPreference(onChange: () => void) {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
 }
 
-const LANGUAGES: LanguageRoute[] = [
-  { id: "go", label: "GO", accent: "#6effa0", accentRgb: "110,255,160", blurb: "compiled, strict, fast. the original route — and the whole game." },
-  { id: "python", label: "PYTHON", accent: "#4ea6ff", accentRgb: "78,166,255", blurb: "readable and everywhere. no braces, just indentation." },
-  { id: "javascript", label: "JAVASCRIPT", accent: "#f7df1e", accentRgb: "247,223,30", blurb: "the language of the web. runs right in your browser." },
-];
-
-// ── What you'll learn checkpoints ──
-
-interface Checkpoint {
-  act: string;
-  label: string;
-  detail: string;
+function getReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-
-const CHECKPOINTS: Checkpoint[] = [
-  { act: "I", label: "Write your first Go program", detail: "variables, loops, functions, slices" },
-  { act: "II", label: "Build with structs and interfaces", detail: "maps, pointers, error handling" },
-  { act: "III", label: "Go concurrent and networked", detail: "goroutines, channels, HTTP, JSON, testing" },
-  { act: "IV", label: "Ship production Go", detail: "generics, context, databases, CLI tools, modules" },
-];
-
-// ── Typing effect for the tagline ──
-
-function useTypingEffect(text: string, speed = 40, delay = 800) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    let i = 0;
-    let timeout: NodeJS.Timeout;
-
-    const startTyping = () => {
-      timeout = setInterval(() => {
-        i++;
-        setDisplayed(text.slice(0, i));
-        if (i >= text.length) {
-          clearInterval(timeout);
-          setDone(true);
-        }
-      }, speed);
-    };
-
-    const delayTimeout = setTimeout(startTyping, delay);
-    return () => {
-      clearTimeout(delayTimeout);
-      clearInterval(timeout);
-    };
-  }, [text, speed, delay]);
-
-  return { displayed, done };
-}
-
-// ══════════════════════════════════════════════════════════════
-// Component
-// ══════════════════════════════════════════════════════════════
 
 export function Paywall({ playerXP, playerLevel }: PaywallProps) {
-  const [hovered, setHovered] = useState<string | null>(null);
-  const [showCurriculum, setShowCurriculum] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<"single" | "team">("single");
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState<boolean | null>(null);
+  const reducedMotion = useSyncExternalStore(
+    subscribeToMotionPreference,
+    getReducedMotion,
+    () => true
+  );
+  const playing = previewPlaying ?? !reducedMotion;
   const [showConsent, setShowConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
-
+  const consentRef = useRef<HTMLDialogElement>(null);
   const activePrice = selectedPlan === "single" ? PRICE_SINGLE : PRICE_TEAM;
 
-  const tagline = useTypingEffect("learn to code by escaping.", 50, 600);
+  useEffect(() => {
+    if (showConsent) consentRef.current?.showModal();
+    else consentRef.current?.close();
+  }, [showConsent]);
 
-  const handleGoogleClick = useCallback(() => {
+  const handlePurchaseClick = useCallback(() => {
     trackPurchaseCtaClick(selectedPlan, activePrice);
     setConsentChecked(false);
     setShowConsent(true);
@@ -356,7 +414,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
     trackConsentAccepted(selectedPlan, activePrice);
     trackPurchaseStart(selectedPlan, activePrice);
     setShowConsent(false);
-    // TODO: trigger Google OAuth + Stripe checkout
+    // TODO: trigger Google OAuth + Stripe checkout (existing purchase integration).
   }, [selectedPlan, activePrice]);
 
   const handleConsentDismiss = useCallback(() => {
@@ -364,1081 +422,608 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
     setShowConsent(false);
   }, [selectedPlan, activePrice]);
 
-  // ── Curriculum page ──
-  if (showCurriculum) {
-    return (
-      <div
-        className="fixed inset-0 z-[950] overflow-y-auto"
-        style={{ background: "rgba(2,4,6,.98)" }}
-      >
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
-          }}
-        />
-
-        <div className="relative max-w-[640px] mx-auto px-4 py-10">
-          <button
-            onClick={() => setShowCurriculum(false)}
-            className="bg-transparent cursor-pointer text-[12px] tracking-[2px] mb-8 transition-colors"
-            style={{
-              color: hovered === "back" ? "var(--color-signal)" : "var(--color-foreground)",
-              opacity: hovered === "back" ? 1 : 0.5,
-              border: "none",
-            }}
-            onMouseEnter={() => setHovered("back")}
-            onMouseLeave={() => setHovered(null)}
-          >
-            &#9666; BACK
-          </button>
-
-          <div className="text-center mb-10">
-            <div
-              className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-3"
-              style={{ fontSize: "24px", color: "var(--color-signal)" }}
-            >
-              FULL CURRICULUM
-            </div>
-            <div
-              className="text-[14px] mb-2"
-              style={{ color: "var(--color-foreground)", opacity: 0.85 }}
-            >
-              4 acts &middot; 22 chapters &middot; 4 boss fights
-            </div>
-            <div
-              className="text-[13px]"
-              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-            >
-              from &quot;hello world&quot; to production Go
-            </div>
-          </div>
-
-          {CURRICULUM.map((act) => {
-            const diff = DIFFICULTY_STYLES[act.difficulty];
-            return (
-              <div key={act.act} className="mb-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className="font-[family-name:var(--font-display)] text-[14px] tracking-[3px] font-bold"
-                    style={{
-                      color: act.status === "complete" ? "var(--color-signal)" : "var(--color-foreground)",
-                      opacity: act.status === "complete" ? 1 : 0.9,
-                    }}
-                  >
-                    ACT {act.act} &mdash; {act.title}
-                  </div>
-                  <span
-                    className="text-[10px] tracking-[1px] px-2 py-0.5 font-[family-name:var(--font-display)]"
-                    style={{ background: diff.bg, color: diff.color }}
-                  >
-                    {diff.label}
-                  </span>
-                  {act.status === "complete" && (
-                    <span
-                      className="text-[10px] tracking-[1px] px-2 py-0.5"
-                      style={{ background: "rgba(var(--signal-rgb),.15)", color: "var(--color-signal)" }}
-                    >
-                      FREE
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  {act.chapters.map((ch) => (
-                    <div
-                      key={ch.name}
-                      className="px-4 py-3"
-                      style={{
-                        border: "1px solid",
-                        borderColor: act.status === "complete"
-                          ? "rgba(var(--signal-rgb),.12)"
-                          : "rgba(255,255,255,.05)",
-                        background: act.status === "complete"
-                          ? "rgba(var(--signal-rgb),.03)"
-                          : "rgba(4,8,16,.4)",
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        {ch.boss ? (
-                          <span
-                            className="text-[10px] tracking-[1px] px-1.5 py-0.5 font-[family-name:var(--font-display)] font-bold"
-                            style={{ background: "rgba(255,64,64,.15)", color: "#ff6e6e" }}
-                          >
-                            BOSS
-                          </span>
-                        ) : act.status === "complete" ? (
-                          <span className="text-[12px]" style={{ color: "var(--color-signal)" }}>
-                            &#10003;
-                          </span>
-                        ) : (
-                          <span className="text-[12px]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
-                            &#9656;
-                          </span>
-                        )}
-                        <span
-                          className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold"
-                          style={{
-                            color: ch.boss
-                              ? (act.status === "complete" ? "var(--color-signal)" : "#ff6e6e")
-                              : "var(--color-foreground)",
-                          }}
-                        >
-                          {ch.name}
-                        </span>
-                      </div>
-                      <div
-                        className="text-[12px] leading-[1.6] mb-2 pl-5"
-                        style={{
-                          color: "var(--color-foreground)",
-                          opacity: act.status === "complete" ? 0.7 : 0.6,
-                        }}
-                      >
-                        {ch.description}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pl-5">
-                        {ch.concepts.map((c) => (
-                          <span
-                            key={c}
-                            className="text-[11px] tracking-[0.5px] px-1.5 py-0.5"
-                            style={{
-                              color: act.status === "complete" ? "var(--color-signal)" : "var(--color-foreground)",
-                              opacity: act.status === "complete" ? 0.7 : 0.55,
-                              background: act.status === "complete"
-                                ? "rgba(var(--signal-rgb),.06)"
-                                : "rgba(255,255,255,.03)",
-                            }}
-                          >
-                            {c}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="text-center mt-4 mb-10">
-            <button
-              onClick={() => setShowCurriculum(false)}
-              className="bg-transparent py-3 px-8 cursor-pointer font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-all"
-              style={{
-                border: "2px solid var(--color-signal)",
-                color: hovered === "back-cta" ? "var(--color-background)" : "var(--color-signal)",
-                background: hovered === "back-cta" ? "var(--color-signal)" : "transparent",
-              }}
-              onMouseEnter={() => setHovered("back-cta")}
-              onMouseLeave={() => setHovered(null)}
-            >
-              UNLOCK ALL CHAPTERS
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Main landing page ──
   return (
-    <div
-      className="fixed inset-0 z-[950] overflow-y-auto"
-      style={{ background: "rgba(2,4,6,.98)" }}
-    >
-      {/* Scan lines */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
-        }}
-      />
-
-      <div className="relative">
-        {/* ═══════════ HERO ═══════════ */}
-        <section className="min-h-dvh flex flex-col items-center justify-center px-4 sm:px-6 pt-10 pb-16 relative">
-          {/* Title */}
-          <div
-            className="font-[family-name:var(--font-display)] font-black tracking-[8px] mb-3"
-            style={{
-              fontSize: "clamp(36px, 8vw, 64px)",
-              color: "var(--color-signal)",
-              textShadow: "0 0 60px rgba(var(--signal-rgb),.25), 0 0 120px rgba(var(--signal-rgb),.1)",
-              animation: "cinematic-fade-in 1s ease forwards",
-            }}
-          >
-            SIGNAL
-          </div>
-
-          {/* Typing tagline */}
-          <div className="h-[24px] mb-5">
-            <span
-              className="text-[16px] sm:text-[16px] tracking-[1px]"
-              style={{ color: "var(--color-dim)" }}
+    <div className={styles.page}>
+      <a className={styles.skipLink} href="#main">
+        Skip to content
+      </a>
+      <header className={styles.header}>
+        <div className={`${styles.container} ${styles.nav}`}>
+          <Link href="/" className={styles.wordmark} aria-label="Signal home">
+            <span aria-hidden="true">▥</span> SIGNAL
+          </Link>
+          <nav aria-label="Main navigation" className={styles.navLinks}>
+            <a className={styles.desktopLink} href="#how-it-works">
+              How it works
+            </a>
+            <a className={styles.desktopLink} href="#classrooms">
+              For teachers
+            </a>
+            <a className={styles.desktopLink} href="#pricing">
+              Pricing
+            </a>
+            <Link href="/join">Join a class</Link>
+            <Link
+              href="/play"
+              className={`${styles.button} ${styles.smallButton}`}
             >
-              {tagline.displayed}
-              {!tagline.done && (
-                <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>_</span>
-              )}
-            </span>
-          </div>
+              Start free <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </nav>
+        </div>
+      </header>
 
-          {/* Cross-language: one story, three routes */}
-          <div className="flex flex-col items-center gap-2.5 mb-7">
-            <div className="text-[10px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
-              ONE ESCAPE &middot; THREE LANGUAGES
+      <main id="main">
+        <section className={styles.hero} aria-labelledby="hero-heading">
+          <div className={styles.heroInner}>
+            <h1 id="hero-heading">SIGNAL</h1>
+            <p className={styles.heroTagline}>
+              learn to code by escaping.
+              <span className={styles.heroCursor} aria-hidden="true">
+                _
+              </span>
+            </p>
+            <div className={styles.heroLanguages}>
+              <p>ONE ESCAPE · THREE LANGUAGES</p>
+              <div>
+                <span>GO</span>
+                <span aria-hidden="true">/</span>
+                <span>PYTHON</span>
+                <span aria-hidden="true">/</span>
+                <span>JAVASCRIPT</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2.5 sm:gap-4">
-              {LANGUAGES.map((l, idx) => (
-                <div key={l.id} className="flex items-center gap-2.5 sm:gap-4">
-                  {idx > 0 && <span style={{ color: "var(--color-border)" }}>/</span>}
-                  <span
-                    className="font-[family-name:var(--font-display)] text-[13px] sm:text-[16px] tracking-[2px] font-bold"
-                    style={{ color: l.accent, textShadow: `0 0 16px rgba(${l.accentRgb},.4)` }}
+            <div className={styles.heroActions}>
+              <Link href="/play" className={styles.heroPrimary}>
+                PLAY FREE <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link href="/teach" className={styles.heroSecondary}>
+                <GraduationCap size={20} aria-hidden="true" /> TEACHER? SET UP A
+                CLASS
+              </Link>
+            </div>
+            <p className={styles.heroReassurance}>
+              act I free · google sign-in · no credit card
+            </p>
+            <div className={styles.heroVisual}>
+              <div
+                className={styles.preview}
+                aria-label="SIGNAL gameplay preview"
+              >
+                {playing ? (
+                  <PromoLoop soundEnabled={soundEnabled} />
+                ) : (
+                  <div className={styles.previewPaused}>
+                    <p>THE ESCAPE IS WAITING.</p>
+                    <button onClick={() => setPreviewPlaying(true)}>
+                      <Play size={18} aria-hidden="true" /> PLAY PREVIEW
+                    </button>
+                  </div>
+                )}
+              </div>
+              {playing && (
+                <div className={styles.previewControls}>
+                  <button
+                    onClick={() => {
+                      setPreviewPlaying(false);
+                      setSoundEnabled(false);
+                    }}
+                    aria-label="Stop preview"
                   >
-                    {l.label}
-                  </span>
+                    <Pause size={15} aria-hidden="true" /> PAUSE
+                  </button>
+                  <button
+                    onClick={() => setSoundEnabled((value) => !value)}
+                    aria-label={
+                      soundEnabled ? "Mute preview" : "Unmute preview"
+                    }
+                    aria-pressed={soundEnabled}
+                  >
+                    {soundEnabled ? (
+                      <Volume2 size={15} aria-hidden="true" />
+                    ) : (
+                      <VolumeX size={15} aria-hidden="true" />
+                    )}
+                    {soundEnabled ? "SOUND ON" : "SOUND OFF"}
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-
-          {/* Promo video */}
-          <div className="w-full max-w-[720px] mb-8 relative" style={{ aspectRatio: "16 / 9" }}>
-            <PromoLoop soundEnabled={soundEnabled} />
-            <button
-              onClick={() => setSoundEnabled((s) => !s)}
-              className="absolute bottom-3 right-3 bg-transparent cursor-pointer text-[11px] tracking-[1px] px-2 py-1 transition-colors"
-              style={{
-                color: soundEnabled ? "var(--color-signal)" : "var(--color-foreground)",
-                opacity: soundEnabled ? 1 : 0.5,
-                border: "1px solid",
-                borderColor: soundEnabled ? "rgba(var(--signal-rgb),.3)" : "rgba(255,255,255,.1)",
-                background: soundEnabled ? "rgba(var(--signal-rgb),.08)" : "rgba(0,0,0,.6)",
-              }}
-            >
-              {soundEnabled ? "\u266A ON" : "\u266A OFF"}
-            </button>
-          </div>
-
-          {/* Primary CTA */}
-          <a
-            href="/play"
-            className="py-3.5 px-10 font-[family-name:var(--font-display)] text-[15px] tracking-[3px] transition-all"
-            style={{
-              border: "2px solid var(--color-signal)",
-              color: hovered === "hero-play" ? "var(--color-background)" : "var(--color-signal)",
-              background: hovered === "hero-play" ? "var(--color-signal)" : "transparent",
-              textDecoration: "none",
-              textShadow: hovered === "hero-play" ? "none" : "0 0 12px rgba(var(--signal-rgb),.3)",
-            }}
-            onMouseEnter={() => setHovered("hero-play")}
-            onMouseLeave={() => setHovered(null)}
-          >
-            PLAY FREE
-          </a>
-          <div
-            className="text-[11px] tracking-[1px] mt-3"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            act I free &middot; sign in with google to save your progress
-          </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-x-4 gap-y-2.5 mt-5 text-[11px] tracking-[1.5px]">
-            <Link
-              href="/teach"
-              className="transition-colors"
-              style={{
-                color: hovered === "hero-teach" ? "var(--color-signal)" : "var(--color-foreground)",
-                opacity: hovered === "hero-teach" ? 1 : 0.7,
-                textDecoration: "none",
-              }}
-              onMouseEnter={() => setHovered("hero-teach")}
-              onMouseLeave={() => setHovered(null)}
-            >
-              TEACHER? SET UP A CLASS &#9656;
-            </Link>
-            <span className="hidden sm:inline" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
-            <Link
-              href="/join"
-              className="transition-colors"
-              style={{
-                color: hovered === "hero-join" ? "var(--color-signal)" : "var(--color-foreground)",
-                opacity: hovered === "hero-join" ? 1 : 0.7,
-                textDecoration: "none",
-              }}
-              onMouseEnter={() => setHovered("hero-join")}
-              onMouseLeave={() => setHovered(null)}
-            >
-              HAVE A CLASS CODE? &#9656;
-            </Link>
-          </div>
-
-          {/* Scroll indicator */}
-          <div
-            className="absolute bottom-4 text-[12px] tracking-[2px]"
-            style={{ color: "var(--color-dim)", animation: "glow-pulse 3s ease-in-out infinite" }}
-          >
-            &#9660;
+            <div className={styles.heroLinks}>
+              <a href="#classrooms">
+                EXPLORE CLASSROOM TOOLS <span aria-hidden="true">▸</span>
+              </a>
+              <Link href="/join">
+                HAVE A CLASS CODE? <span aria-hidden="true">▸</span>
+              </Link>
+            </div>
           </div>
         </section>
 
-        {/* ═══════════ THE PITCH ═══════════ */}
-        <section className="max-w-[640px] mx-auto px-4 sm:px-6 py-16 sm:py-24">
-          <div
-            className="text-[15px] sm:text-[16px] leading-[2] mb-12"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            maya chen is a cryptography researcher trapped in a locked-down facility.
-            the only way out is through the terminal. you write real code &mdash; in go,
-            python, or javascript &mdash; to open doors, decode schedules, hijack comm
-            relays, and fight your way past security systems. every chapter teaches real
-            concepts, and every line you write actually runs. by the end, you can code.
+        <section
+          id="how-it-works"
+          className={`${styles.section} ${styles.container}`}
+          aria-labelledby="how-heading"
+        >
+          <div className={styles.sectionHeading}>
+            <p className={styles.eyebrow}>Learn by doing</p>
+            <h2 id="how-heading">Less watching. More writing code.</h2>
+            <p>
+              Build understanding through practice, with a clear next step and
+              support along the way.
+            </p>
           </div>
-
-          {/* Pick your language */}
-          <div className="mb-16">
-            <div
-              className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold mb-2"
-              style={{ color: "var(--color-signal)" }}
-            >
-              PICK YOUR LANGUAGE
-            </div>
-            <div
-              className="text-[13px] leading-[1.8] mb-6"
-              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-            >
-              act I is the same escape in three languages. learn the one your job, your
-              course, or your curiosity calls for &mdash; the story, the puzzles, and the
-              stakes stay the same. progress is kept per language, so you can run it again
-              in another.
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {LANGUAGES.map((l) => (
-                <div
-                  key={l.id}
-                  className="px-4 py-4"
-                  style={{ border: `1px solid rgba(${l.accentRgb},.25)`, background: `rgba(${l.accentRgb},.04)` }}
-                >
-                  <div
-                    className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold mb-2"
-                    style={{ color: l.accent, textShadow: `0 0 14px rgba(${l.accentRgb},.3)` }}
-                  >
-                    {l.label}
-                  </div>
-                  <div
-                    className="text-[12px] leading-[1.7]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                  >
-                    {l.blurb}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Feature grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-16">
-            {FEATURES.map((f) => (
-              <div
-                key={f.label}
-                className="px-4 py-4"
-                style={{
-                  border: "1px solid rgba(255,255,255,.04)",
-                  background: "rgba(4,8,16,.6)",
-                }}
-              >
-                <div
-                  className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold mb-2"
-                  style={{ color: f.color }}
-                >
-                  {f.label}
-                </div>
-                <div
-                  className="text-[13px] leading-[1.8]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  {f.detail}
-                </div>
-              </div>
+          <div className={styles.threeColumns}>
+            {[
+              {
+                icon: Code2,
+                title: "Write code that actually runs",
+                text: "Work with real syntax and see real output. Every challenge gives you a reason to put a new concept into practice.",
+              },
+              {
+                icon: MessageCircle,
+                title: "Get help when you’re stuck",
+                text: "Use step-by-step hints and a built-in tutor to understand mistakes and work toward a solution.",
+              },
+              {
+                icon: Check,
+                title: "Build skills at your pace",
+                text: "Start with the basics, practice as you go, and sign in with Google to save your progress across devices.",
+              },
+            ].map(({ icon: Icon, title, text }) => (
+              <article className={styles.feature} key={title}>
+                <span className={styles.featureIcon}>
+                  <Icon size={22} aria-hidden="true" />
+                </span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
             ))}
           </div>
-
-          {/* What you'll learn */}
-          <div className="mb-16">
-            <div
-              className="font-[family-name:var(--font-display)] text-[12px] tracking-[3px] font-bold mb-6"
-              style={{ color: "var(--color-signal)" }}
-            >
-              WHAT YOU&apos;LL LEARN
-            </div>
-            <div className="flex flex-col gap-4">
-              {CHECKPOINTS.map((cp) => (
-                <div key={cp.act} className="flex gap-4">
-                  <div className="shrink-0 w-[28px]">
-                    <div
-                      className="font-[family-name:var(--font-display)] text-[13px] font-bold text-center"
-                      style={{ color: "var(--color-dim)" }}
-                    >
-                      {cp.act}
-                    </div>
-                  </div>
-                  <div>
-                    <div
-                      className="text-[14px] mb-0.5"
-                      style={{ color: "var(--color-foreground)" }}
-                    >
-                      {cp.label}
-                    </div>
-                    <div
-                      className="text-[12px]"
-                      style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                    >
-                      {cp.detail}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Social proof placeholder */}
-          <div
-            className="px-5 py-5 mb-16"
-            style={{
-              borderLeft: "2px solid var(--color-signal)",
-              background: "rgba(var(--signal-rgb),.02)",
-            }}
-          >
-            <div
-              className="text-[14px] leading-[1.9] mb-3"
-              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-            >
-              &quot;i tried three Go tutorials before this. SIGNAL is the first one where I
-              actually looked forward to the next lesson.&quot;
-            </div>
-            <div
-              className="text-[12px]"
-              style={{ color: "var(--color-dim)" }}
-            >
-              &mdash; early access player
-            </div>
-          </div>
         </section>
 
-        {/* ═══════════ FOR CLASSROOMS ═══════════ */}
         <section
           id="classrooms"
-          className="py-16 sm:py-24"
-          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
+          className={styles.teacherSection}
+          aria-labelledby="teacher-heading"
         >
-          <div className="max-w-[640px] mx-auto px-4 sm:px-6">
-            <div
-              className="text-[10px] tracking-[3px] mb-2"
-              style={{ color: "var(--color-dim)" }}
-            >
-              FOR TEACHERS
-            </div>
-            <div
-              className="font-[family-name:var(--font-display)] font-black tracking-[3px] mb-3"
-              style={{ fontSize: "clamp(18px, 4.5vw, 22px)", color: "var(--color-signal)" }}
-            >
-              BRING SIGNAL TO YOUR CLASS
-            </div>
-            <div
-              className="text-[13px] leading-[1.9] mb-8"
-              style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-            >
-              your students play the escape. you get a dashboard that shows where every one of
-              them is in it &mdash; chapters cleared, the exact step they&apos;re on, and who&apos;s
-              been failing the same step over and over so you know who to walk over to.
-            </div>
-
-            {/* Steps */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
-              {CLASSROOM_STEPS.map((step, i) => (
-                <div
-                  key={step.label}
-                  className="px-4 py-4"
-                  style={{ border: "1px solid rgba(255,255,255,.04)", background: "rgba(4,8,16,.6)" }}
-                >
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span
-                      className="font-[family-name:var(--font-display)] text-[14px] font-bold"
-                      style={{ color: "var(--color-dim)" }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span
-                      className="font-[family-name:var(--font-display)] text-[11px] tracking-[2px] font-bold"
-                      style={{ color: "var(--color-signal)" }}
-                    >
-                      {step.label}
-                    </span>
+          <div className={`${styles.container} ${styles.teacherGrid}`}>
+            <div>
+              <p className={styles.eyebrow}>For teachers</p>
+              <h2 id="teacher-heading">
+                More time teaching.
+                <br />
+                Less time guessing.
+              </h2>
+              <p className={styles.sectionDescription}>
+                Give students a reason to keep practicing. See how everyone is
+                progressing, and know who needs your help.
+              </p>
+              <ol className={styles.teacherSteps}>
+                <li>
+                  <span>1</span>
+                  <div>
+                    <h3>Create your class</h3>
+                    <p>Set up a class for each group or period.</p>
                   </div>
-                  <div
-                    className="text-[12px] leading-[1.7]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                  >
-                    {step.detail}
+                </li>
+                <li>
+                  <span>2</span>
+                  <div>
+                    <h3>Share a simple join code</h3>
+                    <p>Students join and choose Go, Python, or JavaScript.</p>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Roster preview */}
-            <div
-              className="mb-3"
-              style={{ border: "1px solid rgba(var(--signal-rgb),.15)", background: "rgba(var(--signal-rgb),.02)" }}
-              role="img"
-              aria-label="Example class roster: one student stuck on a step, two active, one finished, one idle."
-            >
-              <div
-                className="flex items-center justify-between gap-3 px-4 py-2.5"
-                style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.1)" }}
-              >
-                <span className="text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
-                  PERIOD 3 &middot; INTRO TO CS
-                </span>
-                <span className="text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
-                  CODE{" "}
-                  <span className="font-bold tracking-[3px]" style={{ color: "var(--color-signal)" }}>K7QM4P</span>
-                </span>
-              </div>
-              <div aria-hidden>
-                {PREVIEW_ROSTER.map((row) => (
-                  <div
-                    key={row.name}
-                    className="grid grid-cols-[72px_78px_1fr] sm:grid-cols-[90px_86px_120px_1fr] items-center gap-3 px-4 py-2.5"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,.03)" }}
-                  >
-                    <span className="text-[12px] truncate" style={{ color: "var(--color-foreground)" }}>{row.name}</span>
-                    <span
-                      className="text-[9px] tracking-[1.5px] px-1.5 py-0.5 justify-self-start"
-                      style={{
-                        color: PREVIEW_STATUS_COLOR[row.status],
-                        border: `1px solid color-mix(in srgb, ${PREVIEW_STATUS_COLOR[row.status]} 50%, transparent)`,
-                      }}
-                    >
-                      {row.status}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="h-1.5 flex-1" style={{ background: "rgba(var(--signal-rgb),.1)" }}>
-                        <span
-                          className="block h-full"
-                          style={{ width: `${(row.done / row.of) * 100}%`, background: "var(--color-signal)" }}
-                        />
-                      </span>
-                      <span className="text-[10px] tabular-nums" style={{ color: "var(--color-foreground)", opacity: 0.7 }}>
-                        {row.done}/{row.of}
-                      </span>
-                      <span className="text-[9px] tracking-[1px] hidden sm:inline" style={{ color: "var(--color-dim)" }}>
-                        {row.lang}
-                      </span>
-                    </span>
-                    <span
-                      className="hidden sm:block text-[11px] truncate"
-                      style={{ color: row.status === "STUCK" ? "var(--color-danger)" : "var(--color-foreground)", opacity: row.status === "STUCK" ? 1 : 0.7 }}
-                    >
-                      {row.now}
-                    </span>
+                </li>
+                <li>
+                  <span>3</span>
+                  <div>
+                    <h3>See where to step in</h3>
+                    <p>
+                      Follow progress, repeated attempts, and completed
+                      chapters.
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="text-[11px] mb-8" style={{ color: "var(--color-dim)" }}>
-              example roster &middot; updates live while your class plays &middot; export to csv any time
-            </div>
-
-            {/* What's included for teachers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 mb-8">
-              {[
-                "a separate teacher account for your school",
-                "unlimited classes, each with its own join code",
-                "per-student timeline: tries, hints, chapters cleared",
-                "students learn in go, python, or javascript",
-                "close joining or reset a code any time",
-                "students' code and chats with maya stay private",
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2">
-                  <span className="text-[11px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
-                  <span className="text-[12px] leading-[1.6]" style={{ color: "var(--color-foreground)", opacity: 0.85 }}>
-                    {item}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/teach"
-                className="flex-1 text-center py-3 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
-                style={{
-                  border: "2px solid var(--color-signal)",
-                  color: hovered === "class-teach" ? "var(--color-background)" : "var(--color-signal)",
-                  background: hovered === "class-teach" ? "var(--color-signal)" : "transparent",
-                  textDecoration: "none",
-                }}
-                onMouseEnter={() => setHovered("class-teach")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                OPEN TEACHER CONSOLE
+                </li>
+              </ol>
+              <Link href="/teach" className={styles.button}>
+                Set up your class <ArrowRight size={18} aria-hidden="true" />
               </Link>
-              <Link
-                href="/join"
-                className="flex-1 text-center py-3 font-[family-name:var(--font-display)] text-[13px] tracking-[3px] transition-all"
-                style={{
-                  border: "1px solid rgba(var(--signal-rgb),.3)",
-                  color: "var(--color-signal)",
-                  background: hovered === "class-join" ? "rgba(var(--signal-rgb),.08)" : "transparent",
-                  textDecoration: "none",
-                }}
-                onMouseEnter={() => setHovered("class-join")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                I HAVE A CLASS CODE
-              </Link>
+              <p className={styles.teacherFootnote}>
+                Already have a class code?{" "}
+                <Link href="/join">Join your class</Link>
+              </p>
+            </div>
+            <div className={styles.dashboardPreview}>
+              <div className={styles.dashboardHeader}>
+                <span className={styles.featureIcon}>
+                  <GraduationCap size={22} aria-hidden="true" />
+                </span>
+                <div>
+                  <h3>Intro to Computer Science</h3>
+                  <p>Period 3 · Class overview</p>
+                </div>
+                <span className={styles.exampleBadge}>Example</span>
+              </div>
+              <div className={styles.dashboardStats}>
+                <div>
+                  <strong>4</strong>
+                  <span>Students</span>
+                </div>
+                <div>
+                  <strong>2</strong>
+                  <span>Learning</span>
+                </div>
+                <div>
+                  <strong>1</strong>
+                  <span>Needs help</span>
+                </div>
+              </div>
+              <table className={styles.roster}>
+                <caption className={styles.visuallyHidden}>
+                  Illustrative class progress, not real student data
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Student</th>
+                    <th scope="col">Chapters</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ROSTER.map((row) => (
+                    <tr key={row.name}>
+                      <td>
+                        <div className={styles.student}>
+                          <span className={styles.avatar} aria-hidden="true">
+                            {row.initials}
+                          </span>
+                          <div>
+                            <strong>{row.name}</strong>
+                            <span>{row.language}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{row.progress}</td>
+                      <td>
+                        <span className={styles.status} data-status={row.kind}>
+                          {row.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className={styles.teacherInsight}>
+                <MessageCircle size={18} aria-hidden="true" />
+                <p>
+                  <strong>A little help can go a long way.</strong>
+                  <br />
+                  Diego has tried the same step 7 times.
+                </p>
+              </div>
+              <p className={styles.dashboardNote}>
+                Illustrative dashboard · Students’ code and chats stay private.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* ═══════════ PRICING ═══════════ */}
         <section
-          className="py-16 sm:py-24"
-          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
+          id="curriculum"
+          className={`${styles.section} ${styles.container}`}
+          aria-labelledby="curriculum-heading"
         >
-          <div className="max-w-[540px] mx-auto px-4 sm:px-6">
-            <div className="text-center mb-3">
-              <div
-                className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-2"
-                style={{ fontSize: "20px", color: "var(--color-signal)" }}
-              >
-                UNLOCK THE FULL GAME
-              </div>
-              <div
-                className="text-[13px] leading-[1.8]"
-                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-              >
-                act I is free in go, python, or javascript. unlock acts II&ndash;IV to go
-                all the way &mdash; the full Go curriculum.
-              </div>
-            </div>
-
-            {/* Free tier callout */}
-            <div
-              className="px-4 py-3 mb-5 flex items-center justify-between"
-              style={{
-                border: "1px solid rgba(var(--signal-rgb),.15)",
-                background: "rgba(var(--signal-rgb),.03)",
-              }}
-            >
-              <div>
-                <div
-                  className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold mb-0.5"
-                  style={{ color: "var(--color-signal)" }}
-                >
-                  ACT I &mdash; FREE
-                </div>
-                <div
-                  className="text-[11px]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  4 chapters + 1 boss fight &middot; sign in with google
-                </div>
-              </div>
-              <a
-                href="/play"
-                className="text-[11px] tracking-[1px] px-3 py-1.5 font-[family-name:var(--font-display)] transition-colors"
-                style={{
-                  border: "1px solid rgba(var(--signal-rgb),.3)",
-                  color: "var(--color-signal)",
-                  textDecoration: "none",
-                  background: hovered === "free-cta" ? "rgba(var(--signal-rgb),.08)" : "transparent",
-                }}
-                onMouseEnter={() => setHovered("free-cta")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                PLAY
-              </a>
-            </div>
-
-            {/* Pricing cards */}
-            <div className="flex gap-2 mb-5">
-              {/* Individual */}
-              <button
-                onClick={() => setSelectedPlan("single")}
-                className="flex-1 bg-transparent p-3 text-left cursor-pointer transition-all"
-                style={{
-                  border: selectedPlan === "single"
-                    ? "2px solid var(--color-signal)"
-                    : "1px solid rgba(var(--signal-rgb),.1)",
-                  background: selectedPlan === "single"
-                    ? "rgba(var(--signal-rgb),.04)"
-                    : "rgba(4,8,16,.4)",
-                }}
-              >
-                <div
-                  className="text-[10px] tracking-[2px] mb-2"
-                  style={{ color: "var(--color-foreground)", opacity: 0.85 }}
-                >
-                  INDIVIDUAL
-                </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span
-                    className="font-[family-name:var(--font-display)] font-black text-[24px]"
-                    style={{ color: selectedPlan === "single" ? "var(--color-signal)" : "var(--color-foreground)" }}
-                  >
-                    ${PRICE_SINGLE}
-                  </span>
-                </div>
-                <div
-                  className="text-[11px] leading-[1.6]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  one-time &middot; lifetime access
-                </div>
-              </button>
-
-              {/* Team */}
-              <button
-                onClick={() => setSelectedPlan("team")}
-                className="flex-1 bg-transparent p-3 text-left cursor-pointer transition-all relative"
-                style={{
-                  border: selectedPlan === "team"
-                    ? "2px solid var(--color-signal)"
-                    : "1px solid rgba(var(--signal-rgb),.1)",
-                  background: selectedPlan === "team"
-                    ? "rgba(var(--signal-rgb),.04)"
-                    : "rgba(4,8,16,.4)",
-                }}
-              >
-                <div
-                  className="absolute top-0 right-0 px-1.5 py-0.5 text-[10px] tracking-[1px] font-[family-name:var(--font-display)] font-bold"
-                  style={{ background: "var(--color-signal)", color: "var(--color-background)" }}
-                >
-                  SAVE {Math.round((1 - (parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)) / parseFloat(PRICE_SINGLE)) * 100)}%
-                </div>
-                <div
-                  className="text-[10px] tracking-[2px] mb-2 pr-16 sm:pr-0"
-                  style={{ color: "var(--color-foreground)", opacity: 0.85 }}
-                >
-                  TEAM &middot; {TEAM_SEATS} SEATS
-                </div>
-                <div
-                  className="text-[10px] mb-1.5"
-                  style={{ color: "var(--color-foreground)", opacity: 0.6 }}
-                >
-                  classes, bootcamps, teams
-                </div>
-                <div className="flex items-baseline gap-1 mb-0.5">
-                  <span
-                    className="font-[family-name:var(--font-display)] font-black text-[24px]"
-                    style={{ color: selectedPlan === "team" ? "var(--color-signal)" : "var(--color-foreground)" }}
-                  >
-                    ${PRICE_TEAM}
-                  </span>
-                </div>
-                <div
-                  className="text-[11px] mb-0.5"
-                  style={{ color: "var(--color-signal)", opacity: 0.85 }}
-                >
-                  ${(parseFloat(PRICE_TEAM) / parseInt(TEAM_SEATS)).toFixed(2)}/seat
-                </div>
-              </button>
-            </div>
-
-            {/* What's included */}
-            <div
-              className="px-4 py-3 mb-5"
-              style={{
-                background: "rgba(4,8,16,.6)",
-                border: "1px solid rgba(255,255,255,.04)",
-              }}
-            >
-              <div
-                className="text-[11px] tracking-[2px] mb-2"
-                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-              >
-                INCLUDES
-              </div>
-              {[
-                "22 chapters + 4 boss fights across 4 acts",
-                "full Go curriculum: basics through production",
-                "real compiler \u2014 code runs on Go Playground",
-                "AI tutor adapts to your mistakes",
-                "zen library of idiomatic Go patterns",
-                "lifetime access \u2014 no subscription",
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2 mb-1.5">
-                  <span className="text-[11px] shrink-0 mt-px" style={{ color: "var(--color-signal)" }}>&#10003;</span>
-                  <span
-                    className="text-[12px] leading-[1.6]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.85 }}
-                  >
-                    {item}
-                  </span>
-                </div>
+          <div className={styles.sectionHeading}>
+            <p className={styles.eyebrow}>What you’ll learn</p>
+            <h2 id="curriculum-heading">
+              Your first line is just the beginning.
+            </h2>
+            <p>
+              Choose a language and practice the fundamentals: variables, loops,
+              functions, and debugging.
+            </p>
+          </div>
+          <div className={styles.threeColumns}>
+            {LANGUAGES.map((language) => (
+              <article className={styles.languageCard} key={language.name}>
+                <span className={styles.languageMark} aria-hidden="true">
+                  {language.mark}
+                </span>
+                <h3>{language.name}</h3>
+                <p>{language.detail}</p>
+                <p className={styles.languageNote}>{language.note}</p>
+              </article>
+            ))}
+          </div>
+          <details className={styles.curriculum}>
+            <summary>
+              Explore the full Go curriculum <span aria-hidden="true">+</span>
+            </summary>
+            <div className={styles.curriculumContent}>
+              <p>
+                Go continues beyond the introductory chapters. Python and
+                JavaScript currently cover the first act.
+              </p>
+              {CURRICULUM.map((act) => (
+                <section key={act.act} className={styles.curriculumAct}>
+                  <h3>
+                    Part {act.act}: {sentenceCase(act.title)}{" "}
+                    <span>
+                      {sentenceCase(act.difficulty)}
+                      {act.status === "complete" ? " · Free" : ""}
+                    </span>
+                  </h3>
+                  <ul>
+                    {act.chapters.map((chapter) => (
+                      <li key={chapter.name}>
+                        <strong>{sentenceCase(chapter.name)}</strong>
+                        <span>{chapter.concepts.join(" · ")}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
             </div>
+          </details>
+        </section>
 
-            {/* Purchase CTA */}
-            <button
-              onClick={handleGoogleClick}
-              className="w-full py-3.5 cursor-pointer text-[14px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)]"
-              style={{
-                border: "2px solid var(--color-signal)",
-                color: hovered === "google" ? "var(--color-background)" : "var(--color-signal)",
-                background: hovered === "google" ? "var(--color-signal)" : "transparent",
-                textShadow: hovered === "google" ? "none" : "0 0 12px rgba(var(--signal-rgb),.2)",
-              }}
-              onMouseEnter={() => setHovered("google")}
-              onMouseLeave={() => setHovered(null)}
-            >
-              <GoogleIcon size={16} />
-              <span>UNLOCK ALL ACTS &mdash; ${activePrice}</span>
-            </button>
-
-            <div className="text-center mt-3 mb-2">
-              <button
-                onClick={() => setShowCurriculum(true)}
-                className="bg-transparent cursor-pointer text-[11px] tracking-[1px] transition-colors"
-                style={{
-                  color: hovered === "curriculum" ? "var(--color-signal)" : "var(--color-foreground)",
-                  opacity: hovered === "curriculum" ? 1 : 0.5,
-                  border: "none",
-                  borderBottom: "1px solid",
-                  borderColor: hovered === "curriculum" ? "var(--color-signal)" : "rgba(var(--signal-rgb),.2)",
-                  paddingBottom: "2px",
-                }}
-                onMouseEnter={() => setHovered("curriculum")}
-                onMouseLeave={() => setHovered(null)}
-              >
-                view full curriculum
-              </button>
+        <section
+          id="pricing"
+          className={styles.pricingSection}
+          aria-labelledby="pricing-heading"
+        >
+          <div className={styles.container}>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>Simple pricing</p>
+              <h2 id="pricing-heading">
+                Start free. Keep going when you’re ready.
+              </h2>
+              <p>
+                Try the first act before you buy. Full access is a one-time
+                payment, with no subscription.
+              </p>
             </div>
-
-            {/* Returning player stats */}
+            <div className={styles.pricingGrid}>
+              <article className={styles.freePlan}>
+                <span className={styles.planLabel}>Try it out</span>
+                <h3>Learn the basics</h3>
+                <div className={styles.price}>Free</div>
+                <p>Get started in Go, Python, or JavaScript.</p>
+                <ul className={styles.checkList}>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> All first-act
+                    challenges
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Built-in hints and
+                    tutoring
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Save progress with
+                    Google sign-in
+                  </li>
+                </ul>
+                <Link
+                  href="/play"
+                  className={`${styles.button} ${styles.outlineButton}`}
+                >
+                  Start learning free{" "}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+                <span className={styles.planNote}>No credit card required</span>
+              </article>
+              <article className={styles.paidPlan}>
+                <span className={styles.planLabel}>Go further</span>
+                <h3>The full Go curriculum</h3>
+                <div
+                  className={styles.planPicker}
+                  role="group"
+                  aria-label="License type"
+                >
+                  <button
+                    aria-pressed={selectedPlan === "single"}
+                    onClick={() => setSelectedPlan("single")}
+                  >
+                    Individual
+                  </button>
+                  <button
+                    aria-pressed={selectedPlan === "team"}
+                    onClick={() => setSelectedPlan("team")}
+                  >
+                    Team · {TEAM_SEATS} seats
+                  </button>
+                </div>
+                <div className={styles.price}>
+                  ${activePrice}
+                  <span>USD / one-time</span>
+                </div>
+                <p>
+                  {selectedPlan === "single"
+                    ? "A complete learning path, from basics to advanced Go."
+                    : `Full access for ${TEAM_SEATS} learners. $${(
+                        Number(PRICE_TEAM) / Number(TEAM_SEATS)
+                      ).toFixed(2)} per seat.`}
+                </p>
+                <ul className={styles.checkList}>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> All four acts of the
+                    Go curriculum
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Concurrency, HTTP,
+                    testing, and more
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Lifetime access, no
+                    recurring fees
+                  </li>
+                </ul>
+                <button onClick={handlePurchaseClick} className={styles.button}>
+                  Get full access — ${activePrice}{" "}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </button>
+                <span className={styles.planNote}>
+                  Review your purchase before continuing
+                </span>
+              </article>
+            </div>
             {playerXP != null && playerLevel != null && (
-              <div
-                className="flex justify-center gap-5 mt-8 pt-5"
-                style={{ borderTop: "1px solid rgba(var(--signal-rgb),.06)" }}
-              >
-                <div className="text-center">
-                  <div className="text-[10px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>YOUR XP</div>
-                  <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
-                    {playerXP.toLocaleString()}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] tracking-[2px] mb-1" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>LEVEL</div>
-                  <div className="font-[family-name:var(--font-display)] text-[16px] font-bold" style={{ color: "var(--color-signal)" }}>
-                    {playerLevel}
-                  </div>
-                </div>
-              </div>
+              <p className={styles.playerStats}>
+                Your progress: {playerXP.toLocaleString()} XP · Level{" "}
+                {playerLevel}
+              </p>
             )}
           </div>
         </section>
 
-        {/* ═══════════ FOOTER ═══════════ */}
-        <footer
-          className="py-8"
-          style={{ borderTop: "1px solid rgba(var(--signal-rgb),.04)" }}
+        <section
+          className={`${styles.section} ${styles.container} ${styles.faqSection}`}
+          aria-labelledby="faq-heading"
         >
-          <div className="flex items-center justify-center gap-5 mb-4">
-            {([
-              { label: "faq", href: "/faq" },
-              { label: "why go", href: "/why-go" },
-              { label: "privacy", href: "/privacy" },
-              { label: "for teachers", href: "/teach" },
-              { label: "join a class", href: "/join" },
-            ] as const).map((link, i) => (
-              <span key={link.label} className="flex items-center gap-5">
-                {i > 0 && (
-                  <span className="text-[11px]" style={{ color: "var(--color-foreground)", opacity: 0.25 }}>|</span>
-                )}
-                <a
-                  href={link.href}
-                  className="text-[12px] tracking-[1.5px] transition-colors"
-                  style={{
-                    color: hovered === link.label ? "var(--color-signal)" : "var(--color-foreground)",
-                    opacity: hovered === link.label ? 1 : 0.6,
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={() => setHovered(link.label)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  {link.label}
-                </a>
-              </span>
-            ))}
+          <div>
+            <p className={styles.eyebrow}>A few useful answers</p>
+            <h2 id="faq-heading">Before you begin.</h2>
+            <Link className={styles.textLink} href="/faq">
+              More questions? Read the FAQ{" "}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
           </div>
-          <div
-            className="text-center text-[11px] tracking-[1px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.25 }}
-          >
-            CHIENDA LTD &middot; 2026
-          </div>
-        </footer>
-      </div>
-
-      {/* ═══════════ CONSENT MODAL ═══════════ */}
-      {showConsent && (
-        <div
-          className="fixed inset-0 z-[1000] flex items-center justify-center"
-          style={{ background: "rgba(2,4,6,.92)" }}
-          onClick={handleConsentDismiss}
-        >
-          <div
-            className="relative w-full max-w-[420px] mx-4"
-            style={{
-              background: "#060a10",
-              border: "1px solid rgba(var(--signal-rgb),.15)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="px-5 py-3 flex items-center justify-between"
-              style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
-            >
-              <span
-                className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold"
-                style={{ color: "var(--color-signal)" }}
-              >
-                CONFIRM PURCHASE
-              </span>
-              <button
-                onClick={handleConsentDismiss}
-                className="bg-transparent border-0 cursor-pointer text-[16px]"
-                style={{ color: "var(--color-dim)" }}
-              >
-                &#10005;
-              </button>
-            </div>
-
-            <div className="px-5 py-5">
-              <div
-                className="px-4 py-3 mb-5"
-                style={{
-                  background: "rgba(var(--signal-rgb),.03)",
-                  border: "1px solid rgba(var(--signal-rgb),.08)",
-                }}
-              >
-                <div className="flex justify-between items-baseline">
-                  <span
-                    className="text-[11px] tracking-[2px]"
-                    style={{ color: "var(--color-foreground)", opacity: 0.85 }}
-                  >
-                    {selectedPlan === "single" ? "INDIVIDUAL LICENSE" : `TEAM LICENSE \u00B7 ${TEAM_SEATS} SEATS`}
-                  </span>
-                  <span
-                    className="font-[family-name:var(--font-display)] font-bold text-[18px]"
-                    style={{ color: "var(--color-signal)" }}
-                  >
-                    ${activePrice}
-                  </span>
-                </div>
-                <div
-                  className="text-[11px] mt-1"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  one-time payment &middot; lifetime access &middot; all 22 chapters
-                </div>
-              </div>
-
-              <p
-                className="text-[12px] leading-[1.8] mb-5"
-                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-              >
-                By proceeding, you authorize Chienda Ltd to charge ${activePrice} USD
-                to your payment method via Stripe. Your purchase grants lifetime access
-                to all SIGNAL content. Refund requests may be submitted within 14 days
-                of purchase to{" "}
-                <a
-                  href="mailto:jeremiah@chienda.com"
-                  style={{ color: "var(--color-signal)", textDecoration: "none" }}
-                >
-                  jeremiah@chienda.com
-                </a>.
+          <div className={styles.faqList}>
+            <details>
+              <summary>Do I need coding experience?</summary>
+              <p>
+                No. The introductory challenges start with your first program
+                and build up to loops and functions. Hints and tutoring are
+                available along the way.
               </p>
-
-              <label
-                className="flex items-start gap-3 cursor-pointer mb-6"
-                style={{ userSelect: "none" }}
+            </details>
+            <details>
+              <summary>Do I need to install anything?</summary>
+              <p>
+                No. SIGNAL runs in your browser. Go code runs on the Go
+                Playground; Python and JavaScript run in the browser.
+              </p>
+            </details>
+            <details>
+              <summary>What’s included for free?</summary>
+              <p>
+                The first act is free in Go, Python, and JavaScript. Sign in
+                with Google to start and save progress across devices. No credit
+                card required.
+              </p>
+            </details>
+            <details>
+              <summary>How do I use SIGNAL with a class?</summary>
+              <p>
+                Open the teacher console, create a class, and share its join
+                code. Students sign in with Google, and you can follow their
+                progress from your dashboard.
+              </p>
+            </details>
+          </div>
+        </section>
+        <section className={styles.finalCta}>
+          <div className={styles.container}>
+            <h2>A new skill starts with one line.</h2>
+            <p>Try your first coding challenge today.</p>
+            <div className={styles.finalActions}>
+              <Link href="/play" className={styles.button}>
+                Start learning free <ArrowRight size={18} aria-hidden="true" />
+              </Link>
+              <Link
+                href="/teach"
+                className={`${styles.button} ${styles.outlineButton}`}
               >
-                <div
-                  className="shrink-0 mt-0.5 w-[18px] h-[18px] flex items-center justify-center cursor-pointer"
-                  style={{
-                    border: `1px solid ${consentChecked ? "var(--color-signal)" : "rgba(var(--signal-rgb),.2)"}`,
-                    background: consentChecked ? "rgba(var(--signal-rgb),.1)" : "transparent",
-                    transition: "all 150ms",
-                  }}
-                >
-                  {consentChecked && (
-                    <span className="text-[14px]" style={{ color: "var(--color-signal)" }}>&#10003;</span>
-                  )}
-                </div>
-                <input
-                  type="checkbox"
-                  checked={consentChecked}
-                  onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="sr-only"
-                />
-                <span
-                  className="text-[12px] leading-[1.7]"
-                  style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-                >
-                  I have read and agree to the{" "}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "var(--color-signal)", textDecoration: "underline", textUnderlineOffset: "3px" }}
-                  >
-                    Privacy Policy
-                  </a>{" "}
-                  and authorize the charge described above.
-                </span>
-              </label>
-
-              <button
-                onClick={handleConsentProceed}
-                disabled={!consentChecked}
-                className="w-full py-3 cursor-pointer text-[13px] tracking-[2px] transition-all flex items-center justify-center gap-3 font-[family-name:var(--font-display)] disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  border: `2px solid ${consentChecked ? "var(--color-signal)" : "rgba(var(--signal-rgb),.15)"}`,
-                  color: consentChecked ? "var(--color-signal)" : "var(--color-dim)",
-                  background: "transparent",
-                }}
-              >
-                <GoogleIcon size={16} />
-                <span>SIGN IN &amp; PAY ${activePrice}</span>
-              </button>
-
-              <button
-                onClick={handleConsentDismiss}
-                className="w-full mt-2 py-2 bg-transparent cursor-pointer text-[11px] tracking-[1px] transition-colors"
-                style={{ border: "none", color: "var(--color-foreground)", opacity: 0.8 }}
-              >
-                cancel
-              </button>
+                Set up a class <GraduationCap size={19} aria-hidden="true" />
+              </Link>
             </div>
           </div>
+        </section>
+      </main>
+      <footer className={styles.footer}>
+        <div className={`${styles.container} ${styles.footerInner}`}>
+          <div className={styles.footerBrand}>
+            <span className={styles.wordmark}>SIGNAL</span>
+            <span>© 2026 Chienda Ltd</span>
+          </div>
+          <nav aria-label="Footer navigation">
+            <Link href="/faq">FAQ</Link>
+            <Link href="/why-go">Why Go?</Link>
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/teach">For teachers</Link>
+            <Link href="/join">Join a class</Link>
+          </nav>
         </div>
-      )}
-    </div>
-  );
-}
+      </footer>
 
-function GoogleIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
+      <dialog
+        ref={consentRef}
+        className={styles.consent}
+        aria-labelledby="consent-heading"
+        onCancel={(event) => {
+          event.preventDefault();
+          handleConsentDismiss();
+        }}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) handleConsentDismiss();
+        }}
+      >
+        <div className={styles.consentContent}>
+          <div className={styles.consentHeading}>
+            <h2 id="consent-heading">Confirm your purchase</h2>
+            <button
+              className={styles.closeButton}
+              onClick={handleConsentDismiss}
+              aria-label="Close purchase dialog"
+            >
+              <X size={22} />
+            </button>
+          </div>
+          <div className={styles.orderSummary}>
+            <strong>
+              {selectedPlan === "single"
+                ? "Individual license"
+                : `Team license · ${TEAM_SEATS} seats`}
+            </strong>
+            <strong>${activePrice} USD</strong>
+            <span>One-time payment · Lifetime access</span>
+          </div>
+          <p>
+            By proceeding, you authorize Chienda Ltd to charge ${activePrice}{" "}
+            USD to your payment method via Stripe. Your purchase grants lifetime
+            access to all SIGNAL content. Refund requests may be submitted
+            within 14 days of purchase to{" "}
+            <a href="mailto:jeremiah@chienda.com">jeremiah@chienda.com</a>.
+          </p>
+          <label className={styles.consentLabel}>
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={(event) => setConsentChecked(event.target.checked)}
+            />
+            <span>
+              I have read and agree to the{" "}
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer">
+                Privacy Policy
+              </Link>{" "}
+              and authorize the charge described above.
+            </span>
+          </label>
+          <button
+            onClick={handleConsentProceed}
+            disabled={!consentChecked}
+            className={styles.button}
+          >
+            Sign in &amp; pay ${activePrice}
+          </button>
+          <button
+            onClick={handleConsentDismiss}
+            className={styles.cancelButton}
+          >
+            Cancel
+          </button>
+        </div>
+      </dialog>
+    </div>
   );
 }
