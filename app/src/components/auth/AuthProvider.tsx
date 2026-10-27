@@ -15,6 +15,9 @@ import type { User } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase/client";
 import { resetToDefaultBackend, setPersistenceBackend } from "@/lib/storage/persistence";
 import { createSupabasePersistence } from "@/lib/storage/supabase";
+import { consumeReturnPath, rememberReturnPath } from "@/lib/storage/return-path";
+import { setActivityUser } from "@/lib/classroom/activity";
+import { upsertOwnProfile } from "@/lib/classroom/api";
 
 interface AuthContextValue {
   user: User | null;
@@ -22,7 +25,8 @@ interface AuthContextValue {
   loading: boolean;
   /** False when Supabase env vars are missing — auth can't run. */
   authAvailable: boolean;
-  signInWithGoogle: () => Promise<void>;
+  /** `returnPath` is where to land after Google (defaults to /play). */
+  signInWithGoogle: (returnPath?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -44,8 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const uid = u?.id ?? null;
     if (appliedUid.current === uid) return;
     appliedUid.current = uid;
-    if (uid) setPersistenceBackend(createSupabasePersistence(uid));
-    else resetToDefaultBackend();
+    setActivityUser(uid);
+    if (u) {
+      setPersistenceBackend(createSupabasePersistence(u.id));
+      // Keeps the name/avatar teachers see on their roster current.
+      void upsertOwnProfile(u).catch(() => {});
+    } else {
+      resetToDefaultBackend();
+    }
   }, []);
 
   useEffect(() => {
@@ -57,7 +67,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.session?.user ?? null);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      // Finish the OAuth round-trip on the page that asked for it (e.g. a class
+      // join link), even if Supabase redirected somewhere else.
+      if (event === "SIGNED_IN") {
+        const returnPath = consumeReturnPath();
+        if (returnPath && returnPath !== window.location.pathname) {
+          window.location.replace(returnPath);
+          return;
+        }
+      }
       syncBackend(session?.user ?? null);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -68,11 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, syncBackend]);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (returnPath = "/play") => {
     if (!supabase) return;
+    rememberReturnPath(returnPath);
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/play` },
+      options: { redirectTo: `${window.location.origin}${returnPath}` },
     });
   }, [supabase]);
 

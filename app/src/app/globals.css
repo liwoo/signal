@@ -644,3 +644,107 @@ textarea {
 .book-found-in {
   animation: book-found-in 620ms cubic-bezier(.22, 1, .36, 1) both;
 }
+
+/* ── Teacher console (/teach) ──
+   Deliberately NOT the game's terminal look: teachers get a standard,
+   shadcn-style dashboard (neutral palette, rounded cards, Geist). Every token
+   is namespaced `tc-` and only resolves inside `.teacher-ui`, so nothing here
+   can bleed into the game. Light by default, dark via prefers-color-scheme.
+   Chart + status hues follow the dataviz reference palette. */
+@theme inline {
+  --color-tc-background: var(--tc-background);
+  --color-tc-foreground: var(--tc-foreground);
+  --color-tc-card: var(--tc-card);
+  --color-tc-card-foreground: var(--tc-card-foreground);
+  --color-tc-popover: var(--tc-popover);
+  --color-tc-primary: var(--tc-primary);
+  --color-tc-primary-foreground: var(--tc-primary-foreground);
+  --color-tc-secondary: var(--tc-secondary);
+  --color-tc-secondary-foreground: var(--tc-secondary-foreground);
+  --color-tc-muted: var(--tc-muted);
+  --color-tc-muted-foreground: var(--tc-muted-foreground);
+  --color-tc-accent: var(--tc-accent);
+  --color-tc-accent-foreground: var(--tc-accent-foreground);
+  --color-tc-destructive: var(--tc-destructive);
+  --color-tc-border: var(--tc-border);
+  --color-tc-input: var(--tc-input);
+  --color-tc-ring: var(--tc-ring);
+  --color-tc-sidebar: var(--tc-sidebar);
+  --color-tc-chart-1: var(--tc-chart-1);
+  --color-tc-chart-2: var(--tc-chart-2);
+  --color-tc-good: var(--tc-good);
+  --color-tc-warning: var(--tc-warning);
+  --color-tc-critical: var(--tc-critical);
+  --font-tc-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.teacher-ui {
+  color-scheme: light;
+  --tc-background: oklch(1 0 0);
+  --tc-foreground: oklch(0.145 0 0);
+  --tc-card: oklch(1 0 0);
+  --tc-card-foreground: oklch(0.145 0 0);
+  --tc-popover: oklch(1 0 0);
+  --tc-primary: oklch(0.205 0 0);
+  --tc-primary-foreground: oklch(0.985 0 0);
+  --tc-secondary: oklch(0.97 0 0);
+  --tc-secondary-foreground: oklch(0.205 0 0);
+  --tc-muted: oklch(0.97 0 0);
+  --tc-muted-foreground: oklch(0.556 0 0);
+  --tc-accent: oklch(0.97 0 0);
+  --tc-accent-foreground: oklch(0.205 0 0);
+  --tc-destructive: oklch(0.577 0.245 27.325);
+  --tc-border: oklch(0.922 0 0);
+  --tc-input: oklch(0.922 0 0);
+  --tc-ring: oklch(0.708 0 0);
+  --tc-sidebar: oklch(0.985 0 0);
+  --tc-chart-1: #2a78d6;
+  --tc-chart-2: #9ec5f4;
+  --tc-good: #0ca30c;
+  --tc-warning: #fab219;
+  --tc-critical: #d03b3b;
+  background: var(--tc-background);
+  color: var(--tc-foreground);
+  /* The Geist variable directly — Tailwind drops theme vars no utility uses. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  .teacher-ui {
+    color-scheme: dark;
+    --tc-background: oklch(0.145 0 0);
+    --tc-foreground: oklch(0.985 0 0);
+    --tc-card: oklch(0.205 0 0);
+    --tc-card-foreground: oklch(0.985 0 0);
+    --tc-popover: oklch(0.205 0 0);
+    --tc-primary: oklch(0.922 0 0);
+    --tc-primary-foreground: oklch(0.205 0 0);
+    --tc-secondary: oklch(0.269 0 0);
+    --tc-secondary-foreground: oklch(0.985 0 0);
+    --tc-muted: oklch(0.269 0 0);
+    --tc-muted-foreground: oklch(0.708 0 0);
+    --tc-accent: oklch(0.269 0 0);
+    --tc-accent-foreground: oklch(0.985 0 0);
+    --tc-destructive: oklch(0.704 0.191 22.216);
+    --tc-border: oklch(1 0 0 / 10%);
+    --tc-input: oklch(1 0 0 / 15%);
+    --tc-ring: oklch(0.556 0 0);
+    --tc-sidebar: oklch(0.205 0 0);
+    --tc-chart-1: #3987e5;
+    --tc-chart-2: #184f95;
+  }
+}
+
+.teacher-ui *,
+.teacher-ui ::before,
+.teacher-ui ::after {
+  border-color: var(--tc-border);
+}
+
+.teacher-ui ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.teacher-ui ::-webkit-scrollbar-thumb {
+  background: var(--tc-border);
+}

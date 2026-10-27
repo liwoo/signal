@@ -99,6 +99,7 @@ import {
   trackRetry,
   trackSettingChange,
 } from "@/lib/analytics";
+import { recordActivity } from "@/lib/classroom/activity";
 
 // ── Cam-feed scene mapping — where Maya actually is per chapter ──
 
@@ -579,6 +580,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         audio.startLoop("dark-drone-1", 0.08, 5000);
         setShowCinematic(true);
         trackChapterStart(challenge.id, challenge.chapter);
+        recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
         trackCinematicStart(challenge.id, "intro");
       }}
       onGuidedStart={() => {
@@ -589,6 +591,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         audio.startLoop("dark-drone-1", 0.08, 5000);
         setShowCinematic(true);
         trackChapterStart(challenge.id, challenge.chapter);
+        recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
         trackCinematicStart(challenge.id, "intro");
       }}
     />;
@@ -684,9 +687,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowBossArena(false);
           setBossVictory(true);
           trackBossVictory(challenge.id, 0, 0);
+          recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id });
         }}
         onGameOver={() => {
           trackGameOver(challenge.id, "boss_attack");
+          recordActivity({ kind: "game_over", language, chapterId: challenge.id, data: { cause: "boss_attack" } });
         }}
         onRetry={() => {
           trackRetry(challenge.id);
@@ -720,9 +725,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowBossArena(false);
           setBossVictory(true);
           trackBossVictory(challenge.id, 0, 0);
+          recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id });
         }}
         onGameOver={() => {
           trackGameOver(challenge.id, "boss_attack");
+          recordActivity({ kind: "game_over", language, chapterId: challenge.id, data: { cause: "boss_attack" } });
         }}
         onRetry={() => {
           trackRetry(challenge.id);

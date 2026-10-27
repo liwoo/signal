@@ -13,6 +13,7 @@ A narrative coding game teaching Go (and, for Act I, Python and JavaScript) thro
 - **No `shadow-*` classes. No `box-shadow`.** Glow effects use `text-shadow` in CSS, not Tailwind utilities.
 - **Fonts via variable reference only.** `font-[family-name:var(--font-display)]` for Orbitron, `font-[family-name:var(--font-mono)]` for JetBrains Mono. Body default is already JetBrains Mono.
 - Color palette is in `src/app/globals.css` under `@theme inline`. Do not add new colors without reading the existing palette first.
+- **Exception — the teacher console (`/teach`).** Teachers get a standard shadcn-style dashboard, not the terminal look: rounded cards, shadows, Geist, neutral palette, light + dark. It uses the hand-built primitives in `src/components/teacher-ui/` (Button, Card, Badge, Table, Dialog, Sheet, DropdownMenu…) and `tc-*` tokens that only resolve inside `.teacher-ui` (globals.css). Never use `tc-*` tokens or teacher-ui primitives in the game, and never use game tokens in the console. Don't run `shadcn init` — it would overwrite the game's `--color-background`/`--color-border` tokens. Student-facing screens (`/join`) stay in the game look.
 
 ### Architecture
 
