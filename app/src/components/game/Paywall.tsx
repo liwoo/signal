@@ -944,7 +944,7 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
         <div className={`${styles.container} ${styles.footerInner}`}>
           <div className={styles.footerBrand}>
             <span className={styles.wordmark}>SIGNAL</span>
-            <span>© 2026 Chienda Ltd</span>
+            <span>© 2026 NxtGen Labs</span>
           </div>
           <nav aria-label="Footer navigation">
             <Link href="/faq">FAQ</Link>
