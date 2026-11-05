@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { summarizeCurriculum, type ConceptStatus } from "@/lib/game/curriculum";
+import { summarizeCurriculum, type ConceptStatus, type StepProgress } from "@/lib/game/curriculum";
 import { useLanguage } from "./LanguageContext";
 
 interface ConceptTrackerProps {
   completedChapterIds: string[];
   currentChapterId: string | null;
+  /** Steps cleared in the current chapter — its concepts light up proportionally. */
+  currentSteps?: StepProgress | null;
   /** Tighter paddings/type for the desktop side rail. */
   compact?: boolean;
 }
@@ -31,9 +33,9 @@ const STATUS_MARK: Record<ConceptStatus, string> = {
  * ones sit neutral, and not-yet-built chapters are dim with a "SOON" tag so the
  * player always sees the road ahead. Desktop rail + mobile (behind a %).
  */
-export function ConceptTracker({ completedChapterIds, currentChapterId, compact = false }: ConceptTrackerProps) {
+export function ConceptTracker({ completedChapterIds, currentChapterId, currentSteps, compact = false }: ConceptTrackerProps) {
   const language = useLanguage();
-  const summary = summarizeCurriculum(completedChapterIds, currentChapterId, language);
+  const summary = summarizeCurriculum(completedChapterIds, currentChapterId, language, currentSteps);
 
   // Only the act you're inside is exploded into chips; every other act stays a
   // quiet one-line header so the road ahead is still visible without the wall of
@@ -95,9 +97,16 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
           {summary.acts.map((act) => {
             // Flatten the act's chapters into concept chips, each keeping its
             // own coverage status. Bosses carry no concepts, so they drop out.
+            // In the current chapter, concepts earned by cleared steps glow
+            // as covered while the rest stay amber.
             const items = act.chapters
               .filter((chapter) => !chapter.isBoss && chapter.concepts.length > 0)
-              .flatMap((chapter) => chapter.concepts.map((concept) => ({ concept, status: chapter.status })));
+              .flatMap((chapter) =>
+                chapter.concepts.map((concept, i) => ({
+                  concept,
+                  status: (i < chapter.coveredConcepts ? "covered" : chapter.status) as ConceptStatus,
+                })),
+              );
             if (items.length === 0) return null;
 
             const hasCurrent = items.some((it) => it.status === "current");

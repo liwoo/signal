@@ -185,6 +185,32 @@ export interface PlayerProgress {
   kiraVerdict: KiraVerdict;
   storyBranch: StoryBranch;
   checkpointData: CheckpointData;
+  /**
+   * Mid-chapter checkpoint for the chapter in progress. Without it a reload
+   * restarts the chapter from its intro (Nov 2026 playtest: "had to replay the
+   * cutscene, the stealth section and Hello World"). Cleared on chapter clear.
+   */
+  resume?: ChapterResume | null;
+}
+
+/** Where to pick a chapter back up after leaving mid-way. */
+export interface ChapterResume {
+  /** The chapter (Challenge id) this checkpoint belongs to. */
+  chapterId: string;
+  /** Index of the step to resume at — every step before it is cleared. */
+  stepIndex: number;
+  /** The chapter's intro beat (prologue + playable intro level) has been played through. */
+  introDone: boolean;
+  /** The player's code when the checkpoint was taken — carried into a step whose starterCode is null. */
+  code?: string;
+}
+
+/** Bookkeeping stamped on every save so a cloud and a local copy can be reconciled. */
+export interface SaveMeta {
+  /** Epoch ms of the last write. */
+  savedAt: number;
+  /** The signed-in user the save belongs to (null = guest/local-only). */
+  userId: string | null;
 }
 
 /**
