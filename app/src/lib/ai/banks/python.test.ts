@@ -45,12 +45,12 @@ const MISTAKES: Record<string, [string, RegExp][]> = {
     ["", /nothing's printing/],
   ],
   "chapter-01:location": [
-    ['print("CELL B-09 · SUBLEVEL 3")', /by hand/],
-    ['print(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")', /import cellblock/],
-    ['import cellblock\n\nprint("CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")', /no `f`/],
-    ['import cellblock\n\nprint("CELL " + cellblock.CELL + " · SUBLEVEL " + cellblock.SUBLEVEL)', /is a number/],
-    ['import cellblock\n\nprint(f"CELL {cellblock.cell} · SUBLEVEL {cellblock.sublevel}")', /case-sensitive/],
-    ['from cellblock import CELL, SUBLEVEL\n\nprint(f"CELL {CELL} · SUBLEVEL {SUBLEVEL}")', /pulled the names out/],
+    ['print("CELL B-09 - SUBLEVEL 3")', /by hand/],
+    ['print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")', /import cellblock/],
+    ['import cellblock\n\nprint("CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")', /no `f`/],
+    ['import cellblock\n\nprint("CELL " + cellblock.CELL + " - SUBLEVEL " + cellblock.SUBLEVEL)', /is a number/],
+    ['import cellblock\n\nprint(f"CELL {cellblock.cell} - SUBLEVEL {cellblock.sublevel}")', /case-sensitive/],
+    ['from cellblock import CELL, SUBLEVEL\n\nprint(f"CELL {CELL} - SUBLEVEL {SUBLEVEL}")', /pulled the names out/],
     ['import cellblock\n\nprint(f"CELL {cellblock.CELL}")', /both/],
     ["import cellblock\n\nprint(cellblock.CELL, cellblock.SUBLEVEL)", /words/],
     ['print("Hello World")', /greeting/],
@@ -151,7 +151,7 @@ describe("python banks · offline accepts other correct shapes", () => {
   const ok: [string, string][] = [
     ["chapter-01:scaffold", "print('Hello World')"],
     ["chapter-01:scaffold", 'print("Hello", "World")  # two args, one space'],
-    ["chapter-01:location", 'import cellblock\n\nprint("CELL", cellblock.CELL, "·", "SUBLEVEL", cellblock.SUBLEVEL)'],
+    ["chapter-01:location", 'import cellblock\n\nprint("CELL", cellblock.CELL, "-", "SUBLEVEL", cellblock.SUBLEVEL)'],
     ["chapter-01:location", 'import cellblock\n\nprint("CELL " + cellblock.CELL + " . SUBLEVEL " + str(cellblock.SUBLEVEL))'],
     ["chapter-02:loop", "for i in range(1, 11): print(i)"],
     ["chapter-02:loop", "for i in range(10):\n    print(i + 1)"],
@@ -198,7 +198,7 @@ describe("python banks · online wrong-output feedback", () => {
     callMayaEngineAsync(stepId, code, true, false, false, 0, test(stepId), "python");
 
   const cases: [string, string, RegExp][] = [
-    ["chapter-01:location", 'import cellblock\n\nprint("CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")', /missing its `f`/],
+    ["chapter-01:location", 'import cellblock\n\nprint("CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")', /missing its `f`/],
     ["chapter-02:loop", "for i in range(1, 10):\n    print(i)", /stops at 9/],
     ["chapter-02:loop", "for i in range(10):\n    print(i)", /starts at 0/],
     ["chapter-02:loop", 'print("Hello World")\nfor i in range(1, 11):\n    print(i)', /hello world/],

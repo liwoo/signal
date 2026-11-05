@@ -75,12 +75,10 @@ const ch03Validate = chapter03.steps[2];
 
 describe("ch01:scaffold — live compilation + zen", () => {
   // 1. Perfect idiomatic scaffold
-  it("perfect scaffold with grouped import and spacing", async () => {
+  it("perfect scaffold with plain import and spacing", async () => {
     const code = `package main
 
-import (
-    "fmt"
-)
+import "fmt"
 
 func main() {
     fmt.Println("ready")
@@ -89,52 +87,54 @@ func main() {
     expect(result.output.trim()).toBe("ready");
 
     const zen = analyzeZen("chapter-01:scaffold", code);
-    expect(zen.bonusXP).toBe(15); // grouped_import(10) + package_import_sep(3) + import_func_sep(2)
+    expect(zen.bonusXP).toBe(15); // import_form(10) + package_import_sep(3) + import_func_sep(2)
     expect(zen.jolts).toHaveLength(3);
     expect(zen.suggestions).toHaveLength(0);
   }, 15000);
 
-  // 2. Minimal valid — no spaces, single-line import
+  // 2. Minimal valid — no spaces, single import needlessly in parentheses
   it("minimal scaffold without spacing", async () => {
     const code = `package main
-import "fmt"
+import (
+  "fmt"
+)
 func main() {
     fmt.Println("ok")
 }`;
     await expectCompiles(code);
 
     const zen = analyzeZen("chapter-01:scaffold", code);
-    expect(zen.bonusXP).toBe(0); // no grouped import, no separators
+    expect(zen.bonusXP).toBe(0); // parenthesized single import, no separators
     expect(zen.suggestions.length).toBeGreaterThan(0);
   }, 15000);
 
-  // 3. Grouped import but no blank lines
-  it("grouped import, no blank lines between sections", async () => {
+  // 3. Plain import but no blank lines
+  it("plain import, no blank lines between sections", async () => {
     const code = `package main
-import (
-    "fmt"
-)
+import "fmt"
 func main() {
     fmt.Println("hello")
 }`;
     await expectCompiles(code);
 
     const zen = analyzeZen("chapter-01:scaffold", code);
-    expect(zen.bonusXP).toBe(10); // only grouped_import
+    expect(zen.bonusXP).toBe(10); // only import_form
   }, 15000);
 
   // 4. Has blank line after package but not after import
   it("blank after package only", async () => {
     const code = `package main
 
-import "fmt"
+import (
+  "fmt"
+)
 func main() {
     fmt.Println("hi")
 }`;
     await expectCompiles(code);
 
     const zen = analyzeZen("chapter-01:scaffold", code);
-    // grouped_import: no (single-line), package_import_sep: yes (3), import_func_sep: no
+    // import_form: no (parenthesized single import), package_import_sep: yes (3), import_func_sep: no
     expect(zen.bonusXP).toBe(3);
   }, 15000);
 
@@ -142,9 +142,7 @@ func main() {
   it("extra functions and variables beyond scaffold", async () => {
     const code = `package main
 
-import (
-    "fmt"
-)
+import "fmt"
 
 var globalVar = 42
 
@@ -241,10 +239,10 @@ import (
 func main() {
     const sublevel = 3
     cell := "B-09"
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
 
     const zen = analyzeZen("chapter-01:location", code);
     // use_named_values(10) + use_printf_format(15) + descriptive_names(10) — but descriptive_names checks for cell/sublevel
@@ -259,10 +257,10 @@ func main() {
 import "fmt"
 
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
 
     const zen = analyzeZen("chapter-01:location", code);
     // No named values, no printf, no descriptive names
@@ -278,10 +276,10 @@ import "fmt"
 func main() {
     cell := "B-09"
     sublevel := "3"
-    fmt.Println("CELL " + cell + " · SUBLEVEL " + sublevel)
+    fmt.Println("CELL " + cell + " - SUBLEVEL " + sublevel)
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
 
     const zen = analyzeZen("chapter-01:location", code);
     // use_named_values: yes (10), use_printf_format: isRelevant checks for + concatenation, but check fails (no Printf)
@@ -299,10 +297,10 @@ import "fmt"
 func main() {
     a := "B-09"
     b := 3
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", a, b)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", a, b)
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
 
     const zen = analyzeZen("chapter-01:location", code);
     // use_named_values: yes (10), use_printf_format: yes (15), descriptive_names: no (a, b aren't descriptive)
@@ -316,10 +314,10 @@ func main() {
 import "fmt"
 
 func main() {
-    fmt.Println("cell b-09 · sublevel 3")
+    fmt.Println("cell b-09 - sublevel 3")
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).not.toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).not.toBe("CELL B-09 - SUBLEVEL 3");
   }, 15000);
 
   // 6. User tries to game it — prints correct output but adds extra lines
@@ -330,12 +328,12 @@ import "fmt"
 
 func main() {
     fmt.Println("starting up...")
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
     fmt.Println("done!")
 }`;
     const result = await expectCompiles(code);
     // Output has 3 lines, expected has 1
-    expect(result.output.trim()).not.toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).not.toBe("CELL B-09 - SUBLEVEL 3");
 
     const evalResult = evaluateSubmission(code, ch01Transmit);
     expect(evalResult.pass).toBe(false);
@@ -348,14 +346,14 @@ func main() {
 import "fmt"
 
 func main() {
-    fmt.Print("CELL B-09 · SUBLEVEL 3")
+    fmt.Print("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
   }, 15000);
 
   // 8. Missing the dot separator
-  it("missing middle dot separator", async () => {
+  it("missing dash separator", async () => {
     const code = `package main
 
 import "fmt"
@@ -364,7 +362,7 @@ func main() {
     fmt.Println("CELL B-09 SUBLEVEL 3")
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).not.toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).not.toBe("CELL B-09 - SUBLEVEL 3");
   }, 15000);
 
   // 9. User adds a helper function (trying to be fancy)
@@ -374,7 +372,7 @@ func main() {
 import "fmt"
 
 func formatLocation(cell string, sublevel int) string {
-    return fmt.Sprintf("CELL %s · SUBLEVEL %d", cell, sublevel)
+    return fmt.Sprintf("CELL %s - SUBLEVEL %d", cell, sublevel)
 }
 
 func main() {
@@ -382,7 +380,7 @@ func main() {
     fmt.Println(location)
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
 
     const zen = analyzeZen("chapter-01:location", code);
     // use_named_values: yes (location := ...) (10), descriptive_names: yes (location) (10)
@@ -399,11 +397,11 @@ import "fmt"
 func main() {
     cell := "B-09"
     sublevel := 3
-    msg := fmt.Sprintf("CELL %s · SUBLEVEL %d", cell, sublevel)
+    msg := fmt.Sprintf("CELL %s - SUBLEVEL %d", cell, sublevel)
     fmt.Println(msg)
 }`;
     const result = await expectCompiles(code);
-    expect(result.output.trim()).toBe("CELL B-09 · SUBLEVEL 3");
+    expect(result.output.trim()).toBe("CELL B-09 - SUBLEVEL 3");
   }, 15000);
 });
 
@@ -1475,7 +1473,7 @@ import (
 )
 
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const response = await callMayaEngineAsync(
       "chapter-01:location", code, true, false, false, 0,
@@ -1484,9 +1482,11 @@ func main() {
     expect(response.isComplete).toBe(true);
   }, 15000);
 
-  // Ch01 transmit: a regular period stands in for the untypeable middle dot
-  it("ch01 transmit: accepts a regular period in place of the middle dot", async () => {
+  // Ch01 transmit: the required line is plain ASCII, and Maya's chat answer to
+  // "how do i print text and a number together?" is itself a passing solution.
+  it("ch01 transmit: Println with comma-separated pieces passes (ASCII dash separator)", async () => {
     const loc = chapter01.steps[1];
+    expect(loc.expectedOutput).toBe("CELL B-09 - SUBLEVEL 3");
     const code = `package main
 
 import (
@@ -1495,7 +1495,7 @@ import (
 )
 
 func main() {
-    fmt.Printf("CELL %s . SUBLEVEL %d", cellblock.Cell, cellblock.Sublevel)
+    fmt.Println("CELL", cellblock.Cell, "-", "SUBLEVEL", cellblock.Sublevel)
 }`;
     const response = await callMayaEngineAsync(
       "chapter-01:location", code, true, false, false, 0,
@@ -1512,7 +1512,7 @@ func main() {
 import "fmt"
 
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const response = await callMayaEngineAsync(
       "chapter-01:location", code, true, false, false, 0,

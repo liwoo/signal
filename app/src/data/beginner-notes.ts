@@ -141,7 +141,7 @@ const cell = "B-09"`,
 fmt.Println("hello world")
 
 // formatted print with placeholders
-fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 // %s = string, %d = integer, \\n = newline`,
         hotspots: [
           { text: "fmt.Println", tip: "prints its arguments followed by a newline. simple and common for quick output." },
@@ -473,18 +473,14 @@ func main() {
         section: 0,
         content: `package main
 
-import (
-    "fmt"
-)
+import "fmt"
 
 func main() {
     fmt.Println("ready")
 }`,
         hotspots: [
           { text: "package main", tip: "every go executable starts with this. the shaft panel needs it." },
-          { text: `import (
-    "fmt"
-)`, tip: "grouped import with parentheses — even for one package. this is the idiomatic go way. it makes adding more imports later a clean one-line diff." },
+          { text: `import "fmt"`, tip: "one package, one plain import line — that's how gofmt writes it. the grouped `import ( ... )` form is for when you import two or more packages." },
           { text: "func main()", tip: "entry point. your functions go above this, and you call them from inside." },
         ],
       },

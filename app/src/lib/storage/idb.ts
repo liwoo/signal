@@ -4,13 +4,13 @@
  */
 
 import type { GamePersistence, PersistedState } from "./persistence";
-import { DEFAULTS, migrateProgress } from "./persistence";
+import { DEFAULTS, normalizePersistedState } from "./persistence";
 
 const DB_NAME = "signal-game";
 const DB_VERSION = 1;
 const STORE_NAME = "state";
 
-const KEYS = ["progress", "stats", "unlocks", "settings", "library"] as const;
+const KEYS = ["progress", "stats", "unlocks", "settings", "library", "meta"] as const;
 type StoreKey = (typeof KEYS)[number];
 
 function openDB(): Promise<IDBDatabase> {
@@ -57,18 +57,10 @@ export function createIDBPersistence(): GamePersistence {
     async load(): Promise<PersistedState> {
       try {
         const db = await getDB();
-        const [progress, stats, unlocks, settings, library] = await Promise.all(
-          KEYS.map((k) => idbGet(db, k))
-        );
-        return {
-          // v1 saves held one Go progress block; fold it into the per-language store.
-          progress: migrateProgress(progress),
-          stats: (stats as PersistedState["stats"]) ?? DEFAULTS.stats,
-          unlocks: (unlocks as PersistedState["unlocks"]) ?? DEFAULTS.unlocks,
-          // Merge so settings added in later releases pick up their defaults.
-          settings: { ...DEFAULTS.settings, ...((settings as Partial<PersistedState["settings"]> | undefined) ?? {}) },
-          library: (library as PersistedState["library"]) ?? DEFAULTS.library,
-        };
+        const values = await Promise.all(KEYS.map((k) => idbGet(db, k)));
+        const raw = Object.fromEntries(KEYS.map((k, i) => [k, values[i] ?? undefined]));
+        // Folds v1 progress into the per-language store, fills missing slices.
+        return normalizePersistedState(raw);
       } catch {
         return { ...DEFAULTS };
       }
@@ -77,10 +69,16 @@ export function createIDBPersistence(): GamePersistence {
     async save(partial: Partial<PersistedState>): Promise<void> {
       try {
         const db = await getDB();
+        // Every write is stamped so a cloud copy and this one can be reconciled.
+        // A cloud backend mirroring here passes its own (user-owned) stamp.
+        const stamped: Partial<PersistedState> = {
+          ...partial,
+          meta: partial.meta ?? { savedAt: Date.now(), userId: null },
+        };
         const ops: Promise<void>[] = [];
         for (const key of KEYS) {
-          if (key in partial) {
-            ops.push(idbSet(db, key, partial[key as StoreKey]));
+          if (key in stamped) {
+            ops.push(idbSet(db, key, stamped[key as StoreKey]));
           }
         }
         await Promise.all(ops);

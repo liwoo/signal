@@ -52,10 +52,10 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
     return (
       <div className="flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="text-[var(--color-dim)] text-[9px] tracking-[3px] mb-2">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-2">
             ▸ NOTES
           </div>
-          <div className="text-[#0a3a4a] text-[11px] leading-[1.7]">
+          <div className="text-[var(--color-dim)] text-[11px] leading-[1.7]">
             no tutorial notes available yet
           </div>
         </div>
@@ -79,7 +79,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
         >
           A−
         </button>
-        <span className="text-[7px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
+        <span className="text-[10px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
           {fontScale}x
         </span>
         <button
@@ -107,7 +107,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
                 <span className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
                   {notes.title}
                 </span>
-                <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+                <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
                   {notes.subtitle}
                 </span>
               </div>
@@ -130,7 +130,7 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
               }}
             >
               <span
-                className="text-[8px] transition-transform"
+                className="text-[10px] transition-transform"
                 style={{
                   color: "var(--color-dim)",
                   transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
@@ -139,17 +139,17 @@ export function NotesPanel({ currentChapterId, completedChapterIds, fontScale, o
                 ▸
               </span>
               <span
-                className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
+                className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
                 style={{ color: isCurrent ? "var(--color-signal)" : "var(--color-foreground)" }}
               >
                 {notes.title}
               </span>
-              <span className="text-[7px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+              <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
                 {notes.subtitle}
               </span>
               {isCurrent && (
                 <span
-                  className="ml-auto text-[6px] tracking-[2px] px-1.5 py-0.5"
+                  className="ml-auto text-[10px] tracking-[2px] px-1.5 py-0.5"
                   style={{
                     color: "var(--color-signal)",
                     border: "1px solid rgba(var(--signal-rgb),.2)",
@@ -202,7 +202,7 @@ function NoteBlockView({ block, fontScale }: { block: NoteBlock; fontScale: numb
           }}
         >
           <span
-            className="shrink-0 text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[1px] mt-0.5 px-1.5 py-px"
+            className="shrink-0 text-[10px] font-[family-name:var(--font-display)] font-bold tracking-[1px] mt-0.5 px-1.5 py-px"
             style={{
               color: "var(--color-alert)",
               border: "1px solid rgba(255,159,28,.25)",
@@ -263,11 +263,11 @@ function HotspotTip({ text, tip }: { text: string; tip: string }) {
       }}
     >
       <div className="flex items-center gap-1.5">
-        <span className="text-[8px]" style={{ color: "var(--color-signal)", opacity: 0.5 }}>
+        <span className="text-[10px]" style={{ color: "var(--color-signal)", opacity: 0.8 }}>
           ?
         </span>
         <code
-          className="text-[9px] font-[family-name:var(--font-mono)]"
+          className="text-[10px] font-[family-name:var(--font-mono)]"
           style={{ color: "var(--color-signal)" }}
         >
           {text.length > 40 ? text.slice(0, 40) + "…" : text}
@@ -275,7 +275,7 @@ function HotspotTip({ text, tip }: { text: string; tip: string }) {
       </div>
       {open && (
         <div
-          className="text-[9px] leading-[1.6] mt-1 ml-3"
+          className="text-[10px] leading-[1.6] mt-1 ml-3"
           style={{ color: "var(--color-dim)" }}
         >
           {tip}

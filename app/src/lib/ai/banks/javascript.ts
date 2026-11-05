@@ -209,7 +209,7 @@ const ch01ScaffoldBank: StepBank = {
 
 const ch01LocationBank: StepBank = {
   intro:
-    "good, the channel's live. now lock in where they're holding me — and it has to be exact, a wrong location gets someone hurt. don't type it by hand: my real cell is already on this terminal in `./cellblock.js`. import `cell` and `sublevel` from it and print `CELL B-09 · SUBLEVEL 3`.",
+    "good, the channel's live. now lock in where they're holding me — and it has to be exact, a wrong location gets someone hurt. don't type it by hand: my real cell is already on this terminal in `./cellblock.js`. import `cell` and `sublevel` from it and print `CELL B-09 - SUBLEVEL 3`.",
 
   conceptFAQ: [
     {
@@ -233,14 +233,14 @@ const ch01LocationBank: StepBank = {
         "`import { cell, sublevel } from \"./cellblock.js\";` at the top of your file. the names in the braces become usable everywhere below it.",
     },
     {
-      keywords: ["template", "backtick", "${", "interpolat", "mix", "combine"],
+      keywords: ["template", "backtick", "${", "interpolat", "mix", "combine", "together", "text and a number", "and a number", "with a number", "same line"],
       response:
         "a template literal: backticks instead of quotes, and `${...}` wherever a value goes. ``console.log(`CELL ${cell}`)`` drops the real value into the text.",
     },
     {
       keywords: ["concat", "join", "+", "plus"],
       response:
-        "`\"CELL \" + cell` works, but the spaces are easy to lose. a template literal reads like the final line: ``console.log(`CELL ${cell} · SUBLEVEL ${sublevel}`)``.",
+        "`\"CELL \" + cell` works, but the spaces are easy to lose. a template literal reads like the final line: ``console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`)``.",
     },
     {
       keywords: ["const", "let vs", "variable", "declare"],
@@ -248,24 +248,24 @@ const ch01LocationBank: StepBank = {
         "`cell` is a `const` in the module — it never changes. `sublevel` is a `let`, so the module could move it. you don't redeclare them, you just read them.",
     },
     {
-      keywords: ["dot", "·", "middle dot", "special character", "unicode", "period", "separator"],
+      keywords: ["dash", "hyphen", "minus", "separator", "middle dot", "special character", "between the cell"],
       response:
-        "the `·` is just a decorative middle dot — hard to type, so a regular period works: `CELL B-09 . SUBLEVEL 3`. i read `·` and `.` the same.",
+        "the separator is a plain dash with a space on each side: `CELL B-09 - SUBLEVEL 3`. nothing special to type.",
     },
     {
       keywords: ["print", "console", "output", "display", "show"],
       response:
-        "`console.log(...)` sends it through. but don't put my cell in quotes — feed it the imported values: `console.log(\"CELL\", cell, \"· SUBLEVEL\", sublevel);` or a template literal.",
+        "`console.log(...)` sends it through. but don't put my cell in quotes — feed it the imported values: `console.log(\"CELL\", cell, \"- SUBLEVEL\", sublevel);` or a template literal.",
     },
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start"],
       response:
-        "import `cell` and `sublevel` from `./cellblock.js`, then print them as `CELL B-09 · SUBLEVEL 3`. don't type my cell in by hand — read it from the module.",
+        "import `cell` and `sublevel` from `./cellblock.js`, then print them as `CELL B-09 - SUBLEVEL 3`. don't type my cell in by hand — read it from the module.",
     },
     {
       keywords: ["example", "show me", "sample"],
       response:
-        "here's the shape:\n```\nimport { cell, sublevel } from \"./cellblock.js\";\n\nconsole.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);\n```",
+        "here's the shape:\n```\nimport { cell, sublevel } from \"./cellblock.js\";\n\nconsole.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);\n```",
     },
   ],
 
@@ -276,7 +276,7 @@ const ch01LocationBank: StepBank = {
     },
     {
       match: (output) => hasHelloWorld(output),
-      response: "that's a hello world. i don't need a greeting — i need my location. CELL B-09 · SUBLEVEL 3.",
+      response: "that's a hello world. i don't need a greeting — i need my location. CELL B-09 - SUBLEVEL 3.",
     },
     {
       match: (output) => output.includes("${"),
@@ -291,13 +291,13 @@ const ch01LocationBank: StepBank = {
     {
       match: (output) => {
         const norm = (s: string) => s.trim().replace(/[·•∙]/g, ".");
-        return norm(output) !== norm("CELL B-09 · SUBLEVEL 3") && norm(output).toUpperCase() === norm("CELL B-09 · SUBLEVEL 3");
+        return norm(output) !== norm("CELL B-09 - SUBLEVEL 3") && norm(output).toUpperCase() === norm("CELL B-09 - SUBLEVEL 3");
       },
       response: "right values, wrong capitals. `CELL` and `SUBLEVEL` are uppercase in the line i need.",
     },
     {
       match: (output) => /B-?09/i.test(output) && !/SUBLEVEL/i.test(output),
-      response: "close — i see the cell but not the sublevel. i need both: CELL B-09 · SUBLEVEL 3.",
+      response: "close — i see the cell but not the sublevel. i need both: CELL B-09 - SUBLEVEL 3.",
     },
   ],
 
@@ -333,19 +333,19 @@ const ch01LocationBank: StepBank = {
     "...i see it. my cell, read straight off the terminal. the screen just flashed it back to me. you actually got through.\n\n||COMPLETE||",
 
   genericWrong: [
-    "that's not right. check the output — i need CELL B-09 · SUBLEVEL 3. exactly.",
+    "that's not right. check the output — i need CELL B-09 - SUBLEVEL 3. exactly.",
     "almost... but the output doesn't match. look at what you're printing.",
-    "wrong signal. i need my exact location: CELL B-09 · SUBLEVEL 3.",
+    "wrong signal. i need my exact location: CELL B-09 - SUBLEVEL 3.",
   ],
 
   rushDialogue: [
     "hurry. the footsteps stopped right outside.",
     "now. just print the location.",
-    "no time — just get it done. CELL B-09 · SUBLEVEL 3.",
+    "no time — just get it done. CELL B-09 - SUBLEVEL 3.",
   ],
 
   stuckResponses: [
-    "two lines. import first, then print:\n```\nimport { cell, sublevel } from \"./cellblock.js\";\n\nconsole.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);\n```",
+    "two lines. import first, then print:\n```\nimport { cell, sublevel } from \"./cellblock.js\";\n\nconsole.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);\n```",
     "the values aren't yours to type — they're in the module. `import { cell, sublevel } from \"./cellblock.js\";` then print `cell` and `sublevel`.",
     "don't overthink it. import the two names, then put them in a template literal: backticks, and `${cell}` where the cell goes.",
   ],

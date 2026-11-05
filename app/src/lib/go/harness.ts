@@ -82,6 +82,22 @@ export function formatCompileError(errors: string, inRush: boolean): string {
     .replace(/^\.\/prog\.go:/, "")
     .trim();
 
+  // `fmt.println`, `cellblock.cell` — a lowercase name reached through a
+  // package. The compiler's wording ("undefined" / "not exported") doesn't say
+  // why, so add the one-line reason.
+  const selector = first.match(/(?:undefined|unexported name):?\s+([a-zA-Z_]\w*)\.([a-z]\w*)/);
+  const notExported = first.match(/name ([a-z]\w*) not exported by package ([a-zA-Z_]\w*)/);
+  const unexported = selector
+    ? { pkg: selector[1], name: selector[2] }
+    : notExported
+      ? { pkg: notExported[2], name: notExported[1] }
+      : null;
+  if (unexported) {
+    const { pkg, name } = unexported;
+    const fixed = name[0].toUpperCase() + name.slice(1);
+    return `${prefix}${first}\n\ngo is case-sensitive — names you use from another package start with a capital letter. try \`${pkg}.${fixed}\`.`;
+  }
+
   return `${prefix}${first}`;
 }
 

@@ -28,6 +28,8 @@ import {
   trackConsentDismissed,
   trackPurchaseStart,
 } from "@/lib/analytics";
+import { numberWord, type LandingCurriculum } from "@/data/landing";
+import { PAYMENT_PROVIDER, PRICE_SINGLE, REFUND_WINDOW_DAYS, SUPPORT_EMAIL } from "@/lib/site";
 import styles from "./Paywall.module.css";
 
 const PromoLoop = dynamic(
@@ -41,336 +43,51 @@ const PromoLoop = dynamic(
 );
 
 interface PaywallProps {
+  /** The game's roadmap, built on the server from src/data/curriculum.ts. */
+  curriculum: LandingCurriculum;
   playerXP?: number;
   playerLevel?: number;
 }
 
-const PRICE_SINGLE = process.env.NEXT_PUBLIC_PRICE_SINGLE || "9.99";
-const PRICE_TEAM = process.env.NEXT_PUBLIC_PRICE_TEAM || "69.99";
-const TEAM_SEATS = process.env.NEXT_PUBLIC_TEAM_SEATS || "10";
-
-type Difficulty = "beginner" | "intermediate" | "advanced";
-
-interface Chapter {
-  name: string;
-  description: string;
-  concepts: string[];
-  boss?: boolean;
-}
-
-interface Act {
-  act: string;
-  title: string;
-  difficulty: Difficulty;
-  status: "complete" | "locked";
-  chapters: Chapter[];
-}
-
-const CURRICULUM: Act[] = [
-  {
-    act: "I",
-    title: "THE ESCAPE",
-    difficulty: "beginner",
-    status: "complete",
-    chapters: [
-      {
-        name: "HANDSHAKE",
-        description:
-          "establish a terminal connection using your first Go program",
-        concepts: ["package main", "import", "fmt.Println", "string literals"],
-      },
-      {
-        name: "DOOR CODE",
-        description: "crack a keypad sequence by classifying numbers 1\u201310",
-        concepts: ["for loops", "if/else", "switch", "modulo operator"],
-      },
-      {
-        name: "SHAFT CODES",
-        description:
-          "compute junction codes with functions that return multiple values",
-        concepts: [
-          "functions",
-          "multiple returns",
-          "slices",
-          "variadic params",
-        ],
-      },
-      {
-        name: "LOCKMASTER",
-        description:
-          "debug corrupted weapon code across multiple files under fire",
-        concepts: ["const groups", "packages", "debugging", "strings.Join"],
-        boss: true,
-      },
-    ],
-  },
-  {
-    act: "II",
-    title: "THE FACILITY",
-    difficulty: "beginner",
-    status: "locked",
-    chapters: [
-      {
-        name: "GUARD ROSTER",
-        description:
-          "decode patrol schedules using maps and the bool-set pattern",
-        concepts: ["map[K]V", "composite literals", "range", "Sprintf"],
-      },
-      {
-        name: "STRUCTS",
-        description: "model security clearance badges as structured data",
-        concepts: [
-          "struct types",
-          "field access",
-          "methods",
-          "value receivers",
-        ],
-      },
-      {
-        name: "POINTERS",
-        description:
-          "modify guard patrol routes through shared memory references",
-        concepts: ["& and *", "pointer receivers", "nil safety", "mutation"],
-      },
-      {
-        name: "INTERFACES",
-        description:
-          "build a polymorphic access control system for different door types",
-        concepts: [
-          "interface types",
-          "implicit implementation",
-          "type assertions",
-          "empty interface",
-        ],
-      },
-      {
-        name: "ERROR HANDLING",
-        description: "handle cascading system failures without crashing",
-        concepts: [
-          "error type",
-          "fmt.Errorf",
-          "error wrapping",
-          "sentinel errors",
-        ],
-      },
-      {
-        name: "GATEKEEPER",
-        description:
-          "combine structs, interfaces, and error handling to breach the gate",
-        concepts: ["all Act II concepts", "multi-file coordination"],
-        boss: true,
-      },
-    ],
-  },
-  {
-    act: "III",
-    title: "THE NETWORK",
-    difficulty: "intermediate",
-    status: "locked",
-    chapters: [
-      {
-        name: "GOROUTINES",
-        description:
-          "run concurrent surveillance sweeps across facility cameras",
-        concepts: [
-          "go keyword",
-          "sync.WaitGroup",
-          "race conditions",
-          "concurrent patterns",
-        ],
-      },
-      {
-        name: "CHANNELS",
-        description:
-          "coordinate a multi-agent extraction through message passing",
-        concepts: ["chan T", "send/receive", "buffered channels", "select"],
-      },
-      {
-        name: "HTTP CLIENT",
-        description: "tap into the facility's internal API to pull floor plans",
-        concepts: [
-          "net/http",
-          "GET/POST requests",
-          "JSON decoding",
-          "timeouts",
-        ],
-      },
-      {
-        name: "HTTP SERVER",
-        description: "hijack a guard comm relay and serve fake status reports",
-        concepts: [
-          "http.HandleFunc",
-          "request handlers",
-          "middleware",
-          "routing",
-        ],
-      },
-      {
-        name: "JSON & I/O",
-        description: "parse and forge security credentials in structured data",
-        concepts: [
-          "encoding/json",
-          "struct tags",
-          "Marshal/Unmarshal",
-          "file I/O",
-        ],
-      },
-      {
-        name: "TESTING",
-        description:
-          "verify exploit payloads won't crash before deploying them",
-        concepts: [
-          "testing.T",
-          "table-driven tests",
-          "test helpers",
-          "benchmarks",
-        ],
-      },
-      {
-        name: "ARCHITECT",
-        description:
-          "orchestrate a full network takeover using goroutines and HTTP",
-        concepts: ["concurrency + networking", "system design under pressure"],
-        boss: true,
-      },
-    ],
-  },
-  {
-    act: "IV",
-    title: "THE SIGNAL",
-    difficulty: "advanced",
-    status: "locked",
-    chapters: [
-      {
-        name: "GENERICS",
-        description: "build type-safe utilities that work across any data type",
-        concepts: [
-          "type parameters",
-          "constraints",
-          "type sets",
-          "generic functions",
-        ],
-      },
-      {
-        name: "CONTEXT",
-        description:
-          "manage cascading timeouts across distributed facility systems",
-        concepts: [
-          "context.Context",
-          "cancellation",
-          "timeouts",
-          "context.WithValue",
-        ],
-      },
-      {
-        name: "DATABASE",
-        description:
-          "query and modify the facility's central database to erase records",
-        concepts: [
-          "database/sql",
-          "parameterized queries",
-          "transactions",
-          "migrations",
-        ],
-      },
-      {
-        name: "CLI TOOLS",
-        description:
-          "build command-line tools to automate the final extraction",
-        concepts: [
-          "os.Args",
-          "flag package",
-          "cobra patterns",
-          "stdin/stdout pipes",
-        ],
-      },
-      {
-        name: "MODULES",
-        description:
-          "structure the full escape toolkit as a production Go project",
-        concepts: [
-          "go.mod",
-          "semantic versioning",
-          "dependencies",
-          "workspaces",
-        ],
-      },
-      {
-        name: "FINAL SIGNAL",
-        description:
-          "broadcast the signal \u2014 everything you've learned in one final mission",
-        concepts: [
-          "the full language",
-          "production architecture",
-          "real-world Go",
-        ],
-        boss: true,
-      },
-    ],
-  },
-];
+// Only the individual license is sold today; team and school plans come later.
+const PLAN = "single";
 
 const LANGUAGES = [
   {
+    id: "go",
     name: "Go",
     mark: "Go",
+    href: "/why-go",
     detail:
       "Start with the fundamentals, then explore structs, concurrency, and more.",
-    note: "Free introductory chapters · Full curriculum available",
   },
   {
+    id: "python",
     name: "Python",
     mark: "Py",
+    href: "/why-python",
     detail:
       "Practice readable syntax, loops, and functions in a language used across disciplines.",
-    note: "Free introductory chapters",
   },
   {
+    id: "javascript",
     name: "JavaScript",
     mark: "JS",
+    href: "/why-javascript",
     detail:
       "Build a foundation in the language of the web, right in your browser.",
-    note: "Free introductory chapters",
   },
-];
+] as const;
 
-const ROSTER = [
-  {
-    name: "Diego R.",
-    initials: "DR",
-    language: "Go",
-    progress: "2 of 6",
-    status: "Needs help",
-    kind: "help",
-  },
-  {
-    name: "Amara O.",
-    initials: "AO",
-    language: "Go",
-    progress: "4 of 6",
-    status: "Learning",
-    kind: "active",
-  },
-  {
-    name: "Priya N.",
-    initials: "PN",
-    language: "Python",
-    progress: "4 of 4",
-    status: "Completed",
-    kind: "done",
-  },
-  {
-    name: "Kwame A.",
-    initials: "KA",
-    language: "JavaScript",
-    progress: "2 of 4",
-    status: "Learning",
-    kind: "active",
-  },
-];
-
-function sentenceCase(text: string) {
-  return text.charAt(0) + text.slice(1).toLowerCase();
+// Illustrative class. "Chapters" counts what the real dashboard counts: the
+// chapters playable today in the student's language.
+function sampleRoster(playable: LandingCurriculum["playableByLanguage"]) {
+  return [
+    { name: "Diego R.", initials: "DR", language: "Go", progress: `2 of ${playable.go}`, status: "Needs help", kind: "help" },
+    { name: "Amara O.", initials: "AO", language: "Go", progress: `4 of ${playable.go}`, status: "Learning", kind: "active" },
+    { name: "Priya N.", initials: "PN", language: "Python", progress: `${playable.python} of ${playable.python}`, status: "Completed", kind: "done" },
+    { name: "Kwame A.", initials: "KA", language: "JavaScript", progress: `2 of ${playable.javascript}`, status: "Learning", kind: "active" },
+  ];
 }
 
 function subscribeToMotionPreference(onChange: () => void) {
@@ -383,8 +100,7 @@ function getReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function Paywall({ playerXP, playerLevel }: PaywallProps) {
-  const [selectedPlan, setSelectedPlan] = useState<"single" | "team">("single");
+export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState<boolean | null>(null);
   const reducedMotion = useSyncExternalStore(
@@ -396,7 +112,9 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
   const [showConsent, setShowConsent] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const consentRef = useRef<HTMLDialogElement>(null);
-  const activePrice = selectedPlan === "single" ? PRICE_SINGLE : PRICE_TEAM;
+  const activePrice = PRICE_SINGLE;
+  const actsWord = numberWord(curriculum.actCount);
+  const roster = sampleRoster(curriculum.playableByLanguage);
 
   useEffect(() => {
     if (showConsent) consentRef.current?.showModal();
@@ -404,23 +122,23 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
   }, [showConsent]);
 
   const handlePurchaseClick = useCallback(() => {
-    trackPurchaseCtaClick(selectedPlan, activePrice);
+    trackPurchaseCtaClick(PLAN, activePrice);
     setConsentChecked(false);
     setShowConsent(true);
-    trackConsentModalView(selectedPlan, activePrice);
-  }, [selectedPlan, activePrice]);
+    trackConsentModalView(PLAN, activePrice);
+  }, [activePrice]);
 
   const handleConsentProceed = useCallback(() => {
-    trackConsentAccepted(selectedPlan, activePrice);
-    trackPurchaseStart(selectedPlan, activePrice);
+    trackConsentAccepted(PLAN, activePrice);
+    trackPurchaseStart(PLAN, activePrice);
     setShowConsent(false);
-    // TODO: trigger Google OAuth + Stripe checkout (existing purchase integration).
-  }, [selectedPlan, activePrice]);
+    // TODO: trigger Google OAuth + Creem checkout (existing purchase integration).
+  }, [activePrice]);
 
   const handleConsentDismiss = useCallback(() => {
-    trackConsentDismissed(selectedPlan, activePrice);
+    trackConsentDismissed(PLAN, activePrice);
     setShowConsent(false);
-  }, [selectedPlan, activePrice]);
+  }, [activePrice]);
 
   return (
     <div className={styles.page}>
@@ -665,12 +383,12 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <thead>
                   <tr>
                     <th scope="col">Student</th>
-                    <th scope="col">Chapters</th>
+                    <th scope="col">Chapters done</th>
                     <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ROSTER.map((row) => (
+                  {roster.map((row) => (
                     <tr key={row.name}>
                       <td>
                         <div className={styles.student}>
@@ -702,7 +420,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 </p>
               </div>
               <p className={styles.dashboardNote}>
-                Illustrative dashboard · Students’ code and chats stay private.
+                Illustrative dashboard · Chapters count what’s playable today in
+                each language · Students’ code and chats stay private.
               </p>
             </div>
           </div>
@@ -731,7 +450,15 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 </span>
                 <h3>{language.name}</h3>
                 <p>{language.detail}</p>
-                <p className={styles.languageNote}>{language.note}</p>
+                <p className={styles.languageNote}>
+                  {language.id === "go"
+                    ? `Act I free · Full course: ${curriculum.actCount} acts`
+                    : "Act I free, more coming"}
+                </p>
+                <Link className={styles.textLink} href={language.href}>
+                  Why learn {language.name}?{" "}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
               </article>
             ))}
           </div>
@@ -741,23 +468,31 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             </summary>
             <div className={styles.curriculumContent}>
               <p>
-                Go continues beyond the introductory chapters. Python and
-                JavaScript currently cover the first act.
+                {curriculum.actCount} acts and {curriculum.chapterCount} chapters,
+                each act ending in a boss fight. Act I is free in Go, Python,
+                and JavaScript. Chapters marked “Coming soon” are still being
+                built.
               </p>
-              {CURRICULUM.map((act) => (
+              {curriculum.acts.map((act) => (
                 <section key={act.act} className={styles.curriculumAct}>
                   <h3>
-                    Part {act.act}: {sentenceCase(act.title)}{" "}
-                    <span>
-                      {sentenceCase(act.difficulty)}
-                      {act.status === "complete" ? " · Free" : ""}
-                    </span>
+                    Act {act.act}: {act.name}
+                    {act.act === "I" && <span>Free</span>}
                   </h3>
                   <ul>
                     {act.chapters.map((chapter) => (
-                      <li key={chapter.name}>
-                        <strong>{sentenceCase(chapter.name)}</strong>
-                        <span>{chapter.concepts.join(" · ")}</span>
+                      <li key={chapter.title}>
+                        <strong>
+                          {chapter.isBoss ? `Boss: ${chapter.title}` : chapter.title}
+                        </strong>
+                        <span>
+                          {chapter.isBoss
+                            ? "Everything from the act, under fire"
+                            : chapter.concepts.join(" · ")}
+                          {!chapter.playable && (
+                            <em className={styles.soon}> · Coming soon</em>
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -791,8 +526,12 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                 <p>Get started in Go, Python, or JavaScript.</p>
                 <ul className={styles.checkList}>
                   <li>
-                    <Check size={18} aria-hidden="true" /> All first-act
-                    challenges
+                    <Check size={18} aria-hidden="true" /> Act I in Go, Python,
+                    and JavaScript
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Python and
+                    JavaScript: Act I free, more coming
                   </li>
                   <li>
                     <Check size={18} aria-hidden="true" /> Built-in hints and
@@ -815,43 +554,19 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               <article className={styles.paidPlan}>
                 <span className={styles.planLabel}>Go further</span>
                 <h3>The full Go curriculum</h3>
-                <div
-                  className={styles.planPicker}
-                  role="group"
-                  aria-label="License type"
-                >
-                  <button
-                    aria-pressed={selectedPlan === "single"}
-                    onClick={() => setSelectedPlan("single")}
-                  >
-                    Individual
-                  </button>
-                  <button
-                    aria-pressed={selectedPlan === "team"}
-                    onClick={() => setSelectedPlan("team")}
-                  >
-                    Team · {TEAM_SEATS} seats
-                  </button>
-                </div>
                 <div className={styles.price}>
                   ${activePrice}
                   <span>USD / one-time</span>
                 </div>
-                <p>
-                  {selectedPlan === "single"
-                    ? "A complete learning path, from basics to advanced Go."
-                    : `Full access for ${TEAM_SEATS} learners. $${(
-                        Number(PRICE_TEAM) / Number(TEAM_SEATS)
-                      ).toFixed(2)} per seat.`}
-                </p>
+                <p>A complete learning path, from basics to advanced Go.</p>
                 <ul className={styles.checkList}>
                   <li>
-                    <Check size={18} aria-hidden="true" /> All four acts of the
-                    Go curriculum
+                    <Check size={18} aria-hidden="true" /> All {actsWord} acts of
+                    the Go curriculum, as each one ships
                   </li>
                   <li>
-                    <Check size={18} aria-hidden="true" /> Concurrency, HTTP,
-                    testing, and more
+                    <Check size={18} aria-hidden="true" /> Concurrency, web
+                    servers, databases, and more
                   </li>
                   <li>
                     <Check size={18} aria-hidden="true" /> Lifetime access, no
@@ -863,7 +578,8 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
                   <ArrowRight size={18} aria-hidden="true" />
                 </button>
                 <span className={styles.planNote}>
-                  Review your purchase before continuing
+                  Payments by {PAYMENT_PROVIDER} · {REFUND_WINDOW_DAYS}-day
+                  refunds
                 </span>
               </article>
             </div>
@@ -949,6 +665,9 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
           <nav aria-label="Footer navigation">
             <Link href="/faq">FAQ</Link>
             <Link href="/why-go">Why Go?</Link>
+            <Link href="/why-python">Why Python?</Link>
+            <Link href="/why-javascript">Why JavaScript?</Link>
+            <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/teach">For teachers</Link>
             <Link href="/join">Join a class</Link>
@@ -980,20 +699,17 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
             </button>
           </div>
           <div className={styles.orderSummary}>
-            <strong>
-              {selectedPlan === "single"
-                ? "Individual license"
-                : `Team license · ${TEAM_SEATS} seats`}
-            </strong>
+            <strong>Full Go license</strong>
             <strong>${activePrice} USD</strong>
             <span>One-time payment · Lifetime access</span>
           </div>
           <p>
-            By proceeding, you authorize Chienda Ltd to charge ${activePrice}{" "}
-            USD to your payment method via Stripe. Your purchase grants lifetime
-            access to all SIGNAL content. Refund requests may be submitted
-            within 14 days of purchase to{" "}
-            <a href="mailto:jeremiah@chienda.com">jeremiah@chienda.com</a>.
+            Your payment of ${activePrice} USD is processed by {PAYMENT_PROVIDER},
+            our merchant of record, which charges your payment method and emails
+            your receipt. Access to every Go act starts right away, including
+            acts released later. You can ask for a refund within{" "}
+            {REFUND_WINDOW_DAYS} days of purchase at{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
           </p>
           <label className={styles.consentLabel}>
             <input
@@ -1002,11 +718,16 @@ export function Paywall({ playerXP, playerLevel }: PaywallProps) {
               onChange={(event) => setConsentChecked(event.target.checked)}
             />
             <span>
-              I have read and agree to the{" "}
+              I agree to the{" "}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
               <Link href="/privacy" target="_blank" rel="noopener noreferrer">
                 Privacy Policy
-              </Link>{" "}
-              and authorize the charge described above.
+              </Link>
+              , authorize the charge above, and agree that access starts
+              immediately.
             </span>
           </label>
           <button

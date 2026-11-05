@@ -3,6 +3,7 @@ import { Orbitron, JetBrains_Mono, Crimson_Pro, Caveat } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next";
 import { FirebaseInit } from "@/components/FirebaseInit";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { CookieConsent } from "@/components/CookieConsent";
 import "./globals.css";
 
 const orbitron = Orbitron({
@@ -34,7 +35,15 @@ const caveat = Caveat({
 const description =
   "Learn to code by escaping. SIGNAL is a narrative coding game where you write real Go, Python, or JavaScript to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free in all three languages.";
 
+// Absolute base for canonical + share URLs. Vercel sets the production host.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "SIGNAL — Learn to code by escaping",
   description,
   manifest: "/manifest.json",
@@ -88,6 +97,7 @@ export default function RootLayout({
         <AuthProvider>{children}</AuthProvider>
         <Analytics />
         <FirebaseInit />
+        <CookieConsent />
       </body>
     </html>
   );

@@ -345,12 +345,35 @@ function checkStdlibMethods(tokens: Token[]): Diagnostic[] {
     if (
       pkg.type === "identifier" &&
       dot.value === "." &&
-      method.type === "identifier" &&
+      // After a dot everything is a selector: `fmt.println` tokenizes `println`
+      // as a builtin, `fmt.string` as a type — both still need checking.
+      (method.type === "identifier" || method.type === "builtin" || method.type === "type") &&
       importedPkgs.has(pkg.value) &&
       KNOWN_PKG_METHODS[pkg.value]
     ) {
       const known = KNOWN_PKG_METHODS[pkg.value];
-      if (!known.has(method.value)) {
+      // Lowercase names are unexported — Go rejects them outright
+      // ("undefined: fmt.println" / "cannot refer to unexported name").
+      const exported = [...known].find((m) => m.toLowerCase() === method.value.toLowerCase());
+      if (/^[a-z]/.test(method.value) && exported) {
+        diagnostics.push({
+          severity: "error",
+          message: `undefined: ${pkg.value}.${method.value} — go is case-sensitive. it's ${pkg.value}.${exported} with a capital ${exported[0]}. lowercase names are private to their package.`,
+          line: method.line,
+          col: method.col,
+          length: method.value.length,
+        });
+      } else if (/^[a-z_]/.test(method.value)) {
+        const guess = suggestMethod(pkg.value, method.value, known);
+        const didYouMean = guess.startsWith(`${pkg.value}.`) ? ` did you mean ${guess}?` : "";
+        diagnostics.push({
+          severity: "error",
+          message: `${pkg.value}.${method.value} is not a known function — and lowercase names are unexported, so go can't reach them from another package.${didYouMean}`,
+          line: method.line,
+          col: method.col,
+          length: method.value.length,
+        });
+      } else if (!known.has(method.value)) {
         diagnostics.push({
           severity: "error",
           message: `${pkg.value}.${method.value} is not a known function — did you mean ${suggestMethod(pkg.value, method.value, known)}?`,

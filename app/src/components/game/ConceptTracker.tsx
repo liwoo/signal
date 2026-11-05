@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { summarizeCurriculum, type ConceptStatus } from "@/lib/game/curriculum";
+import { summarizeCurriculum, type ConceptStatus, type StepProgress } from "@/lib/game/curriculum";
 import { useLanguage } from "./LanguageContext";
 
 interface ConceptTrackerProps {
   completedChapterIds: string[];
   currentChapterId: string | null;
+  /** Steps cleared in the current chapter — its concepts light up proportionally. */
+  currentSteps?: StepProgress | null;
   /** Tighter paddings/type for the desktop side rail. */
   compact?: boolean;
 }
@@ -31,9 +33,9 @@ const STATUS_MARK: Record<ConceptStatus, string> = {
  * ones sit neutral, and not-yet-built chapters are dim with a "SOON" tag so the
  * player always sees the road ahead. Desktop rail + mobile (behind a %).
  */
-export function ConceptTracker({ completedChapterIds, currentChapterId, compact = false }: ConceptTrackerProps) {
+export function ConceptTracker({ completedChapterIds, currentChapterId, currentSteps, compact = false }: ConceptTrackerProps) {
   const language = useLanguage();
-  const summary = summarizeCurriculum(completedChapterIds, currentChapterId, language);
+  const summary = summarizeCurriculum(completedChapterIds, currentChapterId, language, currentSteps);
 
   // Only the act you're inside is exploded into chips; every other act stays a
   // quiet one-line header so the road ahead is still visible without the wall of
@@ -63,7 +65,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
       >
         <div className="flex items-baseline justify-between gap-2">
           <span
-            className="font-[family-name:var(--font-display)] text-[9px] tracking-[3px]"
+            className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px]"
             style={{ color: "var(--color-signal)" }}
           >
             CONCEPTS
@@ -75,7 +77,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
             {summary.pct}%
           </span>
         </div>
-        <div className="mt-1 text-[8px] tracking-[1.5px]" style={{ color: "var(--color-dim)" }}>
+        <div className="mt-1 text-[10px] tracking-[1.5px]" style={{ color: "var(--color-dim)" }}>
           {summary.covered} / {summary.playable} LEARNED
           {summary.planned > 0 ? ` · +${summary.planned} AHEAD` : ""}
         </div>
@@ -95,9 +97,16 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
           {summary.acts.map((act) => {
             // Flatten the act's chapters into concept chips, each keeping its
             // own coverage status. Bosses carry no concepts, so they drop out.
+            // In the current chapter, concepts earned by cleared steps glow
+            // as covered while the rest stay amber.
             const items = act.chapters
               .filter((chapter) => !chapter.isBoss && chapter.concepts.length > 0)
-              .flatMap((chapter) => chapter.concepts.map((concept) => ({ concept, status: chapter.status })));
+              .flatMap((chapter) =>
+                chapter.concepts.map((concept, i) => ({
+                  concept,
+                  status: (i < chapter.coveredConcepts ? "covered" : chapter.status) as ConceptStatus,
+                })),
+              );
             if (items.length === 0) return null;
 
             const hasCurrent = items.some((it) => it.status === "current");
@@ -120,19 +129,19 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
                 >
                   <span className="flex items-center gap-1.5">
                     <span
-                      className="inline-block w-2 text-[8px] transition-transform"
+                      className="inline-block w-2 text-[10px] transition-transform"
                       style={{ color: "var(--color-dim)", transform: isOpen ? "rotate(90deg)" : "none" }}
                     >
                       ▸
                     </span>
                     <span
-                      className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
+                      className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
                       style={{ color: headColor }}
                     >
                       ACT {act.act}
                     </span>
                   </span>
-                  <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+                  <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
                     {act.covered ? "✓" : `${items.length}`}
                   </span>
                 </button>
@@ -156,10 +165,10 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
                               ? "none"
                               : `1px solid color-mix(in srgb, ${color} ${boxed ? "45%" : "15%"}, transparent)`,
                             background: boxed ? `color-mix(in srgb, ${color} 8%, transparent)` : "transparent",
-                            opacity: status === "planned" ? 0.5 : status === "upcoming" ? 0.8 : 1,
+                            opacity: status === "planned" ? 0.7 : status === "upcoming" ? 0.85 : 1,
                           }}
                         >
-                          <span style={{ fontSize: "9px" }}>{STATUS_MARK[status]}</span>
+                          <span style={{ fontSize: "10px" }}>{STATUS_MARK[status]}</span>
                           {concept}
                         </span>
                       );

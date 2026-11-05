@@ -317,7 +317,7 @@ const jsTemplateLiteral: ZenRule = {
   },
   bonusXP: 15,
   jolt: "...my thesis notes. i can see them.\n\na template literal — backticks, values dropped in with `${...}`. the line in your code looks like the line on the screen. no `+` signs, no lost spaces between the pieces.\n\ni built every log message in my encryption library that way.",
-  suggestion: "gluing text with `+` works, but the spaces are easy to lose. a template literal reads like the output: ``console.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);``",
+  suggestion: "gluing text with `+` works, but the spaces are easy to lose. a template literal reads like the output: ``console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);``",
 };
 
 const jsNamedImports: ZenRule = {

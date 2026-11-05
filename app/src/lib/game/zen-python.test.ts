@@ -42,12 +42,12 @@ const CASES: [string, string, string][] = [
   [
     "py_fstring",
     PY["chapter-01:location"],
-    'import cellblock\n\nprint("CELL " + cellblock.CELL + " · SUBLEVEL " + str(cellblock.SUBLEVEL))',
+    'import cellblock\n\nprint("CELL " + cellblock.CELL + " - SUBLEVEL " + str(cellblock.SUBLEVEL))',
   ],
   [
     "py_qualified_import",
     PY["chapter-01:location"],
-    'from cellblock import CELL, SUBLEVEL\nimport cellblock\n\nprint(f"CELL {cellblock.CELL} · SUBLEVEL {SUBLEVEL}")',
+    'from cellblock import CELL, SUBLEVEL\nimport cellblock\n\nprint(f"CELL {cellblock.CELL} - SUBLEVEL {SUBLEVEL}")',
   ],
   ["py_imports_at_top", PY["chapter-01:location"], 'import cellblock\nprint(cellblock.CELL)'],
   ["py_range_start_stop", PY["chapter-02:loop"], "for i in range(10):\n    print(i + 1)"],

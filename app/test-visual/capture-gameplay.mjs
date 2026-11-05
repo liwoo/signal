@@ -66,7 +66,7 @@ await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/06-reward.png` });
 await page.waitForTimeout(4000);
 await settle();
-await editor.fill('package main\n\nimport (\n    "fmt"\n)\n\nfunc main() {\n    cell := "B-09"\n    const sublevel = 3\n    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)\n}\n');
+await editor.fill('package main\n\nimport (\n    "fmt"\n)\n\nfunc main() {\n    cell := "B-09"\n    const sublevel = 3\n    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)\n}\n');
 await page.getByRole("button", { name: /SUBMIT|HURRY/ }).click();
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${out}/07-chapter-reward.png` });

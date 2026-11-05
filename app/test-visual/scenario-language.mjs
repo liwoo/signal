@@ -7,8 +7,8 @@ const base = process.argv[2] ?? "http://localhost:3131";
 const out = process.argv[3] ?? "/tmp/lang";
 const language = process.argv[4] ?? "javascript";
 const SOLUTIONS = {
-  javascript: ['console.log("Hello World");', 'import { cell, sublevel } from "./cellblock.js";\n\nconsole.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);'],
-  python: ['print("Hello World")', 'import cellblock\n\nprint(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")'],
+  javascript: ['console.log("Hello World");', 'import { cell, sublevel } from "./cellblock.js";\n\nconsole.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);'],
+  python: ['print("Hello World")', 'import cellblock\n\nprint(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")'],
 };
 const browser = await chromium.launch({ args: ["--headless=new", "--use-angle=metal", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

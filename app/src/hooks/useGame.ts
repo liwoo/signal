@@ -37,6 +37,7 @@ import {
   isPaused,
   shouldQueueEvent,
   startPause as pureStartPause,
+  holdForReply,
   markTypingDone,
   resume as pureResume,
   requestExplain as pureRequestExplain,
@@ -82,6 +83,8 @@ export interface InitialPersistedState {
   level: number;
   hearts: number;
   library: LibraryState;
+  /** Mid-chapter checkpoint for THIS chapter: start at this step, with this code carried forward. */
+  resume?: { stepIndex: number; code?: string } | null;
 }
 
 export interface SavePayload {
@@ -89,7 +92,11 @@ export interface SavePayload {
   level: number;
   hearts: number;
   library: LibraryState;
+  /** The chapter (Challenge id) being played — keys the mid-chapter checkpoint. */
+  chapterId?: string;
   completedChapter?: number;
+  /** A step was cleared: resume at `stepIndex` (the next step) with this code. */
+  checkpoint?: { stepIndex: number; code: string };
 }
 
 interface Particle {
@@ -219,14 +226,20 @@ export function useGame(
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
 
-  // Step tracking
-  const [stepIndex, setStepIndex] = useState(0);
+  // Step tracking — a returning player picks up at their saved checkpoint.
+  const resumeStepIndex = Math.min(
+    Math.max(0, initial?.resume?.stepIndex ?? 0),
+    Math.max(0, challenge.steps.length - 1),
+  );
+  const [stepIndex, setStepIndex] = useState(resumeStepIndex);
   const EMPTY_STEP: ChallengeStep = {
     id: "", title: "", brief: "", starterCode: "", expectedBehavior: "",
     hints: [], rushMode: null, xp: { base: 0, firstTryBonus: 0, parTimeSeconds: 0 }, events: [],
   };
   const currentStep = challenge.steps[stepIndex] ?? EMPTY_STEP;
-  const [code, setCode] = useState(currentStep.starterCode ?? "");
+  // A step with starterCode null carries the previous step's code forward —
+  // on resume that's the code saved with the checkpoint.
+  const [code, setCode] = useState(currentStep.starterCode ?? initial?.resume?.code ?? "");
 
   const [inRush, setInRush] = useState(false);
   const [powerCut, setPowerCut] = useState(false);
@@ -376,18 +389,50 @@ export function useGame(
     setExplainUsed(ps.explainUsed);
   }, []);
 
-  // Add a Maya message split into paragraph chunks for paced delivery
+  // Add a Maya message split into paragraph chunks for paced delivery.
+  // `answerFirst` puts the remaining chunks at the FRONT of the pending queue —
+  // a reply to the player's question must never wait behind queued narration.
   const addMayaChunked = useCallback(
-    (from: string, text: string, type: ChatMsg["type"]) => {
+    (from: string, text: string, type: ChatMsg["type"], answerFirst = false) => {
       const chunks = splitMayaMessage(text);
       if (chunks.length === 0) return;
       addMsg(from, chunks[0], type, true);
-      for (let i = 1; i < chunks.length; i++) {
-        pendingMsgRef.current.push({ from, text: chunks[i], type, animated: true });
-      }
+      const rest = chunks.slice(1).map((chunk) => ({ from, text: chunk, type, animated: true }));
+      if (answerFirst) pendingMsgRef.current.unshift(...rest);
+      else pendingMsgRef.current.push(...rest);
     },
     [addMsg]
   );
+
+  // The level clock and the timer ref move together, so a hold/resume in the
+  // same tick (resume → flush a queued story beat → hold again) reads the
+  // truth instead of last render's value.
+  const setStopped = useCallback((stopped: boolean) => {
+    timerStoppedRef.current = stopped;
+    setTimerStopped(stopped);
+  }, []);
+
+  /**
+   * Freeze the level clock and every timed event while Maya is talking —
+   * typing a reply, telling a story beat. Player-active time only: nothing
+   * drains while the player is waiting on her or reading. No-op when the clock
+   * is already held or not running.
+   *
+   * `forReply` (the player asked a question): an answer outranks a pending
+   * "continue", so that prompt is withdrawn until the reply finishes typing.
+   */
+  const holdClock = useCallback((forReply = false) => {
+    const before = pauseRef.current;
+    const result = forReply
+      ? holdForReply(before, Date.now(), timerStoppedRef.current)
+      : pureStartPause(before, Date.now(), timerStoppedRef.current);
+    if (!result || result === before) return;
+    syncPauseState(result);
+    if (isPaused(before)) return; // already held — only the prompt changed
+    setStopped(true);
+    levelSchedulerRef.current.pause();
+    stepSchedulerRef.current.pause();
+  }, [syncPauseState, setStopped]);
 
   const handleEvent = useCallback(
     (event: TimedEvent) => {
@@ -398,6 +443,9 @@ export function useGame(
       }
 
       if (event.type === "story") {
+        // A story beat is Maya talking: hold the clock while it plays, and
+        // queue anything else that comes due until the player continues.
+        holdClock();
         setInterrupt({ who: "MAYA", text: event.message });
         addMsg("MAYA", event.message, "maya", true);
       } else if (event.type === "system") {
@@ -424,7 +472,7 @@ export function useGame(
         setPowerCut(true);
       }
     },
-    [addMsg, challenge.id, challenge.steps, stepIndex, timingScale]
+    [addMsg, challenge.id, challenge.steps, stepIndex, timingScale, holdClock]
   );
 
   // Clean up schedulers on unmount
@@ -469,7 +517,7 @@ export function useGame(
       const newHearts = loseHeart(heartsRef.current);
       setHearts(newHearts);
       setPhase("gameover");
-      setTimerStopped(true);
+      setStopped(true);
       trackTimerExpire(challenge.id, "main");
       trackHeartLost(challenge.id, newHearts, "timer_expired");
       trackGameOver(challenge.id, "timer_expired");
@@ -479,21 +527,25 @@ export function useGame(
       fireJeopardy("energy_drain");
       addMsg("SYS", "▸ TIME EXPIRED · jeopardy active", "dim");
     }
-  }, [challenge.timer.gameOverOnExpiry, challenge.id, currentStep.id, language, fireJeopardy, addMsg]);
+  }, [challenge.timer.gameOverOnExpiry, challenge.id, currentStep.id, language, fireJeopardy, addMsg, setStopped]);
 
   const beginMission = useCallback(() => {
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
-    setTimerStopped(false);
+    setStopped(false);
 
     addMsg("SYS", "▸ SIGNAL LOCKED · LOCAL", "dim");
 
-    // Intro from the first step's bank
-    const firstStep = challenge.steps[0];
+    // Intro from the opening step's bank — the saved checkpoint's step when
+    // a returning player resumes mid-chapter.
+    const firstStep = challenge.steps[stepIndex] ?? challenge.steps[0];
+    if (stepIndex > 0) {
+      addMsg("SYS", `▸ CHECKPOINT RESTORED · STEP ${stepIndex + 1}/${challenge.steps.length} · ${firstStep.title}`, "dim");
+    }
     const { reply } = callMayaEngine(
       firstStep.id,
-      "i got your signal. i'm here.",
+      stepIndex > 0 ? "next step" : "i got your signal. i'm here.",
       false,
       true,
       false,
@@ -518,7 +570,7 @@ export function useGame(
       levelSchedulerRef.current.start(challenge.events, handleEvent);
     }
     startStepEvents(firstStep);
-  }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents, language]);
+  }, [challenge, stepIndex, addMsg, addMayaChunked, handleEvent, startStepEvents, language, setStopped]);
 
   const startGame = useCallback((options?: { deferMission?: boolean }) => {
     // A new round is always new. Drafts used to silently restore code, attempts,
@@ -537,6 +589,15 @@ export function useGame(
     }
     const msg = chatInput.trim();
     setChatInput("");
+
+    // A question always gets its answer before anything else happens. Hold the
+    // clock *now* (not when the reply's typewriter happens to start) so a timed
+    // step event that comes due in the meantime — the footsteps — queues behind
+    // the answer instead of landing on top of it. If Maya was already paused on
+    // a "continue", drop that prompt until the answer has finished typing so
+    // the auto-continue can't resume the clock mid-reply.
+    holdClock(true);
+
     addMsg("YOU", msg, "you");
     trackChatAsk(challenge.id, currentStep.id, msg);
 
@@ -549,7 +610,7 @@ export function useGame(
       attempts,
       language
     );
-    addMayaChunked("MAYA", reply, "maya");
+    addMayaChunked("MAYA", reply, "maya", true);
     logChatMessage({
       step_id: currentStep.id,
       kind: "chat",
@@ -558,7 +619,7 @@ export function useGame(
       is_complete: false,
       attempt: attempts,
     });
-  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language]);
+  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language, challenge.id, holdClock]);
 
   const submitCode = useCallback(async () => {
     if (!code.trim() || busy) return;
@@ -630,20 +691,22 @@ export function useGame(
       const relevantRules = stepRules.filter(
         (r) => !r.isRelevant || r.isRelevant(code)
       );
-      setLibrary((prev) =>
-        recordZenResults(
-          prev,
-          currentStep.id,
-          relevantRules.map((r) => ({
-            id: r.id,
-            principle: r.principle,
-            jolt: r.jolt,
-            suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
-            bonusXP: r.bonusXP,
-            passed: r.check(code),
-          }))
-        )
+      // Computed eagerly (not in a setState updater) so the save below
+      // persists exactly what the player now holds.
+      const nextLibrary = recordZenResults(
+        libraryRef.current,
+        currentStep.id,
+        relevantRules.map((r) => ({
+          id: r.id,
+          principle: r.principle,
+          jolt: r.jolt,
+          suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
+          bonusXP: r.bonusXP,
+          passed: r.check(code),
+        }))
       );
+      libraryRef.current = nextLibrary;
+      setLibrary(nextLibrary);
 
       trackCodeSubmit(challenge.id, stepIndex, attempts + 1, true);
       trackStepComplete(challenge.id, stepIndex, currentStep.id, totalEarned);
@@ -689,6 +752,25 @@ export function useGame(
         return next;
       });
 
+      // Persist the moment the step is cleared — not after the player taps
+      // through Maya's debrief. Saving used to wait for that tap (and the
+      // checkpoint was never saved at all), so leaving at the reward card lost
+      // the step's XP and a reload restarted the chapter from its cutscene.
+      const savedXp = xpRef.current + totalEarned;
+      xpRef.current = savedXp;
+      const nextStepIndex = stepIndex + 1;
+      const chapterCleared = nextStepIndex >= challenge.steps.length;
+      onSaveRef.current?.({
+        xp: savedXp,
+        level: calculateLevel(savedXp),
+        hearts: heartsRef.current,
+        library: nextLibrary,
+        chapterId: challenge.id,
+        ...(chapterCleared
+          ? { completedChapter: challenge.chapter }
+          : { checkpoint: { stepIndex: nextStepIndex, code } }),
+      });
+
 
       // Chunked delivery: completion reply → zen → next step intro
       // Each chunk pauses for "continue" — no more setTimeout timing hacks
@@ -710,9 +792,8 @@ export function useGame(
         }
       }
 
-      // Queue step advance or chapter complete
-      const nextStepIndex = stepIndex + 1;
-      if (nextStepIndex < challenge.steps.length) {
+      // Queue step advance or chapter complete (already persisted above)
+      if (!chapterCleared) {
         const nextStep = challenge.steps[nextStepIndex];
         const { reply: introReply } = callMayaEngine(
           nextStep.id, "next step", false, true, false, 0, language
@@ -749,13 +830,6 @@ export function useGame(
               const clk = mins > 0 ? `+${mins}:${String(secs).padStart(2, "0")}` : `+${secs}s`;
               addMsg("SYS", `▸ final checkpoint · ${clk} on the clock`, "dim");
             }
-            // Persist mid-chapter state
-            onSaveRef.current?.({
-              xp: xp + totalEarned,
-              level: calculateLevel(xp + totalEarned),
-              hearts,
-              library: libraryRef.current,
-            });
           },
         });
         // Queue intro message chunks
@@ -768,16 +842,8 @@ export function useGame(
         recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id, stepId: currentStep.id, data: { xp: totalEarned } });
 
         // Zen lessons (learned + missed) are taught in the ZenDebrief screen
-        // after the outro cinematic, not as chat chunks here. The library is
-        // computed now because setLibrary hasn't flushed yet.
-        const updatedLib = recordZenResults(
-          libraryRef.current,
-          currentStep.id,
-          stepRules.map((r) => ({
-            id: r.id, principle: r.principle, jolt: r.jolt,
-            suggestion: r.suggestion, bonusXP: r.bonusXP, passed: r.check(code),
-          }))
-        );
+        // after the outro cinematic, not as chat chunks here. The chapter clear
+        // (and its library) was already persisted when the step was cleared.
         pendingMsgRef.current.push({
           from: "SYS",
           text: null,
@@ -786,7 +852,7 @@ export function useGame(
           onShow: () => {
             clearGameDraft(challenge.id);
             levelSchedulerRef.current.stop();
-            setTimerStopped(true);
+            setStopped(true);
             if (twistData) {
               setTwist(twistData);
               setPhase("twist");
@@ -794,14 +860,6 @@ export function useGame(
               setPhase("win");
             }
             syncPauseState(createPauseState());
-            // Persist state — chapter complete
-            onSaveRef.current?.({
-              xp: xp + totalEarned,
-              level: calculateLevel(xp + totalEarned),
-              hearts,
-              library: updatedLib,
-              completedChapter: challenge.chapter,
-            });
           },
         });
       }
@@ -837,6 +895,7 @@ export function useGame(
     startStepEvents,
     syncPauseState,
     language,
+    setStopped,
   ]);
 
   const dismissTwist = useCallback(() => {
@@ -868,16 +927,9 @@ export function useGame(
     addMayaChunked("MAYA", `hint ${result.hint.level}: ${result.hint.text}`, "maya");
   }, [currentStep.hints, currentStep.id, hintState, challenge.id, addMayaChunked, language]);
 
-  const onMayaTypingStart = useCallback(() => {
-    const result = pureStartPause(pauseRef.current, Date.now(), timerStopped);
-    if (!result) return;
-    syncPauseState(result);
-    setTimerStopped(true);
-    // Hazards count player-active time only: no rush siren the instant the
-    // editor unlocks after a briefing.
-    levelSchedulerRef.current.pause();
-    stepSchedulerRef.current.pause();
-  }, [timerStopped, syncPauseState]);
+  // Hazards count player-active time only: no rush siren the instant the
+  // editor unlocks after a briefing.
+  const onMayaTypingStart = useCallback(() => holdClock(), [holdClock]);
 
   const onMayaTypingEnd = useCallback(() => {
     const result = markTypingDone(pauseRef.current);
@@ -900,7 +952,7 @@ export function useGame(
         if (phaseRef.current === "playing" && !timerStoppedRef.current) {
           backgroundPauseStartRef.current = Date.now();
           resumeAfterBackgroundRef.current = true;
-          setTimerStopped(true);
+          setStopped(true);
         }
         return;
       }
@@ -910,7 +962,7 @@ export function useGame(
       backgroundPauseStartRef.current = 0;
       setTimerBonusSeconds((prev) => prev + (Date.now() - pausedAt) / 1000);
       if (resumeAfterBackgroundRef.current && !isPaused(pauseRef.current)) {
-        setTimerStopped(false);
+        setStopped(false);
       }
       resumeAfterBackgroundRef.current = false;
       flushQueuedEvents();
@@ -918,7 +970,7 @@ export function useGame(
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [flushQueuedEvents]);
+  }, [flushQueuedEvents, setStopped]);
 
   const resumeFromPause = useCallback(() => {
     // Drain pending message chunks before actually resuming the timer
@@ -939,11 +991,11 @@ export function useGame(
     if (!result) return;
     syncPauseState(result.state);
     setTimerBonusSeconds((prev) => prev + result.bonusSeconds);
-    setTimerStopped(false);
+    setStopped(false);
     levelSchedulerRef.current.resume();
     stepSchedulerRef.current.resume();
     flushQueuedEvents();
-  }, [syncPauseState, flushQueuedEvents, addMsg]);
+  }, [syncPauseState, flushQueuedEvents, addMsg, setStopped]);
 
   const requestExplain = useCallback(() => {
     const result = pureRequestExplain(pauseRef.current, xp);
@@ -991,7 +1043,7 @@ export function useGame(
     const now = Date.now();
     startTimeRef.current = now;
     setTimerStartMs(now);
-    setTimerStopped(false);
+    setStopped(false);
     setSubmissionFeedback(null);
     syncPauseState(createPauseState());
     pendingMsgRef.current.length = 0;
@@ -1017,7 +1069,7 @@ export function useGame(
       }
       return carried;
     });
-  }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState]);
+  }, [challenge.id, challenge.steps, challenge.events, handleEvent, startStepEvents, syncPauseState, setStopped]);
 
   // Full restart after being captured with no lives left: restore lives and
   // re-enter the mission from step 1. XP/library progress is kept.

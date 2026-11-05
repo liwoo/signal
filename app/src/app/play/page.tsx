@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
@@ -34,8 +35,6 @@ import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
 import { ConceptTracker } from "@/components/game/ConceptTracker";
 import { summarizeCurriculum } from "@/lib/game/curriculum";
-import { AdventureLevel } from "@/components/adventure/AdventureLevel";
-import { CinematicScene } from "@/components/story/CinematicScene";
 import type { AdventureLevel as AdventureLevelDef } from "@/lib/adventure/types";
 import {
   CHAPTER_01_INTRO_LEVEL,
@@ -51,8 +50,6 @@ import {
   CHAPTER_04_2_INTRO_LEVEL,
   CHAPTER_04_2_COMPLETE_LEVEL,
 } from "@/lib/adventure/levels";
-import { MayaAnimation } from "@/components/story/MayaAnimation";
-import { PixiScene } from "@/components/story/PixiScene";
 import {
   PROLOGUE_SCENES,
   INTRO_SCENES,
@@ -70,10 +67,7 @@ import {
 } from "@/lib/sprites/scenes";
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
-import { BossArena } from "@/components/boss/BossArena";
-import { BossFight3D } from "@/components/boss/BossFight3D";
 import { LOCKMASTER_ARENA } from "@/lib/adventure/boss-levels";
-import { BookReader } from "@/components/book/BookReader";
 import { bookChapterFor } from "@/data/book";
 import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGameLayout } from "@/components/game/MobileGameLayout";
@@ -89,6 +83,13 @@ import {
   withProgress,
   type PersistedState,
 } from "@/lib/storage/persistence";
+import {
+  applyProgressSave,
+  completedChapterIdsFor,
+  resumeChapterIndex,
+  resumeFor,
+  type ProgressSave,
+} from "@/lib/game/progress";
 import type { Challenge, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import {
@@ -102,6 +103,62 @@ import {
   trackSettingChange,
 } from "@/lib/analytics";
 import { recordActivity } from "@/lib/classroom/activity";
+import { BootScreen } from "@/components/game/BootScreen";
+
+// ── Heavy stages, split out of the first load ──
+// Three.js (the playable beats, the 3D boss), Pixi (the cinematics and the
+// intro backdrop) and the book are only needed after the player presses
+// start. Keeping them out of the /play bundle gets the intro on screen
+// sooner; `prefetchStages()` warms them while the player reads it.
+// Full-screen stages hold the boot screen (never a black frame) if their code
+// is still arriving when they're needed.
+const StageLoading = () => <BootScreen step={2} label="OPENING CAMERA FEED" />;
+
+/**
+ * A code-split component plus its preloader. Once preloaded, new mounts use the
+ * real component directly (no loading frame); a mount that started on the
+ * dynamic wrapper keeps it for its whole life, so nothing remounts mid-scene.
+ */
+function splitStage<P extends object>(
+  load: () => Promise<React.ComponentType<P>>,
+  loading?: () => React.ReactElement,
+): [React.ComponentType<P>, () => Promise<unknown>] {
+  let Loaded: React.ComponentType<P> | null = null;
+  const preload = () => load().then((C) => { Loaded = C; return C; });
+  const Dynamic = dynamic<P>(preload, { ssr: false, loading });
+  function Stage(props: P) {
+    const [Component] = useState<React.ComponentType<P>>(() => Loaded ?? Dynamic);
+    return <Component {...props} />;
+  }
+  return [Stage, preload];
+}
+
+const [AdventureLevel, preloadAdventureLevel] = splitStage(
+  () => import("@/components/adventure/AdventureLevel").then((m) => m.AdventureLevel), StageLoading);
+const [CinematicScene, preloadCinematicScene] = splitStage(
+  () => import("@/components/story/CinematicScene").then((m) => m.CinematicScene), StageLoading);
+const [BookReader, preloadBookReader] = splitStage(
+  () => import("@/components/book/BookReader").then((m) => m.BookReader), StageLoading);
+const [BossFight3D, preloadBossFight3D] = splitStage(
+  () => import("@/components/boss/BossFight3D").then((m) => m.BossFight3D), StageLoading);
+const [BossArena, preloadBossArena] = splitStage(
+  () => import("@/components/boss/BossArena").then((m) => m.BossArena), StageLoading);
+// Decorative / inline: nothing while loading.
+const [PixiScene] = splitStage(() => import("@/components/story/PixiScene").then((m) => m.PixiScene));
+const [MayaAnimation, preloadMayaAnimation] = splitStage(
+  () => import("@/components/story/MayaAnimation").then((m) => m.MayaAnimation));
+
+let stagesPrefetched = false;
+/** Start downloading the post-intro stages in the background (once). */
+function prefetchStages(): void {
+  if (stagesPrefetched) return;
+  stagesPrefetched = true;
+  // The prologue and the first playable beat first; the rest after.
+  void preloadCinematicScene()
+    .then(() => preloadAdventureLevel())
+    .then(() => Promise.all([preloadBookReader(), preloadMayaAnimation(), preloadBossFight3D(), preloadBossArena()]))
+    .catch(() => { stagesPrefetched = false; });
+}
 
 // ── Cam-feed scene mapping — where Maya actually is per chapter ──
 
@@ -271,10 +328,14 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
   }));
 }
 
-/** Resume where this language's progress left off. */
-function resumeIndex(state: PersistedState, language: LanguageId, chapterCount: number): number {
-  const completedCount = progressFor(state.progress, language).completedChapters.length;
-  return completedCount > 0 && completedCount < chapterCount ? completedCount : 0;
+/** The id/number pairs progress logic needs. */
+function chapterRefs(chapters: ChapterConfig[]) {
+  return chapters.map((c) => ({ id: c.challenge.id, chapter: c.challenge.chapter }));
+}
+
+/** Resume where this language's progress left off (mid-chapter checkpoint first). */
+function resumeIndex(state: PersistedState, language: LanguageId): number {
+  return resumeChapterIndex(chapterRefs(chaptersFor(language)), progressFor(state.progress, language));
 }
 
 function GameRouter() {
@@ -298,37 +359,60 @@ function GameRouter() {
     return () => media.removeEventListener("change", check);
   }, []);
 
-  // Load persisted state from IndexedDB on mount
+  // Signed in: warm the story stages (prologue, playable beat) in the
+  // background so CONNECT TO MAYA starts instantly.
   useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(prefetchStages, 400);
+    return () => clearTimeout(timer);
+  }, [user]);
+
+  // Load persisted state once auth has settled. Loading on mount raced the
+  // auth check: the save was read before AuthProvider had installed the cloud
+  // backend, so a signed-in player could be shown (and then overwrite) the
+  // wrong copy. Re-runs if the signed-in user changes.
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (authLoading || !userId) return;
+    let active = true;
     loadPersistedState().then((state) => {
+      if (!active) return;
       setPersisted(state);
-      // Resume from this language's last completed chapter
+      // Resume at this language's checkpoint / first uncleared chapter
       const lang = state.settings.language ?? "go";
-      setChapterIndex(resumeIndex(state, lang, chaptersFor(lang).length));
+      setChapterIndex(resumeIndex(state, lang));
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [authLoading, userId]);
 
   const handleSave = useCallback((payload: SavePayload) => {
     setPersisted((prev) => {
       if (!prev) return prev;
       // Story progress belongs to the language being played; XP and hearts are the player's.
       const lang = prev.settings.language ?? "go";
-      const current = progressFor(prev.progress, lang);
       const updated: PersistedState = {
         ...prev,
         stats: { ...prev.stats, xp: payload.xp, level: payload.level, hearts: payload.hearts },
         library: payload.library,
-        progress: payload.completedChapter
-          ? withProgress(prev.progress, lang, {
-              ...current,
-              completedChapters: current.completedChapters.includes(payload.completedChapter)
-                ? current.completedChapters
-                : [...current.completedChapters, payload.completedChapter],
-              currentChapter: payload.completedChapter + 1,
-            })
-          : prev.progress,
+        progress: withProgress(prev.progress, lang, applyProgressSave(progressFor(prev.progress, lang), payload)),
       };
       savePersistedState(updated);
+      return updated;
+    });
+  }, []);
+
+  // Progress-only saves (e.g. "intro beat played through") — no stats change.
+  const handleProgress = useCallback((save: ProgressSave) => {
+    setPersisted((prev) => {
+      if (!prev) return prev;
+      const lang = prev.settings.language ?? "go";
+      const current = progressFor(prev.progress, lang);
+      const next = applyProgressSave(current, save);
+      if (next === current) return prev;
+      const updated: PersistedState = { ...prev, progress: withProgress(prev.progress, lang, next) };
+      savePersistedState({ progress: updated.progress });
       return updated;
     });
   }, []);
@@ -362,46 +446,32 @@ function GameRouter() {
     };
     setPersisted(updated);
     savePersistedState({ settings: updated.settings });
-    setChapterIndex(resumeIndex(updated, next, chaptersFor(next).length));
+    setChapterIndex(resumeIndex(updated, next));
   }, [persisted]);
 
-  // Gate: Google sign-in is required before the game runs.
+  // Gate: Google sign-in is required before the game runs. The boot screen is
+  // what the server renders, so the title is up before any JS has loaded.
   if (authLoading) {
-    return (
-      <div
-        className="h-dvh flex items-center justify-center"
-        style={{ background: "var(--color-background)" }}
-      >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
-          AUTHENTICATING<span className="cursor-blink">...</span>
-        </div>
-      </div>
-    );
+    return <BootScreen step={0} label="ESTABLISHING SECURE CHANNEL" />;
   }
   if (!user) {
     return <SignInScreen />;
   }
 
-  // Show loading state while persistence + mobile check complete
+  // Persistence + mobile check
   if (!persisted || !mobileChecked) {
-    return (
-      <div
-        className="h-dvh flex items-center justify-center"
-        style={{ background: "var(--color-background)" }}
-      >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
-          LOADING<span className="cursor-blink">...</span>
-        </div>
-      </div>
-    );
+    return <BootScreen step={1} label="RESTORING SAVE DATA" />;
   }
 
   const config = chapters[Math.min(chapterIndex, chapters.length - 1)];
+  const langProgress = progressFor(persisted.progress, language);
+  const resume = resumeFor(langProgress, config.challenge.id, config.challenge.steps.length);
   const initialState: InitialPersistedState = {
     xp: persisted.stats.xp,
     level: persisted.stats.level,
     hearts: persisted.stats.hearts,
     library: persisted.library,
+    resume: resume ? { stepIndex: resume.stepIndex, code: resume.code } : null,
   };
 
   return (
@@ -413,12 +483,17 @@ function GameRouter() {
         onNextChapter={advanceChapter}
         initialState={initialState}
         onSave={handleSave}
+        onIntroDone={() => handleProgress({ chapterId: config.challenge.id, introDone: true })}
+        introDone={resume?.introDone ?? false}
         onSaveSettings={handleSaveSettings}
         onChangeLanguage={changeLanguage}
         language={language}
         settings={persisted.settings}
         isMobile={isMobile}
-        completedChapterIds={chapters.slice(0, chapterIndex).map((c) => c.challenge.id)}
+        // From the saved progress, not the chapter cursor: the cursor only
+        // moves on CONTINUE, so a just-cleared chapter (or one cleared before
+        // a reload that resumed elsewhere) never counted toward Concepts.
+        completedChapterIds={completedChapterIdsFor(chapterRefs(chapters), langProgress)}
       />
     </LanguageProvider>
   );
@@ -430,6 +505,10 @@ interface GameScreenProps {
   onNextChapter: () => void;
   initialState: InitialPersistedState;
   onSave: (payload: SavePayload) => void;
+  /** Persist that this chapter's intro beat has been played through. */
+  onIntroDone: () => void;
+  /** This chapter's intro beat was already played (saved checkpoint) — don't force it again. */
+  introDone: boolean;
   onSaveSettings: (settings: Partial<PlayerSettings>) => void;
   onChangeLanguage: (language: LanguageId) => void;
   language: LanguageId;
@@ -438,7 +517,7 @@ interface GameScreenProps {
   isMobile: boolean;
 }
 
-function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onIntroDone, introDone, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
   const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language);
   const lang = getLanguageService(language);
@@ -577,8 +656,30 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   // Leave the intro screen for the story: the prologue first (once, or on
   // request), then the playable intro beat.
+  const resumeStep = initialState.resume?.stepIndex ?? 0;
+  const resuming = introDone || resumeStep > 0;
+  // Steps cleared in this chapter, for the Concepts tracker's partial credit.
+  // The saved checkpoint leads the live index (it's written the moment a step
+  // clears, before the player taps on to the next one).
+  const currentSteps = {
+    done: state.phase === "win" || state.phase === "twist"
+      ? state.totalSteps
+      : Math.max(state.currentStepIndex, resumeStep),
+    total: state.totalSteps,
+  };
   const beginStory = (replayPrologue = false) => {
     if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
+    if (resuming && !replayPrologue) {
+      // Returning mid-chapter: the prologue and the playable intro beat were
+      // already played, so go straight back to work. Mid-step resumes skip
+      // the field manual too (it's in NOTES); a resume at step 1 still opens
+      // it, since that's where the round begins.
+      trackChapterStart(challenge.id, challenge.chapter);
+      recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
+      if (resumeStep > 0 && !config.bossFightConfig) startRound();
+      else enterExplanations();
+      return;
+    }
     const prologue = !!config.prologueScenes && (replayPrologue || !settings.prologueSeen);
     // Gesture-anchored drone for the intro beat — held silent under the
     // prologue, which brings its own sound bed.
@@ -601,6 +702,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       config={config}
       language={language}
       languageChosen={settings.languageChosen}
+      ctaOverride={resuming
+        ? resumeStep > 0
+          ? `CONTINUE · STEP ${resumeStep + 1}/${challenge.steps.length}`
+          : "CONTINUE"
+        : undefined}
       onChangeLanguage={onChangeLanguage}
       onStart={() => beginStory()}
       onGuidedStart={() => {
@@ -645,6 +751,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           // The gesture-anchored drone from the intro screen ends with the film.
           audio.stopLoop("dark-drone-1", 1500);
           setShowCinematic(false);
+          // Checkpoint: a reload from here on never forces this beat again.
+          onIntroDone();
           // Round 1 opens with the type-along warm-up, then explanations.
           // (Later chapters need their own lesson-specific warm-up content.)
           if (challenge.chapter === 1 && (settings.beginnerMode || forceBeginner)) {
@@ -1053,11 +1161,12 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
             />
           }
-          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id, language).pct}
+          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id, language, currentSteps).pct}
           conceptsPanel={
             <ConceptTracker
               completedChapterIds={completedChapterIds}
               currentChapterId={challenge.id}
+              currentSteps={currentSteps}
             />
           }
         />
@@ -1160,7 +1269,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                     <button
                       key={t}
                       onClick={() => actions.setTab(t)}
-                      className="bg-transparent text-[9px] tracking-[3px] px-4 py-2.5 cursor-pointer transition-colors"
+                      className="bg-transparent text-[10px] tracking-[3px] px-4 py-2.5 cursor-pointer transition-colors"
                       style={{
                         color: active
                           ? isHelp ? "var(--color-info)" : "var(--color-signal)"
@@ -1231,7 +1340,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                     <button
                       onClick={actions.openAISuggest}
-                      className="ai-glow text-[9px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)]"
+                      className="ai-glow text-[10px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)]"
                       style={{
                         color: "var(--color-info)",
                         background: "rgba(122,184,216,.14)",
@@ -1277,6 +1386,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               compact
               completedChapterIds={completedChapterIds}
               currentChapterId={challenge.id}
+              currentSteps={currentSteps}
             />
           </div>
         </div>
@@ -1314,10 +1424,12 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, language, languageChosen, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
+function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
   config: ChapterConfig;
   language: LanguageId;
   languageChosen: boolean;
+  /** Replaces the chapter CTA, e.g. "CONTINUE · STEP 2/2" when resuming from a checkpoint. */
+  ctaOverride?: string;
   onChangeLanguage: (language: LanguageId) => void;
   onStart: () => void;
   onGuidedStart: () => void;
@@ -1380,12 +1492,10 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
         className="max-w-[480px] w-full relative px-5 py-6"
         style={{ background: "color-mix(in srgb, var(--color-background) 62%, transparent)" }}
       >
-        {/* Title */}
-        <div
-          className="text-center mb-7"
-          style={{ animation: "intro-in .7s ease forwards" }}
-        >
-          <div className="text-[#0a4a2a] text-[9px] tracking-[6px] mb-3.5">
+        {/* Title — no entrance fade: it carries straight on from the boot
+            screen's title, so there's no dark beat between the two. */}
+        <div className="text-center mb-7">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] sm:tracking-[6px] mb-3.5">
             {tagline}
           </div>
           <div
@@ -1394,7 +1504,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
           >
             {introTitle}
           </div>
-          <div className="text-[#1a6a3a] text-[9px] tracking-[5px] mt-1.5">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[5px] mt-1.5">
             {introSubtitle}
           </div>
         </div>
@@ -1417,7 +1527,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
               <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-base font-bold">
                 {v}
               </div>
-              <div className="text-[#0a4a2a] text-[7px] tracking-[2px] mt-0.5">
+              <div className="text-[var(--color-dim)] text-[10px] tracking-[2px] mt-0.5">
                 {l}
               </div>
             </div>
@@ -1435,10 +1545,10 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
             animation: "intro-in .6s ease .25s forwards",
           }}
         >
-          <div className="text-[#1a6a4a] text-[8px] tracking-[3px] mb-2">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-2">
             ▸ SIGNAL INTERCEPTED · 02:14:07
           </div>
-          <p className="text-[#3a7a5a] text-xs leading-[1.8]">
+          <p className="text-[var(--color-dim)] text-xs leading-[1.8]">
             {storyLines[0]}
           </p>
           <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">
@@ -1459,12 +1569,12 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
                        hover:bg-[var(--color-signal)] hover:text-[var(--color-background)]
                        transition-colors"
           >
-            {ctaLabel}
+            {ctaOverride ?? ctaLabel}
           </button>
           <button
             type="button"
             onClick={onGuidedStart}
-            className="w-full mt-2.5 py-2.5 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+            className="w-full mt-2.5 py-2.5 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
             style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
           >
             NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
@@ -1473,13 +1583,13 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
             <button
               type="button"
               onClick={onReplayPrologue}
-              className="btn-secondary w-full mt-2.5 py-2 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+              className="btn-secondary w-full mt-2.5 py-2 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
               style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.25)" }}
             >
               ▶ REPLAY THE PROLOGUE · HOW SHE GOT HERE
             </button>
           )}
-          <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
+          <div className="text-center mt-2 text-[var(--color-dim)] text-[10px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
             <span className="cursor-blink">█</span>
           </div>
@@ -1503,10 +1613,10 @@ function LanguagePicker({ language, highlight, onChange }: {
       aria-label="Language to learn in"
     >
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-[8px] tracking-[3px]" style={{ color: highlight ? "var(--color-signal)" : "#1a6a4a" }}>
+        <span className="text-[10px] tracking-[3px]" style={{ color: highlight ? "var(--color-signal)" : "var(--color-dim)" }}>
           {highlight ? "▸ CHOOSE YOUR LANGUAGE" : "▸ LEARNING IN"}
         </span>
-        <span className="text-[8px] tracking-[1px]" style={{ color: "#1a6a4a" }}>
+        <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
           progress is kept per language
         </span>
       </div>
@@ -1520,7 +1630,7 @@ function LanguagePicker({ language, highlight, onChange }: {
               role="radio"
               aria-checked={selected}
               onClick={() => onChange(opt.id)}
-              className="flex-1 py-2 text-[9px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+              className="flex-1 py-2 text-[10px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
               style={{
                 color: selected ? "var(--color-background)" : opt.accent,
                 background: selected ? opt.accent : `rgba(${opt.accentRgb}, .04)`,
@@ -1532,7 +1642,7 @@ function LanguagePicker({ language, highlight, onChange }: {
           );
         })}
       </div>
-      <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "#3a7a5a" }}>
+      <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "var(--color-dim)" }}>
         {active.blurb}
       </div>
     </div>

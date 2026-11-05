@@ -1,4 +1,6 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi, afterEach } from "vitest";
+import { createEventScheduler } from "./events";
+import type { TimedEvent } from "@/types/game";
 import {
   EXPLAIN_COST_XP,
   createPauseState,
@@ -10,6 +12,7 @@ import {
   requestExplain,
   resetExplainForNewStep,
   splitMayaMessage,
+  holdForReply,
 } from "./pause";
 
 describe("pause system", () => {
@@ -399,5 +402,87 @@ describe("pause system", () => {
         "paragraph two",
       ]);
     });
+  });
+});
+
+describe("holdForReply — a player's question always gets its answer first", () => {
+  test("holds a running clock like startPause", () => {
+    const s = holdForReply(createPauseState(), 5000, false);
+    expect(s).not.toBeNull();
+    expect(s!.pauseStartMs).toBe(5000);
+    expect(s!.waitingForContinue).toBe(false);
+  });
+
+  test("returns null when the clock isn't running and nothing is held", () => {
+    expect(holdForReply(createPauseState(), 5000, true)).toBeNull();
+  });
+
+  test("withdraws a pending continue so auto-continue can't fire mid-answer", () => {
+    const waiting = { pauseStartMs: 1000, waitingForContinue: true, explainUsed: false };
+    const s = holdForReply(waiting, 5000, true);
+    expect(s).toEqual({ pauseStartMs: 1000, waitingForContinue: false, explainUsed: false });
+    // the original pause start is kept — the whole wait is refunded on resume
+    expect(resume(markTypingDone(s!)!, 9000)!.bonusSeconds).toBe(8);
+  });
+
+  test("already held and typing — unchanged", () => {
+    const typing = { pauseStartMs: 1000, waitingForContinue: false, explainUsed: false };
+    expect(holdForReply(typing, 5000, true)).toBe(typing);
+  });
+});
+
+// The Ch1 playtest bug (2 Nov 2026): asking "how do i print text and a number
+// together?" just before the T+18s footsteps let the story beat land on top of
+// the answer, and the level clock kept draining. This replays the hook's
+// orchestration (useGame sendChat → handleEvent → resumeFromPause) with the
+// real scheduler + pause machine.
+describe("chat answer vs timed story beat", () => {
+  afterEach(() => vi.useRealTimers());
+
+  test("a story beat that comes due while maya answers waits until the player continues", () => {
+    vi.useFakeTimers();
+    let pause = createPauseState();
+    let clockStopped = false;
+    const shown: string[] = [];
+    const queued: TimedEvent[] = [];
+    const scheduler = createEventScheduler();
+
+    const onEvent = (e: TimedEvent) => {
+      if (shouldQueueEvent(pause)) {
+        queued.push(e);
+        return;
+      }
+      shown.push(e.message);
+    };
+    scheduler.start([{ triggerAtSeconds: 18, type: "story", message: "...footsteps." }], onEvent);
+
+    // t=17s: the player asks. The hook holds the clock synchronously.
+    vi.advanceTimersByTime(17_000);
+    pause = holdForReply(pause, Date.now(), clockStopped)!;
+    clockStopped = true;
+    scheduler.pause();
+    shown.push("maya: pass the pieces to fmt.Println separated by commas");
+
+    // Maya takes 4s to type, then waits on continue — the footsteps never fire.
+    vi.advanceTimersByTime(4_000);
+    pause = markTypingDone(pause)!;
+    expect(shown).toEqual(["maya: pass the pieces to fmt.Println separated by commas"]);
+    expect(queued).toEqual([]);
+
+    // Continue: the clock gets the whole wait back and the beat lands 1s of
+    // *active* time later — after the answer, never instead of it.
+    const r = resume(pause, Date.now())!;
+    pause = r.state;
+    clockStopped = false;
+    expect(r.bonusSeconds).toBe(4);
+    scheduler.resume();
+    vi.advanceTimersByTime(999);
+    expect(shown).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(shown).toEqual([
+      "maya: pass the pieces to fmt.Println separated by commas",
+      "...footsteps.",
+    ]);
+    expect(clockStopped).toBe(false);
   });
 });

@@ -16,7 +16,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
     return (
       <div className="flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="text-[var(--color-dim)] text-[9px] tracking-[3px] mb-2">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-2">
             ▸ ZEN LIBRARY
           </div>
           <div className="text-[13px] leading-[1.7]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
@@ -58,7 +58,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
           >
             <div className="flex items-center gap-2 mb-1">
               <span
-                className="text-[9px] tracking-[1px] px-1.5 py-0.5"
+                className="text-[10px] tracking-[1px] px-1.5 py-0.5"
                 style={{
                   color: entry.learned ? "var(--color-signal)" : "var(--color-alert)",
                   border: `1px solid ${entry.learned ? "rgba(var(--signal-rgb),.2)" : "rgba(255,159,28,.2)"}`,
@@ -66,7 +66,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
               >
                 {entry.learned ? "✓ LEARNED" : "○ MISSED"}
               </span>
-              <span className="text-[9px] text-[var(--color-dim)] tracking-[1px]">
+              <span className="text-[10px] text-[var(--color-dim)] tracking-[1px]">
                 +{entry.bonusXP} XP
               </span>
             </div>
@@ -89,7 +89,7 @@ export function LibraryPanel({ library }: LibraryPanelProps) {
 function Stat({ label, value, color }: { label: string; value: string | number; color: string }) {
   return (
     <div className="flex-1 text-center">
-      <div className="text-[9px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
+      <div className="text-[10px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
       <div
         className="font-[family-name:var(--font-display)] text-sm font-bold"
         style={{ color }}

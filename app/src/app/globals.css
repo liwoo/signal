@@ -11,7 +11,9 @@
   --color-player: #7ab8d8;
   --color-win: #ffed4a;
   --color-border: #0a2030;
-  --color-dim: #4f9f82;
+  /* Secondary/label text. Kept ≥4.5:1 on background + panel even at 70%
+     opacity — playtests (Nov 2026) found the small HUD labels unreadable. */
+  --color-dim: #6cbf9c;
   --color-foreground: #b8d4a0;
 
   /* Syntax highlighting */
@@ -134,11 +136,11 @@ textarea {
 }
 
 @keyframes vim-flicker {
-  0%, 100% { color: #0a3040; border-color: #0a2030; }
+  0%, 100% { color: var(--color-dim); border-color: var(--color-border); }
   4% { color: var(--color-signal) !important; border-color: var(--color-signal) !important; }
-  6% { color: #0a3040; border-color: #0a2030; }
-  8% { color: #1a6050; border-color: #1a5040; }
-  10% { color: #0a3040; border-color: #0a2030; }
+  6% { color: var(--color-dim); border-color: var(--color-border); }
+  8% { color: var(--color-foreground); border-color: var(--color-dim); }
+  10% { color: var(--color-dim); border-color: var(--color-border); }
 }
 
 .vim-flicker {
@@ -316,6 +318,16 @@ textarea {
 @keyframes scanline {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100vh); }
+}
+
+/* Boot screen: a highlight sweeping the progress bar, so it reads as alive */
+@keyframes boot-sweep {
+  0% { left: -25%; }
+  100% { left: 100%; }
+}
+
+.boot-sweep {
+  animation: boot-sweep 1.4s ease-in-out infinite;
 }
 
 /* Cinematic fade-in */

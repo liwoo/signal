@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ClassroomError, createTeacherAccount } from "@/lib/classroom/api";
@@ -19,9 +20,10 @@ export function TeacherOnboarding({ user, onCreated }: { user: User; onCreated: 
   const [fullName, setFullName] = useState<string>((meta.full_name as string) || (meta.name as string) || "");
   const [school, setSchool] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [schoolConsent, setSchoolConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const valid = fullName.trim().length > 0 && school.trim().length > 0 && confirmed;
+  const valid = fullName.trim().length > 0 && school.trim().length > 0 && confirmed && schoolConsent;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,6 +77,22 @@ export function TeacherOnboarding({ user, onCreated }: { user: User; onCreated: 
                 />
                 <span className="text-tc-muted-foreground">
                   I&apos;m a teacher or educator, and I&apos;ll only invite students I teach.
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={schoolConsent}
+                  onChange={(e) => setSchoolConsent(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 cursor-pointer accent-tc-primary"
+                />
+                <span className="text-tc-muted-foreground">
+                  My school or organization has authorized SIGNAL for classroom use. For students under 13, I give
+                  consent on their parents&apos; behalf, for educational use only, as described in the{" "}
+                  <Link href="/privacy#children" target="_blank" className="font-medium text-tc-foreground underline underline-offset-4">
+                    privacy policy
+                  </Link>
+                  .
                 </span>
               </label>
               {error && <p className="text-sm text-tc-destructive">{error}</p>}

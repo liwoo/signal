@@ -16,9 +16,25 @@ import { usePyodideInNode } from "@/lib/python/node-backend";
 import type { Challenge, ChallengeStep, LanguageId } from "@/types/game";
 import { HARDCODED, SOLUTIONS } from "./act1.fixtures";
 
-const norm = (s: string) => s.trim().replace(/[·•∙]/g, ".");
+const norm = (s: string) => s.trim().replace(/[·•∙]/g, "-");
 
 const ACT_1: Challenge[] = [chapter01, chapter02, chapter03];
+
+// Paste is disabled in the editor, so every character a step requires the
+// player to print must be on an ordinary keyboard. (Playtest 2 Nov 2026: the
+// `·` in Ch1's "CELL B-09 · SUBLEVEL 3" stopped players cold.)
+describe.each(["go", "javascript", "python"] as const)("required output is typeable · %s", (language) => {
+  it("every Act I expectedOutput is printable ASCII", () => {
+    for (const c of [...ACT_1, boss01]) {
+      for (const step of realizeChallenge(c, language).steps) {
+        for (const text of [step.expectedOutput, step.expectedBehavior]) {
+          if (!text || text === "valid-go-scaffold") continue;
+          expect(text, `${step.id} (${language})`).toMatch(/^[\x20-\x7E\n\t]*$/);
+        }
+      }
+    }
+  });
+});
 
 async function runStep(language: LanguageId, step: ChallengeStep, code: string) {
   const lang = getLanguageService(language);

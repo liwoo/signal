@@ -117,7 +117,7 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
 
       {/* Lesson card — blue/paper-like visual language, intentionally unlike missions. */}
       <section
-        className="relative w-full flex flex-col overflow-hidden sm:aspect-[16/10]"
+        className="relative w-full flex flex-col overflow-hidden h-[78dvh] sm:h-auto sm:aspect-[16/10]"
         style={{ maxWidth: 880, maxHeight: "78dvh", minHeight: 360, border: "1px solid color-mix(in srgb, var(--color-info) 45%, transparent)", background: "var(--color-panel)" }}
       >
         <header className="flex items-center justify-between px-5 py-3 shrink-0" style={{ borderBottom: "1px solid color-mix(in srgb, var(--color-info) 25%, transparent)", background: "color-mix(in srgb, var(--color-info) 6%, transparent)" }}>
@@ -167,10 +167,16 @@ export function ZenDebrief({ chapterTitle, entries, soundEnabled = true, onDone 
         </div>
 
         <div className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 text-left" style={{ minHeight: 76, borderTop: "1px solid color-mix(in srgb, var(--color-info) 25%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, var(--color-panel))" }}>
-          <div className="text-[9px] tracking-[3px] mb-1" style={{ color: "var(--color-info)", opacity: 0.8 }}>WHY IT MATTERS</div>
-          <div className="text-[13px] sm:text-[15px] leading-[1.5]" style={{ color: "var(--color-foreground)" }}>
-            {playing ? beat.line.slice(0, shown) : beat.line}
-            {playing && shown < beat.line.length && <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>▍</span>}
+          <div className="text-[10px] tracking-[3px] mb-1" style={{ color: "var(--color-info)", opacity: 0.8 }}>WHY IT MATTERS</div>
+          {/* The full line sits invisibly underneath the typed one, so the box is
+              its final height from the first letter and the buttons below the
+              card never drift as Maya's note types in. */}
+          <div className="grid text-[13px] sm:text-[15px] leading-[1.5]" style={{ color: "var(--color-foreground)" }}>
+            <span aria-hidden="true" className="invisible [grid-area:1/1]">{beat.line}▍</span>
+            <span className="[grid-area:1/1]">
+              {playing ? beat.line.slice(0, shown) : beat.line}
+              {playing && shown < beat.line.length && <span className="cursor-blink" style={{ color: "var(--color-signal)" }}>▍</span>}
+            </span>
           </div>
         </div>
       </section>
@@ -213,7 +219,7 @@ function CodeBox({ label, code, tone }: { label: string; code: string; tone: "di
   const lit = tone === "lit";
   return (
     <div className={lit ? "zen-after" : "zen-before"} style={{ border: `1px solid ${lit ? "rgba(var(--signal-rgb),.45)" : "rgba(184,212,160,.15)"}`, background: lit ? "rgba(var(--signal-rgb),.05)" : "rgba(4,8,16,.6)" }}>
-      <div className="px-3 py-1 text-[9px] tracking-[3px]" style={{ color: lit ? "var(--color-signal)" : "var(--color-foreground)", opacity: lit ? 1 : 0.6, borderBottom: "1px solid var(--color-border)" }}>
+      <div className="px-3 py-1 text-[10px] tracking-[3px]" style={{ color: lit ? "var(--color-signal)" : "var(--color-foreground)", opacity: lit ? 1 : 0.6, borderBottom: "1px solid var(--color-border)" }}>
         {label.toUpperCase()}
       </div>
       <pre className="px-3 py-2 text-[13px] leading-[1.6] overflow-x-auto font-[family-name:var(--font-mono)]" style={{ whiteSpace: "pre", opacity: lit ? 1 : 0.75 }} dangerouslySetInnerHTML={{ __html: highlight(code, tokenize) }} />

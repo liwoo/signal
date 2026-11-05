@@ -29,7 +29,10 @@ type AccountState =
 
 export function TeacherConsole() {
   const { user, loading } = useAuth();
-  if (loading) return <ConsoleSkeleton />;
+  // While the session resolves (and in the server-rendered HTML) show the
+  // sign-in page, not a skeleton: it explains the console to visitors and
+  // search engines without JavaScript.
+  if (loading) return <TeacherSignIn checking />;
   if (!user) return <TeacherSignIn />;
   // Keyed so switching Google accounts never shows the previous account's state.
   return <TeacherAccountGate key={user.id} user={user} />;

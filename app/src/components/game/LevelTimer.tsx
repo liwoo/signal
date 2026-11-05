@@ -177,7 +177,7 @@ export function LevelTimer({
     <div className="flex items-center gap-2">
       {/* Label — a clock the player can't miss. Turns into the live status. */}
       <span
-        className={`font-[family-name:var(--font-display)] tracking-[2px] ${compact ? "text-[8px]" : "text-[9px]"}`}
+        className={`font-[family-name:var(--font-display)] tracking-[2px] text-[10px]`}
         style={{
           color: crit ? "var(--color-danger)" : warn ? "var(--color-alert)" : "var(--color-dim)",
           animation: crit ? "blink .5s step-end infinite" : "none",

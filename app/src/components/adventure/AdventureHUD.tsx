@@ -135,6 +135,26 @@ export function AdventureHUD({ level, snapshot, flash, showTitle, foundBook, onK
         </div>
       )}
 
+      {/* First-patrol call-out (on-ramp levels): the guard is out — here's the rule. */}
+      {level.onramp && status === "playing" && !(alert > 0 || seen) && (snapshot?.patrol ?? 0) > 0 && (
+        <div
+          className="cinematic-caption-in absolute left-1/2 top-[14%] -translate-x-1/2 border px-3 py-1.5 text-center"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-alert) 55%, transparent)",
+            background: "color-mix(in srgb, var(--color-background) 80%, transparent)",
+          }}
+        >
+          <div className="font-[family-name:var(--font-display)] text-[8px] tracking-[0.4em] sm:text-[10px]" style={{ color: "var(--color-alert)" }}>
+            {snapshot?.hidden ? "HIDDEN · LET HIM PASS" : "PATROL · STAY OUT OF HIS LIGHT"}
+          </div>
+          {!snapshot?.hidden && level.onramp.tip && (
+            <div className="mt-0.5 text-[7px] tracking-[0.2em] sm:text-[8px]" style={{ color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)" }}>
+              {level.onramp.tip}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Interaction prompt / progress */}
       {status === "playing" && snapshot && (snapshot.prompt || snapshot.progress > 0) && (
         <div className="pointer-events-auto absolute bottom-[22%] left-1/2 -translate-x-1/2">

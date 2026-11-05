@@ -6,7 +6,7 @@
  * is an implementation detail — swap it without touching consumers.
  */
 
-import type { LanguageId, PlayerProgress, PlayerStats, PlayerUnlocks, PlayerSettings, ProgressStore } from "@/types/game";
+import type { LanguageId, PlayerProgress, PlayerStats, PlayerUnlocks, PlayerSettings, ProgressStore, SaveMeta } from "@/types/game";
 import type { LibraryState } from "@/lib/game/library";
 
 // ── Schema ──
@@ -18,6 +18,8 @@ export interface PersistedState {
   unlocks: PlayerUnlocks;
   settings: PlayerSettings;
   library: LibraryState;
+  /** When / for whom this copy was written, so load() can reconcile cloud vs local. Absent on older saves. */
+  meta?: SaveMeta;
 }
 
 // ── Interface ──
@@ -122,7 +124,11 @@ let _backend: GamePersistence | null = null;
 async function getBackend(): Promise<GamePersistence> {
   if (!_backend) {
     const { createIDBPersistence } = await import("./idb");
-    _backend = createIDBPersistence();
+    // Only fall back to IDB if nothing was installed while the import was in
+    // flight. AuthProvider swaps the Supabase backend in asynchronously; blindly
+    // assigning here used to clobber it, routing a signed-in player's whole
+    // session to local-only saves (so the next cloud load came back stale).
+    if (!_backend) _backend = createIDBPersistence();
   }
   return _backend;
 }
@@ -156,7 +162,54 @@ export function normalizePersistedState(raw: unknown): PersistedState {
     // Merge so settings added in later releases pick up their defaults.
     settings: { ...DEFAULTS.settings, ...((r.settings as Partial<PersistedState["settings"]> | undefined) ?? {}) },
     library: (r.library as PersistedState["library"]) ?? DEFAULTS.library,
+    ...(isSaveMeta(r.meta) ? { meta: r.meta } : {}),
   };
+}
+
+function isSaveMeta(v: unknown): v is SaveMeta {
+  return !!v && typeof v === "object" && typeof (v as SaveMeta).savedAt === "number";
+}
+
+/**
+ * How far along a save is: chapters cleared dominate, then the mid-chapter
+ * checkpoint, then XP as a tiebreak. Summed over every language.
+ */
+export function progressScore(state: PersistedState): number {
+  let score = 0;
+  for (const p of Object.values(state.progress.byLanguage)) {
+    if (!p) continue;
+    score += p.completedChapters.length * 1_000_000;
+    if (p.resume) score += (p.resume.stepIndex + 1) * 10_000 + (p.resume.introDone ? 5_000 : 0);
+  }
+  return score + Math.max(0, Math.min(state.stats.xp, 4_999));
+}
+
+/**
+ * Pick which copy of the save to trust when a signed-in player has both a
+ * cloud row and a local (IndexedDB) mirror. Pure.
+ *
+ * - A local copy stamped for a different account is never used.
+ * - When both copies are stamped for this user, the most recent write wins.
+ * - Otherwise (legacy, unstamped saves) the copy that is further along wins,
+ *   so a stale or empty cloud row can't wipe progress that only reached the
+ *   local mirror. Ties go to the cloud.
+ */
+export function reconcileSaves(
+  cloud: PersistedState,
+  local: PersistedState | null,
+  userId: string,
+): { state: PersistedState; source: "cloud" | "local" } {
+  if (!local) return { state: cloud, source: "cloud" };
+  const localOwner = local.meta?.userId ?? null;
+  if (localOwner !== null && localOwner !== userId) return { state: cloud, source: "cloud" };
+  if (cloud.meta && local.meta && localOwner === userId) {
+    return local.meta.savedAt > cloud.meta.savedAt
+      ? { state: local, source: "local" }
+      : { state: cloud, source: "cloud" };
+  }
+  return progressScore(local) > progressScore(cloud)
+    ? { state: local, source: "local" }
+    : { state: cloud, source: "cloud" };
 }
 
 // ── Public API (delegates to active backend) ──

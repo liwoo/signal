@@ -1,168 +1,237 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { CookieSettingsButton } from "@/components/CookieConsent";
+import { LegalPage, type LegalSection } from "@/components/legal/LegalPage";
+import { COMPANY, PAYMENT_PROVIDER, SUPPORT_EMAIL, pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata({
+  title: "Privacy Policy — SIGNAL",
+  description:
+    "What SIGNAL collects, why, and who it's shared with: Google sign-in, saved progress, analytics cookies, payments through Creem, and how schools and parents give consent for children under 13.",
+  path: "/privacy",
+});
+
+function A({ href, children }: { href: string; children: ReactNode }) {
+  const style = { color: "var(--color-signal)", textDecoration: "underline" };
+  return href.startsWith("/") ? (
+    <Link href={href} style={style}>
+      {children}
+    </Link>
+  ) : (
+    <a href={href} style={style} rel="noopener noreferrer">
+      {children}
+    </a>
+  );
+}
+
+const email = <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A>;
+
+const SECTIONS: LegalSection[] = [
+  {
+    id: "collect",
+    title: "What we collect",
+    body: (
+      <>
+        <p>
+          You need a Google account to play SIGNAL, including the free Act I. When you sign in, Google shares your name,
+          email address and profile picture with us. We never see or store a password: there is no SIGNAL password to
+          create, reset or lose.
+        </p>
+        <p>We then collect what SIGNAL needs to run:</p>
+        <ul className="list-disc pl-5">
+          <li>your game progress: chapters and steps completed, XP, hearts, your zen library and settings;</li>
+          <li>
+            your activity in the game: code you submit for checking, messages you type to Maya and her replies, hints
+            you open, and game overs;
+          </li>
+          <li>usage analytics, if you allow them (see Cookies and analytics);</li>
+          <li>if you buy the full game, a confirmation of the purchase and the email on the receipt.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "use",
+    title: "How we use it",
+    body: (
+      <p>
+        We use your Google account to sign you in and to send purchase receipts and support replies. We save your
+        progress so it follows you to any device. We review submitted code and Maya conversations, in aggregate, to find
+        the steps where players get stuck and improve the hints and notes. We don&apos;t sell your data and we don&apos;t
+        use it for advertising.
+      </p>
+    ),
+  },
+  {
+    id: "maya",
+    title: "Maya, the tutor",
+    body: (
+      <p>
+        Maya&apos;s replies come from SIGNAL&apos;s own built-in tutor, which checks your code and answers from hints
+        written for each step. Your messages to Maya are not sent to a third-party AI service. If we ever connect Maya to
+        an outside AI model, such as Anthropic&apos;s Claude, we will name the provider here and update this policy
+        before it is switched on.
+      </p>
+    ),
+  },
+  {
+    id: "code",
+    title: "Running your code",
+    body: (
+      <>
+        <p>
+          <strong>Go:</strong> to compile and run Go, your code is sent through our server to the official Go Playground
+          (go.dev), which Google operates under its own terms.
+        </p>
+        <p>
+          <strong>Python and JavaScript:</strong> your code runs entirely in your browser. Python runs on Pyodide, which
+          your browser downloads from the jsDelivr CDN; neither Pyodide nor jsDelivr receives your code.
+        </p>
+        <p>
+          Separately from running it, each piece of code you submit for checking is saved with your account (see What we
+          collect) so we can improve the game.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "classes",
+    title: "Classes",
+    body: (
+      <p>
+        If you join a teacher&apos;s class with a join code, that teacher can see your name, email, avatar, chapter
+        progress, XP, zen library and in-game activity: code submissions passed or failed, hints opened, game overs, and
+        when you last played. They cannot see the code you write or your chats with Maya, and they cannot change your
+        progress. You can leave a class at any time from <A href="/join">/join</A>, and the teacher immediately loses
+        access. Teachers see only the students in their own classes.
+      </p>
+    ),
+  },
+  {
+    id: "children",
+    title: "Children under 13 and schools",
+    body: (
+      <>
+        <p>
+          SIGNAL is built for learners of all ages. Children under 13 may only use SIGNAL with consent from a parent or
+          guardian, or through a school, as set out below.
+        </p>
+        <p>
+          <strong>Through a school.</strong> When a teacher creates a teacher account, they confirm that their school
+          or organization has authorized SIGNAL for classroom use. For students under 13, the school gives consent on
+          the parents&apos; behalf, for educational use only. We use those students&apos; data only to provide SIGNAL to
+          the class. Parents can ask the school, or us, to review or delete their child&apos;s data at any time.
+        </p>
+        <p>
+          <strong>At home.</strong> A child under 13 who isn&apos;t playing through a school needs a parent or guardian to
+          agree first. The parent can sign in with their own Google account and let the child play there, or email us
+          at {email} to give consent for the child&apos;s account. We&apos;ll confirm by reply before treating the
+          account as consented.
+        </p>
+        <p>
+          If we learn that a child under 13 is using SIGNAL without that consent, we will delete the account and its
+          data. A parent can review, export or delete their child&apos;s data, or withdraw consent, by emailing {email}.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "cookies",
+    title: "Cookies and analytics",
+    body: (
+      <>
+        <p>
+          <strong>Essential storage.</strong> SIGNAL keeps your sign-in session and a copy of your game state in your
+          browser&apos;s local storage and IndexedDB. These are needed for the game to work and are never used for
+          tracking.
+        </p>
+        <p>
+          <strong>Firebase Analytics</strong> (Google) uses cookies to record events such as level completions and boss
+          fight outcomes, so we can see where players struggle. In the EU, EEA and UK it stays off until you choose
+          &ldquo;Allow analytics&rdquo; on the cookie banner. Everywhere, you can turn it off at any time: <CookieSettingsButton />.
+        </p>
+        <p>
+          <strong>Vercel Web Analytics</strong> counts page views without cookies and without identifying you.
+        </p>
+        <p>We don&apos;t use advertising cookies, tracking pixels or marketing tools.</p>
+      </>
+    ),
+  },
+  {
+    id: "payments",
+    title: "Payments",
+    body: (
+      <p>
+        Purchases are processed by {PAYMENT_PROVIDER} (Armitage Labs OÜ), which acts as the merchant of record. {PAYMENT_PROVIDER}{" "}
+        collects your payment details, charges your card, issues your receipt and handles sales tax. We never see or
+        store your full card number. We receive a confirmation of payment, the email on the receipt and what you bought.
+        See <A href="https://www.creem.io/privacy">Creem&apos;s privacy policy</A>.
+      </p>
+    ),
+  },
+  {
+    id: "third-parties",
+    title: "Services we use",
+    body: (
+      <>
+        <p>We share only the minimum data each service needs:</p>
+        <ul className="list-disc pl-5">
+          <li>Google: sign-in, and Firebase Analytics if you allow it;</li>
+          <li>Supabase: our database for accounts, saved progress, classes and game activity;</li>
+          <li>Go Playground (go.dev, operated by Google): compiling and running Go code;</li>
+          <li>jsDelivr: delivering Pyodide, the in-browser Python runtime (it doesn&apos;t receive your code);</li>
+          <li>{PAYMENT_PROVIDER}: payments;</li>
+          <li>Vercel: hosting and cookie-free page analytics.</li>
+        </ul>
+        <p>Each service has its own privacy policy.</p>
+      </>
+    ),
+  },
+  {
+    id: "retention",
+    title: "Data retention",
+    body: (
+      <p>
+        We keep account data while your account is active. If you ask us to delete your account, we permanently remove
+        it and its associated data within 30 days. Analytics data is kept only in aggregate form.
+      </p>
+    ),
+  },
+  {
+    id: "rights",
+    title: "Your rights",
+    body: (
+      <p>
+        You can ask for a copy of the data we hold about you, ask us to correct or delete it, or object to how we use it.
+        Email {email} and we&apos;ll respond within 14 days. If you&apos;re in the EU, EEA or UK, you can also complain to
+        your local data protection authority.
+      </p>
+    ),
+  },
+  {
+    id: "changes",
+    title: "Changes",
+    body: (
+      <p>
+        We&apos;ll update this policy as SIGNAL changes and revise the date at the top. We&apos;ll email registered users
+        about significant changes. The current version is always on this page.
+      </p>
+    ),
+  },
+];
+
 export default function PrivacyPage() {
   return (
-    <div
-      className="min-h-dvh"
-      style={{ background: "var(--color-background)" }}
-    >
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
-        }}
-      />
-
-      <div className="relative max-w-[640px] mx-auto px-4 py-10">
-        <a
-          href="/"
-          className="text-[12px] tracking-[2px] transition-colors"
-          style={{
-            color: "var(--color-dim)",
-            textDecoration: "none",
-          }}
-        >
-          ◂ BACK
-        </a>
-
-        <div className="text-center mt-8 mb-10">
-          <div
-            className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-2"
-            style={{ fontSize: "22px", color: "var(--color-signal)" }}
-          >
-            PRIVACY POLICY
-          </div>
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            last updated: March 2026
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          {[
-            {
-              title: "WHAT WE COLLECT",
-              content:
-                "we collect the minimum data needed to run SIGNAL: your email address (for account login), game progress (chapters completed, XP earned, zen library), and basic usage analytics (page views, feature usage). if you play Act I without an account, we collect no personal data at all.",
-            },
-            {
-              title: "HOW WE USE YOUR DATA",
-              content:
-                "your email is used solely for authentication and transactional messages (purchase receipts, password resets). game progress is stored to sync across devices. usage analytics help us improve the game — we track which levels players struggle with so we can improve hints and beginner notes.",
-            },
-            {
-              title: "CLASSES",
-              content:
-                "if you join a teacher's class with a join code, that teacher can see your name, email, avatar, chapter progress, XP, zen library, and in-game activity (code submissions passed or failed, hints opened, game overs, and when you last played). they cannot see the code you write or your chats with maya, and they cannot change your progress. you can leave a class at any time from /join, and the teacher immediately loses access. teachers see only students in their own classes.",
-            },
-            {
-              title: "ANALYTICS",
-              content:
-                "we use Firebase Analytics to understand how players interact with SIGNAL. this includes anonymous events like level completions, boss fight outcomes, and feature usage. analytics data is aggregated and never sold to third parties. you can disable analytics by blocking third-party scripts in your browser.",
-            },
-            {
-              title: "CODE YOU WRITE",
-              content:
-                "Go code you write in SIGNAL is sent to the official Go Playground (go.dev) for compilation and execution. we do not store your code on our servers. the Go Playground is operated by Google and subject to their terms of service.",
-            },
-            {
-              title: "LOCAL STORAGE",
-              content:
-                "game state (progress, settings, zen library) is stored locally in your browser using IndexedDB. this data never leaves your device unless you create an account to enable cloud sync. you can clear this data at any time through your browser settings.",
-            },
-            {
-              title: "PAYMENTS",
-              content:
-                "payments are processed by Stripe. we never see or store your full card number. Stripe handles all payment data under their PCI-compliant infrastructure. we receive only a confirmation of payment and your email for receipt delivery.",
-            },
-            {
-              title: "COOKIES",
-              content:
-                "SIGNAL uses only essential cookies for authentication (session tokens). we do not use advertising cookies, tracking pixels, or third-party marketing tools. no cookie consent banner needed — we simply don't track you that way.",
-            },
-            {
-              title: "THIRD-PARTY SERVICES",
-              content:
-                "SIGNAL integrates with: Google (authentication via Firebase Auth), Go Playground (code compilation), Stripe (payments), and Firebase Analytics (usage metrics). each service has its own privacy policy. we share only the minimum data required for each integration.",
-            },
-            {
-              title: "DATA RETENTION",
-              content:
-                "account data is retained as long as your account is active. if you delete your account, all associated data is permanently removed within 30 days. anonymous analytics data is retained in aggregate form indefinitely.",
-            },
-            {
-              title: "YOUR RIGHTS",
-              content:
-                "you can request a copy of all data we hold about you, request deletion of your account and data, or opt out of analytics. contact us at jeremiah@chienda.com for any data requests. we respond within 14 days.",
-            },
-            {
-              title: "CHILDREN",
-              content:
-                "SIGNAL is designed for learners of all ages. we do not knowingly collect personal data from children under 13 without parental consent. if you believe a child under 13 has created an account, contact us and we will promptly delete it.",
-            },
-            {
-              title: "CHANGES",
-              content:
-                "we may update this policy as SIGNAL evolves. significant changes will be communicated via email to registered users. the latest version is always available at this page.",
-            },
-          ].map((section) => (
-            <div key={section.title}>
-              <div
-                className="font-[family-name:var(--font-display)] text-[12px] tracking-[2px] font-bold mb-2"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                {section.title}
-              </div>
-              <p
-                className="text-[13px] leading-[1.9] pl-3"
-                style={{
-                  color: "var(--color-foreground)",
-                  opacity: 0.7,
-                  borderLeft: "2px solid rgba(var(--signal-rgb),.1)",
-                }}
-              >
-                {section.content}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="mt-10 px-4 py-4 text-center"
-          style={{
-            border: "1px solid rgba(var(--signal-rgb),.08)",
-            background: "rgba(var(--signal-rgb),.02)",
-          }}
-        >
-          <div
-            className="text-[12px] tracking-[1px] mb-1"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            QUESTIONS ABOUT YOUR DATA?
-          </div>
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--color-signal)" }}
-          >
-            jeremiah@chienda.com
-          </div>
-        </div>
-
-        <div className="text-center mt-8">
-          <a
-            href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
-            style={{
-              border: "2px solid var(--color-signal)",
-              color: "var(--color-signal)",
-              textDecoration: "none",
-            }}
-          >
-            BACK TO SIGNAL
-          </a>
-        </div>
-      </div>
-    </div>
+    <LegalPage
+      title="PRIVACY POLICY"
+      intro={
+        <p>
+          SIGNAL is operated by {COMPANY}. This policy explains what we collect when you play SIGNAL or use it with a
+          class, why we collect it and who it&apos;s shared with. It applies alongside our{" "}
+          <A href="/terms">Terms of Service</A>.
+        </p>
+      }
+      sections={SECTIONS}
+    />
   );
 }

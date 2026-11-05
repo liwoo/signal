@@ -20,8 +20,8 @@ export const JAVASCRIPT_ZEN_EXAMPLES: Record<string, ZenExample> = {
     change: "one quote style everywhere — switch only when the text holds that quote",
   },
   js_template_literal: {
-    before: 'console.log("CELL " + cell + " · SUBLEVEL " + sublevel);',
-    after: "console.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);",
+    before: 'console.log("CELL " + cell + " - SUBLEVEL " + sublevel);',
+    after: "console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);",
     change: "a template literal reads like the line it prints",
   },
   js_named_imports: {

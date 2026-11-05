@@ -31,6 +31,8 @@ const FADE_MS = 700;
 const FOOTSTEP_MS = 300;
 const CRAWL_STEP_MS = 420;
 const FOOTSTEPS: SfxName[] = ["footstep-metal-1", "footstep-metal-2", "footstep-metal-3", "footstep-metal-4"];
+const GUARD_STEP_MS = 420;
+const GUARD_STEPS: SfxName[] = ["footstep-boots-1", "footstep-boots-2"];
 
 /**
  * A playable story beat: the 3D stage + HUD + audio. The player steers Maya;
@@ -73,7 +75,7 @@ export function AdventureLevel({
   useEffect(() => {
     const names = new Set<SfxName>([
       "captured-impact", "alert-beep", "dread-sting", "door-slide", "maya-typing", "keypad-beep",
-      "handshake-confirm", "terminal-beep", "message-receive", ...FOOTSTEPS,
+      "handshake-confirm", "terminal-beep", "message-receive", ...FOOTSTEPS, ...GUARD_STEPS,
     ]);
     for (const o of level.objectives) {
       if (o.sfx) names.add(o.sfx as SfxName);
@@ -106,6 +108,18 @@ export function AdventureLevel({
     const timer = setInterval(tick, crawling ? CRAWL_STEP_MS : FOOTSTEP_MS);
     return () => clearInterval(timer);
   }, [moving, crawling, audio]);
+
+  // The patrol's boots: you hear him coming before he's on top of you, louder
+  // the closer he walks.
+  const boots = snapshot?.boots ?? 0;
+  useEffect(() => {
+    if (boots <= 0) return;
+    let i = 0;
+    const tick = () => audio.playSfx(GUARD_STEPS[i++ % GUARD_STEPS.length], 0.05 + boots * 0.2);
+    tick();
+    const timer = setInterval(tick, GUARD_STEP_MS);
+    return () => clearInterval(timer);
+  }, [boots, audio]);
 
   const onEvent = useCallback((event: SimEvent, state: SimState) => {
     switch (event.type) {
@@ -175,8 +189,9 @@ export function AdventureLevel({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] overflow-hidden transition-opacity duration-700"
-      style={{ background: "var(--color-background)", opacity: fade === "on" ? 1 : 0 }}
+      className="fixed inset-0 z-[1000] overflow-hidden transition-opacity"
+      // Quick in (the title card is up at once, not after a black beat), slow out.
+      style={{ background: "var(--color-background)", opacity: fade === "on" ? 1 : 0, transitionDuration: fade === "on" ? "300ms" : `${FADE_MS}ms` }}
       role="application"
       aria-label={`${level.title} — playable scene`}
     >
