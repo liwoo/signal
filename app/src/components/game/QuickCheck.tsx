@@ -142,7 +142,7 @@ export function QuickCheck({ check, compact = false }: QuickCheckProps) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="bg-transparent cursor-pointer px-2 py-1 text-[8px] tracking-[1.5px]"
+        className="bg-transparent cursor-pointer px-2 py-1 text-[10px] tracking-[1.5px]"
         style={{
           color: "var(--color-info)",
           border: "1px solid color-mix(in srgb, var(--color-info) 45%, transparent)",
@@ -163,7 +163,7 @@ export function QuickCheck({ check, compact = false }: QuickCheckProps) {
           }}
           aria-label="Stuck? helper"
         >
-          <div className="px-3 py-2 text-[8px] tracking-[2px]" style={{ color: "var(--color-info)", borderBottom: "1px solid color-mix(in srgb, var(--color-info) 22%, transparent)" }}>
+          <div className="px-3 py-2 text-[10px] tracking-[2px]" style={{ color: "var(--color-info)", borderBottom: "1px solid color-mix(in srgb, var(--color-info) 22%, transparent)" }}>
             MAYA · STUCK? · NO PENALTY
           </div>
           <div className="p-3">

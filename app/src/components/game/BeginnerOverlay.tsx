@@ -172,7 +172,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
         {/* Header */}
         <div className="shrink-0 mb-4">
           <div className="flex items-center justify-between">
-            <div className="text-[7px] tracking-[4px]" style={{ color: "var(--color-dim)" }}>
+            <div className="text-[10px] tracking-[4px]" style={{ color: "var(--color-dim)" }}>
               ▸ BEGINNER BRIEFING
             </div>
             <div className="flex items-center gap-3">
@@ -190,7 +190,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                 >
                   A−
                 </button>
-                <span className="text-[7px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
+                <span className="text-[10px] tracking-[1px] min-w-[24px] text-center" style={{ color: "var(--color-dim)" }}>
                   {fontScale}x
                 </span>
                 <button
@@ -208,7 +208,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
               </div>
               {earnedXP > 0 && (
                 <div
-                  className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)]"
+                  className="text-[10px] tracking-[2px] font-[family-name:var(--font-display)]"
                   style={{ color: "var(--color-signal)" }}
                 >
                   +{earnedXP} XP
@@ -223,11 +223,11 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
             >
               {notes.title}
             </div>
-            <div className="text-[8px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
+            <div className="text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
               {currentSection + 1}/{totalSections}
             </div>
           </div>
-          <div className="text-[8px] tracking-[3px] mt-0.5" style={{ color: "var(--color-dim)" }}>
+          <div className="text-[10px] tracking-[3px] mt-0.5" style={{ color: "var(--color-dim)" }}>
             {notes.subtitle}
           </div>
 
@@ -238,7 +238,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
                 <button
                   key={tab}
                   onClick={() => switchTab(tab)}
-                  className="bg-transparent text-[8px] tracking-[2px] px-4 py-1.5 cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+                  className="bg-transparent text-[10px] tracking-[2px] px-4 py-1.5 cursor-pointer transition-colors font-[family-name:var(--font-display)]"
                   style={{
                     color: activeTab === tab ? "var(--color-signal)" : "var(--color-dim)",
                     border: "none",
@@ -343,7 +343,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
           {/* Hotspot prompt */}
           {!isDiagramSection && sectionDone && sectionHasHotspots && (
             <div
-              className="text-[9px] tracking-[2px] mt-2 opacity-0"
+              className="text-[10px] tracking-[2px] mt-2 opacity-0"
               style={{
                 color: "var(--color-info)",
                 animation: "intro-in .5s ease .2s forwards",
@@ -388,7 +388,7 @@ export function BeginnerOverlay({ notes, chapterId, fontScale, onFontScaleChange
               }}
             >
               {advanceLabel}{" "}
-              <span style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
+              <span style={{ opacity: 0.7, fontSize: "10px" }}>⏎</span>
             </button>
           )}
           <button
@@ -725,12 +725,12 @@ function HotspotPopover({ tip, xpFlash, fontScale }: { tip: ActiveTip; xpFlash: 
       }}
     >
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[7px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
+        <span className="text-[10px] tracking-[3px]" style={{ color: "var(--color-info)" }}>
           ▸ EXPLAIN
         </span>
         {xpFlash && (
           <span
-            className="text-[9px] tracking-[2px] font-[family-name:var(--font-display)] xp-burst"
+            className="text-[10px] tracking-[2px] font-[family-name:var(--font-display)] xp-burst"
             style={{ color: "var(--color-signal)" }}
           >
             +{HOTSPOT_XP} XP

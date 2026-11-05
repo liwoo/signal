@@ -230,13 +230,13 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
             style={{ borderBottom: "1px solid rgba(var(--signal-rgb),.08)" }}
           >
             <span
-              className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px] font-bold"
+              className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px] font-bold"
               style={{ color: "var(--color-signal)" }}
             >
               {current.title}
             </span>
             <span
-              className="text-[8px] tracking-[1px]"
+              className="text-[10px] tracking-[1px]"
               style={{ color: "var(--color-dim)" }}
             >
               {step + 1}/{STEPS.length}
@@ -260,18 +260,18 @@ export function GuidedTour({ onComplete }: GuidedTourProps) {
           >
             <button
               onClick={skip}
-              className="bg-transparent cursor-pointer text-[8px] tracking-[1px] transition-opacity hover:opacity-100"
+              className="bg-transparent cursor-pointer text-[10px] tracking-[1px] transition-opacity hover:opacity-100"
               style={{
                 color: "var(--color-dim)",
                 border: "none",
-                opacity: 0.6,
+                opacity: 0.85,
               }}
             >
               skip tour
             </button>
             <button
               onClick={next}
-              className="bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[9px] tracking-[2px] px-4 py-1.5 transition-colors"
+              className="bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[10px] tracking-[2px] px-4 py-1.5 transition-colors"
               style={{
                 color: "var(--color-signal)",
                 border: "1px solid rgba(var(--signal-rgb),.3)",

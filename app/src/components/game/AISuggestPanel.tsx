@@ -47,7 +47,7 @@ export function AISuggestPanel({
       >
         <div className="flex items-center gap-2">
           <span
-            className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
+            className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
             style={{
               color: "var(--color-info)",
               textShadow: "0 0 8px rgba(122,184,216,.4)",
@@ -56,7 +56,7 @@ export function AISuggestPanel({
             AI ASSIST
           </span>
           <span
-            className="text-[8px] px-1.5 py-0.5"
+            className="text-[10px] px-1.5 py-0.5"
             style={{
               color: tokens > 0 ? "var(--color-signal)" : "var(--color-danger)",
               border: `1px solid ${tokens > 0 ? "rgba(var(--signal-rgb),.2)" : "rgba(255,64,64,.2)"}`,
@@ -121,11 +121,11 @@ export function AISuggestPanel({
               >
                 {s.label}
               </span>
-              <span className="text-[7px]" style={{ color: "var(--color-dim)" }}>
+              <span className="text-[10px]" style={{ color: "var(--color-dim)" }}>
                 -1 TOKEN
               </span>
             </div>
-            <div className="text-[8px] ml-4" style={{ color: "var(--color-dim)" }}>
+            <div className="text-[10px] ml-4" style={{ color: "var(--color-dim)" }}>
               {s.description}
             </div>
           </button>
@@ -155,7 +155,7 @@ export function AISuggestPanel({
               if (tokens > 0) onUseSuggestion(selected);
             }}
             disabled={tokens <= 0}
-            className="bg-transparent text-[8px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)] transition-colors"
+            className="bg-transparent text-[10px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)] transition-colors"
             style={{
               border: tokens > 0
                 ? "1px solid var(--color-info)"

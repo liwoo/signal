@@ -167,7 +167,7 @@ export const MayaMarkdown = memo(function MayaMarkdown({ text }: MayaMarkdownPro
           return (
             <span
               key={i}
-              className="inline-block text-[9px] tracking-[2px] px-1.5 py-px mx-0.5 font-[family-name:var(--font-display)] font-bold"
+              className="inline-block text-[10px] tracking-[2px] px-1.5 py-px mx-0.5 font-[family-name:var(--font-display)] font-bold"
               style={{
                 background: "rgba(var(--signal-rgb),.1)",
                 border: "1px solid rgba(var(--signal-rgb),.2)",

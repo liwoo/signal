@@ -26,7 +26,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
           <div className="font-[family-name:var(--font-display)] text-[var(--color-alert)] text-[15px] tracking-[3px]">
             {challenge.title}
           </div>
-          <div className="text-[9px] tracking-[2px] mt-1" style={{ color: "var(--color-dim)" }}>
+          <div className="text-[10px] tracking-[2px] mt-1" style={{ color: "var(--color-dim)" }}>
             {challenge.location} · {challenge.timer.timeLimitSeconds}s
             {challenge.timer.gameOverOnExpiry ? " · capture on timeout" : ""} · {totalXP} XP total
           </div>
@@ -35,7 +35,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
           <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[22px] font-bold leading-none">
             +{currentStep.xp.base}
           </div>
-          <div className="text-[8px] tracking-[2px] mt-1" style={{ color: "var(--color-dim)" }}>
+          <div className="text-[10px] tracking-[2px] mt-1" style={{ color: "var(--color-dim)" }}>
             XP · +{currentStep.xp.firstTryBonus} FIRST TRY
           </div>
         </div>
@@ -50,7 +50,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
             return (
               <li
                 key={step.id}
-                className="flex-1 py-1.5 px-2 text-[8px] tracking-[2px] flex items-center gap-2"
+                className="flex-1 py-1.5 px-2 text-[10px] tracking-[2px] flex items-center gap-2"
                 style={{
                   border: `1px solid ${done ? "rgba(var(--signal-rgb),.3)" : active ? "var(--color-alert)" : "rgba(184,212,160,.15)"}`,
                   background: active ? "rgba(255,159,28,.06)" : "transparent",
@@ -71,7 +71,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
           className="mb-3 p-4"
           style={{ borderLeft: "3px solid var(--color-signal)", background: "rgba(var(--signal-rgb),.05)" }}
         >
-          <div className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-signal)" }}>
+          <div className="text-[10px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-signal)" }}>
             ▸ WHY
           </div>
           <p className="text-[14px] leading-[1.6]" style={{ color: "var(--color-foreground)" }}>
@@ -85,7 +85,7 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
         className="mb-5 p-4"
         style={{ borderLeft: "3px solid var(--color-alert)", background: "rgba(255,159,28,.05)" }}
       >
-        <div className="text-[9px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-alert)" }}>
+        <div className="text-[10px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-alert)" }}>
           ▸ {currentStep.stake ? "DO THIS" : "OBJECTIVE"} · {currentStep.title}
         </div>
         <p className="text-[14px] leading-[1.6] whitespace-pre-line" style={{ color: "var(--color-foreground)" }}>

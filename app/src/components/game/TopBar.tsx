@@ -28,13 +28,13 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
       }}
     >
       {/* Logo */}
-      <div className={`font-[family-name:var(--font-display)] text-[var(--color-signal)] shrink-0 glow-pulse ${compact ? "text-[9px] tracking-[2px]" : "text-[11px] tracking-[4px]"}`}>
+      <div className={`font-[family-name:var(--font-display)] text-[var(--color-signal)] shrink-0 glow-pulse ${compact ? "text-[10px] tracking-[2px]" : "text-[11px] tracking-[4px]"}`}>
         SIGNAL
       </div>
 
       {/* XP Bar */}
       <div className="flex items-center gap-2 flex-1">
-        <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[9px] tracking-[2px] shrink-0">
+        <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[10px] tracking-[2px] shrink-0">
           LV{level}
         </div>
         <div className="flex-1 h-1 border border-[#0a2a1a] overflow-hidden relative" style={{ background: "#061810" }}>
@@ -49,7 +49,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
           />
         </div>
         {!compact ? <div
-          className="text-[var(--color-signal)] text-[9px] font-bold shrink-0"
+          className="text-[var(--color-signal)] text-[10px] font-bold shrink-0"
           style={{ textShadow: "0 0 8px rgba(var(--signal-rgb),.5), 0 0 20px rgba(var(--signal-rgb),.2)" }}
         >
           {xp} XP
@@ -90,7 +90,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
           aria-pressed={musicEnabled}
           aria-label={musicEnabled ? "Mute background music" : "Unmute background music"}
           title={musicEnabled ? "Background music on · click to mute" : "Background music off · click to unmute"}
-          className={`shrink-0 bg-transparent cursor-pointer tracking-[1px] transition-colors ${compact ? "h-7 px-2 text-[11px] leading-none" : "px-2 py-0.5 text-[8px] tracking-[2px]"}`}
+          className={`shrink-0 bg-transparent cursor-pointer tracking-[1px] transition-colors ${compact ? "h-7 px-2 text-[11px] leading-none" : "px-2 py-0.5 text-[10px] tracking-[2px]"}`}
           style={{
             color: musicEnabled ? "var(--color-signal)" : "var(--color-dim)",
             border: `1px solid ${musicEnabled ? "rgba(var(--signal-rgb),.25)" : "rgba(255,255,255,.12)"}`,
@@ -107,7 +107,7 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
       {/* Status — only speaks up when something is happening (the timer already says LIVE) */}
       {(inRush || busy) && (
         <span
-          className="text-[8px] tracking-[2px]"
+          className="text-[10px] tracking-[2px]"
           style={{
             color: inRush ? "var(--color-danger)" : "var(--color-alert)",
             animation: inRush ? "blink .5s step-end infinite" : "none",

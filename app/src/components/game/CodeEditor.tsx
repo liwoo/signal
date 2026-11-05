@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getLanguageService } from "@/lib/lang/registry";
+import { smartEnter } from "@/lib/editor/smart-enter";
 import type { Completion, ExtraPackage, LanguageService } from "@/lib/lang/types";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
 import type { LanguageId, SubmissionFeedback } from "@/types/game";
@@ -541,6 +542,24 @@ export function CodeEditor({
         }
       }
 
+      // Enter: keep the line's indent, and split a bracket pair so the closer
+      // gets its own line (`{|}` → block). Vim normal mode handled Enter above.
+      if (
+        e.key === "Enter" &&
+        !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey &&
+        !e.nativeEvent.isComposing
+      ) {
+        e.preventDefault();
+        const result = smartEnter(code, s, end);
+        codeChangeWithUndo(result.code);
+        requestAnimationFrame(() => {
+          target.selectionStart = target.selectionEnd = result.cursor;
+          setCursorPos(result.cursor);
+          updateAutocomplete(result.code, result.cursor);
+        });
+        return;
+      }
+
       // Tab handling
       if (e.key === "Tab") {
         e.preventDefault();
@@ -609,7 +628,7 @@ export function CodeEditor({
   return (
     <div className="flex flex-col h-full">
       {/* Editor area */}
-      <div className="flex-1 flex overflow-hidden bg-[var(--color-code-bg)] relative">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-[var(--color-code-bg)] relative">
         {/* Terminal power state — lit + pulsing when awaiting input, dimmed (standby) while Maya narrates */}
         {awaitingInput ? (
           <div
@@ -619,30 +638,28 @@ export function CodeEditor({
               background: "radial-gradient(ellipse at 50% 100%, rgba(110,255,160,.07), transparent 62%)",
               animation: "terminal-ready 1.8s ease-in-out infinite",
             }}
-          >
-            <div
-              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
-              style={{ color: "var(--color-signal)" }}
-            >
-              ▮ READY
-            </div>
-          </div>
+          />
         ) : busy || disabled ? (
           <div
             className="absolute inset-0 z-30 pointer-events-none"
             style={{ background: "rgba(4,8,16,.5)" }}
-          >
-            <div
-              className={`absolute top-2 text-[9px] tracking-[3px] font-[family-name:var(--font-display)] ${isMobile ? "right-3" : "left-3"}`}
-              style={{ color: "var(--color-dim)" }}
-            >
-              ▯ STANDBY
-            </div>
-          </div>
+          />
         ) : null}
+        {/* Editor header — the status label and toolbar get their own strip so
+            they never sit on top of line 1 of the player's code. */}
+        <div
+          className={`relative z-40 shrink-0 flex items-center justify-between gap-2 pl-3 pr-2.5 ${isMobile ? "h-7" : "h-9"}`}
+          style={{ background: "rgba(0,0,0,.35)", borderBottom: "1px solid var(--color-border)" }}
+        >
+          <div
+            className="text-[10px] tracking-[3px] font-[family-name:var(--font-display)] whitespace-nowrap"
+            style={{ color: awaitingInput ? "var(--color-signal)" : "var(--color-dim)" }}
+          >
+            {awaitingInput ? "▮ READY" : busy || disabled ? "▯ STANDBY" : ""}
+          </div>
         {/* Toolbar: format + zoom */}
         {!isMobile ? <div
-          className="absolute top-1.5 right-2.5 z-40 flex items-center gap-2"
+          className="flex items-center gap-2"
         >
           {lang.format ? <button
             type="button"
@@ -656,7 +673,7 @@ export function CodeEditor({
               fontFamily: "var(--font-mono)",
               fontSize: "10px",
               letterSpacing: "1px",
-              opacity: formatting || disabled ? 0.4 : 0.7,
+              opacity: formatting || disabled ? 0.4 : 1,
             }}
             data-tour="fmt-btn"
             title="Format code (gofmt)"
@@ -680,7 +697,7 @@ export function CodeEditor({
               −
             </button>
             <span
-              className="text-[9px] tracking-[1px] tabular-nums min-w-[28px] text-center font-[family-name:var(--font-display)]"
+              className="text-[10px] tracking-[1px] tabular-nums min-w-[28px] text-center font-[family-name:var(--font-display)]"
               style={{ color: "var(--color-dim)" }}
             >
               {fontSize}
@@ -695,6 +712,9 @@ export function CodeEditor({
             </button>
           </div>
         </div> : null}
+        </div>
+
+        <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Line numbers */}
         <div
           ref={lineNumRef}
@@ -704,7 +724,8 @@ export function CodeEditor({
             lineHeight: `${lineHeight}px`,
             background: "rgba(0,0,0,.5)",
             borderRight: "1px solid #0a1820",
-            color: "#0a3040",
+            color: "var(--color-dim)",
+            opacity: 0.7,
           }}
         >
           {Array.from({ length: lineCount }, (_, i) => (
@@ -784,8 +805,8 @@ export function CodeEditor({
                     {item.label}
                   </span>
                   <span
-                    className="text-[8px] truncate"
-                    style={{ color: "#0a4040" }}
+                    className="text-[10px] truncate"
+                    style={{ color: "var(--color-dim)" }}
                   >
                     {item.detail}
                   </span>
@@ -828,6 +849,7 @@ export function CodeEditor({
               opacity: disabled ? 0.5 : 1,
             }}
           />
+        </div>
         </div>
       </div>
 
@@ -883,24 +905,24 @@ export function CodeEditor({
           background: "#04090f",
         }}
       >
-        <div className={`gap-2.5 text-[8px] items-center ${isMobile ? "hidden" : "flex"}`}>
+        <div className={`gap-2.5 text-[10px] items-center ${isMobile ? "hidden" : "flex"}`}>
           {/* Vim toggle + mode */}
           <button
             onClick={() => {
               vimActions.toggle();
               onVimToggle?.(!vim.enabled);
             }}
-            className={`bg-transparent border px-1.5 py-0.5 text-[7px] tracking-[1px] cursor-pointer transition-colors${!vim.enabled ? " vim-flicker" : ""}`}
+            className={`bg-transparent border px-1.5 py-0.5 text-[10px] tracking-[1px] cursor-pointer transition-colors${!vim.enabled ? " vim-flicker" : ""}`}
             style={{
-              borderColor: vim.enabled ? "var(--color-signal)" : "#0a2030",
-              color: vim.enabled ? "var(--color-signal)" : "#0a3040",
+              borderColor: vim.enabled ? "var(--color-signal)" : "var(--color-border)",
+              color: vim.enabled ? "var(--color-signal)" : "var(--color-dim)",
             }}
           >
             VIM
           </button>
           {vim.enabled && (
             <span
-              className="text-[7px] tracking-[2px] font-[family-name:var(--font-display)]"
+              className="text-[10px] tracking-[2px] font-[family-name:var(--font-display)]"
               style={{
                 color:
                   vim.mode === "normal"
@@ -915,9 +937,9 @@ export function CodeEditor({
           )}
 
           {aiButton}
-          <span className="text-[#0a3a2a]">{lineCount}L</span>
+          <span className="text-[var(--color-dim)]">{lineCount}L</span>
           {attempts === 0 && !inRush && (
-            <span className="text-[#1a5a3a]">
+            <span className="text-[var(--color-dim)]">
               +{Math.floor(baseXP * 0.5)} first try
             </span>
           )}
@@ -931,7 +953,7 @@ export function CodeEditor({
           )}
           {attempts > 0 && (
             <span className="flex items-center gap-1">
-              <span className="text-[#1a4a3a]">TRIES</span>
+              <span className="text-[var(--color-dim)]">TRIES</span>
               <span
                 className="font-[family-name:var(--font-display)] text-[10px]"
                 style={{
@@ -947,7 +969,7 @@ export function CodeEditor({
           data-tour="transmit-btn"
           onClick={onSubmit}
           disabled={busy || disabled || !code.trim()}
-          className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[9px] tracking-[2px] cursor-pointer
+          className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[10px] tracking-[2px] cursor-pointer
                      transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
           style={{
             background: inRush ? "rgba(255,80,20,.1)" : "rgba(110,255,160,.06)",
@@ -962,7 +984,7 @@ export function CodeEditor({
               : `▸ SUBMIT · +${baseXP} XP`}
           {!busy && !isMobile && (
             <span
-              className="text-[7px] tracking-[1px] opacity-40"
+              className="text-[10px] tracking-[1px] opacity-80"
             >
               {isMac ? "⌘" : "Ctrl"}⏎
             </span>
@@ -996,13 +1018,13 @@ function SubmissionFeedbackPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span
-              className="font-[family-name:var(--font-display)] text-[8px] tracking-[2px]"
+              className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
               style={{ color: "var(--color-danger)" }}
             >
               TRANSMISSION REJECTED
             </span>
             {feedback.line ? (
-              <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-alert)" }}>
+              <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-alert)" }}>
                 LINE {feedback.line}
               </span>
             ) : null}
@@ -1028,7 +1050,7 @@ function SubmissionFeedbackPanel({
           <button
             type="button"
             onClick={() => setLessonOpen((open) => !open)}
-            className="bg-transparent p-0 text-[8px] tracking-[1px] cursor-pointer"
+            className="bg-transparent p-0 text-[10px] tracking-[1px] cursor-pointer"
             style={{ color: "var(--color-info)", border: "none" }}
             aria-expanded={lessonOpen}
           >

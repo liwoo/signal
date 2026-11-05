@@ -294,7 +294,7 @@ export function CinematicScene({
                 />
                 {currentScene.titleCard.sub && (
                   <div
-                    className="cinematic-card-sub mt-3 text-[8px] tracking-[0.5em] sm:text-[11px]"
+                    className="cinematic-card-sub mt-3 text-[10px] tracking-[0.5em] sm:text-[11px]"
                     style={{ color: "color-mix(in srgb, var(--color-foreground) 80%, transparent)" }}
                   >
                     {currentScene.titleCard.sub}
@@ -326,7 +326,7 @@ export function CinematicScene({
             )}
             {subtitle && (
               <p
-                className="mt-1 text-[7px] tracking-[0.38em] sm:text-[9px]"
+                className="mt-1 text-[10px] tracking-[0.38em] sm:text-[11px]"
                 style={{ color: "color-mix(in srgb, var(--color-foreground) 62%, transparent)" }}
               >
                 {subtitle}
@@ -336,13 +336,13 @@ export function CinematicScene({
 
           <div className="shrink-0 text-right">
             <div
-              className="text-[6px] tracking-[0.28em] sm:text-[8px]"
+              className="text-[10px] tracking-[0.28em] sm:text-[11px]"
               style={{ color: "color-mix(in srgb, var(--color-foreground) 65%, transparent)" }}
             >
               {currentScene.location}
             </div>
             <div
-              className="mt-1 flex items-center justify-end gap-2 text-[6px] tracking-[0.32em] sm:text-[7px]"
+              className="mt-1 flex items-center justify-end gap-2 text-[10px] tracking-[0.32em] sm:text-[11px]"
               style={{ color: "color-mix(in srgb, var(--color-danger) 72%, transparent)" }}
             >
               <span
@@ -360,7 +360,7 @@ export function CinematicScene({
         >
           <div key={sceneIndex} className="cinematic-caption-in min-w-0 max-w-[78%]">
             <div
-              className="mb-1 text-[6px] tracking-[0.32em] sm:text-[7px]"
+              className="mb-1 text-[10px] tracking-[0.32em] sm:text-[11px]"
               style={{ color: "color-mix(in srgb, var(--color-signal) 65%, transparent)" }}
             >
               SIGNAL LOG // {String(sceneIndex + 1).padStart(2, "0")}
@@ -402,16 +402,16 @@ export function CinematicScene({
       </section>
 
       <div
-        className="absolute bottom-3 left-4 hidden text-[6px] tracking-[0.24em] sm:block"
-        style={{ color: "color-mix(in srgb, var(--color-foreground) 28%, transparent)" }}
+        className="absolute bottom-3 left-4 hidden text-[10px] tracking-[0.24em] sm:block"
+        style={{ color: "color-mix(in srgb, var(--color-foreground) 60%, transparent)" }}
       >
         crafted with ♥ by chienda.com
       </div>
 
       <div className="absolute bottom-2 right-4 flex items-center gap-3 sm:bottom-3">
         <span
-          className="text-[7px] tracking-[0.24em]"
-          style={{ color: "color-mix(in srgb, var(--color-foreground) 42%, transparent)" }}
+          className="text-[10px] tracking-[0.24em]"
+          style={{ color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)" }}
         >
           TAP · NEXT SHOT
         </span>
