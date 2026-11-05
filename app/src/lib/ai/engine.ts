@@ -18,7 +18,10 @@ export interface MayaResponse {
 
 function matchesAny(text: string, keywords: string[]): boolean {
   const lower = text.toLowerCase();
-  return keywords.some((kw) => {
+  return keywords.some((raw) => {
+    // Keywords match case-insensitively — "Println" in a bank must still catch
+    // a player typing "println".
+    const kw = raw.toLowerCase();
     if (kw.length <= 3 && /^[a-z]+$/.test(kw)) {
       return new RegExp(`\\b${kw}\\b`).test(lower);
     }
@@ -62,6 +65,11 @@ const ch01ScaffoldBank: StepBank = {
     "...signal received. you're in.\ni'm maya — they've locked me in a cell and this terminal is my only way to reach anyone. right now it's dead. make it print `Hello World` so i know the channel's actually live.",
 
   conceptFAQ: [
+    {
+      keywords: ["together", "text and a number", "number and text", "text and number", "and a number", "with a number", "mix", "same line"],
+      response:
+        "pass them to `fmt.Println` separated by commas — it puts a space between each one. `fmt.Println(\"sublevel\", 3)` prints `sublevel 3`. for this step i just need `Hello World` though.",
+    },
     {
       keywords: ["func", "function", "entry"],
       response:
@@ -118,9 +126,9 @@ const ch01ScaffoldBank: StepBank = {
         "go doesn't use semicolons at the end of lines. the compiler adds them automatically. just write the code without them.",
     },
     {
-      keywords: ["capital", "uppercase", "Println", "case sensitive"],
+      keywords: ["capital", "uppercase", "lowercase", "case sensitive", "case-sensitive", "fmt.println"],
       response:
-        "go is case-sensitive. it's `Println` with a capital P, not `println`. same for `Printf`, `Print`.",
+        "go is case-sensitive. it's `fmt.Println` with a capital P — `fmt.println` won't compile. go only lets you use names from another package that start with a capital letter.",
     },
   ],
 
@@ -192,13 +200,26 @@ const ch01ScaffoldBank: StepBank = {
 // Chapter 01: Step 2 — Transmit Location
 const ch01LocationBank: StepBank = {
   intro:
-    "good, the channel's live. now i need you to lock in where they're holding me — and it has to be exact, a wrong location gets someone hurt. don't type it by hand: my real cell is already on this terminal in a package called `cellblock`. import `terminal/cellblock` and print its `Cell` and `Sublevel` as `CELL B-09 · SUBLEVEL 3`.",
+    "good, the channel's live. now i need you to lock in where they're holding me — and it has to be exact, a wrong location gets someone hurt. don't type it by hand: my real cell is already on this terminal in a package called `cellblock`. import `terminal/cellblock` and print its `Cell` and `Sublevel` as `CELL B-09 - SUBLEVEL 3`.",
 
   conceptFAQ: [
     {
+      // "how do i print text and a number together?" — the step's own hint
+      // question. Must win over the generic "print" entry below.
+      keywords: ["together", "text and a number", "number and text", "text and number", "and a number", "with a number", "mix", "same line"],
+      response:
+        "pass the pieces to `fmt.Println` separated by commas — it puts a space between each one. `fmt.Println(\"SUBLEVEL\", cellblock.Sublevel)` prints `SUBLEVEL 3`. the whole line is `fmt.Println(\"CELL\", cellblock.Cell, \"-\", \"SUBLEVEL\", cellblock.Sublevel)`.",
+    },
+    {
+      // before "print" — "sprintf" contains it
+      keywords: ["sprint"],
+      response:
+        "`fmt.Sprintf` builds a string without printing. `fmt.Printf` prints directly. either works — just make sure the output has B-09 and SUBLEVEL 3.",
+    },
+    {
       keywords: ["print", "println", "output", "display", "show", "write"],
       response:
-        "fmt.Println(\"your text\") sends a signal through the terminal. but don't put my cell in quotes — feed it the package values: `fmt.Println(cellblock.Cell, cellblock.Sublevel)` or format them with Printf.",
+        "`fmt.Println` sends a line through the terminal. but don't put my cell in quotes — feed it the package values, separated by commas: `fmt.Println(\"CELL\", cellblock.Cell, \"-\", \"SUBLEVEL\", cellblock.Sublevel)`.",
     },
     {
       keywords: ["import", "package", "cellblock", "another package"],
@@ -228,7 +249,7 @@ const ch01LocationBank: StepBank = {
     {
       keywords: ["printf", "format", "%s", "%d", "placeholder"],
       response:
-        "fmt.Printf lets you mix values in: `fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cell, level)`. %s for strings, %d for numbers.",
+        "`fmt.Printf` fills blanks in a template: `fmt.Printf(\"CELL %s - SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)`. %s for text, %d for whole numbers, \\n ends the line.",
     },
     {
       keywords: ["newline", "\\n", "line break"],
@@ -238,27 +259,22 @@ const ch01LocationBank: StepBank = {
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start"],
       response:
-        "import `terminal/cellblock`, then print `cellblock.Cell` and `cellblock.Sublevel` as `CELL B-09 · SUBLEVEL 3`. don't type my cell in by hand — pull it from the package.",
+        "import `terminal/cellblock`, then print `cellblock.Cell` and `cellblock.Sublevel` as `CELL B-09 - SUBLEVEL 3`. don't type my cell in by hand — pull it from the package.",
     },
     {
-      keywords: ["dot", "·", "middle dot", "special character", "unicode", "period", "separator"],
+      keywords: ["dash", "hyphen", "minus", "separator", "middle dot", "special character", "between the cell"],
       response:
-        "the `·` is just a decorative middle dot — it's hard to type, so a regular period works fine: `\"CELL %s . SUBLEVEL %d\"`. i read `·` and `.` the same.",
+        "the separator is a plain dash with a space on each side: `CELL B-09 - SUBLEVEL 3`. nothing special to type.",
     },
     {
       keywords: ["concat", "concatenat", "combine", "join", "+"],
       response:
-        "go doesn't use `+` to join strings in Println. just pass multiple args: `fmt.Println(cell, \"·\", sublevel)`. or use Printf with format verbs.",
-    },
-    {
-      keywords: ["sprint", "Sprintf"],
-      response:
-        "`fmt.Sprintf` builds a string without printing. `fmt.Printf` prints directly. either works — just make sure the output has B-09 and SUBLEVEL 3.",
+        "go won't let you `+` a number onto text. pass the pieces to `fmt.Println` separated by commas instead — it adds the spaces: `fmt.Println(\"CELL\", cellblock.Cell, \"-\", \"SUBLEVEL\", cellblock.Sublevel)`.",
     },
     {
       keywords: ["example", "show me", "sample", "template"],
       response:
-        "here's the shape:\n```\nimport (\n  \"fmt\"\n  \"terminal/cellblock\"\n)\n\nfunc main() {\n  fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n}\n```",
+        "here's the shape:\n```\nimport (\n  \"fmt\"\n  \"terminal/cellblock\"\n)\n\nfunc main() {\n  fmt.Printf(\"CELL %s - SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n}\n```",
     },
   ],
 
@@ -271,7 +287,7 @@ const ch01LocationBank: StepBank = {
         return lower.includes("hello") && lower.includes("world");
       },
       response:
-        "that's a hello world. i don't need a greeting — i need my location. CELL B-09 · SUBLEVEL 3.",
+        "that's a hello world. i don't need a greeting — i need my location. CELL B-09 - SUBLEVEL 3.",
     },
     {
       match: (output) => {
@@ -279,13 +295,13 @@ const ch01LocationBank: StepBank = {
         return (lower.includes("b-09") || lower.includes("b09")) && !lower.includes("sublevel");
       },
       response:
-        "close — i see the cell but not the sublevel. i need both: CELL B-09 · SUBLEVEL 3.",
+        "close — i see the cell but not the sublevel. i need both: CELL B-09 - SUBLEVEL 3.",
     },
     {
       match: (output) =>
         output.trim().length > 0 && !output.toLowerCase().includes("b-09") && !output.toLowerCase().includes("b09"),
       response:
-        "you're printing something, but it's not my cell. i need CELL B-09 · SUBLEVEL 3.",
+        "you're printing something, but it's not my cell. i need CELL B-09 - SUBLEVEL 3.",
     },
   ],
 
@@ -334,19 +350,19 @@ const ch01LocationBank: StepBank = {
     "...i see it. my cell. you actually got through.\n\n||COMPLETE||",
 
   genericWrong: [
-    "that's not right. check the output — i need CELL B-09 · SUBLEVEL 3. exactly.",
+    "that's not right. check the output — i need CELL B-09 - SUBLEVEL 3. exactly.",
     "almost... but the output doesn't match. look at what you're printing.",
-    "wrong signal. i need my exact location: CELL B-09 · SUBLEVEL 3.",
+    "wrong signal. i need my exact location: CELL B-09 - SUBLEVEL 3.",
   ],
 
   rushDialogue: [
     "hurry. the footsteps stopped right outside.",
     "go. now. just print the location.",
-    "no time — just get it done. CELL B-09 · SUBLEVEL 3.",
+    "no time — just get it done. CELL B-09 - SUBLEVEL 3.",
   ],
 
   stuckResponses: [
-    "two steps. import `terminal/cellblock`, then:\n```\nfmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n```",
+    "two steps. import `terminal/cellblock`, then:\n```\nfmt.Printf(\"CELL %s - SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)\n```",
     "the values aren't yours to type — they're in the package. `cellblock.Cell` and `cellblock.Sublevel`. import `terminal/cellblock` and read them.",
     "don't overthink it. import the package, then print cellblock.Cell and cellblock.Sublevel.",
   ],
@@ -2251,13 +2267,13 @@ function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean, ex
 }
 
 /**
- * Compare program output to the expected string. Trims surrounding whitespace
- * and treats interpunct separators (· • ∙) as an ordinary period, since the
- * middle dot isn't typeable on most keyboards and paste is disabled in the
- * editor — the decorative separator must never block a correct answer.
+ * Compare program output to the expected string. Trims surrounding whitespace.
+ * Required output is plain ASCII (paste is disabled in the editor, so every
+ * character must be on a normal keyboard); a player who still types an
+ * interpunct separator (· • ∙) from an older brief is read as the plain dash.
  */
 function outputsMatch(output: string, expected: string): boolean {
-  const norm = (s: string) => s.trim().replace(/[·•∙]/g, ".");
+  const norm = (s: string) => s.trim().replace(/[·•∙]/g, "-");
   return norm(output) === norm(expected);
 }
 

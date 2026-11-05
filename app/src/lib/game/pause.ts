@@ -48,6 +48,29 @@ export function startPause(
 }
 
 /**
+ * The player asked Maya something: hold the clock for her answer.
+ *
+ * Like `startPause`, but an answer always outranks a pending "continue": if
+ * the game is already paused on one, the prompt is withdrawn until the reply
+ * has finished typing (`markTypingDone` brings it back). Otherwise the
+ * auto-continue could resume the clock — and release queued story beats like
+ * the Ch1 footsteps — while the answer is still on its way.
+ *
+ * Returns the new state, or null when there's nothing to hold (clock not
+ * running and not already paused).
+ */
+export function holdForReply(
+  state: PauseState,
+  nowMs: number,
+  timerAlreadyStopped: boolean
+): PauseState | null {
+  if (state.pauseStartMs > 0) {
+    return state.waitingForContinue ? { ...state, waitingForContinue: false } : state;
+  }
+  return startPause(state, nowMs, timerAlreadyStopped);
+}
+
+/**
  * Mark that Maya has finished typing. Transitions to waitingForContinue.
  * Returns new state, or null if not currently paused.
  */

@@ -90,7 +90,7 @@ for (let i = 0; i < 40 && quiet < 3; i++) {
 }
 await nav.getByRole("button", { name: "CODE" }).click();
 await page.waitForTimeout(500);
-await editor.fill('package main\n\nimport (\n    "fmt"\n)\n\nfunc main() {\n    cell := "B-09"\n    const sublevel = 3\n    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)\n}\n');
+await editor.fill('package main\n\nimport (\n    "fmt"\n)\n\nfunc main() {\n    cell := "B-09"\n    const sublevel = 3\n    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)\n}\n');
 await page.getByRole("button", { name: /SUBMIT|HURRY/ }).click();
 await page.waitForTimeout(1800);
 await shot("15-chapter-reward");

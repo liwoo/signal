@@ -112,8 +112,8 @@ console.log(sublevel); // 3`,
         section: 3,
         content: `import { cell, sublevel } from "./cellblock.js";
 
-console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);
-// CELL B-09 · SUBLEVEL 3`,
+console.log(\`CELL \${cell} - SUBLEVEL \${sublevel}\`);
+// CELL B-09 - SUBLEVEL 3`,
         hotspots: [
           { text: "${cell}", tip: "javascript swaps in the value of cell right here. the backticks around the text are what make this work — plain quotes would print ${cell} as is." },
           { text: "${sublevel}", tip: "numbers work too. the 3 is turned into text for you." },
@@ -124,7 +124,7 @@ console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);
         section: 3,
         important: true,
         content:
-          "why not just type CELL B-09 · SUBLEVEL 3? because the guards move prisoners. read the real values from their file — a typed guess goes stale the moment they move her.",
+          "why not just type CELL B-09 - SUBLEVEL 3? because the guards move prisoners. read the real values from their file — a typed guess goes stale the moment they move her.",
       },
 
       // Section 4: zen recap
@@ -138,10 +138,10 @@ console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);
         type: "code",
         section: 4,
         content: `// glued with + — count the spaces
-console.log("CELL " + cell + " · SUBLEVEL " + sublevel);
+console.log("CELL " + cell + " - SUBLEVEL " + sublevel);
 
 // template literal — reads like the output
-console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);`,
+console.log(\`CELL \${cell} - SUBLEVEL \${sublevel}\`);`,
         hotspots: [
           { text: `"CELL " + cell`, tip: "works, but every space lives inside a separate string. drop one and the output runs together." },
         ],
@@ -172,7 +172,7 @@ let n = 3;           // can change`,
       {
         type: "code",
         section: 3,
-        content: `console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);`,
+        content: `console.log(\`CELL \${cell} - SUBLEVEL \${sublevel}\`);`,
       },
     ],
   },

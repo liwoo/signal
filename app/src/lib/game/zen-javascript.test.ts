@@ -93,17 +93,17 @@ describe("chapter-01:location", () => {
   const IMPORT = `import { cell, sublevel } from "./cellblock.js";\n\n`;
 
   it("js_template_literal", () => {
-    follows("js_template_literal", IMPORT + "console.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);");
-    breaks("js_template_literal", IMPORT + `console.log("CELL " + cell + " · SUBLEVEL " + sublevel);`);
-    breaks("js_template_literal", IMPORT + "console.log(`CELL ${cell}` + \" · SUBLEVEL \" + sublevel);");
-    irrelevant("js_template_literal", IMPORT + `console.log("CELL", cell, "· SUBLEVEL", sublevel);`);
+    follows("js_template_literal", IMPORT + "console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);");
+    breaks("js_template_literal", IMPORT + `console.log("CELL " + cell + " - SUBLEVEL " + sublevel);`);
+    breaks("js_template_literal", IMPORT + "console.log(`CELL ${cell}` + \" - SUBLEVEL \" + sublevel);");
+    irrelevant("js_template_literal", IMPORT + `console.log("CELL", cell, "- SUBLEVEL", sublevel);`);
     irrelevant("js_template_literal", IMPORT + `// "a" + b\nconsole.log(cell, sublevel);`);
   });
 
   it("js_named_imports", () => {
     follows("js_named_imports", IMPORT + "console.log(cell, sublevel);");
     breaks("js_named_imports", `import * as cellblock from "./cellblock.js";\nconsole.log(cellblock.cell);`);
-    irrelevant("js_named_imports", `console.log("CELL B-09 · SUBLEVEL 3");`);
+    irrelevant("js_named_imports", `console.log("CELL B-09 - SUBLEVEL 3");`);
     irrelevant("js_named_imports", `// import { cell } from "./cellblock.js";\nconsole.log("import");`);
   });
 

@@ -16,10 +16,10 @@ export interface ZenExample {
 // Rule ids are unique across languages (JS rules are js_*, Python py_*), so one
 // map serves every language.
 const GO_ZEN_EXAMPLES: Record<string, ZenExample> = {
-  grouped_import: {
-    before: 'import "fmt"',
-    after: 'import (\n    "fmt"\n)',
-    change: "parentheses, even for one import — future imports slot in cleanly",
+  import_form: {
+    before: 'import (\n    "fmt"\n)',
+    after: 'import "fmt"',
+    change: "one import, one plain line — parentheses are for two or more",
   },
   package_import_sep: {
     before: 'package main\nimport "fmt"',
@@ -32,18 +32,18 @@ const GO_ZEN_EXAMPLES: Record<string, ZenExample> = {
     change: "a blank line before func — gofmt puts it there",
   },
   use_named_values: {
-    before: 'fmt.Println("CELL B-09 · SUBLEVEL 3")',
-    after: 'cell := "B-09"\nconst sublevel = 3\nfmt.Println("CELL", cell, "· SUBLEVEL", sublevel)',
-    change: "name the values — the name is the documentation",
+    before: 'fmt.Println("CELL", cellblock.Cell, "- SUBLEVEL", cellblock.Sublevel)',
+    after: 'cell := cellblock.Cell\nsublevel := cellblock.Sublevel\nfmt.Println("CELL", cell, "- SUBLEVEL", sublevel)',
+    change: "name the values with := (create and fill) — the name is the documentation",
   },
   use_printf_format: {
-    before: 'fmt.Println("CELL " + cell + " · SUBLEVEL 3")',
-    after: 'fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)',
+    before: 'fmt.Println("CELL", cellblock.Cell, "- SUBLEVEL", cellblock.Sublevel)',
+    after: 'fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)',
     change: "a format string separates the template from the data",
   },
   descriptive_names: {
-    before: 'c := "B-09"\ns := 3',
-    after: 'cell := "B-09"\nsublevel := 3',
+    before: 'c := cellblock.Cell\ns := cellblock.Sublevel',
+    after: 'cell := cellblock.Cell\nsublevel := cellblock.Sublevel',
     change: "say what it is — single letters hide meaning",
   },
   simple_increment: {

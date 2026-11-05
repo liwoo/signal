@@ -85,11 +85,11 @@ export const chapter01: Challenge = {
       stake:
         "To send help you need to know exactly where Maya is held — and a guessed location gets people killed. Pull her real cell straight from the terminal instead of typing it by hand.",
       brief:
-        "Import `terminal/cellblock` and print its `Cell` and `Sublevel` as: CELL B-09 · SUBLEVEL 3",
+        "Import `terminal/cellblock` and print its `Cell` and `Sublevel` as: CELL B-09 - SUBLEVEL 3",
       starterCode: null, // carry the player's own code forward — guidance lives in the chat, not the editor
 
-      expectedBehavior: "CELL B-09 · SUBLEVEL 3",
-      expectedOutput: "CELL B-09 · SUBLEVEL 3",
+      expectedBehavior: "CELL B-09 - SUBLEVEL 3",
+      expectedOutput: "CELL B-09 - SUBLEVEL 3",
       requiredCode: ["cellblock.Cell", "cellblock.Sublevel"],
       compileModule: {
         module: "terminal",
@@ -120,7 +120,7 @@ var Sublevel = 3
           },
           {
             question: "how do i print text and a number together?",
-            answer: "`fmt.Printf` with placeholders — `%s` for the cell string, `%d` for the sublevel number.",
+            answer: "pass the pieces to `fmt.Println` separated by commas — it puts a space between each: `fmt.Println(\"SUBLEVEL\", cellblock.Sublevel)` prints `SUBLEVEL 3`. or use `fmt.Printf` with blanks — `%s` for the cell text, `%d` for the sublevel number.",
           },
         ],
       },
@@ -137,7 +137,7 @@ var Sublevel = 3
         },
         {
           level: 3,
-          text: "`fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)` — %s for the cell, %d for the sublevel.",
+          text: "`fmt.Printf(\"CELL %s - SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)` — %s for the cell, %d for the sublevel.",
           energyCost: 20,
         },
       ],

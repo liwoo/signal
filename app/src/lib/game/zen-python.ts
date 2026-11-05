@@ -238,7 +238,7 @@ const fString: ZenRule = {
   check: (code) => codeTokens(code).some(isFString) && !gluesStrings(code),
   bonusXP: 15,
   jolt: "...an f-string. `f\"CELL {cellblock.CELL}\"` — the template and the values in one place, and python converts the number for you. no `+`, no `str()`. \"readability counts.\" that line is in `import this`, and you just proved it.",
-  suggestion: "gluing text with `+` and `str()` works, but an f-string reads like the output: `f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\"`. values in braces, numbers converted for you.",
+  suggestion: "gluing text with `+` and `str()` works, but an f-string reads like the output: `f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\"`. values in braces, numbers converted for you.",
 };
 
 const qualifiedImport: ZenRule = {

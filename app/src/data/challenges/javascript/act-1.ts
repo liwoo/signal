@@ -40,9 +40,9 @@ export const JS_CHAPTER_01: ChallengeRealization = {
       ],
     },
     "chapter-01:location": {
-      brief: "Import `cell` and `sublevel` from `./cellblock.js` and print: CELL B-09 · SUBLEVEL 3",
-      expectedBehavior: "CELL B-09 · SUBLEVEL 3",
-      expectedOutput: "CELL B-09 · SUBLEVEL 3",
+      brief: "Import `cell` and `sublevel` from `./cellblock.js` and print: CELL B-09 - SUBLEVEL 3",
+      expectedBehavior: "CELL B-09 - SUBLEVEL 3",
+      expectedOutput: "CELL B-09 - SUBLEVEL 3",
       requiredCode: ["cell", "sublevel"],
       compileModule: {
         module: "terminal",
@@ -78,7 +78,7 @@ export let sublevel = 3;
       hints: [
         { level: 1, text: "the values live in a module. add `import { cell, sublevel } from \"./cellblock.js\";` at the top.", energyCost: 8 },
         { level: 2, text: "a template literal mixes text and values: backticks around the text, `${cell}` where a value goes.", energyCost: 12 },
-        { level: 3, text: "``console.log(`CELL ${cell} · SUBLEVEL ${sublevel}`);`` — template literal, two values dropped in.", energyCost: 20 },
+        { level: 3, text: "``console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);`` — template literal, two values dropped in.", energyCost: 20 },
       ],
     },
   },

@@ -13,7 +13,7 @@ Zen rules live in `src/lib/game/zen.ts`. They detect idiomatic Go patterns in pl
 ```typescript
 interface ZenRule {
   id: string;              // snake_case, unique across all rules
-  principle: string;       // short label, e.g. "grouped imports"
+  principle: string;       // short label, e.g. "the right import form"
   check: (code: string) => boolean;  // heuristic — regex or string ops
   isRelevant?: (code: string) => boolean;  // skip rule if irrelevant to player's code
   bonusXP: number;         // 5-15 per rule
@@ -86,7 +86,7 @@ Jolts fire when the player **follows** the rule. They are Maya remembering somet
 
 ```typescript
 // GOOD jolt
-jolt: "...wait. i remember something.\n\nyou grouped the import with parentheses — `import ( ... )`. that's how go does it. even with one import. when you add more later, the diff stays clean.\n\nmy professor called it... \"plan for the code that comes after yours.\""
+jolt: "...wait. i remember something.\n\nyour import is written exactly the way gofmt writes it. one package gets one plain line — `import \"fmt\"`. when there are two or more, they share one `import ( ... )` block.\n\nmy professor called it... \"write what the code needs, not more.\""
 
 // BAD jolt — doesn't affirm, too generic
 jolt: "imports are important in go. you should always think about how to organize them."
@@ -115,7 +115,15 @@ Suggestions fire when the player **doesn't follow** the rule. They nudge toward 
 
 ```typescript
 // GOOD suggestion
-suggestion: "try grouping your import: `import ( \"fmt\" )` — parentheses. even for one. it's the go way... i think i remember that much."
+suggestion: "use a plain `import \"fmt\"` for one package — no parentheses. the grouped `import ( ... )` block is for two or more."
+
+// BAD suggestion — teaches something gofmt-idiomatic Go doesn't do
+// (a single import is never wrapped in parentheses). Verify every idiom
+// against Effective Go / gofmt before rewarding it.
+suggestion: "try grouping your import: `import ( \"fmt\" )` — parentheses. even for one."
+
+// BAD suggestion — uses syntax the chapter hasn't taught yet (e.g. `:=` in
+// Ch1 before the player has seen it). Teach it in the same sentence or don't use it.
 
 // GOOD suggestion
 suggestion: "use `i++` — it's the go way. not `i += 1`, not `i = i + 1`. one operation, one form. simplicity matters."

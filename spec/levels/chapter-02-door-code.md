@@ -130,7 +130,7 @@ New analogies introduced (see `beginner-mode` skill): sealed folder + name tags 
 
 Step-keyed in `src/lib/game/zen.ts`, each with an `isRelevant` guard and a before/after example in `zen-examples.ts`:
 
-- `chapter-02:scaffold` → grouped_import, package_import_sep, import_func_sep (shared with ch01 scaffold)
+- `chapter-02:scaffold` → import_form, package_import_sep, import_func_sep (shared with ch01 scaffold)
 - `chapter-02:loop` → `simple_increment` (`i++`, not `i = i + 1`)
 - `chapter-02:classify` → `switch_over_ifelse`, `no_unnecessary_break`, `use_constants_labels`
 

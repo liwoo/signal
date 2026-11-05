@@ -501,3 +501,40 @@ describe("phrasing variants", () => {
     expect(r.reply).toMatch(/\+=|adds|total/i);
   });
 });
+
+// ═══════════════════════════════════════════════
+//  PLAYTEST 2 NOV 2026 — "how do i print text and a number together?"
+// ═══════════════════════════════════════════════
+
+describe("ch01 chat — printing text and a number together", () => {
+  const Q = "how do I print text and a number together?";
+
+  it("location step answers with a comma-separated Println, not a deflection or the generic print line", () => {
+    const r = chat("chapter-01:location", Q);
+    expect(r.reply).toContain("fmt.Println(");
+    expect(r.reply).toMatch(/comma/);
+    expect(r.reply).toContain(`fmt.Println("CELL", cellblock.Cell, "-", "SUBLEVEL", cellblock.Sublevel)`);
+  });
+
+  it("scaffold step answers too", () => {
+    const r = chat("chapter-01:scaffold", Q);
+    expect(r.reply).toContain("fmt.Println(");
+    expect(r.reply).toMatch(/comma/);
+  });
+
+  it("python and javascript ch1 banks answer the same question", () => {
+    expect(callMayaEngine("chapter-01:location", Q, false, false, false, 0, "python").reply).toMatch(/f"CELL|print\(/);
+    expect(callMayaEngine("chapter-01:location", Q, false, false, false, 0, "javascript").reply).toMatch(/template literal|\$\{/);
+  });
+
+  it("bank keywords match case-insensitively (Println, Sprintf)", () => {
+    expect(chat("chapter-01:scaffold", "is it println or Println? lowercase?").reply).toContain("case-sensitive");
+    expect(chat("chapter-01:location", "what does sprintf do").reply).toContain("Sprintf");
+  });
+
+  it("no ch1 answer asks the player to type a middle dot", () => {
+    for (const q of [Q, "what's the separator", "show me an example", "how do i use printf"]) {
+      expect(chat("chapter-01:location", q).reply).not.toContain("·");
+    }
+  });
+});
