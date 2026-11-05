@@ -89,6 +89,13 @@ import {
   withProgress,
   type PersistedState,
 } from "@/lib/storage/persistence";
+import {
+  applyProgressSave,
+  completedChapterIdsFor,
+  resumeChapterIndex,
+  resumeFor,
+  type ProgressSave,
+} from "@/lib/game/progress";
 import type { Challenge, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import {
@@ -271,10 +278,14 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
   }));
 }
 
-/** Resume where this language's progress left off. */
-function resumeIndex(state: PersistedState, language: LanguageId, chapterCount: number): number {
-  const completedCount = progressFor(state.progress, language).completedChapters.length;
-  return completedCount > 0 && completedCount < chapterCount ? completedCount : 0;
+/** The id/number pairs progress logic needs. */
+function chapterRefs(chapters: ChapterConfig[]) {
+  return chapters.map((c) => ({ id: c.challenge.id, chapter: c.challenge.chapter }));
+}
+
+/** Resume where this language's progress left off (mid-chapter checkpoint first). */
+function resumeIndex(state: PersistedState, language: LanguageId): number {
+  return resumeChapterIndex(chapterRefs(chaptersFor(language)), progressFor(state.progress, language));
 }
 
 function GameRouter() {
@@ -298,37 +309,52 @@ function GameRouter() {
     return () => media.removeEventListener("change", check);
   }, []);
 
-  // Load persisted state from IndexedDB on mount
+  // Load persisted state once auth has settled. Loading on mount raced the
+  // auth check: the save was read before AuthProvider had installed the cloud
+  // backend, so a signed-in player could be shown (and then overwrite) the
+  // wrong copy. Re-runs if the signed-in user changes.
+  const userId = user?.id ?? null;
   useEffect(() => {
+    if (authLoading || !userId) return;
+    let active = true;
     loadPersistedState().then((state) => {
+      if (!active) return;
       setPersisted(state);
-      // Resume from this language's last completed chapter
+      // Resume at this language's checkpoint / first uncleared chapter
       const lang = state.settings.language ?? "go";
-      setChapterIndex(resumeIndex(state, lang, chaptersFor(lang).length));
+      setChapterIndex(resumeIndex(state, lang));
     });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [authLoading, userId]);
 
   const handleSave = useCallback((payload: SavePayload) => {
     setPersisted((prev) => {
       if (!prev) return prev;
       // Story progress belongs to the language being played; XP and hearts are the player's.
       const lang = prev.settings.language ?? "go";
-      const current = progressFor(prev.progress, lang);
       const updated: PersistedState = {
         ...prev,
         stats: { ...prev.stats, xp: payload.xp, level: payload.level, hearts: payload.hearts },
         library: payload.library,
-        progress: payload.completedChapter
-          ? withProgress(prev.progress, lang, {
-              ...current,
-              completedChapters: current.completedChapters.includes(payload.completedChapter)
-                ? current.completedChapters
-                : [...current.completedChapters, payload.completedChapter],
-              currentChapter: payload.completedChapter + 1,
-            })
-          : prev.progress,
+        progress: withProgress(prev.progress, lang, applyProgressSave(progressFor(prev.progress, lang), payload)),
       };
       savePersistedState(updated);
+      return updated;
+    });
+  }, []);
+
+  // Progress-only saves (e.g. "intro beat played through") — no stats change.
+  const handleProgress = useCallback((save: ProgressSave) => {
+    setPersisted((prev) => {
+      if (!prev) return prev;
+      const lang = prev.settings.language ?? "go";
+      const current = progressFor(prev.progress, lang);
+      const next = applyProgressSave(current, save);
+      if (next === current) return prev;
+      const updated: PersistedState = { ...prev, progress: withProgress(prev.progress, lang, next) };
+      savePersistedState({ progress: updated.progress });
       return updated;
     });
   }, []);
@@ -362,7 +388,7 @@ function GameRouter() {
     };
     setPersisted(updated);
     savePersistedState({ settings: updated.settings });
-    setChapterIndex(resumeIndex(updated, next, chaptersFor(next).length));
+    setChapterIndex(resumeIndex(updated, next));
   }, [persisted]);
 
   // Gate: Google sign-in is required before the game runs.
@@ -397,11 +423,14 @@ function GameRouter() {
   }
 
   const config = chapters[Math.min(chapterIndex, chapters.length - 1)];
+  const langProgress = progressFor(persisted.progress, language);
+  const resume = resumeFor(langProgress, config.challenge.id, config.challenge.steps.length);
   const initialState: InitialPersistedState = {
     xp: persisted.stats.xp,
     level: persisted.stats.level,
     hearts: persisted.stats.hearts,
     library: persisted.library,
+    resume: resume ? { stepIndex: resume.stepIndex, code: resume.code } : null,
   };
 
   return (
@@ -413,12 +442,17 @@ function GameRouter() {
         onNextChapter={advanceChapter}
         initialState={initialState}
         onSave={handleSave}
+        onIntroDone={() => handleProgress({ chapterId: config.challenge.id, introDone: true })}
+        introDone={resume?.introDone ?? false}
         onSaveSettings={handleSaveSettings}
         onChangeLanguage={changeLanguage}
         language={language}
         settings={persisted.settings}
         isMobile={isMobile}
-        completedChapterIds={chapters.slice(0, chapterIndex).map((c) => c.challenge.id)}
+        // From the saved progress, not the chapter cursor: the cursor only
+        // moves on CONTINUE, so a just-cleared chapter (or one cleared before
+        // a reload that resumed elsewhere) never counted toward Concepts.
+        completedChapterIds={completedChapterIdsFor(chapterRefs(chapters), langProgress)}
       />
     </LanguageProvider>
   );
@@ -430,6 +464,10 @@ interface GameScreenProps {
   onNextChapter: () => void;
   initialState: InitialPersistedState;
   onSave: (payload: SavePayload) => void;
+  /** Persist that this chapter's intro beat has been played through. */
+  onIntroDone: () => void;
+  /** This chapter's intro beat was already played (saved checkpoint) — don't force it again. */
+  introDone: boolean;
   onSaveSettings: (settings: Partial<PlayerSettings>) => void;
   onChangeLanguage: (language: LanguageId) => void;
   language: LanguageId;
@@ -438,7 +476,7 @@ interface GameScreenProps {
   isMobile: boolean;
 }
 
-function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onIntroDone, introDone, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
   const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language);
   const lang = getLanguageService(language);
@@ -577,8 +615,30 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
 
   // Leave the intro screen for the story: the prologue first (once, or on
   // request), then the playable intro beat.
+  const resumeStep = initialState.resume?.stepIndex ?? 0;
+  const resuming = introDone || resumeStep > 0;
+  // Steps cleared in this chapter, for the Concepts tracker's partial credit.
+  // The saved checkpoint leads the live index (it's written the moment a step
+  // clears, before the player taps on to the next one).
+  const currentSteps = {
+    done: state.phase === "win" || state.phase === "twist"
+      ? state.totalSteps
+      : Math.max(state.currentStepIndex, resumeStep),
+    total: state.totalSteps,
+  };
   const beginStory = (replayPrologue = false) => {
     if (!settings.languageChosen) onSaveSettings({ languageChosen: true });
+    if (resuming && !replayPrologue) {
+      // Returning mid-chapter: the prologue and the playable intro beat were
+      // already played, so go straight back to work. Mid-step resumes skip
+      // the field manual too (it's in NOTES); a resume at step 1 still opens
+      // it, since that's where the round begins.
+      trackChapterStart(challenge.id, challenge.chapter);
+      recordActivity({ kind: "chapter_start", language, chapterId: challenge.id });
+      if (resumeStep > 0 && !config.bossFightConfig) startRound();
+      else enterExplanations();
+      return;
+    }
     const prologue = !!config.prologueScenes && (replayPrologue || !settings.prologueSeen);
     // Gesture-anchored drone for the intro beat — held silent under the
     // prologue, which brings its own sound bed.
@@ -601,6 +661,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       config={config}
       language={language}
       languageChosen={settings.languageChosen}
+      ctaOverride={resuming
+        ? resumeStep > 0
+          ? `CONTINUE · STEP ${resumeStep + 1}/${challenge.steps.length}`
+          : "CONTINUE"
+        : undefined}
       onChangeLanguage={onChangeLanguage}
       onStart={() => beginStory()}
       onGuidedStart={() => {
@@ -645,6 +710,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           // The gesture-anchored drone from the intro screen ends with the film.
           audio.stopLoop("dark-drone-1", 1500);
           setShowCinematic(false);
+          // Checkpoint: a reload from here on never forces this beat again.
+          onIntroDone();
           // Round 1 opens with the type-along warm-up, then explanations.
           // (Later chapters need their own lesson-specific warm-up content.)
           if (challenge.chapter === 1 && (settings.beginnerMode || forceBeginner)) {
@@ -1053,11 +1120,12 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               onFontScaleChange={(scale) => onSaveSettings({ tutorialFontScale: scale })}
             />
           }
-          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id, language).pct}
+          conceptPct={summarizeCurriculum(completedChapterIds, challenge.id, language, currentSteps).pct}
           conceptsPanel={
             <ConceptTracker
               completedChapterIds={completedChapterIds}
               currentChapterId={challenge.id}
+              currentSteps={currentSteps}
             />
           }
         />
@@ -1277,6 +1345,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               compact
               completedChapterIds={completedChapterIds}
               currentChapterId={challenge.id}
+              currentSteps={currentSteps}
             />
           </div>
         </div>
@@ -1314,10 +1383,12 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, language, languageChosen, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
+function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
   config: ChapterConfig;
   language: LanguageId;
   languageChosen: boolean;
+  /** Replaces the chapter CTA, e.g. "CONTINUE · STEP 2/2" when resuming from a checkpoint. */
+  ctaOverride?: string;
   onChangeLanguage: (language: LanguageId) => void;
   onStart: () => void;
   onGuidedStart: () => void;
@@ -1459,7 +1530,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
                        hover:bg-[var(--color-signal)] hover:text-[var(--color-background)]
                        transition-colors"
           >
-            {ctaLabel}
+            {ctaOverride ?? ctaLabel}
           </button>
           <button
             type="button"

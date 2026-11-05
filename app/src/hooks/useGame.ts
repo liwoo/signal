@@ -82,6 +82,8 @@ export interface InitialPersistedState {
   level: number;
   hearts: number;
   library: LibraryState;
+  /** Mid-chapter checkpoint for THIS chapter: start at this step, with this code carried forward. */
+  resume?: { stepIndex: number; code?: string } | null;
 }
 
 export interface SavePayload {
@@ -89,7 +91,11 @@ export interface SavePayload {
   level: number;
   hearts: number;
   library: LibraryState;
+  /** The chapter (Challenge id) being played — keys the mid-chapter checkpoint. */
+  chapterId?: string;
   completedChapter?: number;
+  /** A step was cleared: resume at `stepIndex` (the next step) with this code. */
+  checkpoint?: { stepIndex: number; code: string };
 }
 
 interface Particle {
@@ -219,14 +225,20 @@ export function useGame(
   const onSaveRef = useRef(onSave);
   onSaveRef.current = onSave;
 
-  // Step tracking
-  const [stepIndex, setStepIndex] = useState(0);
+  // Step tracking — a returning player picks up at their saved checkpoint.
+  const resumeStepIndex = Math.min(
+    Math.max(0, initial?.resume?.stepIndex ?? 0),
+    Math.max(0, challenge.steps.length - 1),
+  );
+  const [stepIndex, setStepIndex] = useState(resumeStepIndex);
   const EMPTY_STEP: ChallengeStep = {
     id: "", title: "", brief: "", starterCode: "", expectedBehavior: "",
     hints: [], rushMode: null, xp: { base: 0, firstTryBonus: 0, parTimeSeconds: 0 }, events: [],
   };
   const currentStep = challenge.steps[stepIndex] ?? EMPTY_STEP;
-  const [code, setCode] = useState(currentStep.starterCode ?? "");
+  // A step with starterCode null carries the previous step's code forward —
+  // on resume that's the code saved with the checkpoint.
+  const [code, setCode] = useState(currentStep.starterCode ?? initial?.resume?.code ?? "");
 
   const [inRush, setInRush] = useState(false);
   const [powerCut, setPowerCut] = useState(false);
@@ -489,11 +501,15 @@ export function useGame(
 
     addMsg("SYS", "▸ SIGNAL LOCKED · LOCAL", "dim");
 
-    // Intro from the first step's bank
-    const firstStep = challenge.steps[0];
+    // Intro from the opening step's bank — the saved checkpoint's step when
+    // a returning player resumes mid-chapter.
+    const firstStep = challenge.steps[stepIndex] ?? challenge.steps[0];
+    if (stepIndex > 0) {
+      addMsg("SYS", `▸ CHECKPOINT RESTORED · STEP ${stepIndex + 1}/${challenge.steps.length} · ${firstStep.title}`, "dim");
+    }
     const { reply } = callMayaEngine(
       firstStep.id,
-      "i got your signal. i'm here.",
+      stepIndex > 0 ? "next step" : "i got your signal. i'm here.",
       false,
       true,
       false,
@@ -518,7 +534,7 @@ export function useGame(
       levelSchedulerRef.current.start(challenge.events, handleEvent);
     }
     startStepEvents(firstStep);
-  }, [challenge, addMsg, addMayaChunked, handleEvent, startStepEvents, language]);
+  }, [challenge, stepIndex, addMsg, addMayaChunked, handleEvent, startStepEvents, language]);
 
   const startGame = useCallback((options?: { deferMission?: boolean }) => {
     // A new round is always new. Drafts used to silently restore code, attempts,
@@ -630,20 +646,22 @@ export function useGame(
       const relevantRules = stepRules.filter(
         (r) => !r.isRelevant || r.isRelevant(code)
       );
-      setLibrary((prev) =>
-        recordZenResults(
-          prev,
-          currentStep.id,
-          relevantRules.map((r) => ({
-            id: r.id,
-            principle: r.principle,
-            jolt: r.jolt,
-            suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
-            bonusXP: r.bonusXP,
-            passed: r.check(code),
-          }))
-        )
+      // Computed eagerly (not in a setState updater) so the save below
+      // persists exactly what the player now holds.
+      const nextLibrary = recordZenResults(
+        libraryRef.current,
+        currentStep.id,
+        relevantRules.map((r) => ({
+          id: r.id,
+          principle: r.principle,
+          jolt: r.jolt,
+          suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
+          bonusXP: r.bonusXP,
+          passed: r.check(code),
+        }))
       );
+      libraryRef.current = nextLibrary;
+      setLibrary(nextLibrary);
 
       trackCodeSubmit(challenge.id, stepIndex, attempts + 1, true);
       trackStepComplete(challenge.id, stepIndex, currentStep.id, totalEarned);
@@ -689,6 +707,25 @@ export function useGame(
         return next;
       });
 
+      // Persist the moment the step is cleared — not after the player taps
+      // through Maya's debrief. Saving used to wait for that tap (and the
+      // checkpoint was never saved at all), so leaving at the reward card lost
+      // the step's XP and a reload restarted the chapter from its cutscene.
+      const savedXp = xpRef.current + totalEarned;
+      xpRef.current = savedXp;
+      const nextStepIndex = stepIndex + 1;
+      const chapterCleared = nextStepIndex >= challenge.steps.length;
+      onSaveRef.current?.({
+        xp: savedXp,
+        level: calculateLevel(savedXp),
+        hearts: heartsRef.current,
+        library: nextLibrary,
+        chapterId: challenge.id,
+        ...(chapterCleared
+          ? { completedChapter: challenge.chapter }
+          : { checkpoint: { stepIndex: nextStepIndex, code } }),
+      });
+
 
       // Chunked delivery: completion reply → zen → next step intro
       // Each chunk pauses for "continue" — no more setTimeout timing hacks
@@ -710,9 +747,8 @@ export function useGame(
         }
       }
 
-      // Queue step advance or chapter complete
-      const nextStepIndex = stepIndex + 1;
-      if (nextStepIndex < challenge.steps.length) {
+      // Queue step advance or chapter complete (already persisted above)
+      if (!chapterCleared) {
         const nextStep = challenge.steps[nextStepIndex];
         const { reply: introReply } = callMayaEngine(
           nextStep.id, "next step", false, true, false, 0, language
@@ -749,13 +785,6 @@ export function useGame(
               const clk = mins > 0 ? `+${mins}:${String(secs).padStart(2, "0")}` : `+${secs}s`;
               addMsg("SYS", `▸ final checkpoint · ${clk} on the clock`, "dim");
             }
-            // Persist mid-chapter state
-            onSaveRef.current?.({
-              xp: xp + totalEarned,
-              level: calculateLevel(xp + totalEarned),
-              hearts,
-              library: libraryRef.current,
-            });
           },
         });
         // Queue intro message chunks
@@ -768,16 +797,8 @@ export function useGame(
         recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id, stepId: currentStep.id, data: { xp: totalEarned } });
 
         // Zen lessons (learned + missed) are taught in the ZenDebrief screen
-        // after the outro cinematic, not as chat chunks here. The library is
-        // computed now because setLibrary hasn't flushed yet.
-        const updatedLib = recordZenResults(
-          libraryRef.current,
-          currentStep.id,
-          stepRules.map((r) => ({
-            id: r.id, principle: r.principle, jolt: r.jolt,
-            suggestion: r.suggestion, bonusXP: r.bonusXP, passed: r.check(code),
-          }))
-        );
+        // after the outro cinematic, not as chat chunks here. The chapter clear
+        // (and its library) was already persisted when the step was cleared.
         pendingMsgRef.current.push({
           from: "SYS",
           text: null,
@@ -794,14 +815,6 @@ export function useGame(
               setPhase("win");
             }
             syncPauseState(createPauseState());
-            // Persist state — chapter complete
-            onSaveRef.current?.({
-              xp: xp + totalEarned,
-              level: calculateLevel(xp + totalEarned),
-              hearts,
-              library: updatedLib,
-              completedChapter: challenge.chapter,
-            });
           },
         });
       }
