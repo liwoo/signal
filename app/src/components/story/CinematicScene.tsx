@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { PixiScene } from "./PixiScene";
+import dynamic from "next/dynamic";
 import { TypeText } from "./TypeText";
 import type { SceneDefinition, AudioCue } from "@/lib/sprites/scenes";
 import { effectiveDurationMs } from "@/lib/sprites/camera";
 import { useAudio } from "@/hooks/useAudio";
 import type { SfxName, AmbienceName, MusicName } from "@/hooks/useAudio";
+
+const CinematicScene3D = dynamic(
+  () => import("./CinematicScene3D").then((m) => m.CinematicScene3D),
+  { ssr: false },
+);
 
 interface CinematicSceneProps {
   scenes: SceneDefinition[];
@@ -40,7 +45,11 @@ export function CinematicScene({
   const shotStartedAtRef = useRef(0);
 
   const currentScene = scenes[sceneIndex] ?? scenes[0];
-  const shotDurationMs = effectiveDurationMs(currentScene);
+  const shotDurationMs = currentScene ? effectiveDurationMs(currentScene) : 0;
+  const handleReady = useCallback(() => {
+    shotStartedAtRef.current = Date.now();
+    if (!completedRef.current) setFadePhase("playing");
+  }, []);
   // In-picture title card visibility, keyed to the shot it belongs to so a
   // new shot never inherits the previous card's state.
   const [cardState, setCardState] = useState<{ index: number; visible: boolean } | null>(null);
@@ -119,11 +128,6 @@ export function CinematicScene({
       for (const t of timers) clearTimeout(t);
     };
   }, [currentScene, fadePhase, sceneIndex]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setFadePhase("playing"), 80);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (fadePhase !== "playing" || !currentScene) return;
@@ -207,11 +211,11 @@ export function CinematicScene({
     };
   }, [audio, currentScene, fadePhase, sceneIndex]);
 
-  // The film can't be skipped — any key just steps to the next shot (it also
-  // auto-advances on its own), so a fast reader isn't held back.
+  // Leave Tab and browser shortcuts alone; keyboard and touch both advance.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.repeat || ![" ", "Enter", "ArrowRight"].includes(event.key)) return;
       event.preventDefault();
       advanceShot();
     };
@@ -235,7 +239,7 @@ export function CinematicScene({
       className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden transition-opacity"
       style={{
         background: "var(--color-background)",
-        opacity: fadePhase === "playing" ? 1 : 0,
+        opacity: fadePhase === "out" ? 0 : 1,
         // Quick in (no dead black before the first shot), slow out.
         transitionDuration: fadePhase === "playing" ? "300ms" : "700ms",
       }}
@@ -254,12 +258,11 @@ export function CinematicScene({
       />
 
       <section
-        className="cinematic-stage relative overflow-hidden border cursor-pointer select-none"
+        className="cinematic-stage relative aspect-[4/3] overflow-hidden border cursor-pointer select-none sm:aspect-[16/10]"
         style={{
           // Fill the width on phones (portrait), cap by height on landscape so
           // the film is never a tiny floating strip.
-          width: "min(96vw, 1200px, 158dvh)",
-          aspectRatio: "16 / 10",
+          width: "min(100vw, 160dvh)",
           borderColor: "color-mix(in srgb, var(--color-signal) 18%, transparent)",
           background: "var(--color-background)",
         }}
@@ -267,7 +270,13 @@ export function CinematicScene({
         onClick={advanceShot}
         title="Tap for the next shot"
       >
-        <PixiScene scene={currentScene} width={640} height={400} crtEffect />
+        <CinematicScene3D scene={currentScene} onReady={handleReady} />
+        {fadePhase === "in" && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center text-xs tracking-[0.35em]"
+            role="status" style={{ background: "var(--color-background)", color: "var(--color-signal)" }}>
+            ESTABLISHING SIGNAL…
+          </div>
+        )}
 
         {/* In-picture title card — big display type that tracks in over the frame. */}
         {currentScene.titleCard && (
@@ -317,7 +326,7 @@ export function CinematicScene({
           <div className="min-w-0 cinematic-title-in" style={{ visibility: currentScene.titleCard ? "hidden" : "visible" }}>
             {title && (
               <h1
-                className="font-[family-name:var(--font-display)] text-lg font-black leading-none tracking-[0.24em] sm:text-2xl lg:text-3xl"
+                className="truncate font-[family-name:var(--font-display)] text-xs font-black leading-none tracking-[0.24em] sm:text-2xl lg:text-3xl"
                 style={{
                   color: "var(--color-signal)",
                   textShadow: "0 0 28px color-mix(in srgb, var(--color-signal) 42%, transparent)",
@@ -336,15 +345,15 @@ export function CinematicScene({
             )}
           </div>
 
-          <div className="shrink-0 text-right">
+          <div className="max-w-[55%] shrink-0 text-right">
             <div
-              className="text-[10px] tracking-[0.28em] sm:text-[11px]"
+              className="truncate text-[8px] tracking-[0.18em] sm:text-[11px] sm:tracking-[0.28em]"
               style={{ color: "color-mix(in srgb, var(--color-foreground) 65%, transparent)" }}
             >
               {currentScene.location}
             </div>
             <div
-              className="mt-1 flex items-center justify-end gap-2 text-[10px] tracking-[0.32em] sm:text-[11px]"
+              className="mt-1 flex items-center justify-end gap-2 text-[8px] tracking-[0.18em] sm:text-[11px] sm:tracking-[0.32em]"
               style={{ color: "color-mix(in srgb, var(--color-danger) 72%, transparent)" }}
             >
               <span
@@ -367,7 +376,7 @@ export function CinematicScene({
             >
               SIGNAL LOG // {String(sceneIndex + 1).padStart(2, "0")}
             </div>
-            {currentScene.caption && (
+            {fadePhase !== "in" && currentScene.caption && (
               <TypeText
                 text={currentScene.caption}
                 speed={28}
@@ -377,47 +386,43 @@ export function CinematicScene({
             )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5" aria-label={`Scene ${sceneIndex + 1} of ${scenes.length}`}>
-            {scenes.map((scene, index) => (
-              <div
-                key={`${scene.location}-${index}`}
-                className="relative h-px w-3 overflow-hidden sm:w-6"
-                style={{ background: "color-mix(in srgb, var(--color-signal) 18%, transparent)" }}
-              >
-                {index < sceneIndex && (
-                  <div className="absolute inset-0" style={{ background: "var(--color-signal)" }} />
-                )}
-                {index === sceneIndex && (
-                  <div
-                    key={`progress-${sceneIndex}`}
-                    className="cinematic-progress absolute inset-0 origin-left"
-                    style={{
-                      background: "var(--color-signal)",
-                      animationDuration: `${shotDurationMs}ms`,
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            <div className="flex items-center gap-1.5" aria-label={`Scene ${sceneIndex + 1} of ${scenes.length}`}>
+              {scenes.map((scene, index) => (
+                <div
+                  key={`${scene.location}-${index}`}
+                  className="relative h-px w-1.5 overflow-hidden sm:w-4"
+                  style={{ background: "color-mix(in srgb, var(--color-signal) 18%, transparent)" }}
+                >
+                  {index < sceneIndex && (
+                    <div className="absolute inset-0" style={{ background: "var(--color-signal)" }} />
+                  )}
+                  {index === sceneIndex && (
+                    <div
+                      key={`progress-${sceneIndex}`}
+                      className="cinematic-progress absolute inset-0 origin-left"
+                      style={{
+                        background: "var(--color-signal)",
+                        animationDuration: `${shotDurationMs}ms`,
+                        animationPlayState: fadePhase === "playing" ? "running" : "paused",
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={(event) => { event.stopPropagation(); advanceShot(); }}
+              disabled={fadePhase !== "playing"}
+              className="min-h-11 cursor-pointer border border-[var(--color-border)] px-2 text-[8px] tracking-[0.18em] focus-visible:outline-2 focus-visible:outline-[var(--color-signal)] sm:px-3 sm:text-[10px]"
+              style={{ color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)" }}
+            >
+              NEXT SHOT →
+            </button>
           </div>
         </div>
       </section>
-
-      <div
-        className="absolute bottom-3 left-4 hidden text-[10px] tracking-[0.24em] sm:block"
-        style={{ color: "color-mix(in srgb, var(--color-foreground) 60%, transparent)" }}
-      >
-        crafted with ♥ by chienda.com
-      </div>
-
-      <div className="absolute bottom-2 right-4 flex items-center gap-3 sm:bottom-3">
-        <span
-          className="text-[10px] tracking-[0.24em]"
-          style={{ color: "color-mix(in srgb, var(--color-foreground) 75%, transparent)" }}
-        >
-          TAP · NEXT SHOT
-        </span>
-      </div>
     </div>
   );
 }

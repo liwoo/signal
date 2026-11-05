@@ -22,7 +22,7 @@ function CinematicPreview() {
 
   if (process.env.NODE_ENV === "production") notFound();
 
-  const seqName = params.get("seq") ?? "INTRO_SCENES";
+  const seqName = params.get("seq") ?? "PROLOGUE_SCENES";
   const sequence = SEQUENCES[seqName];
   const title = params.get("title") ?? seqName.replace(/_SCENES$/, "").replace(/_/g, " ");
   const subtitle = params.get("subtitle") ?? "PREVIEW";
@@ -50,7 +50,7 @@ function CinematicPreview() {
     return (
       <CinematicScene
         key={run}
-        scenes={sequence}
+        scenes={sequence.slice(Math.max(0, Math.min(sequence.length - 1, Number(params.get("shot")) || 0)))}
         title={title}
         subtitle={subtitle}
         onComplete={() => setPlaying(false)}
