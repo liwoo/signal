@@ -108,6 +108,11 @@ export interface GuardDef {
   triggerOn?: string;
   /** Stand still for this long after the level (or a checkpoint reset) starts. */
   delayMs?: number;
+  /**
+   * Fair warning before a delayed guard starts his patrol: Maya's line (and a
+   * sound) `leadMs` before `delayMs` runs out. Fires again after a reset.
+   */
+  warning?: { thought: string; leadMs?: number; sfx?: SfxCue };
   /** Leave the map once this objective id has been completed. */
   leaveOn?: string;
 }
@@ -116,7 +121,7 @@ export type SfxCue =
   | "terminal-beep" | "message-receive" | "code-submit" | "handshake-confirm" | "warning-beep"
   | "alert-beep" | "dread-sting" | "door-slide" | "machinery" | "knock-1" | "knock-2" | "knock-heavy"
   | "keypad-beep" | "captured-impact" | "maya-typing" | "explosion-small" | "target-lock" | "boss-hit"
-  | "keypress-1" | "message-receive";
+  | "keypress-1" | "message-receive" | "footstep-boots-1" | "footstep-boots-2";
 
 /** A scripted beat fired at an offset from when an objective becomes active. */
 export interface Cue {
@@ -211,6 +216,13 @@ export interface AdventureLevel {
   handoff?: string;
   /** When present, this is a boss-fight level: a real-time physical duel in 3D, with coding at cover. */
   boss?: BossDef;
+  /**
+   * First-stealth on-ramp (a player's first patrol). Detection builds
+   * `alertScale`× slower, Maya says `spotted` the moment a guard first sees
+   * her, and the HUD calls out a nearby patrol (with `tip`, the one rule to
+   * follow) — so a first-timer is always told what to do before they can be caught.
+   */
+  onramp?: { alertScale: number; spotted: string; tip?: string };
 }
 
 // ── Boss fight (physical 3D duel + code-at-cover) ──
@@ -315,6 +327,8 @@ export interface GuardState {
   seesMaya: boolean;
   active: boolean;
   gone: boolean;
+  /** His `warning` has been given since the last (re)start. */
+  warned: boolean;
 }
 
 export interface Interaction {
@@ -336,6 +350,8 @@ export type SimEvent =
   /** Maya picked up a book chapter (interactable id). */
   | { type: "book"; id: string }
   | { type: "objective"; index: number }
+  /** A guard's `warning` was just given — his patrol is about to start. */
+  | { type: "patrol"; id: string }
   | { type: "spotted" }
   | { type: "captured" }
   | { type: "reset" }

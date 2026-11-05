@@ -67,7 +67,7 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     number: 1,
     numeral: "I",
     title: "The Skeleton",
-    hiddenIn: "folded into the mattress · cell b-09",
+    hiddenIn: "tucked down beside the bunk · cell b-09",
     marginNote: "start with the skeleton. everything else hangs from it.",
     found: "a book chapter, torn out and folded small. 'go: a field manual' — chapter one. someone was in this cell before me.",
     byLanguage: {

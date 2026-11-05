@@ -27,6 +27,36 @@ describe("adventure levels", () => {
     expect(levelById("chapter-01-intro")?.ending).toBe("relinquish");
   });
 
+  describe("chapter 1's first patrol is a fair on-ramp", () => {
+    const level = levelById("chapter-01-intro")!;
+    const grid = parseMap(level.map);
+
+    it("is an on-ramp level with a delayed, warned patrol", () => {
+      expect(level.onramp).toBeDefined();
+      expect(level.onramp!.alertScale).toBeGreaterThanOrEqual(2);
+      for (const guard of level.guards) {
+        expect(guard.delayMs ?? 0).toBeGreaterThanOrEqual(6000);
+        expect(guard.warning?.thought).toBeTruthy();
+      }
+    });
+
+    it("nobody can see into maya's cell until after the warning", () => {
+      // An idle sim, Maya standing on each cell tile in turn: no guard sees her
+      // before his warning has been given.
+      const cell = grid.tiles.filter((t) => t.y >= 4 && t.x <= 6 && WALKABLE.has(t.kind) && t.kind !== "hide");
+      for (const tile of cell) {
+        let s = createSim(level);
+        s = { ...s, maya: { ...s.maya, x: tile.x + 0.5, y: tile.y + 0.5 } };
+        for (let t = 0; t < 12000; t += 16) {
+          s = stepSim(s, { move: { x: 0, y: 0 }, interact: false }, 16);
+          const warned = s.guards.every((g) => g.warned);
+          if (!warned) expect(s.guards.some((g) => g.seesMaya), `seen at ${tile.x},${tile.y} before the warning`).toBe(false);
+          if (s.status !== "playing") break;
+        }
+      }
+    });
+  });
+
   for (const level of ALL_LEVELS) {
     describe(level.id, () => {
       const grid = parseMap(level.map);
@@ -96,11 +126,26 @@ describe("adventure levels", () => {
       it("maya's voice is lowercase without exclamation marks", () => {
         const lines = [
           level.opening,
+          level.onramp?.spotted,
+          level.onramp?.tip,
+          ...level.guards.map((g) => g.warning?.thought),
           ...level.objectives.flatMap((o) => [o.stake, o.thought, o.done, ...(o.cues ?? []).map((c) => c.thought)]),
         ].filter((t): t is string => !!t);
         for (const line of lines) {
           expect(line, line).not.toMatch(/!/);
           expect(line, line).toBe(line.toLowerCase());
+        }
+      });
+
+      it("an objective that names the bunk has its marker at the bunk", () => {
+        // Playtest (2 Nov 2026): "hide behind the bunk" with the marker out on
+        // the open floor under the light.
+        const bunks = [...grid.tiles].filter((t) => t.kind === "bunk");
+        for (const o of level.objectives) {
+          if (!/\bbunk\b/.test(o.stake)) continue;
+          const target = grid.interactables.get(o.target)!;
+          const touching = bunks.some((b) => Math.abs(b.x - target.x) <= 1 && Math.abs(b.y - target.y) <= 1);
+          expect(touching, `${o.id}: "${o.stake}" but ${o.target} is at ${target.x},${target.y}`).toBe(true);
         }
       });
 

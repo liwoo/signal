@@ -232,10 +232,12 @@ export function CinematicScene({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden transition-opacity duration-700"
+      className="fixed inset-0 z-[1000] flex items-center justify-center overflow-hidden transition-opacity"
       style={{
         background: "var(--color-background)",
         opacity: fadePhase === "playing" ? 1 : 0,
+        // Quick in (no dead black before the first shot), slow out.
+        transitionDuration: fadePhase === "playing" ? "300ms" : "700ms",
       }}
       role="dialog"
       aria-modal="true"

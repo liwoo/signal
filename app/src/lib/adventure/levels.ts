@@ -19,6 +19,7 @@ function placeBook(map: string[], x: number, y: number): string[] {
 // ── Sublevel 3 · cell block B ──
 // Corridor across the top (guard route), three cells below it. B-09 is Maya's:
 // bars + keypad (3,3) + door (5,3), bunk on the left, terminal in the corner.
+// The hide spot (h) is the shadow behind the bunk.
 
 const CELL_BLOCK = [
   "################",
@@ -26,8 +27,8 @@ const CELL_BLOCK = [
   "#..............#",
   "#==k=d=#=d=#=d=#",
   "#*.....#...#...#",
-  "#b..h..#...#...#",
-  "#b.....#.*.#.*.#",
+  "#b.....#...#...#",
+  "#bh....#.*.#.*.#",
   "#.....c#...#...#",
   "#Tm....#...#...#",
   "################",
@@ -42,17 +43,32 @@ export const CHAPTER_01_INTRO_LEVEL: AdventureLevel = {
   map: placeBook(CELL_BLOCK, 2, 5),
   ambience: ["dark-drone-1", "facility-hum"],
   opening: "72 hours missing. no contact. sublevel 3. no windows.",
+  // The player's first patrol, so it's a fair one: he starts at the far end of
+  // the corridor looking away, holds there while the player finds their feet,
+  // and Maya hears him (and says what to do) before he takes a step. The first
+  // sighting is forgiving — time to step back out of his light.
+  onramp: {
+    alertScale: 2,
+    spotted: "his light is on me. back out of it — now.",
+    tip: "his lit cone is what he sees · the shadow behind the bunk hides you",
+  },
   guards: [
     {
       id: "patrol",
       route: [
-        { x: 1, y: 2, waitMs: 1200 },
-        { x: 4, y: 2, face: "down", waitMs: 2400 },
+        { x: 14, y: 2, face: "right", waitMs: 1400 },
         { x: 9, y: 2, face: "down", waitMs: 1400 },
-        { x: 14, y: 2, waitMs: 1000 },
+        { x: 4, y: 2, face: "down", waitMs: 2400 },
+        { x: 1, y: 2, waitMs: 1200 },
       ],
       speed: 1.6,
       range: 5.5,
+      delayMs: 9000,
+      warning: {
+        leadMs: 3000,
+        thought: "boots in the corridor. a guard. stay out of his light — or get down behind the bunk.",
+        sfx: "footstep-boots-1",
+      },
     },
   ],
   objectives: [
@@ -61,7 +77,7 @@ export const CHAPTER_01_INTRO_LEVEL: AdventureLevel = {
       stake: "the terminal is dead. find something in this cell that still has power.",
       kind: "interact",
       target: "crate-1",
-      verb: "PRY OPEN PANEL",
+      verb: "PRY OPEN THE BOX",
       durationMs: 1400,
       thought: "one dead terminal in the corner. and a maintenance box that still hums.",
       done: "live wires. i can run power to the terminal.",
@@ -70,12 +86,12 @@ export const CHAPTER_01_INTRO_LEVEL: AdventureLevel = {
     },
     {
       id: "chapter",
-      stake: "something is folded into the mattress. whoever was here before left it for you.",
+      stake: "something is tucked down beside the bunk. whoever was here before left it for you.",
       kind: "interact",
       target: "book-1",
       verb: "TAKE THE PAGES",
       durationMs: 1300,
-      thought: "paper. folded small, pushed into the mattress seam.",
+      thought: "paper. folded small, pushed down between the bunk and the floor.",
       done: "a book chapter, torn out and folded small. 'go: a field manual' — chapter one. someone was in this cell before me.",
     },
     {
@@ -100,18 +116,9 @@ export const CHAPTER_01_COMPLETE_LEVEL: AdventureLevel = {
   subtitle: "HANDSHAKE ESTABLISHED",
   location: "SUBLEVEL 3 · CELL B-09",
   theme: "cell",
-  map: [
-    "################",
-    "#..............#",
-    "#..............#",
-    "#==k=d=#=d=#=d=#",
-    "#*.....#...#...#",
-    "#b..h..#...#...#",
-    "#b.....#.*.#.*.#",
-    "#.....c#...#...#",
-    "#Tm....#...#...#",
-    "################",
-  ],
+  // The hide spot (h) is tucked against the bunk's far side — the "behind the
+  // bunk" the hide objective names — not out on the open floor.
+  map: CELL_BLOCK,
   ambience: ["cell-ambient"],
   guards: [
     {
@@ -485,7 +492,7 @@ export const BOSS_01_INTRO_LEVEL: AdventureLevel = {
   subtitle: "LOCKMASTER",
   location: "SUBLEVEL 3 · CELL B-10",
   theme: "corridor",
-  map: placeBook(EAST_WING, 8, 1),
+  map: placeBook(EAST_WING, 4, 1), // right beside her bunk, where the stake says it is
   ambience: ["dark-drone-2", "facility-hum"],
   guards: [
     {

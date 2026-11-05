@@ -195,8 +195,13 @@ export interface World {
   wallInstances: WallInstance[];
   doors: DoorObject[];
   objects: EmissiveObject[];
-  /** Objects the player can click on, with their interactable id. */
+  /**
+   * Objects the player can click on: `userData.id` = an interactable (walk to
+   * it and use it), `userData.tile` = furniture (walk up beside it).
+   */
   pickables: THREE.Object3D[];
+  /** Hanging fixtures that fade out when they come between the camera and Maya. */
+  overhead: { mesh: THREE.Mesh; material: THREE.MeshStandardMaterial }[];
   lights: THREE.PointLight[];
   alarmLights: THREE.PointLight[];
   dispose: () => void;
@@ -385,10 +390,23 @@ export function buildWorld(grid: Grid, theme: LevelTheme, extraLights: LevelLigh
   const dark = track(new THREE.MeshStandardMaterial({ color: C.concreteDark, roughness: 0.9 }));
   const bunkMat = track(new THREE.MeshStandardMaterial({ color: C.pantsMid, roughness: 0.95 }));
   const blanket = track(new THREE.MeshStandardMaterial({ color: C.hoodieDark, roughness: 1 }));
+  // Invisible click volumes: the whole silhouette of a prop picks it (a click on
+  // the terminal's monitor, not just its desk, walks Maya over to use it).
+  const hitMat = track(new THREE.MeshBasicMaterial({ visible: false }));
+  const addHit = (t: Tile, w: number, h: number, d: number, data: { id?: string; tile?: { x: number; y: number } }) => {
+    const hit = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, d)), hitMat);
+    hit.position.set(t.x + 0.5, h / 2, t.y + 0.5);
+    Object.assign(hit.userData, data);
+    group.add(hit);
+    pickables.push(hit);
+  };
+  const overhead: World["overhead"] = [];
 
   for (const t of grid.tiles) {
     const cx = t.x + 0.5;
     const cz = t.y + 0.5;
+    if (t.id && (t.kind === "terminal" || t.kind === "crate" || t.kind === "panel")) addHit(t, 1, t.kind === "panel" ? 1.5 : 1.2, 1, { id: t.id });
+    if (t.kind === "bunk" || t.kind === "server") addHit(t, 1, t.kind === "server" ? 2.1 : 0.95, 1, { tile: { x: t.x, y: t.y } });
     switch (t.kind) {
       case "terminal": {
         const desk = box(0.9, 0.5, 0.7, metal, cx, 0.25, cz);
@@ -523,8 +541,11 @@ export function buildWorld(grid: Grid, theme: LevelTheme, extraLights: LevelLigh
         break;
       }
       case "light": {
-        const fixture = box(0.5, 0.06, 0.2, track(emissiveMat(colors.key, 1.6)), cx, WALL_H - 0.08, cz);
+        const fixtureMat = track(emissiveMat(colors.key, 1.6));
+        fixtureMat.transparent = true;
+        const fixture = box(0.5, 0.06, 0.2, fixtureMat, cx, WALL_H - 0.08, cz);
         group.add(fixture);
+        overhead.push({ mesh: fixture, material: fixtureMat });
         const l = new THREE.PointLight(colors.key, 20, 8.5, 1.8);
         l.position.set(cx, WALL_H - 0.3, cz);
         group.add(l);
@@ -570,6 +591,7 @@ export function buildWorld(grid: Grid, theme: LevelTheme, extraLights: LevelLigh
     doors,
     objects,
     pickables,
+    overhead,
     lights,
     alarmLights,
     dispose: () => {
