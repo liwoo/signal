@@ -29,7 +29,7 @@ export function Interrupt({ who, text, onDone }: InterruptProps) {
       }}
     >
       <div
-        className="text-[8px] tracking-[3px] mb-1.5"
+        className="text-[10px] tracking-[3px] mb-1.5"
         style={{ color: borderColor }}
       >
         ▸ INCOMING · {who}

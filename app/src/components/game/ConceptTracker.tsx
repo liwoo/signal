@@ -63,7 +63,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
       >
         <div className="flex items-baseline justify-between gap-2">
           <span
-            className="font-[family-name:var(--font-display)] text-[9px] tracking-[3px]"
+            className="font-[family-name:var(--font-display)] text-[10px] tracking-[3px]"
             style={{ color: "var(--color-signal)" }}
           >
             CONCEPTS
@@ -75,7 +75,7 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
             {summary.pct}%
           </span>
         </div>
-        <div className="mt-1 text-[8px] tracking-[1.5px]" style={{ color: "var(--color-dim)" }}>
+        <div className="mt-1 text-[10px] tracking-[1.5px]" style={{ color: "var(--color-dim)" }}>
           {summary.covered} / {summary.playable} LEARNED
           {summary.planned > 0 ? ` · +${summary.planned} AHEAD` : ""}
         </div>
@@ -120,19 +120,19 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
                 >
                   <span className="flex items-center gap-1.5">
                     <span
-                      className="inline-block w-2 text-[8px] transition-transform"
+                      className="inline-block w-2 text-[10px] transition-transform"
                       style={{ color: "var(--color-dim)", transform: isOpen ? "rotate(90deg)" : "none" }}
                     >
                       ▸
                     </span>
                     <span
-                      className="font-[family-name:var(--font-display)] text-[9px] tracking-[2px]"
+                      className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
                       style={{ color: headColor }}
                     >
                       ACT {act.act}
                     </span>
                   </span>
-                  <span className="text-[8px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+                  <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
                     {act.covered ? "✓" : `${items.length}`}
                   </span>
                 </button>
@@ -156,10 +156,10 @@ export function ConceptTracker({ completedChapterIds, currentChapterId, compact 
                               ? "none"
                               : `1px solid color-mix(in srgb, ${color} ${boxed ? "45%" : "15%"}, transparent)`,
                             background: boxed ? `color-mix(in srgb, ${color} 8%, transparent)` : "transparent",
-                            opacity: status === "planned" ? 0.5 : status === "upcoming" ? 0.8 : 1,
+                            opacity: status === "planned" ? 0.7 : status === "upcoming" ? 0.85 : 1,
                           }}
                         >
-                          <span style={{ fontSize: "9px" }}>{STATUS_MARK[status]}</span>
+                          <span style={{ fontSize: "10px" }}>{STATUS_MARK[status]}</span>
                           {concept}
                         </span>
                       );

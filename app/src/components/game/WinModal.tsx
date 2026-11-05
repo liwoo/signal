@@ -193,7 +193,7 @@ function StatBox({ label, value, warn }: { label: string; value: string | number
         background: warn ? "rgba(255,159,28,.02)" : "rgba(var(--signal-rgb),.02)",
       }}
     >
-      <div className="text-[9px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
+      <div className="text-[10px] tracking-[2px] text-[var(--color-dim)]">{label}</div>
       <div
         className="font-[family-name:var(--font-display)] text-lg font-black"
         style={{ color: warn ? "var(--color-alert)" : "var(--color-signal)" }}

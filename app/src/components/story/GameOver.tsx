@@ -74,7 +74,7 @@ export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: 
           >
             CAPTURED
           </div>
-          <div className="text-[8px] tracking-[4px] text-center mt-2" style={{ color: "#4a2020" }}>
+          <div className="text-[10px] tracking-[4px] text-center mt-2" style={{ color: "var(--color-danger)" }}>
             SIGNAL LOST
           </div>
         </div>
@@ -88,7 +88,7 @@ export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: 
         >
           {/* Hearts display */}
           <div className="flex items-center gap-1.5 mb-4">
-            <span className="text-[8px] tracking-[2px]" style={{ color: "#4a2020" }}>
+            <span className="text-[10px] tracking-[2px]" style={{ color: "var(--color-danger)" }}>
               LIVES
             </span>
             <div className="flex gap-1">
@@ -112,7 +112,7 @@ export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: 
               <button
                 onClick={onRetry}
                 className="py-2.5 px-8 bg-transparent border cursor-pointer
-                           text-[9px] tracking-[4px] transition-colors
+                           text-[10px] tracking-[4px] transition-colors
                            hover:bg-[rgba(255,64,64,.15)] hover:border-[var(--color-danger)]"
                 style={{
                   borderColor: "#4a1a1a",
@@ -121,19 +121,19 @@ export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: 
               >
                 RETRY FROM CHECKPOINT
               </button>
-              <div className="text-center mt-2 text-[7px] tracking-[2px]" style={{ color: "#3a1a1a" }}>
+              <div className="text-center mt-2 text-[10px] tracking-[2px]" style={{ color: "var(--color-foreground)", opacity: 0.75 }}>
                 -1 HEART · RESTARTS STEP 1 IMMEDIATELY · ENERGY 30%
               </div>
             </>
           ) : (
             <>
-              <div className="text-[10px] tracking-[2px] mb-3" style={{ color: "#6a2020" }}>
+              <div className="text-[10px] tracking-[2px] mb-3" style={{ color: "var(--color-danger)" }}>
                 NO LIVES REMAINING
               </div>
               <button
                 onClick={onRestart}
                 className="py-2.5 px-8 bg-transparent border cursor-pointer
-                           text-[9px] tracking-[4px] transition-colors
+                           text-[10px] tracking-[4px] transition-colors
                            hover:bg-[rgba(255,64,64,.15)] hover:border-[var(--color-danger)]"
                 style={{
                   borderColor: "#4a1a1a",
@@ -142,14 +142,14 @@ export function GameOver({ onRetry, onRestart, onBuyHeart, hearts, canBuyHeart: 
               >
                 RESTART
               </button>
-              <div className="text-center mt-2 text-[7px] tracking-[2px]" style={{ color: "#3a1a1a" }}>
+              <div className="text-center mt-2 text-[10px] tracking-[2px]" style={{ color: "var(--color-foreground)", opacity: 0.75 }}>
                 FRESH LIVES · RESTARTS STEP 1 · KEEPS XP
               </div>
               {canBuy ? (
                 <button
                   onClick={onBuyHeart}
                   className="mt-4 py-2 px-6 bg-transparent border cursor-pointer
-                             text-[8px] tracking-[3px] transition-colors
+                             text-[10px] tracking-[3px] transition-colors
                              hover:bg-[rgba(255,159,28,.1)] hover:border-[var(--color-alert)]"
                   style={{
                     borderColor: "#3a2a0a",

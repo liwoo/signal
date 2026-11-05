@@ -102,7 +102,7 @@ export function MobileGameLayout({
                 setView(tab.id);
                 if (tab.id !== "more") setSecondaryView(null);
               }}
-              className="relative min-h-11 bg-transparent px-1 text-[9px] tracking-[1px]"
+              className="relative min-h-11 bg-transparent px-1 text-[10px] tracking-[1px]"
               style={{
                 color: selected ? "var(--color-signal)" : "var(--color-dim)",
                 borderBottom: selected ? "2px solid var(--color-signal)" : "2px solid transparent",
@@ -135,9 +135,9 @@ export function MobileGameLayout({
             color: "var(--color-signal)",
           }}
         >
-          <span className="shrink-0 text-[8px] tracking-[2px]">MAYA</span>
+          <span className="shrink-0 text-[10px] tracking-[2px]">MAYA</span>
           <span className="min-w-0 flex-1 truncate text-[12px]">{latestMessage}</span>
-          <span className="text-[9px]">OPEN ›</span>
+          <span className="text-[10px]">OPEN ›</span>
         </button>
       ) : null}
 
@@ -169,7 +169,7 @@ export function MobileGameLayout({
               <button
                 type="button"
                 onClick={() => setSecondaryView(null)}
-                className="min-h-11 shrink-0 bg-transparent px-4 text-left text-[9px] tracking-[2px]"
+                className="min-h-11 shrink-0 bg-transparent px-4 text-left text-[10px] tracking-[2px]"
                 style={{ color: "var(--color-signal)", borderBottom: "1px solid var(--color-border)" }}
               >
                 ‹ BACK TO MORE
@@ -184,7 +184,7 @@ export function MobileGameLayout({
             </div>
           ) : (
             <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-              <div className="mb-1 text-[8px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
+              <div className="mb-1 text-[10px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
                 ▸ FIELD RESOURCES
               </div>
               <MobileMoreButton

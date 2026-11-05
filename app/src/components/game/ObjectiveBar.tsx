@@ -65,7 +65,7 @@ export function ObjectiveBar({
       {/* The ask — the single, distinct, succinct instruction */}
       <div className="min-w-0 flex-1 flex items-center gap-2.5">
         <span
-          className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[8px] tracking-[2px] px-1.5 py-1 leading-none"
+          className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[10px] tracking-[2px] px-1.5 py-1 leading-none"
           style={{ color: "var(--color-background)", background: "var(--color-alert)" }}
         >
           {multiStep ? `TASK ${currentStepIndex + 1}/${challenge.steps.length}` : "TASK"}
@@ -85,7 +85,7 @@ export function ObjectiveBar({
           {jeopardy.map((effect, i) => (
             <span
               key={`${effect}-${i}`}
-              className="text-[7px] tracking-[1px] px-1.5 py-0.5"
+              className="text-[10px] tracking-[1px] px-1.5 py-0.5"
               style={{
                 color: "var(--color-danger)",
                 border: "1px solid rgba(255,64,64,.3)",
@@ -102,7 +102,7 @@ export function ObjectiveBar({
       <button
         type="button"
         onClick={onOpenMission}
-        className="shrink-0 bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[8px] tracking-[2px] px-2.5 py-1.5 transition-colors"
+        className="shrink-0 bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[10px] tracking-[2px] px-2.5 py-1.5 transition-colors"
         style={{ color: "var(--color-alert)", border: "1px solid rgba(255,159,28,.4)" }}
         title="See the full level objectives"
       >

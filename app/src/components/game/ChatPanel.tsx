@@ -42,7 +42,7 @@ const MSG_COLORS: Record<string, string> = {
   you: "var(--color-player)",
   sys: "var(--color-alert)",
   err: "var(--color-danger)",
-  dim: "#1a4a5a",
+  dim: "var(--color-dim)",
   zen: "var(--color-info)",
 };
 
@@ -103,6 +103,14 @@ export function ChatPanel({
     setHintOpen(false);
   }
   const showQuickCheck = hintOpen && !!quickCheck && !busy;
+
+  // Maya's newest line is still typing in — the pause bar reserves its row now
+  // so the CONTINUE button appears in place rather than pushing in later.
+  const lastMsg = messages[messages.length - 1];
+  const mayaTyping =
+    !!lastMsg && lastMsg.animated && MAYA_TYPES.has(lastMsg.type) && !typedIds.has(lastMsg.id);
+  const canContinue = !!waitingForContinue && !busy && messages.length > 0;
+  const showPauseBar = canContinue || (mayaTyping && !!onContinue);
 
   // Completed steps collapse into their divider so only the step you're on shows
   // by default — the history is one tap away, not a wall of text. Keyed by the
@@ -170,7 +178,7 @@ export function ChatPanel({
           {done && <span style={{ color: "var(--color-signal)" }}>✓</span>}
           {label}
           {onClick && (
-            <span className="text-[8px]" style={{ opacity: 0.6 }}>
+            <span className="text-[10px]">
               {open ? "▾" : "▸"}
             </span>
           )}
@@ -178,7 +186,7 @@ export function ChatPanel({
         <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
       </>
     );
-    const cls = "msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700";
+    const cls = "msg-enter flex items-center gap-2 text-[10px] tracking-[1px] transition-opacity duration-700";
     return onClick ? (
       <button
         key={key}
@@ -211,7 +219,7 @@ export function ChatPanel({
       return (
         <div
           key={m.id}
-          className="msg-enter flex items-center gap-2 text-[9px] tracking-[1px] transition-opacity duration-700"
+          className="msg-enter flex items-center gap-2 text-[10px] tracking-[1px] transition-opacity duration-700"
           style={{ opacity, color: m.type === "sys" ? "var(--color-alert)" : "var(--color-dim)" }}
         >
           <span className="h-px flex-1" style={{ background: "currentColor", opacity: 0.25 }} />
@@ -239,7 +247,7 @@ export function ChatPanel({
       >
         <div className="mb-px">
           <span
-            className="text-[8px] tracking-[2px]"
+            className="text-[10px] tracking-[2px]"
             style={{ color: MSG_COLORS[m.type], opacity: 0.7 }}
           >
             {isZen ? "ZEN NOTE · MAYA" : m.from}
@@ -273,10 +281,10 @@ export function ChatPanel({
         }}
       >
         <div className="flex justify-between items-center gap-3">
-          <span className="text-[var(--color-signal)] text-[9px] tracking-[3px] font-[family-name:var(--font-display)]">
+          <span className="text-[var(--color-signal)] text-[10px] tracking-[3px] font-[family-name:var(--font-display)]">
             MAYA · {location}
           </span>
-          <span className="text-[8px] tracking-[2px] truncate" style={{ color: "var(--color-dim)" }} title={challengeConcepts}>
+          <span className="text-[10px] tracking-[2px] truncate" style={{ color: "var(--color-dim)" }} title={challengeConcepts}>
             {challengeTitle}
           </span>
         </div>
@@ -285,7 +293,7 @@ export function ChatPanel({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-2.5 pb-6 flex flex-col gap-2">
         {messages.length === 0 && (
-          <div className="text-[#0a3a2a] text-[10px] text-center mt-7">
+          <div className="text-[var(--color-dim)] text-[10px] text-center mt-7">
             routing<span className="cursor-blink">...</span>
           </div>
         )}
@@ -317,63 +325,75 @@ export function ChatPanel({
           );
         })}
         {busy && (
-          <div className="text-[9px]">
-            <span className="text-[var(--color-signal)] opacity-50 tracking-[2px]">
+          <div className="text-[10px]">
+            <span className="text-[var(--color-signal)] opacity-80 tracking-[2px]">
               MAYA{" "}
             </span>
             <span className="cursor-blink text-[var(--color-signal)]">▋</span>
           </div>
         )}
 
-        {/* Pause + continue/explain buttons */}
-        {waitingForContinue && !busy && messages.length > 0 && (
-          <div className="mt-1.5">
-            <div
-              className="flex items-center gap-2 px-2 py-1.5 mb-1.5"
-              style={{
-                border: "1px solid rgba(var(--signal-rgb),.1)",
-                background: "rgba(var(--signal-rgb),.02)",
-              }}
-            >
-              <span
-                className="text-[7px] tracking-[3px]"
-                style={{ color: "var(--color-dim)" }}
-              >
-                ▸ PAUSED · ABSORB
-              </span>
-            </div>
-            <div className="flex gap-1.5">
-              {onContinue && (
-                <ContinueButton onContinue={onContinue} compact={compact} />
-              )}
-              {onExplain && !explainUsed && (
-                <button
-                  onClick={onExplain}
-                  className={`bg-transparent text-[9px] tracking-[1px] px-2.5
-                             cursor-pointer transition-colors
-                             ${compact ? "min-h-11 py-2" : "py-1"}`}
-                  style={{
-                    border: "1px solid rgba(122,184,216,.15)",
-                    color: "var(--color-player)",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "var(--color-player)";
-                    e.currentTarget.style.background = "rgba(122,184,216,.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(122,184,216,.15)";
-                    e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  explain again <span style={{ color: "var(--color-alert)", fontSize: "7px" }}>-10 XP</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
         <div ref={endRef} />
       </div>
+
+      {/* Pause bar — pinned between the transcript and the input so CONTINUE
+          sits in the same spot every time. It used to trail the newest message,
+          so it slid down as Maya's paragraphs typed in and players clicked the
+          wrong thing. The row is reserved while Maya is still typing (disabled
+          placeholder) so nothing shifts when the button becomes live. */}
+      {showPauseBar && (
+        <div
+          className="shrink-0 px-3 py-2 flex items-center gap-1.5"
+          style={{
+            borderTop: "1px solid rgba(var(--signal-rgb),.15)",
+            background: "rgba(var(--signal-rgb),.03)",
+          }}
+        >
+          {canContinue && onContinue ? (
+            <ContinueButton onContinue={onContinue} compact={compact} />
+          ) : (
+            <button
+              type="button"
+              disabled
+              className={`bg-transparent text-[10px] tracking-[1px] px-2.5 cursor-default ${compact ? "min-h-11 py-2" : "py-1"}`}
+              style={{
+                border: "1px solid rgba(var(--signal-rgb),.15)",
+                color: "var(--color-dim)",
+              }}
+            >
+              maya is typing<span className="cursor-blink">…</span>
+            </button>
+          )}
+          {canContinue && onExplain && !explainUsed && (
+            <button
+              onClick={onExplain}
+              className={`bg-transparent text-[10px] tracking-[1px] px-2.5
+                         cursor-pointer transition-colors
+                         ${compact ? "min-h-11 py-2" : "py-1"}`}
+              style={{
+                border: "1px solid rgba(122,184,216,.15)",
+                color: "var(--color-player)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--color-player)";
+                e.currentTarget.style.background = "rgba(122,184,216,.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "rgba(122,184,216,.15)";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              explain again <span style={{ color: "var(--color-alert)", fontSize: "10px" }}>-10 XP</span>
+            </button>
+          )}
+          <span
+            className="ml-auto text-[10px] tracking-[3px] whitespace-nowrap"
+            style={{ color: "var(--color-dim)" }}
+          >
+            ▸ PAUSED · ABSORB
+          </span>
+        </div>
+      )}
 
       {/* Input */}
       <div
@@ -388,7 +408,7 @@ export function ChatPanel({
             <button
               type="button"
               onClick={() => setHintOpen((v) => !v)}
-              className={`bg-transparent text-[9px] tracking-[2px] px-3 transition-colors cursor-pointer whitespace-nowrap ${compact ? "min-h-11 py-2" : "py-1.5"} ${stuck && !hintOpen ? "hint-pulse" : ""}`}
+              className={`bg-transparent text-[10px] tracking-[2px] px-3 transition-colors cursor-pointer whitespace-nowrap ${compact ? "min-h-11 py-2" : "py-1.5"} ${stuck && !hintOpen ? "hint-pulse" : ""}`}
               style={{
                 border: `1px solid ${hintOpen || stuck ? "var(--color-info)" : "rgba(122,184,216,.25)"}`,
                 color: "var(--color-info)",
@@ -415,7 +435,7 @@ export function ChatPanel({
           <button
             onClick={onSend}
             disabled={busy || !chatInput.trim()}
-            className={`bg-transparent text-[9px] px-3.5
+            className={`bg-transparent text-[10px] px-3.5
                        tracking-[2px] transition-colors cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed
                        ${compact ? "min-h-11 py-2" : "py-1.5"}`}
             style={{
@@ -491,7 +511,7 @@ function ContinueButton({ onContinue, compact = false }: { onContinue: () => voi
           onContinue();
         }
       }}
-      className={`bg-transparent text-[9px] tracking-[1px] px-2.5
+      className={`bg-transparent text-[10px] tracking-[1px] px-2.5
                  cursor-pointer transition-colors ${compact ? "min-h-11 py-2" : "py-1"}`}
       style={{
         border: "1px solid rgba(var(--signal-rgb),.2)",
@@ -506,8 +526,8 @@ function ContinueButton({ onContinue, compact = false }: { onContinue: () => voi
         e.currentTarget.style.background = "transparent";
       }}
     >
-      continue <span style={{ opacity: 0.4, fontSize: "7px" }}>{remaining}s</span>
-      <span className="ml-1.5" style={{ opacity: 0.3, fontSize: "8px" }}>⏎</span>
+      continue <span style={{ opacity: 0.8, fontSize: "10px" }}>{remaining}s</span>
+      <span className="ml-1.5" style={{ opacity: 0.7, fontSize: "10px" }}>⏎</span>
     </button>
   );
 }

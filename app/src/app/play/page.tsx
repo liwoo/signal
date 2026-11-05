@@ -372,7 +372,7 @@ function GameRouter() {
         className="h-dvh flex items-center justify-center"
         style={{ background: "var(--color-background)" }}
       >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
+        <div className="text-[var(--color-dim)] text-[10px] tracking-[3px]">
           AUTHENTICATING<span className="cursor-blink">...</span>
         </div>
       </div>
@@ -389,7 +389,7 @@ function GameRouter() {
         className="h-dvh flex items-center justify-center"
         style={{ background: "var(--color-background)" }}
       >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
+        <div className="text-[var(--color-dim)] text-[10px] tracking-[3px]">
           LOADING<span className="cursor-blink">...</span>
         </div>
       </div>
@@ -1160,7 +1160,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                     <button
                       key={t}
                       onClick={() => actions.setTab(t)}
-                      className="bg-transparent text-[9px] tracking-[3px] px-4 py-2.5 cursor-pointer transition-colors"
+                      className="bg-transparent text-[10px] tracking-[3px] px-4 py-2.5 cursor-pointer transition-colors"
                       style={{
                         color: active
                           ? isHelp ? "var(--color-info)" : "var(--color-signal)"
@@ -1231,7 +1231,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   aiButton={state.aiTokens > 0 && state.aiSuggestions.length > 0 ? (
                     <button
                       onClick={actions.openAISuggest}
-                      className="ai-glow text-[9px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)]"
+                      className="ai-glow text-[10px] tracking-[2px] px-3 py-1.5 cursor-pointer font-[family-name:var(--font-display)]"
                       style={{
                         color: "var(--color-info)",
                         background: "rgba(122,184,216,.14)",
@@ -1385,7 +1385,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
           className="text-center mb-7"
           style={{ animation: "intro-in .7s ease forwards" }}
         >
-          <div className="text-[#0a4a2a] text-[9px] tracking-[6px] mb-3.5">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] sm:tracking-[6px] mb-3.5">
             {tagline}
           </div>
           <div
@@ -1394,7 +1394,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
           >
             {introTitle}
           </div>
-          <div className="text-[#1a6a3a] text-[9px] tracking-[5px] mt-1.5">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[5px] mt-1.5">
             {introSubtitle}
           </div>
         </div>
@@ -1417,7 +1417,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
               <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-base font-bold">
                 {v}
               </div>
-              <div className="text-[#0a4a2a] text-[7px] tracking-[2px] mt-0.5">
+              <div className="text-[var(--color-dim)] text-[10px] tracking-[2px] mt-0.5">
                 {l}
               </div>
             </div>
@@ -1435,10 +1435,10 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
             animation: "intro-in .6s ease .25s forwards",
           }}
         >
-          <div className="text-[#1a6a4a] text-[8px] tracking-[3px] mb-2">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-2">
             ▸ SIGNAL INTERCEPTED · 02:14:07
           </div>
-          <p className="text-[#3a7a5a] text-xs leading-[1.8]">
+          <p className="text-[var(--color-dim)] text-xs leading-[1.8]">
             {storyLines[0]}
           </p>
           <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">
@@ -1464,7 +1464,7 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
           <button
             type="button"
             onClick={onGuidedStart}
-            className="w-full mt-2.5 py-2.5 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+            className="w-full mt-2.5 py-2.5 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
             style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
           >
             NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
@@ -1473,13 +1473,13 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
             <button
               type="button"
               onClick={onReplayPrologue}
-              className="btn-secondary w-full mt-2.5 py-2 bg-transparent text-[8px] tracking-[2px] cursor-pointer transition-colors"
+              className="btn-secondary w-full mt-2.5 py-2 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
               style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,.25)" }}
             >
               ▶ REPLAY THE PROLOGUE · HOW SHE GOT HERE
             </button>
           )}
-          <div className="text-center mt-2 text-[#0a3a2a] text-[8px] tracking-[2px]">
+          <div className="text-center mt-2 text-[var(--color-dim)] text-[10px] tracking-[2px]">
             ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
             <span className="cursor-blink">█</span>
           </div>
@@ -1503,10 +1503,10 @@ function LanguagePicker({ language, highlight, onChange }: {
       aria-label="Language to learn in"
     >
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-[8px] tracking-[3px]" style={{ color: highlight ? "var(--color-signal)" : "#1a6a4a" }}>
+        <span className="text-[10px] tracking-[3px]" style={{ color: highlight ? "var(--color-signal)" : "var(--color-dim)" }}>
           {highlight ? "▸ CHOOSE YOUR LANGUAGE" : "▸ LEARNING IN"}
         </span>
-        <span className="text-[8px] tracking-[1px]" style={{ color: "#1a6a4a" }}>
+        <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
           progress is kept per language
         </span>
       </div>
@@ -1520,7 +1520,7 @@ function LanguagePicker({ language, highlight, onChange }: {
               role="radio"
               aria-checked={selected}
               onClick={() => onChange(opt.id)}
-              className="flex-1 py-2 text-[9px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
+              className="flex-1 py-2 text-[10px] tracking-[2px] cursor-pointer transition-colors font-[family-name:var(--font-display)]"
               style={{
                 color: selected ? "var(--color-background)" : opt.accent,
                 background: selected ? opt.accent : `rgba(${opt.accentRgb}, .04)`,
@@ -1532,7 +1532,7 @@ function LanguagePicker({ language, highlight, onChange }: {
           );
         })}
       </div>
-      <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "#3a7a5a" }}>
+      <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "var(--color-dim)" }}>
         {active.blurb}
       </div>
     </div>
