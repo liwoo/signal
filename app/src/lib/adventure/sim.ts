@@ -27,6 +27,10 @@ export const DEFAULT_GUARD_HALF_ANGLE = 0.62;
 export const GRACE_MS = 3200;
 /** How long an objective's `done` line stays before the next objective's thought. */
 export const DONE_HOLD_MS = 2600;
+/** Default lead between a guard's `warning` and his first step. */
+export const WARNING_LEAD_MS = 2500;
+/** A patrolling guard this close (tiles) is audible (while walking) and called out on the on-ramp HUD. */
+export const PATROL_HEAR_RANGE = 10;
 const MAX_DT = 50;
 
 function guardFromDef(def: GuardDef): GuardState {
@@ -48,6 +52,7 @@ function guardFromDef(def: GuardDef): GuardState {
     seesMaya: false,
     active: !def.triggerOn,
     gone: false,
+    warned: false,
   };
 }
 
@@ -280,6 +285,33 @@ function offObjectiveHint(state: SimState, tile: Tile): void {
   }
 }
 
+/**
+ * The nearest standing tile (by walking distance) from which Maya can use
+ * `tile`: the tile itself when it's walkable, else any reachable neighbour.
+ * Returns the path there, or null when nothing is reachable.
+ */
+export function routeToObject(state: SimState, tile: Tile): { stand: Vec2; path: Vec2[] } | null {
+  const candidates = WALKABLE.has(tile.kind) ? [{ x: tile.x, y: tile.y }] : adjacentWalkable(state.grid, tile, state.openDoors);
+  let best: { stand: Vec2; path: Vec2[]; score: number } | null = null;
+  for (const c of candidates) {
+    const path = findPath(state.grid, state.maya, c, state.openDoors);
+    if (!path) continue;
+    // Shortest walk wins; a step's worth of preference for standing square-on
+    // rather than at a corner, and for a terminal's screen side (it faces +y).
+    const diagonal = c.x !== tile.x && c.y !== tile.y;
+    const behindScreen = tile.kind === "terminal" && c.y < tile.y;
+    const score = path.length + (diagonal ? 1 : 0) + (behindScreen ? 1.5 : 0);
+    if (!best || score < best.score) best = { stand: c, path, score };
+  }
+  return best ? { stand: best.stand, path: best.path } : null;
+}
+
+function walkTo(state: SimState, route: { stand: Vec2; path: Vec2[] }, interactWith: string | null): void {
+  state.maya.path = route.path.length > 0 ? route.path.map(tileCenter) : [tileCenter(route.stand)];
+  state.maya.pendingInteract = interactWith;
+  state.interaction = null;
+}
+
 /** Try to act on an interactable: start it if it's the objective and we're adjacent, else walk there. */
 function requestInteract(state: SimState, id: string): void {
   const tile = state.grid.interactables.get(id);
@@ -289,30 +321,49 @@ function requestInteract(state: SimState, id: string): void {
   if (isAdjacent(state.maya, tile) || onTile) {
     if (objective && objective.target === id) {
       if (objective.kind === "interact") startInteraction(state, objective);
-      // "reach" objectives complete on their own once adjacent.
+      // A walkable spot (hide, hatch, exit) to stand on: step onto it.
+      else if (WALKABLE.has(tile.kind) && !onTile) walkTo(state, { stand: tile, path: [tile] }, null);
+      // Solid "reach" targets complete on their own once adjacent.
     } else {
       offObjectiveHint(state, tile);
     }
     return;
   }
-  // Walk to the object (Sims-style queued action).
-  const candidates = WALKABLE.has(tile.kind) ? [tile] : adjacentWalkable(state.grid, tile, state.openDoors);
-  for (const c of candidates) {
-    const path = findPath(state.grid, state.maya, c, state.openDoors);
-    if (path) {
-      state.maya.path = path.length > 0 ? path.map(tileCenter) : [tileCenter(c)];
-      state.maya.pendingInteract = id;
-      state.interaction = null;
-      return;
-    }
-  }
-  think(state, "can't get there from here.");
+  // Walk to the nearest spot beside the object (Sims-style queued action).
+  const route = routeToObject(state, tile);
+  if (route) walkTo(state, route, id);
+  else think(state, "can't get there from here.");
 }
+
+/** Furniture Maya can't stand on but can walk up to — clicking it walks her beside it. */
+const PROP_KINDS: ReadonlySet<Tile["kind"]> = new Set<Tile["kind"]>(["bunk", "server"]);
 
 function requestMoveTo(state: SimState, target: Vec2): void {
   const tx = Math.floor(target.x);
   const ty = Math.floor(target.y);
-  if (!isWalkable(state.grid, tx, ty, state.openDoors)) return;
+  const tile = tileAt(state.grid, tx, ty);
+  if (!tile) return;
+  if (!isWalkable(state.grid, tx, ty, state.openDoors)) {
+    // A click that lands on an object means "go to it", not "do nothing".
+    if (tile.id) {
+      requestInteract(state, tile.id);
+      return;
+    }
+    if (!PROP_KINDS.has(tile.kind)) return; // walls, bars, the void
+    // Beside a prop. When the objective's spot is right there ("hide behind
+    // the bunk"), that's the spot the player means.
+    const goal = objectiveTarget(state, currentObjective(state));
+    if (goal && WALKABLE.has(goal.kind) && isAdjacent(goal, tile)) {
+      const path = findPath(state.grid, state.maya, goal, state.openDoors);
+      if (path) {
+        walkTo(state, { stand: goal, path }, null);
+        return;
+      }
+    }
+    const route = routeToObject(state, tile);
+    if (route) walkTo(state, route, null);
+    return;
+  }
   const path = findPath(state.grid, state.maya, { x: tx, y: ty }, state.openDoors);
   if (!path) return;
   state.maya.path = path.length > 0 ? path.map(tileCenter) : null;
@@ -518,8 +569,17 @@ export function stepSim(prev: SimState, input: SimInput, dtMs: number): SimState
 
   let seen = false;
   for (const guard of state.guards) {
-    stepGuard(state, guard, dt);
     const def = guardDef(state, guard.id);
+    if (def.warning && !guard.warned && guard.active && !guard.gone) {
+      const startsAt = def.delayMs ?? 0;
+      if (state.time - state.statusSince >= startsAt - (def.warning.leadMs ?? WARNING_LEAD_MS)) {
+        guard.warned = true;
+        think(state, def.warning.thought);
+        state.events.push({ type: "sfx", name: def.warning.sfx ?? "footstep-boots-1", volume: 0.5 });
+        state.events.push({ type: "patrol", id: guard.id });
+      }
+    }
+    stepGuard(state, guard, dt);
     guard.seesMaya =
       guard.active && !guard.gone && !state.maya.hidden &&
       canSee(
@@ -542,8 +602,14 @@ export function stepSim(prev: SimState, input: SimInput, dtMs: number): SimState
     seen = false;
   }
   if (seen) {
-    state.alert = Math.min(1, state.alert + dtClamped / ALERT_RISE_MS);
-    if (before === 0) state.events.push({ type: "spotted" });
+    // The on-ramp's first patrol is forgiving: time to hear the warning and step back out.
+    const riseMs = ALERT_RISE_MS * (state.level.onramp?.alertScale ?? 1);
+    state.alert = Math.min(1, state.alert + dtClamped / riseMs);
+    if (before === 0) {
+      state.events.push({ type: "spotted" });
+      const spotted = state.level.onramp?.spotted;
+      if (spotted && state.thought !== spotted) think(state, spotted);
+    }
     if (state.alert >= 1) capture(state);
   } else {
     state.alert = Math.max(0, state.alert - dtClamped / ALERT_FALL_MS);
@@ -559,6 +625,27 @@ export function interactPrompt(state: SimState): string | null {
   const target = objectiveTarget(state, objective);
   if (!target || !isAdjacent(state.maya, target)) return null;
   return objective.verb ?? "USE";
+}
+
+/**
+ * How close the nearest patrolling guard is: 1 right beside Maya, falling to 0
+ * at PATROL_HEAR_RANGE tiles. `walking` counts only guards mid-stride (his
+ * footsteps); otherwise any guard out on his route counts, including one
+ * stopped to peer (the HUD's patrol call-out). Guards still holding at the
+ * start (`delayMs`) or waiting on a trigger don't count.
+ */
+export function patrolProximity(state: SimState, walking = false): number {
+  if (state.status !== "playing") return 0;
+  let best = 0;
+  for (const g of state.guards) {
+    if (!g.active || g.gone) continue;
+    const def = guardDef(state, g.id);
+    if (def.route.length < 2 || state.time - state.statusSince < (def.delayMs ?? 0)) continue;
+    if (walking && !g.moving) continue;
+    const d = Math.hypot(g.x - state.maya.x, g.y - state.maya.y);
+    best = Math.max(best, 1 - Math.min(1, d / PATROL_HEAR_RANGE));
+  }
+  return best;
 }
 
 /** 0..1 progress of the running interaction. */

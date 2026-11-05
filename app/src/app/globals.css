@@ -318,6 +318,16 @@ textarea {
   100% { transform: translateY(100vh); }
 }
 
+/* Boot screen: a highlight sweeping the progress bar, so it reads as alive */
+@keyframes boot-sweep {
+  0% { left: -25%; }
+  100% { left: 100%; }
+}
+
+.boot-sweep {
+  animation: boot-sweep 1.4s ease-in-out infinite;
+}
+
 /* Cinematic fade-in */
 @keyframes cinematic-fade-in {
   0% { opacity: 0; }

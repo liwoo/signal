@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSim, stepSim, interactPrompt, interactionProgress, currentObjective, CAPTURE_HOLD_MS, RELINQUISH_MS, EXIT_MS } from "./sim";
+import { createSim, stepSim, interactPrompt, interactionProgress, currentObjective, patrolProximity, routeToObject, CAPTURE_HOLD_MS, RELINQUISH_MS, EXIT_MS } from "./sim";
 import type { AdventureLevel, SimInput, SimState } from "./types";
 
 const IDLE: SimInput = { move: { x: 0, y: 0 }, interact: false };
@@ -293,5 +293,124 @@ describe("helpers", () => {
   it("exposes the current objective", () => {
     const s = createSim(LEVEL);
     expect(currentObjective(s)?.id).toBe("a");
+  });
+});
+
+describe("clicking objects (playtest 2 Nov 2026)", () => {
+  const room: AdventureLevel = {
+    ...LEVEL,
+    guards: [],
+    map: [
+      "###########",
+      "#.........#",
+      "#.b.......#",
+      "#mbh......#",
+      "#.........#",
+      "#........T#",
+      "###########",
+    ],
+    objectives: [
+      { id: "hide", stake: "hide behind the bunk", kind: "hold", target: "hide-1", durationMs: 300 },
+      { id: "wake", stake: "w", kind: "interact", target: "terminal-1", verb: "WAKE", durationMs: 300 },
+    ],
+  };
+
+  it("a click that lands on the terminal itself walks maya beside it and uses it", () => {
+    let s = createSim({ ...room, objectives: [room.objectives[1]] });
+    // The floor-plane hit of a click on the monitor falls on the terminal's own tile.
+    s = stepSim(s, { ...IDLE, moveTo: { x: 9.4, y: 5.6 } }, 16);
+    expect(s.maya.path).not.toBeNull();
+    expect(s.maya.pendingInteract).toBe("terminal-1");
+    s = runUntil(s, (st) => st.interaction !== null, 8000);
+    expect(s.interaction?.id).toBe("terminal-1");
+    expect(Math.abs(Math.floor(s.maya.x) - 9)).toBeLessThanOrEqual(1);
+    expect(Math.abs(Math.floor(s.maya.y) - 5)).toBeLessThanOrEqual(1);
+  });
+
+  it("walks to the nearest reachable tile beside an object, not the first neighbour found", () => {
+    const s = createSim({ ...room, objectives: [room.objectives[1]] });
+    const route = routeToObject(s, s.grid.interactables.get("terminal-1")!);
+    // From the west, the closest standing spot is on the terminal's west side.
+    expect(route?.stand.x).toBe(8);
+    const after = stepSim(s, { ...IDLE, interactWith: "terminal-1" }, 16);
+    const last = after.maya.path![after.maya.path!.length - 1];
+    expect(Math.floor(last.x)).toBe(8);
+  });
+
+  it("clicking the bunk during a hide objective walks maya to the hide spot behind it", () => {
+    let s = createSim(room);
+    s = stepSim(s, { ...IDLE, moveTo: { x: 2.5, y: 2.5 } }, 16);
+    expect(s.maya.path).not.toBeNull();
+    s = runUntil(s, (st) => st.maya.path === null, 6000);
+    expect(Math.floor(s.maya.x)).toBe(3);
+    expect(Math.floor(s.maya.y)).toBe(3);
+    expect(s.maya.hidden).toBe(true);
+  });
+
+  it("clicking plain furniture walks maya up beside it", () => {
+    let s = createSim({ ...room, objectives: [room.objectives[1]] });
+    s = stepSim(s, { ...IDLE, moveTo: { x: 6.5, y: 4.5 } }, 16);
+    s = runUntil(s, (st) => st.maya.path === null, 6000);
+    s = stepSim(s, { ...IDLE, moveTo: { x: 2.5, y: 2.5 } }, 16);
+    expect(s.maya.path).not.toBeNull();
+    s = runUntil(s, (st) => st.maya.path === null, 6000);
+    expect(Math.abs(Math.floor(s.maya.x) - 2)).toBeLessThanOrEqual(1);
+    expect(Math.abs(Math.floor(s.maya.y) - 2)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("first-patrol on-ramp", () => {
+  const corridor: AdventureLevel = {
+    ...LEVEL,
+    objectives: [{ id: "z", stake: "z", kind: "reach", target: "keypad-1" }],
+    guards: [{
+      id: "g", route: [{ x: 9, y: 1, face: "right" }, { x: 2, y: 1, face: "down", waitMs: 99999 }], speed: 3, range: 6,
+      delayMs: 5000, warning: { thought: "boots. stay out of his light.", leadMs: 2000 },
+    }],
+  };
+
+  it("holds a delayed guard still and warns before he moves", () => {
+    let s = createSim(corridor);
+    s = run(s, 2900);
+    expect(s.guards[0].x).toBeCloseTo(9.5);
+    expect(s.thought).not.toBe("boots. stay out of his light.");
+    let warnedAt = -1;
+    s = runUntil(s, (st) => {
+      if (warnedAt < 0 && st.events.some((e) => e.type === "patrol")) warnedAt = st.time;
+      return st.guards[0].moving;
+    }, 4000);
+    expect(warnedAt).toBeGreaterThan(0);
+    expect(warnedAt).toBeLessThanOrEqual(3100);
+    expect(s.time).toBeGreaterThanOrEqual(5000);
+  });
+
+  it("counts a patrol as near only once he's out on his route", () => {
+    let s = createSim(corridor);
+    s = run(s, 1000);
+    expect(patrolProximity(s)).toBe(0);
+    s = run(s, 4600);
+    expect(patrolProximity(s)).toBeGreaterThan(0);
+    expect(patrolProximity(s, true)).toBeGreaterThan(0);
+  });
+
+  it("the on-ramp's first sighting builds slowly and tells the player what to do", () => {
+    const sentry: AdventureLevel = {
+      ...LEVEL,
+      guards: [{ id: "g", route: [{ x: 9, y: 1, face: "left", waitMs: 99999 }, { x: 8, y: 1 }], range: 9, halfAngle: 0.7 }],
+    };
+    const timeToCapture = (level: AdventureLevel) => {
+      let s = createSim(level);
+      s = run(s, 3300); // past the opening grace
+      s = stepSim(s, { ...IDLE, moveTo: { x: 6.5, y: 1.5 } }, 16);
+      s = runUntil(s, (st) => st.alert > 0, 8000);
+      const seenAt = s.time;
+      const thought = s.thought;
+      s = runUntil(s, (st) => st.status === "captured", 10000);
+      return { ms: s.time - seenAt, thought };
+    };
+    const normal = timeToCapture(sentry);
+    const onramp = timeToCapture({ ...sentry, onramp: { alertScale: 2.5, spotted: "out of the light." } });
+    expect(onramp.ms).toBeGreaterThan(normal.ms * 2);
+    expect(onramp.thought).toBe("out of the light.");
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { chapter01, chapter01Twist } from "@/data/challenges/chapter-01";
 import { chapter02, chapter02Twist } from "@/data/challenges/chapter-02";
 import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
@@ -34,8 +35,6 @@ import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
 import { ConceptTracker } from "@/components/game/ConceptTracker";
 import { summarizeCurriculum } from "@/lib/game/curriculum";
-import { AdventureLevel } from "@/components/adventure/AdventureLevel";
-import { CinematicScene } from "@/components/story/CinematicScene";
 import type { AdventureLevel as AdventureLevelDef } from "@/lib/adventure/types";
 import {
   CHAPTER_01_INTRO_LEVEL,
@@ -51,8 +50,6 @@ import {
   CHAPTER_04_2_INTRO_LEVEL,
   CHAPTER_04_2_COMPLETE_LEVEL,
 } from "@/lib/adventure/levels";
-import { MayaAnimation } from "@/components/story/MayaAnimation";
-import { PixiScene } from "@/components/story/PixiScene";
 import {
   PROLOGUE_SCENES,
   INTRO_SCENES,
@@ -70,10 +67,7 @@ import {
 } from "@/lib/sprites/scenes";
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
-import { BossArena } from "@/components/boss/BossArena";
-import { BossFight3D } from "@/components/boss/BossFight3D";
 import { LOCKMASTER_ARENA } from "@/lib/adventure/boss-levels";
-import { BookReader } from "@/components/book/BookReader";
 import { bookChapterFor } from "@/data/book";
 import { GuidedTour } from "@/components/game/GuidedTour";
 import { MobileGameLayout } from "@/components/game/MobileGameLayout";
@@ -102,6 +96,62 @@ import {
   trackSettingChange,
 } from "@/lib/analytics";
 import { recordActivity } from "@/lib/classroom/activity";
+import { BootScreen } from "@/components/game/BootScreen";
+
+// ── Heavy stages, split out of the first load ──
+// Three.js (the playable beats, the 3D boss), Pixi (the cinematics and the
+// intro backdrop) and the book are only needed after the player presses
+// start. Keeping them out of the /play bundle gets the intro on screen
+// sooner; `prefetchStages()` warms them while the player reads it.
+// Full-screen stages hold the boot screen (never a black frame) if their code
+// is still arriving when they're needed.
+const StageLoading = () => <BootScreen step={2} label="OPENING CAMERA FEED" />;
+
+/**
+ * A code-split component plus its preloader. Once preloaded, new mounts use the
+ * real component directly (no loading frame); a mount that started on the
+ * dynamic wrapper keeps it for its whole life, so nothing remounts mid-scene.
+ */
+function splitStage<P extends object>(
+  load: () => Promise<React.ComponentType<P>>,
+  loading?: () => React.ReactElement,
+): [React.ComponentType<P>, () => Promise<unknown>] {
+  let Loaded: React.ComponentType<P> | null = null;
+  const preload = () => load().then((C) => { Loaded = C; return C; });
+  const Dynamic = dynamic<P>(preload, { ssr: false, loading });
+  function Stage(props: P) {
+    const [Component] = useState<React.ComponentType<P>>(() => Loaded ?? Dynamic);
+    return <Component {...props} />;
+  }
+  return [Stage, preload];
+}
+
+const [AdventureLevel, preloadAdventureLevel] = splitStage(
+  () => import("@/components/adventure/AdventureLevel").then((m) => m.AdventureLevel), StageLoading);
+const [CinematicScene, preloadCinematicScene] = splitStage(
+  () => import("@/components/story/CinematicScene").then((m) => m.CinematicScene), StageLoading);
+const [BookReader, preloadBookReader] = splitStage(
+  () => import("@/components/book/BookReader").then((m) => m.BookReader), StageLoading);
+const [BossFight3D, preloadBossFight3D] = splitStage(
+  () => import("@/components/boss/BossFight3D").then((m) => m.BossFight3D), StageLoading);
+const [BossArena, preloadBossArena] = splitStage(
+  () => import("@/components/boss/BossArena").then((m) => m.BossArena), StageLoading);
+// Decorative / inline: nothing while loading.
+const [PixiScene] = splitStage(() => import("@/components/story/PixiScene").then((m) => m.PixiScene));
+const [MayaAnimation, preloadMayaAnimation] = splitStage(
+  () => import("@/components/story/MayaAnimation").then((m) => m.MayaAnimation));
+
+let stagesPrefetched = false;
+/** Start downloading the post-intro stages in the background (once). */
+function prefetchStages(): void {
+  if (stagesPrefetched) return;
+  stagesPrefetched = true;
+  // The prologue and the first playable beat first; the rest after.
+  void preloadCinematicScene()
+    .then(() => preloadAdventureLevel())
+    .then(() => Promise.all([preloadBookReader(), preloadMayaAnimation(), preloadBossFight3D(), preloadBossArena()]))
+    .catch(() => { stagesPrefetched = false; });
+}
 
 // ── Cam-feed scene mapping — where Maya actually is per chapter ──
 
@@ -298,6 +348,14 @@ function GameRouter() {
     return () => media.removeEventListener("change", check);
   }, []);
 
+  // Signed in: warm the story stages (prologue, playable beat) in the
+  // background so CONNECT TO MAYA starts instantly.
+  useEffect(() => {
+    if (!user) return;
+    const timer = setTimeout(prefetchStages, 400);
+    return () => clearTimeout(timer);
+  }, [user]);
+
   // Load persisted state from IndexedDB on mount
   useEffect(() => {
     loadPersistedState().then((state) => {
@@ -365,35 +423,18 @@ function GameRouter() {
     setChapterIndex(resumeIndex(updated, next, chaptersFor(next).length));
   }, [persisted]);
 
-  // Gate: Google sign-in is required before the game runs.
+  // Gate: Google sign-in is required before the game runs. The boot screen is
+  // what the server renders, so the title is up before any JS has loaded.
   if (authLoading) {
-    return (
-      <div
-        className="h-dvh flex items-center justify-center"
-        style={{ background: "var(--color-background)" }}
-      >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
-          AUTHENTICATING<span className="cursor-blink">...</span>
-        </div>
-      </div>
-    );
+    return <BootScreen step={0} label="ESTABLISHING SECURE CHANNEL" />;
   }
   if (!user) {
     return <SignInScreen />;
   }
 
-  // Show loading state while persistence + mobile check complete
+  // Persistence + mobile check
   if (!persisted || !mobileChecked) {
-    return (
-      <div
-        className="h-dvh flex items-center justify-center"
-        style={{ background: "var(--color-background)" }}
-      >
-        <div className="text-[var(--color-dim)] text-[9px] tracking-[3px]">
-          LOADING<span className="cursor-blink">...</span>
-        </div>
-      </div>
-    );
+    return <BootScreen step={1} label="RESTORING SAVE DATA" />;
   }
 
   const config = chapters[Math.min(chapterIndex, chapters.length - 1)];
@@ -1380,11 +1421,9 @@ function IntroScreen({ config, language, languageChosen, onChangeLanguage, onSta
         className="max-w-[480px] w-full relative px-5 py-6"
         style={{ background: "color-mix(in srgb, var(--color-background) 62%, transparent)" }}
       >
-        {/* Title */}
-        <div
-          className="text-center mb-7"
-          style={{ animation: "intro-in .7s ease forwards" }}
-        >
+        {/* Title — no entrance fade: it carries straight on from the boot
+            screen's title, so there's no dark beat between the two. */}
+        <div className="text-center mb-7">
           <div className="text-[#0a4a2a] text-[9px] tracking-[6px] mb-3.5">
             {tagline}
           </div>
