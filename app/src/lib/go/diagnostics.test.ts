@@ -376,7 +376,7 @@ import "fmt"
 func main() {
     const sublevel = 3
     cell := "B-09"
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`;
     expect(errors(code)).toHaveLength(0);
   });
@@ -610,5 +610,40 @@ func main() {
       d.message.includes("bufio.NewScanner")
     );
     expect(methodErrors).toHaveLength(0);
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  UNEXPORTED NAMES (playtest 2 Nov 2026: fmt.println slipped through)
+// ═══════════════════════════════════════════════
+
+describe("unexported package members", () => {
+  const prog = (body: string) => `package main
+
+import "fmt"
+
+func main() {
+    ${body}
+}`;
+
+  it("flags fmt.println (println tokenizes as a builtin) as undefined", () => {
+    const d = errors(prog(`fmt.println("hi")`));
+    expect(d).toHaveLength(1);
+    expect(d[0].message).toContain("undefined: fmt.println");
+    expect(d[0].message).toContain("fmt.Println");
+    expect(d[0].line).toBe(6);
+  });
+
+  it("flags fmt.printf and fmt.sprintf the same way", () => {
+    expect(hasError(prog(`fmt.printf("%d", 1)`), "fmt.Printf")).toBe(true);
+    expect(hasError(prog(`s := fmt.sprintf("%d", 1)\n    fmt.Println(s)`), "fmt.Sprintf")).toBe(true);
+  });
+
+  it("flags other lowercase selectors as unexported", () => {
+    expect(hasError(prog(`fmt.console("hi")`), "unexported")).toBe(true);
+  });
+
+  it("leaves the correct calls alone", () => {
+    expect(errors(prog(`fmt.Println("hi")`))).toHaveLength(0);
   });
 });

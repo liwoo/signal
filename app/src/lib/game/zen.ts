@@ -13,7 +13,7 @@ import { PYTHON_ZEN_RULES } from "./zen-python";
 
 export interface ZenRule {
   id: string;
-  principle: string;       // short name, e.g. "grouped imports"
+  principle: string;       // short name, e.g. "the right import form"
   check: (code: string) => boolean;
   /** If defined, rule is skipped entirely when this returns false.
    *  Prevents irrelevant suggestions (e.g. "use switch" when user has no branching). */
@@ -511,14 +511,57 @@ function computesConsecutiveDifferences(code: string): boolean {
 //  Zen Rules
 // ══════════════════════════════════════════════════════
 
+/**
+ * How the file spells its imports: every imported path, how many factored
+ * `import ( ... )` blocks there are, and how many single-line `import "x"`s.
+ */
+export function analyzeImports(code: string): { paths: string[]; factoredBlocks: number; singleLines: number } {
+  const tokens = tokenize(code).filter((t) => t.type !== "whitespace" && t.type !== "comment");
+  const paths: string[] = [];
+  let factoredBlocks = 0;
+  let singleLines = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].type !== "keyword" || tokens[i].value !== "import") continue;
+    const next = tokens[i + 1];
+    if (next?.value === "(") {
+      factoredBlocks++;
+      for (let j = i + 2; j < tokens.length && tokens[j].value !== ")"; j++) {
+        if (tokens[j].type === "string") paths.push(tokens[j].value.slice(1, -1));
+      }
+    } else if (next?.type === "string") {
+      singleLines++;
+      paths.push(next.value.slice(1, -1));
+    }
+  }
+  return { paths, factoredBlocks, singleLines };
+}
+
+/**
+ * gofmt-idiomatic import form: one package is a plain `import "fmt"`; two or
+ * more share a single factored `import ( ... )` block.
+ */
+function usesIdiomaticImportForm(code: string): boolean {
+  const { paths, factoredBlocks, singleLines } = analyzeImports(code);
+  if (paths.length === 0) return false;
+  if (paths.length === 1) return singleLines === 1 && factoredBlocks === 0;
+  return factoredBlocks === 1 && singleLines === 0;
+}
+
 // Ch01: Scaffold
-const groupedImport: ZenRule = {
-  id: "grouped_import",
-  principle: "grouped imports",
-  check: (code) => minify(code).includes("import("),
+const importForm: ZenRule = {
+  id: "import_form",
+  principle: "the right import form",
+  check: usesIdiomaticImportForm,
   bonusXP: 10,
-  jolt: "...wait. i remember something.\n\nyou grouped the import with parentheses — `import ( ... )`. that's how go does it. even with one import. when you add more later, the diff stays clean. one line changes, not two.\n\nmy professor called it... \"plan for the code that comes after yours.\"",
-  suggestion: "try grouping your import: `import ( \"fmt\" )` — parentheses. even for one. it's the go way... i think i remember that much.",
+  jolt: "...wait. i remember something.\n\nyour import is written exactly the way gofmt writes it. one package gets one plain line — `import \"fmt\"`. when there are two or more, they share one `import ( ... )` block, one path per line. no ceremony the code doesn't need.\n\nmy professor called it... \"write what the code needs, not more.\"",
+  suggestion: "use a plain `import \"fmt\"` for one package — no parentheses. the grouped `import ( ... )` block is for two or more.",
+  getSuggestion: (code) => {
+    const { paths } = analyzeImports(code);
+    if (paths.length >= 2) {
+      return "you import more than one package — group them in one block: `import (`, then one path per line, then `)`. that's how gofmt lays it out.";
+    }
+    return "use a plain `import \"fmt\"` for one package — no parentheses. the grouped `import ( ... )` block is for two or more.";
+  },
 };
 
 const packageImportSep: ZenRule = {
@@ -569,15 +612,15 @@ const useNamedValues: ZenRule = {
   },
   bonusXP: 10,
   jolt: "...the gas is clearing.\n\nyou gave things names — variables, not raw strings buried in a print call. that's intent. anyone reading this code knows what \"B-09\" means because you told them.\n\nzen of go: make your intent visible. `const` locks it down at compile time. `:=` is good too — it's short, clear, declared right where it's used.",
-  suggestion: "give the package values names — `cell := cellblock.Cell`, `sublevel := cellblock.Sublevel` — instead of dropping cellblock.Cell straight into the print call. names are documentation.",
+  suggestion: "try giving the package values your own names before you print them. `cell := cellblock.Cell` makes a new variable called `cell` and stores the value in it — `:=` means create and fill. then print `cell`. names are documentation.",
   // Dynamic suggestion: if they already declared variables but didn't use them in print,
   // tell them to reference those variables instead of suggesting they declare them again.
   getSuggestion: (code) => {
     const decls = collectDeclarations(code);
     if (decls.length > 0) {
-      return "you declared variables — now use them in your print call. `fmt.Println(cell)` instead of reaching into the package again. the whole point of a name is to use it.";
+      return "you declared variables — now use them in your print call. `fmt.Println(\"CELL\", cell)` instead of reaching into the package again. the whole point of a name is to use it.";
     }
-    return "give the package values names — `cell := cellblock.Cell`, `sublevel := cellblock.Sublevel` — instead of dropping cellblock.Cell straight into the print call. names are documentation.";
+    return "try giving the package values your own names before you print them. `cell := cellblock.Cell` makes a new variable called `cell` and stores the value in it — `:=` means create and fill. then print `cell`. names are documentation.";
   },
 };
 
@@ -590,12 +633,18 @@ const usePrintfFormat: ZenRule = {
   check: (code) => usesPrintfWithVerbs(code),
   bonusXP: 15,
   jolt: "...my thesis notes. i can see them.\n\nyou used Printf with format verbs — `%s`, `%d`. that's how go separates data from presentation. the template is one thing, the values another. when i was writing my encryption library... format strings everywhere. clean. composable.\n\neffective go calls it \"the printer's idiom.\"",
-  suggestion: "string concatenation works, but `fmt.Printf(\"CELL %s · SUBLEVEL %d\\n\", cell, level)` separates format from data. go has powerful format verbs... try them.",
+  suggestion: "printing the pieces works, but `fmt.Printf(\"CELL %s - SUBLEVEL %d\\n\", cellblock.Cell, cellblock.Sublevel)` keeps the whole line in one template. `%s` is a blank for text, `%d` a blank for a whole number — filled in order by the values after the comma.",
 };
 
 const descriptiveNames: ZenRule = {
   id: "descriptive_names",
   principle: "meaningful names",
+  // Only a tip about names the player chose — never push variables on someone
+  // who printed the package values directly.
+  isRelevant: (code) => {
+    const mainBody = extractFuncBody(code, "main");
+    return !!mainBody && collectDeclarations(mainBody).length > 0;
+  },
   check: (code) => {
     // Shape: declarations in main() use names that are 3+ chars
     // (not single-letter throwaway names like x, a, b).
@@ -616,7 +665,7 @@ const descriptiveNames: ZenRule = {
   },
   bonusXP: 10,
   jolt: "good names. `cell`, `sublevel`... not `x` and `y`. in go, a variable's name is its documentation. no javadoc, no docblocks — just honest names.\n\nmy advisor used to say: \"the length of a name should be proportional to its scope.\" short in a loop. descriptive everywhere else.",
-  suggestion: "try using descriptive names — `cell := cellblock.Cell` reads better than `x := cellblock.Cell`. in go, names are documentation.",
+  suggestion: "use a name that says what the value is — `cell := cellblock.Cell` reads better than `x := cellblock.Cell`. in go, names are documentation.",
 };
 
 // Ch02: Loop
@@ -1016,22 +1065,22 @@ const stringConcatHeader: ZenRule = {
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
-  "chapter-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-01:scaffold": [importForm, packageImportSep, importFuncSep],
   "chapter-01:location": [useNamedValues, usePrintfFormat, descriptiveNames],
-  "chapter-02:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-02:scaffold": [importForm, packageImportSep, importFuncSep],
   "chapter-02:loop": [simpleIncrement],
   "chapter-02:classify": [switchOverIfElse, noUnnecessaryBreak, useConstantsForLabels],
-  "chapter-03:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-03:scaffold": [importForm, packageImportSep, importFuncSep],
   "chapter-03:sumfunc": [shortVarInLoop, underscoreUnused, singlePurposeFunc],
   "chapter-03:validate": [directBoolReturn, reuseFunctions],
-  "chapter-04:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-04:scaffold": [importForm, packageImportSep, importFuncSep],
   "chapter-04:guardmap": [mapCompositeLiteral, descriptiveMapName, trailingCommaInLiteral],
   "chapter-04:clearfloors": [rangeOverMap, boolMapSetPattern, sprintfForDynamicKeys],
-  "chapter-04.2:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "chapter-04.2:scaffold": [importForm, packageImportSep, importFuncSep],
   "chapter-04.2:reverseword": [runeConversion, swapPattern, descriptiveFuncNames042],
   "chapter-04.2:encode": [fieldsOverSplit, joinOverConcat, compositionEncode],
   "chapter-04.2:relayheader": [errorCheckAtoi, strconvBoth, stringConcatHeader],
-  "boss-01:scaffold": [groupedImport, packageImportSep, importFuncSep],
+  "boss-01:scaffold": [importForm, packageImportSep, importFuncSep],
   "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
 };
 

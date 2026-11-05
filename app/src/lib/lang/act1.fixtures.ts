@@ -11,7 +11,7 @@ const JS: Solutions = {
   "chapter-01:scaffold": `console.log("Hello World");`,
   "chapter-01:location": `import { cell, sublevel } from "./cellblock.js";
 
-console.log(\`CELL \${cell} · SUBLEVEL \${sublevel}\`);`,
+console.log(\`CELL \${cell} - SUBLEVEL \${sublevel}\`);`,
   "chapter-02:scaffold": `console.log("Hello World");`,
   "chapter-02:loop": `for (let i = 1; i <= 10; i++) {
   console.log(i);
@@ -73,7 +73,7 @@ const PY: Solutions = {
   "chapter-01:scaffold": `print("Hello World")`,
   "chapter-01:location": `import cellblock
 
-print(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")`,
+print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")`,
   "chapter-02:scaffold": `print("Hello World")`,
   "chapter-02:loop": `for i in range(1, 11):
     print(i)`,
@@ -121,11 +121,11 @@ export const SOLUTIONS: Record<Exclude<LanguageId, "go">, Solutions> = { javascr
 
 export const HARDCODED: Record<Exclude<LanguageId, "go">, Partial<Solutions>> = {
   javascript: {
-    "chapter-01:location": `console.log("CELL B-09 · SUBLEVEL 3");`,
+    "chapter-01:location": `console.log("CELL B-09 - SUBLEVEL 3");`,
     "chapter-02:loop": Array.from({ length: 10 }, (_, k) => `console.log(${k + 1});`).join("\n"),
   },
   python: {
-    "chapter-01:location": `print("CELL B-09 · SUBLEVEL 3")`,
+    "chapter-01:location": `print("CELL B-09 - SUBLEVEL 3")`,
     "chapter-02:loop": Array.from({ length: 10 }, (_, k) => `print(${k + 1})`).join("\n"),
     "chapter-02:rewrite": PY["chapter-02:classify"],
   },

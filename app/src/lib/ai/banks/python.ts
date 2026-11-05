@@ -461,7 +461,7 @@ const hasLocationLabels = (code: string) => {
 
 const ch01Location: StepBank = {
   intro:
-    "good, the channel's live. now lock in where they're holding me — exactly, because a wrong location gets someone hurt. don't type it by hand: my real cell is in a module called `cellblock`. `import cellblock` and print its `CELL` and `SUBLEVEL` as `CELL B-09 · SUBLEVEL 3`.",
+    "good, the channel's live. now lock in where they're holding me — exactly, because a wrong location gets someone hurt. don't type it by hand: my real cell is in a module called `cellblock`. `import cellblock` and print its `CELL` and `SUBLEVEL` as `CELL B-09 - SUBLEVEL 3`.",
 
   conceptFAQ: [
     {
@@ -473,9 +473,9 @@ const ch01Location: StepBank = {
       response: "module name, a dot, then the value: `cellblock.CELL` is the cell, `cellblock.SUBLEVEL` is the number.",
     },
     {
-      keywords: ["f-string", "fstring", "format", "mix", "combine", "placeholder", "braces"],
+      keywords: ["f-string", "fstring", "format", "mix", "combine", "placeholder", "braces", "together", "text and a number", "and a number", "with a number", "same line"],
       response:
-        "an f-string: put `f` before the quotes and drop values in braces — `f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\"`.",
+        "an f-string: put `f` before the quotes and drop values in braces — `f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\"`. or give print several things separated by commas: `print(\"SUBLEVEL\", cellblock.SUBLEVEL)` prints `SUBLEVEL 3`.",
     },
     {
       keywords: ["print", "output", "display", "show"],
@@ -492,8 +492,8 @@ const ch01Location: StepBank = {
         "`+` only joins text to text, and `SUBLEVEL` is a number. wrap it in `str()`, or skip the gluing with an f-string.",
     },
     {
-      keywords: ["·", "middle dot", "special character", "separator", "period"],
-      response: "the `·` is just decoration and it's hard to type — a regular `.` works. i read them the same.",
+      keywords: ["dash", "hyphen", "minus", "separator", "middle dot", "special character", "between the cell"],
+      response: "the separator is a plain dash with a space on each side: `CELL B-09 - SUBLEVEL 3`. nothing special to type.",
     },
     {
       keywords: ["variable", "assign", "store", "name it"],
@@ -502,19 +502,19 @@ const ch01Location: StepBank = {
     {
       keywords: ["what do i do", "what should i do", "what now", "where do i start"],
       response:
-        "`import cellblock`, then print `cellblock.CELL` and `cellblock.SUBLEVEL` as `CELL B-09 · SUBLEVEL 3`. pull the values from the module — don't type them.",
+        "`import cellblock`, then print `cellblock.CELL` and `cellblock.SUBLEVEL` as `CELL B-09 - SUBLEVEL 3`. pull the values from the module — don't type them.",
     },
     {
       keywords: ["example", "show me", "sample", "template"],
       response:
-        "here's the shape:\n```\nimport cellblock\n\nprint(f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\")\n```",
+        "here's the shape:\n```\nimport cellblock\n\nprint(f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\")\n```",
     },
   ],
 
   outputPatterns: [
     {
       match: (out) => /hello/i.test(out) && /world/i.test(out),
-      response: "there's a hello world in the output. i don't need a greeting anymore — just my location: CELL B-09 · SUBLEVEL 3.",
+      response: "there's a hello world in the output. i don't need a greeting anymore — just my location: CELL B-09 - SUBLEVEL 3.",
     },
     {
       match: (out) => /\{\s*cellblock\./.test(out),
@@ -523,15 +523,15 @@ const ch01Location: StepBank = {
     },
     {
       match: (out) => /b-?09/i.test(out) && !/sublevel/i.test(out),
-      response: "close — i see the cell but not the sublevel. i need both: CELL B-09 · SUBLEVEL 3.",
+      response: "close — i see the cell but not the sublevel. i need both: CELL B-09 - SUBLEVEL 3.",
     },
     {
       match: (out) => /B-09/.test(out) && /\b3\b/.test(out) && !/CELL/.test(out.replace(/SUBLEVEL/g, "")),
-      response: "the values are right. now the words around them: `CELL B-09 · SUBLEVEL 3`.",
+      response: "the values are right. now the words around them: `CELL B-09 - SUBLEVEL 3`.",
     },
     {
       match: (out) => out.trim().length > 0 && !/b-?09/i.test(out),
-      response: "you're printing something, but it's not my cell. i need CELL B-09 · SUBLEVEL 3.",
+      response: "you're printing something, but it's not my cell. i need CELL B-09 - SUBLEVEL 3.",
     },
   ],
 
@@ -560,12 +560,12 @@ const ch01Location: StepBank = {
     {
       match: (code) => stringsOf(code).some((s) => !isFString(s) && /\{\s*cellblock\./.test(s)),
       response:
-        "you've got braces in the text but no `f` before the quotes — without it python prints the braces literally. `f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\"`.",
+        "you've got braces in the text but no `f` before the quotes — without it python prints the braces literally. `f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\"`.",
     },
     {
       match: (code) => /\+\s*cellblock\.SUBLEVEL\b|\bcellblock\.SUBLEVEL\s*\+/.test(maskPy(code)),
       response:
-        "`SUBLEVEL` is a number, and `+` can't join a number to text. use an f-string: `f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\"`.",
+        "`SUBLEVEL` is a number, and `+` can't join a number to text. use an f-string: `f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\"`.",
     },
     {
       match: (code) => HELLO_RE.test(noComments(code)),
@@ -586,25 +586,25 @@ const ch01Location: StepBank = {
     },
     {
       match: (code) => usesBoth(code) && !hasLocationLabels(code),
-      response: "the values are right. the line needs its words too: `CELL B-09 · SUBLEVEL 3`.",
+      response: "the values are right. the line needs its words too: `CELL B-09 - SUBLEVEL 3`.",
     },
   ],
 
   correctResponse: CH01_LOCATION_DONE,
 
   genericWrong: [
-    "that's not right. i need CELL B-09 · SUBLEVEL 3. exactly.",
+    "that's not right. i need CELL B-09 - SUBLEVEL 3. exactly.",
     "almost... but the output doesn't match. look at what you're printing.",
-    "wrong signal. pull my cell from `cellblock` and print it: CELL B-09 · SUBLEVEL 3.",
+    "wrong signal. pull my cell from `cellblock` and print it: CELL B-09 - SUBLEVEL 3.",
   ],
 
   rushDialogue: [
     "hurry. the footsteps stopped right outside.",
-    "no time — just get it done. CELL B-09 · SUBLEVEL 3.",
+    "no time — just get it done. CELL B-09 - SUBLEVEL 3.",
   ],
 
   stuckResponses: [
-    "two lines:\n```\nimport cellblock\n\nprint(f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\")\n```",
+    "two lines:\n```\nimport cellblock\n\nprint(f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\")\n```",
     "the values aren't yours to type — they're in the module. `cellblock.CELL` and `cellblock.SUBLEVEL`. import it and read them.",
   ],
 

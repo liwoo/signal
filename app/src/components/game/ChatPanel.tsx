@@ -202,7 +202,6 @@ export function ChatPanel({
     // Recency fade: older messages recede but stay readable.
     const opacity = distFromEnd < 2 ? 1 : Math.max(0.4, 1 - (distFromEnd - 1) * 0.15);
     const isMaya = MAYA_TYPES.has(m.type);
-    const isLastMsg = m.id === lastMsgId;
     const hasFinishedTyping = typedIds.has(m.id);
     const isSystem = m.type === "dim" || m.type === "sys";
 
@@ -252,7 +251,6 @@ export function ChatPanel({
           <MessageContent
             msg={m}
             isMaya={isMaya}
-            isLastMsg={isLastMsg}
             hasFinishedTyping={hasFinishedTyping}
             onTypingStart={handleTypingStart}
             onTypingEnd={handleTypingEnd}
@@ -445,6 +443,15 @@ export function ChatPanel({
 
 const AUTO_CONTINUE_SECONDS = 5;
 
+/** An editable field the keystroke was meant for (chat input, code editor). */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target instanceof HTMLInputElement) return !target.disabled && !target.readOnly;
+  if (target instanceof HTMLTextAreaElement) return !target.disabled && !target.readOnly;
+  return false;
+}
+
 // Continue button with auto-countdown
 function ContinueButton({ onContinue, compact = false }: { onContinue: () => void; compact?: boolean }) {
   const [remaining, setRemaining] = useState(AUTO_CONTINUE_SECONDS);
@@ -471,9 +478,13 @@ function ContinueButton({ onContinue, compact = false }: { onContinue: () => voi
     }
   }, [remaining, onContinue]);
 
-  // Allow Enter key to continue
+  // Allow Enter key to continue — but not the Enter that sends a chat question
+  // (or types a newline in the editor). That Enter belongs to the field it was
+  // pressed in; treating it as "continue" too resumed the clock and released
+  // queued story beats on top of the player's answer.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) return;
       if (e.key === "Enter" && !firedRef.current) {
         firedRef.current = true;
         onContinue();
@@ -516,14 +527,12 @@ function ContinueButton({ onContinue, compact = false }: { onContinue: () => voi
 function MessageContent({
   msg,
   isMaya,
-  isLastMsg,
   hasFinishedTyping,
   onTypingStart,
   onTypingEnd,
 }: {
   msg: ChatMsg;
   isMaya: boolean;
-  isLastMsg: boolean;
   hasFinishedTyping: boolean;
   onTypingStart: () => void;
   onTypingEnd: (id: string) => void;
@@ -537,14 +546,18 @@ function MessageContent({
     }
   }, [msg.id, onTypingEnd]);
 
-  // Animated Maya message that's still typing
+  // Animated Maya message that's still typing. Every one of them holds the
+  // clock while it types (holding is idempotent). `onStart` stays a stable
+  // callback: toggling it on "is this the last message?" restarted the
+  // typewriter from blank whenever a later line arrived, and left the reply
+  // typing with the clock running.
   if (msg.animated && isMaya && !hasFinishedTyping) {
     return (
       <TypeText
         text={msg.text}
         className=""
         speed={14}
-        onStart={isLastMsg ? onTypingStart : undefined}
+        onStart={onTypingStart}
         onDone={handleDone}
       />
     );

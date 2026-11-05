@@ -33,13 +33,13 @@ export const PYTHON_ZEN_EXAMPLES: Record<string, ZenExample> = {
     change: "a space after the hash — comments read like notes",
   },
   py_fstring: {
-    before: 'print("CELL " + cellblock.CELL + " · SUBLEVEL " + str(cellblock.SUBLEVEL))',
-    after: 'print(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")',
+    before: 'print("CELL " + cellblock.CELL + " - SUBLEVEL " + str(cellblock.SUBLEVEL))',
+    after: 'print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")',
     change: "an f-string — values in braces, numbers converted for you",
   },
   py_qualified_import: {
-    before: 'from cellblock import CELL, SUBLEVEL\n\nprint(f"CELL {CELL} · SUBLEVEL {SUBLEVEL}")',
-    after: 'import cellblock\n\nprint(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")',
+    before: 'from cellblock import CELL, SUBLEVEL\n\nprint(f"CELL {CELL} - SUBLEVEL {SUBLEVEL}")',
+    after: 'import cellblock\n\nprint(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")',
     change: "keep the module name in front — the reader sees where it came from",
   },
   py_imports_at_top: {

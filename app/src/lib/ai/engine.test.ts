@@ -195,7 +195,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -211,7 +211,7 @@ import (
 func main() {
     cell := cellblock.Cell
     sublevel := cellblock.Sublevel
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -221,7 +221,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -280,7 +280,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.reply).not.toContain("||COMPLETE||");
@@ -682,7 +682,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true, inRush: true });
     expect(r.isComplete).toBe(true);
@@ -732,7 +732,7 @@ describe("response invariants", () => {
 
   it("isComplete is only true for correct code, never for chat", () => {
     const chatCases = [
-      call("chapter-01:location", "CELL B-09 · SUBLEVEL 3"),
+      call("chapter-01:location", "CELL B-09 - SUBLEVEL 3"),
       call("chapter-02:classify", "DENY WARN GRANT OVERRIDE"),
       call("chapter-03:validate", "func sumCodes(codes ...int) int"),
     ];
@@ -743,7 +743,7 @@ describe("response invariants", () => {
 
   it("||COMPLETE|| token never appears in any reply", () => {
     const cases = [
-      call("chapter-01:location", `fmt.Println("CELL B-09 · SUBLEVEL 3")`, { isCode: true }),
+      call("chapter-01:location", `fmt.Println("CELL B-09 - SUBLEVEL 3")`, { isCode: true }),
       call("chapter-01:scaffold", "hello"),
       call("chapter-01:scaffold", "ready", { isFirst: true }),
     ];
@@ -787,7 +787,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel) // コメント
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel) // コメント
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -805,7 +805,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isFirst: true, isCode: true });
     expect(r.isComplete).toBe(true);
@@ -856,7 +856,7 @@ describe("ch01 location — diagnostics catch bad code", () => {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+    fmt.WriteLine("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -868,7 +868,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.PrintLine("CELL B-09 · SUBLEVEL 3")
+    fmt.PrintLine("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -880,7 +880,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Log("CELL B-09 · SUBLEVEL 3")
+    fmt.Log("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -891,7 +891,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.console("CELL B-09 · SUBLEVEL 3")
+    fmt.console("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -918,7 +918,7 @@ import (
     "terminal/cellblock"
 )
 func main() {
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cellblock.Cell, cellblock.Sublevel)
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(true);
@@ -928,7 +928,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+    fmt.WriteLine("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.reply).toContain("line 4");
@@ -938,7 +938,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.WriteLine("CELL B-09 · SUBLEVEL 3")
+    fmt.WriteLine("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true, inRush: true });
     expect(r.isComplete).toBe(false);
@@ -950,7 +950,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }}`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -960,7 +960,7 @@ func main() {
   it("rejects missing package main", () => {
     const code = `import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
@@ -970,7 +970,7 @@ func main() {
   it("rejects missing func main", () => {
     const code = `package main
 import "fmt"
-fmt.Println("CELL B-09 · SUBLEVEL 3")`;
+fmt.Println("CELL B-09 - SUBLEVEL 3")`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);
     expect(r.reply).toContain("func main()");
@@ -979,7 +979,7 @@ fmt.Println("CELL B-09 · SUBLEVEL 3")`;
   it("rejects multiple errors — reports the first one", () => {
     const code = `import "fmt"
 func main() {
-    fmt.WriteLine("CELL B-09 · SUBLEVEL 3"
+    fmt.WriteLine("CELL B-09 - SUBLEVEL 3"
 }`;
     const r = call("chapter-01:location", code, { isCode: true });
     expect(r.isComplete).toBe(false);

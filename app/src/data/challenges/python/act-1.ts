@@ -42,9 +42,9 @@ export const PY_CHAPTER_01: ChallengeRealization = {
       ],
     },
     "chapter-01:location": {
-      brief: "Import `cellblock` and print its `CELL` and `SUBLEVEL` as: CELL B-09 · SUBLEVEL 3",
-      expectedBehavior: "CELL B-09 · SUBLEVEL 3",
-      expectedOutput: "CELL B-09 · SUBLEVEL 3",
+      brief: "Import `cellblock` and print its `CELL` and `SUBLEVEL` as: CELL B-09 - SUBLEVEL 3",
+      expectedBehavior: "CELL B-09 - SUBLEVEL 3",
+      expectedOutput: "CELL B-09 - SUBLEVEL 3",
       requiredCode: ["cellblock.CELL", "cellblock.SUBLEVEL"],
       compileModule: {
         module: "terminal",
@@ -80,7 +80,7 @@ SUBLEVEL = 3
       hints: [
         { level: 1, text: "the values live in a module. add `import cellblock` at the top.", energyCost: 8 },
         { level: 2, text: "reach in with a dot: `cellblock.CELL` is the cell, `cellblock.SUBLEVEL` is the sublevel.", energyCost: 12 },
-        { level: 3, text: "`print(f\"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}\")` — an f-string drops both values in.", energyCost: 20 },
+        { level: 3, text: "`print(f\"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}\")` — an f-string drops both values in.", energyCost: 20 },
       ],
     },
   },

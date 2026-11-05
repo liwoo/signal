@@ -21,7 +21,7 @@ import "fmt"
 func main() {
     const sublevel = 3
     cell := "B-09"
-    fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+    fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.errors).toHaveLength(0);
@@ -34,7 +34,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(true);
@@ -47,7 +47,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Print("CELL B-09 · SUBLEVEL 3")
+    fmt.Print("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(true);
@@ -59,7 +59,7 @@ describe("ch01 — syntax errors", () => {
   it("rejects missing package main", () => {
     const code = `import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(false);
@@ -71,7 +71,7 @@ func main() {
     const code = `package main
 import "fmt"
 func helper() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(false);
@@ -82,7 +82,7 @@ func helper() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3"
+    fmt.Println("CELL B-09 - SUBLEVEL 3"
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(false);
@@ -93,7 +93,7 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3
+    fmt.Println("CELL B-09 - SUBLEVEL 3
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(false);
@@ -438,7 +438,7 @@ describe("output matching", () => {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(true);
@@ -448,12 +448,12 @@ func main() {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("  CELL B-09 · SUBLEVEL 3  ")
+    fmt.Println("  CELL B-09 - SUBLEVEL 3  ")
 }`;
     // Predicted output includes the spaces, but normalizeOutput trims
     const result = evaluateSubmission(code, ch01Step);
-    // This depends on whether the expected also trims — "CELL B-09 · SUBLEVEL 3" has no extra spaces
-    // The predicted would be "  CELL B-09 · SUBLEVEL 3  " which after trim becomes the same
+    // This depends on whether the expected also trims — "CELL B-09 - SUBLEVEL 3" has no extra spaces
+    // The predicted would be "  CELL B-09 - SUBLEVEL 3  " which after trim becomes the same
     expect(result.pass).toBe(true);
   });
 
@@ -463,11 +463,11 @@ func main() {
 import "fmt"
 func main() {
     cell := "B-09"
-    fmt.Println("CELL", cell, "· SUBLEVEL 3")
+    fmt.Println("CELL", cell, "- SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
-    // Predicted: "CELL <cell> · SUBLEVEL 3" — fragment match should check "CELL" and "· SUBLEVEL 3"
-    // Whether this passes depends on fragment matching against "CELL B-09 · SUBLEVEL 3"
+    // Predicted: "CELL <cell> - SUBLEVEL 3" — fragment match should check "CELL" and "- SUBLEVEL 3"
+    // Whether this passes depends on fragment matching against "CELL B-09 - SUBLEVEL 3"
     expect(result.predictedOutput).toContain("CELL");
   });
 });
@@ -588,7 +588,7 @@ describe("edge cases", () => {
     const code = `package main
 import "fmt"
 func main() {
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(true);
@@ -599,7 +599,7 @@ func main() {
 import "fmt"
 func main() {
     // ${"x := 1\n    ".repeat(500)}
-    fmt.Println("CELL B-09 · SUBLEVEL 3")
+    fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const result = evaluateSubmission(code, ch01Step);
     expect(result.pass).toBe(true);

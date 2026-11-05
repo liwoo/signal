@@ -11,6 +11,7 @@ import {
 } from "@/lib/analytics";
 import type { LanguageId } from "@/types/game";
 import { useLanguage, useLanguageService } from "./LanguageContext";
+import { checkWarmup } from "@/lib/game/warmup";
 
 // ── Types ──
 
@@ -53,7 +54,7 @@ const EXERCISES: Record<ExerciseNum, ExerciseConfig> = {
   },
   2: {
     title: "A VARIABLE",
-    maya: "store a value in a variable with :=, then print it back.",
+    maya: ":= makes a new variable and stores a value in it — go works out the type. make one, then print it back.",
     xp: 15,
     successLabel: "✓ VARIABLE STORED",
     placeholder: `cell := "B-09"\nfmt.Println(cell)`,
@@ -256,43 +257,16 @@ function TokenSnippet({ code, fontSize }: { code: string; fontSize: string }) {
   );
 }
 
-// ── Validators ──
-
-const VALIDATORS_BY_LANGUAGE: Record<Exclude<LanguageId, "go">, Record<ExerciseNum, (value: string) => boolean>> = {
-  javascript: {
-    1: (v) => v.includes("console.log(") && v.includes(`"i'm in"`),
-    2: (v) => /const\s+cell\s*=\s*["']B-09["']/.test(v) && v.includes("console.log(cell)"),
-    3: (v) => v.includes("console.log(`") && v.includes("${cell}"),
-    4: (v) => /import\s*\{\s*cell\s*\}\s*from\s*["']\.\/cellblock\.js["']/.test(v) && v.includes("console.log(cell)"),
-  },
-  python: {
-    1: (v) => v.includes("print(") && v.includes(`"i'm in"`),
-    2: (v) => /cell\s*=\s*["']B-09["']/.test(v) && v.includes("print(cell)"),
-    3: (v) => /print\(f["']CELL \{cell\}["']\)/.test(v),
-    4: (v) => /^\s*import\s+cellblock\s*$/m.test(v) && v.includes("print(cellblock.CELL)"),
-  },
-};
-
-const VALIDATORS: Record<ExerciseNum, (value: string) => boolean> = {
-  1: (v) => v.includes("fmt.Println(") && v.includes(`"i'm in"`),
-  2: (v) => /cell\s*:=/.test(v) && v.includes("fmt.Println(cell)"),
-  3: (v) => v.includes("fmt.Printf(") && v.includes("%s") && v.includes("cell"),
-  4: (v) =>
-    v.includes("package main") &&
-    v.includes(`"fmt"`) &&
-    /func\s+main\s*\(\s*\)/.test(v) &&
-    v.includes("fmt.Println("),
-};
-
 // ── Main component ──
 
 export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps) {
   const language = useLanguage();
   const EXERCISES_ACTIVE = language === "go" ? EXERCISES : EXERCISES_BY_LANGUAGE[language];
-  const VALIDATORS_ACTIVE = language === "go" ? VALIDATORS : VALIDATORS_BY_LANGUAGE[language];
   const [exercise, setExercise] = useState<ExerciseNum>(1);
   const [exState, setExState] = useState<ExerciseState>("idle");
   const [showXP, setShowXP] = useState(false);
+  // Why the last RUN was rejected — shown under the input until they edit.
+  const [error, setError] = useState<string | null>(null);
 
   const attemptsRef = useRef<Record<ExerciseNum, number>>({ 1: 0, 2: 0, 3: 0, 4: 0 });
 
@@ -318,6 +292,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
 
   const setInput = useCallback((ex: ExerciseNum, value: string) => {
     setInputs((prev) => ({ ...prev, [ex]: value }));
+    setError(null);
   }, []);
 
   // ── Generic submit ──
@@ -326,13 +301,16 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
     if (exState !== "idle") return;
     attemptsRef.current[exercise] += 1;
 
-    if (!VALIDATORS_ACTIVE[exercise](inputs[exercise])) {
+    const result = checkWarmup(language, exercise, inputs[exercise]);
+    if (!result.ok) {
       trackWarmupError(exercise, inputs[exercise]);
+      setError(result.error);
       setShake(true);
       setTimeout(() => setShake(false), 400);
       return;
     }
 
+    setError(null);
     const timeMs = Date.now() - exerciseStartRef.current;
     trackWarmupExercise(exercise, attemptsRef.current[exercise], timeMs);
     setExState("success");
@@ -352,7 +330,7 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
         setExState("idle");
       }
     }, delay);
-  }, [exState, exercise, inputs, onComplete, VALIDATORS_ACTIVE]);
+  }, [exState, exercise, inputs, onComplete, language]);
 
   // ── Key handlers ──
 
@@ -598,6 +576,34 @@ export function Warmup({ fontScale, onFontScaleChange, onComplete }: WarmupProps
               />
             )}
           </div>
+
+          {/* Why the last RUN failed — the drill never advances on a wrong line */}
+          {error && (
+            <div
+              role="alert"
+              data-testid="warmup-error"
+              className="-mt-3 mb-5 px-3 py-2 msg-enter leading-[1.6]"
+              style={{
+                fontSize: textSize,
+                color: "var(--color-danger)",
+                borderLeft: "3px solid var(--color-danger)",
+                background: "color-mix(in srgb, var(--color-danger) 6%, transparent)",
+              }}
+            >
+              <span className="text-[8px] tracking-[3px] block mb-1" style={{ opacity: 0.8 }}>
+                ▸ NOT QUITE · TRY AGAIN
+              </span>
+              {error.split("`").map((part, i) =>
+                i % 2 === 1 ? (
+                  <code key={i} className="font-[family-name:var(--font-mono)]" style={{ color: "var(--color-foreground)" }}>
+                    {part}
+                  </code>
+                ) : (
+                  <span key={i}>{part}</span>
+                ),
+              )}
+            </div>
+          )}
 
           {/* Submit button */}
           <div className="mb-6">

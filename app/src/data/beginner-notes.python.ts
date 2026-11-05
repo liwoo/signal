@@ -104,15 +104,15 @@ print(cellblock.SUBLEVEL)   # 3`,
         type: "text",
         section: 3,
         content:
-          "the terminal wants one line: CELL B-09 · SUBLEVEL 3. to mix text and values, use an f-string — put an f right before the opening quote, then drop any value into the text inside curly braces.",
+          "the terminal wants one line: CELL B-09 - SUBLEVEL 3. to mix text and values, use an f-string — put an f right before the opening quote, then drop any value into the text inside curly braces.",
       },
       {
         type: "code",
         section: 3,
         content: `import cellblock
 
-print(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")
-# CELL B-09 · SUBLEVEL 3`,
+print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")
+# CELL B-09 - SUBLEVEL 3`,
         hotspots: [
           { text: `f"`, tip: "the f turns the string into a template. without it, the braces would print as plain text." },
           { text: "{cellblock.CELL}", tip: "python replaces the braces with the value inside them — B-09." },

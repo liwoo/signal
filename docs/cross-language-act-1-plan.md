@@ -191,24 +191,24 @@ console.log("Hello World");
 ```
 *Nuance:* Go teaches 3 structural concepts here; Python/JS teach ~0. For Py/JS the quickCheck/hints pivot to "how do I print?" and "how is this program run?" (see §8). XP can stay identical.
 
-**Step `chapter-01:location`** — *import `cellblock`, print `CELL B-09 · SUBLEVEL 3`.* Shipped module exports a `Cell` constant (`"B-09"`) and `Sublevel` value (`3`). `requiredCode` must reference both exported names (anti-hardcoding). Expected output: `CELL B-09 · SUBLEVEL 3`
+**Step `chapter-01:location`** — *import `cellblock`, print `CELL B-09 - SUBLEVEL 3`.* Shipped module exports a `Cell` constant (`"B-09"`) and `Sublevel` value (`3`). `requiredCode` must reference both exported names (anti-hardcoding). Expected output: `CELL B-09 - SUBLEVEL 3`
 
 ```go
 // Go — compileModule ships terminal/cellblock/cellblock.go
 import ("fmt"; "terminal/cellblock")
-fmt.Printf("CELL %s · SUBLEVEL %d\n", cellblock.Cell, cellblock.Sublevel)
+fmt.Printf("CELL %s - SUBLEVEL %d\n", cellblock.Cell, cellblock.Sublevel)
 // requiredCode: ["cellblock.Cell", "cellblock.Sublevel"]
 ```
 ```python
 # Python — ships cellblock.py: CELL = "B-09"; SUBLEVEL = 3
 import cellblock
-print(f"CELL {cellblock.CELL} · SUBLEVEL {cellblock.SUBLEVEL}")
+print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")
 # requiredCode: ["cellblock.CELL", "cellblock.SUBLEVEL"]
 ```
 ```javascript
 // JS — ships cellblock.js: export const CELL="B-09"; export const SUBLEVEL=3
 import { CELL, SUBLEVEL } from "./cellblock.js";
-console.log(`CELL ${CELL} · SUBLEVEL ${SUBLEVEL}`);
+console.log(`CELL ${CELL} - SUBLEVEL ${SUBLEVEL}`);
 // requiredCode: ["CELL", "SUBLEVEL"]
 ```
 *Nuance:* `compileModule` generalizes cleanly to "extra files shipped alongside the user's code." Go uses a txtar module; Python ships a `.py` beside `main.py`; JS ships an ESM module. Autocomplete for the shipped module (`extraPackagesFromModule`) needs a per-language parser for exported symbols.
@@ -416,7 +416,7 @@ Where the build differs from the plan above:
 
 1. **Go stays inline as the spine's own realization.** Rather than moving Go's code fields out of the chapter files, other languages overlay a `StepRealization` (`realizeChallenge`). Go is byte-identical by construction, and every consumer still reads a plain `Challenge`. `brief` and `hints` are required in a realization; optional fields it omits (harness, module, quickCheck) are dropped, never inherited from Go.
 2. **Zen rules live in `lib/game` registries keyed by language**, not on `LanguageService` — keeps `lib/game` pure and avoids an import cycle.
-3. **JS anti-hardcoding:** the plan's `CELL`/`SUBLEVEL` exports would let `console.log("CELL B-09 · SUBLEVEL 3")` satisfy `requiredCode`. JS exports `cell`/`sublevel`, and JS/Python check `requiredCode` with import lines stripped (`codeForRequiredCheck`).
+3. **JS anti-hardcoding:** the plan's `CELL`/`SUBLEVEL` exports would let `console.log("CELL B-09 - SUBLEVEL 3")` satisfy `requiredCode`. JS exports `cell`/`sublevel`, and JS/Python check `requiredCode` with import lines stripped (`codeForRequiredCheck`).
 4. **The boss is the 3D duel** (three rearm phases at cover), not the legacy four-tab 2D boss §7 describes. Each language realizes the three phases' starter code; the spec lines are shared.
 5. **Backends:** JS runs in a fresh Web Worker per run (4s kill), with acorn for line-accurate syntax errors and a line-preserving ESM rewrite. Pyodide 314 (CPython 3.14) only ships an ES-module loader, so Python runs in a module worker (`public/pyodide-worker.mjs`) loaded from the CDN, warmed during the intro, killed and respawned on a 5s timeout. Tests run real Pyodide in Node (`pyodide` dev dependency).
 6. **Scaffold steps grade by `expectedOutput: "Hello World"`** in JS/Python (Go still uses its skeleton patterns).

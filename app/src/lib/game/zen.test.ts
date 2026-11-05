@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen";
+import { analyzeImports, analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen";
 
 // ── Registry Tests ──
 
@@ -80,12 +80,10 @@ describe("chapter-01:scaffold — zen detection", () => {
     suggestionCount: number;
   }> = [
     {
-      name: "perfect: grouped import + blank after package + blank after import",
+      name: "perfect: plain import + blank after package + blank after import",
       code: `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -95,11 +93,9 @@ func main() {
       suggestionCount: 0,
     },
     {
-      name: "grouped import, no blank lines (crammed)",
+      name: "plain import, no blank lines (crammed)",
       code: `package main
-import (
-  "fmt"
-)
+import "fmt"
 func main() {
   fmt.Println("hello")
 }`,
@@ -108,10 +104,12 @@ func main() {
       suggestionCount: 2,
     },
     {
-      name: "non-grouped import, with all blank lines",
+      name: "parenthesized single import, with all blank lines",
       code: `package main
 
-import "fmt"
+import (
+  "fmt"
+)
 
 func main() {
   fmt.Println("hello")
@@ -123,7 +121,9 @@ func main() {
     {
       name: "minimal: non-grouped, no blank lines",
       code: `package main
-import "fmt"
+import (
+  "fmt"
+)
 func main() {}`,
       expectedXP: 0,
       joltCount: 0,
@@ -146,12 +146,10 @@ func main() {
       suggestionCount: 0,
     },
     {
-      name: "tab-indented grouped import + clean structure",
+      name: "tab-indented plain import + clean structure",
       code: `package main
 
-import (
-\t"fmt"
-)
+import "fmt"
 
 func main() {
 \tfmt.Println("hello")
@@ -161,12 +159,10 @@ func main() {
       suggestionCount: 0,
     },
     {
-      name: "grouped import + blank after package only (no blank after import)",
+      name: "plain import + blank after package only (no blank after import)",
       code: `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 func main() {
   fmt.Println("hello")
 }`,
@@ -175,11 +171,9 @@ func main() {
       suggestionCount: 1,
     },
     {
-      name: "grouped import + blank after import only (no blank after package)",
+      name: "plain import + blank after import only (no blank after package)",
       code: `package main
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -197,9 +191,7 @@ func main() {
 // 3. func main() { }
 package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -212,9 +204,7 @@ func main() {
       name: "starter code comments, player skips blank after package",
       code: `// 3. func main() { }
 package main
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -236,9 +226,7 @@ func main() {
 
   test("suggestion for package sep is specific, not generic", () => {
     const code = `package main
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {}`;
     const result = analyzeZen(STEP, code);
@@ -251,9 +239,7 @@ func main() {}`;
   test("suggestion for import sep is specific, not generic", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 func main() {}`;
     const result = analyzeZen(STEP, code);
     const importSugg = result.suggestions.find(s => s.includes("import") && s.includes("func"));
@@ -282,7 +268,7 @@ import "fmt"
 func main() {
   const cell = "B-09"
   const sublevel = 3
-  fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+  fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`,
       expectedXP: 35,
       joltCount: 3,
@@ -297,7 +283,7 @@ import "fmt"
 func main() {
   const cell = "B-09"
   const sublevel = "3"
-  fmt.Println("CELL " + cell + " · SUBLEVEL " + sublevel)
+  fmt.Println("CELL " + cell + " - SUBLEVEL " + sublevel)
 }`,
       expectedXP: 20,
       joltCount: 2,
@@ -312,7 +298,7 @@ import "fmt"
 func main() {
   cell := "B-09"
   level := 3
-  fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, level)
+  fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, level)
 }`,
       expectedXP: 35,  // := counts as named values
       joltCount: 3,
@@ -326,7 +312,7 @@ import "fmt"
 
 func main() {
   x := "B-09"
-  fmt.Println("CELL " + x + " · SUBLEVEL 3")
+  fmt.Println("CELL " + x + " - SUBLEVEL 3")
 }`,
       expectedXP: 10,  // := with literal triggers use_named_values
       joltCount: 1,
@@ -339,11 +325,13 @@ func main() {
 import "fmt"
 
 func main() {
-  fmt.Println("CELL B-09 · SUBLEVEL 3")
+  fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`,
       expectedXP: 0,
       joltCount: 0,
-      suggestionCount: 2, // namedValues + descriptiveNames (printf irrelevant for static string)
+      // namedValues only — printf is irrelevant for a static string, and
+      // descriptive_names never nudges a player who declared no variables
+      suggestionCount: 1,
     },
     {
       name: "const + Printf with %v verb + descriptive name",
@@ -354,7 +342,7 @@ import "fmt"
 func main() {
   const cell = "B-09"
   const floor = 3
-  fmt.Printf("CELL %v · SUBLEVEL %v\\n", cell, floor)
+  fmt.Printf("CELL %v - SUBLEVEL %v\\n", cell, floor)
 }`,
       expectedXP: 35,
       joltCount: 3,
@@ -369,7 +357,7 @@ import "fmt"
 func main() {
   const location = "B-09"
   const sub = 3
-  fmt.Printf("CELL %s · SUBLEVEL %d\\n", location, sub)
+  fmt.Printf("CELL %s - SUBLEVEL %d\\n", location, sub)
 }`,
       expectedXP: 35,
       joltCount: 3,
@@ -384,7 +372,7 @@ import "fmt"
 func main() {
   const cell = "B-09"
   sublevel := 3
-  fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+  fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`,
       expectedXP: 35,
       joltCount: 3,
@@ -407,12 +395,10 @@ func main() {
 describe("chapter-02:scaffold — zen detection", () => {
   const STEP = "chapter-02:scaffold";
 
-  test("detects grouped import with blank lines", () => {
+  test("detects plain import with blank lines", () => {
     const code = `package main
 
-import (
-    "fmt"
-)
+import "fmt"
 
 func main() {
     fmt.Println("ready")
@@ -422,10 +408,12 @@ func main() {
     expect(result.jolts.length).toBe(3);
   });
 
-  test("detects non-grouped import with blank lines", () => {
+  test("detects parenthesized single import with blank lines", () => {
     const code = `package main
 
-import "fmt"
+import (
+  "fmt"
+)
 
 func main() {
     fmt.Println("ready")
@@ -438,7 +426,9 @@ func main() {
 
   test("no zen on minimal code", () => {
     const code = `package main
-import "fmt"
+import (
+  "fmt"
+)
 func main() {
     fmt.Println("ready")
 }`;
@@ -983,12 +973,10 @@ describe("chapter-03:validate — zen detection", () => {
 describe("chapter-04:scaffold — zen detection", () => {
   const STEP = "chapter-04:scaffold";
 
-  test("detects grouped import with blank lines", () => {
+  test("detects plain import with blank lines", () => {
     const code = `package main
 
-import (
-    "fmt"
-)
+import "fmt"
 
 func main() {
     fmt.Println("ready")
@@ -999,10 +987,12 @@ func main() {
     expect(result.suggestions.length).toBe(0);
   });
 
-  test("detects non-grouped import with blank lines", () => {
+  test("detects parenthesized single import with blank lines", () => {
     const code = `package main
 
-import "fmt"
+import (
+  "fmt"
+)
 
 func main() {
     fmt.Println("ready")
@@ -1015,7 +1005,9 @@ func main() {
 
   test("no zen on minimal code", () => {
     const code = `package main
-import "fmt"
+import (
+  "fmt"
+)
 func main() {
     fmt.Println("ready")
 }`;
@@ -1294,11 +1286,30 @@ func main() {
 describe("boss-01:scaffold — zen detection", () => {
   const STEP = "boss-01:scaffold";
 
-  test("detects grouped import with blank lines", () => {
+  test("detects plain import with blank lines", () => {
+    const code = `package main
+
+import "fmt"
+
+func predictNext(codes []int) int {
+    return 0
+}
+
+func main() {
+    codes := []int{1, 2, 3}
+    fmt.Println(predictNext(codes))
+}`;
+    const result = analyzeZen(STEP, code);
+    expect(result.bonusXP).toBe(15); // import_form(10) + pkg_sep(3) + import_sep(2)
+    expect(result.jolts.length).toBe(3);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  test("detects parenthesized single import", () => {
     const code = `package main
 
 import (
-    "fmt"
+  "fmt"
 )
 
 func predictNext(codes []int) int {
@@ -1310,26 +1321,7 @@ func main() {
     fmt.Println(predictNext(codes))
 }`;
     const result = analyzeZen(STEP, code);
-    expect(result.bonusXP).toBe(15); // grouped_import(10) + pkg_sep(3) + import_sep(2)
-    expect(result.jolts.length).toBe(3);
-    expect(result.suggestions.length).toBe(0);
-  });
-
-  test("detects non-grouped import", () => {
-    const code = `package main
-
-import "fmt"
-
-func predictNext(codes []int) int {
-    return 0
-}
-
-func main() {
-    codes := []int{1, 2, 3}
-    fmt.Println(predictNext(codes))
-}`;
-    const result = analyzeZen(STEP, code);
-    // no grouped import (0), but has blank lines (3 + 2)
+    // no plain import (0), but has blank lines (3 + 2)
     expect(result.bonusXP).toBe(5);
     expect(result.jolts.length).toBe(2);
     expect(result.suggestions.length).toBe(1);
@@ -1337,7 +1329,9 @@ func main() {
 
   test("no blank lines gives only suggestions", () => {
     const code = `package main
-import "fmt"
+import (
+  "fmt"
+)
 func predictNext(codes []int) int {
     return 0
 }
@@ -1550,16 +1544,15 @@ describe("full program submissions — realistic player code", () => {
 import "fmt"
 func main() { fmt.Println("hello") }`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    expect(result.bonusXP).toBe(0);
-    expect(result.suggestions.length).toBe(3);
+    // the plain single import is already idiomatic; only the spacing is missed
+    expect(result.bonusXP).toBe(10);
+    expect(result.suggestions.length).toBe(2);
   });
 
   test("ch01 scaffold: experienced dev writes clean go", () => {
     const code = `package main
 
-import (
-\t"fmt"
-)
+import "fmt"
 
 func main() {
 \tfmt.Println("hello")
@@ -1569,17 +1562,15 @@ func main() {
     expect(result.suggestions.length).toBe(0);
   });
 
-  test("ch01 scaffold: player groups import but skips blank after package", () => {
+  test("ch01 scaffold: player writes a plain import but skips blank after package", () => {
     const code = `package main
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
 }`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // Should get credit for grouped import + import/func sep
+    // Should get credit for plain import + import/func sep
     expect(result.bonusXP).toBe(12); // 10 + 0 + 2
     expect(result.jolts.length).toBe(2);
     expect(result.suggestions.length).toBe(1);
@@ -1587,17 +1578,15 @@ func main() {
     expect(result.suggestions[0]).toContain("package");
   });
 
-  test("ch01 scaffold: player groups import but skips blank after import", () => {
+  test("ch01 scaffold: player writes a plain import but skips blank after import", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 func main() {
   fmt.Println("hello")
 }`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // Should get credit for grouped import + package sep
+    // Should get credit for plain import + package sep
     expect(result.bonusXP).toBe(13); // 10 + 3 + 0
     expect(result.jolts.length).toBe(2);
     expect(result.suggestions.length).toBe(1);
@@ -1613,7 +1602,7 @@ import "fmt"
 func main() {
   const cell = "B-09"
   const sublevel = 3
-  msg := fmt.Sprintf("CELL %s · SUBLEVEL %d", cell, sublevel)
+  msg := fmt.Sprintf("CELL %s - SUBLEVEL %d", cell, sublevel)
   fmt.Println(msg)
 }`;
     const result = analyzeZen("chapter-01:location", code);
@@ -1751,22 +1740,18 @@ describe("cumulative zen XP across a full chapter", () => {
   test("chapter 1: perfect code on both steps", () => {
     const scaffoldCode = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
 }`;
     const locationCode = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   const cell = "B-09"
   const sublevel = 3
-  fmt.Printf("CELL %s · SUBLEVEL %d\\n", cell, sublevel)
+  fmt.Printf("CELL %s - SUBLEVEL %d\\n", cell, sublevel)
 }`;
     const r1 = analyzeZen("chapter-01:scaffold", scaffoldCode);
     const r2 = analyzeZen("chapter-01:location", locationCode);
@@ -1781,12 +1766,12 @@ func main() {}`;
     const locationCode = `package main
 import "fmt"
 func main() {
-  fmt.Println("CELL B-09 · SUBLEVEL 3")
+  fmt.Println("CELL B-09 - SUBLEVEL 3")
 }`;
     const r1 = analyzeZen("chapter-01:scaffold", scaffoldCode);
     const r2 = analyzeZen("chapter-01:location", locationCode);
     const total = r1.bonusXP + r2.bonusXP;
-    expect(total).toBe(0);
+    expect(total).toBe(10); // only import_form — a plain single import is already idiomatic
   });
 
   test("chapter 2: perfect code on both steps", () => {
@@ -1949,9 +1934,7 @@ describe("calculateMissedXP", () => {
   test("returns 0 when all rules pass", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -1961,19 +1944,18 @@ func main() {
   });
 
   test("returns max XP when no rules pass", () => {
-    const result = analyzeZen("chapter-01:scaffold", "package main\nimport \"fmt\"\nfunc main() {}");
+    // a single import wrapped in parentheses, no spacing — misses all three
+    const result = analyzeZen("chapter-01:scaffold", "package main\nimport (\"fmt\")\nfunc main() {}");
     expect(calculateMissedXP("chapter-01:scaffold", result)).toBe(15);
   });
 
   test("returns difference for partial pass", () => {
     const code = `package main
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {}`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // grouped import (10) + import sep (2) = 12, missed package sep (3)
+    // plain import (10) + import sep (2) = 12, missed package sep (3)
     expect(calculateMissedXP("chapter-01:scaffold", result)).toBe(3);
   });
 
@@ -2000,9 +1982,7 @@ describe("edge cases", () => {
   test("code with extra whitespace everywhere", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
 
@@ -2012,7 +1992,7 @@ func main() {
 
 }`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // grouped import + both seps still pass with extra whitespace
+    // plain import + both seps still pass with extra whitespace
     expect(result.bonusXP).toBe(15);
   });
 
@@ -2044,15 +2024,61 @@ func main() {
     expect(result.bonusXP).toBe(15); // 10 + 5, not 25 (single_purpose fails)
   });
 
-  test("single-line grouped import still detects grouped import", () => {
+  test("a single import wrapped in parentheses is not the idiomatic form", () => {
     const code = `package main
 
 import ("fmt")
 
 func main() {}`;
     const result = analyzeZen("chapter-01:scaffold", code);
-    // groupedImport passes, but import sep depends on detection
-    expect(result.bonusXP).toBeGreaterThanOrEqual(10); // at minimum grouped import
+    // import_form fails (gofmt writes one import as `import "fmt"`); only the
+    // blank line after package is credited
+    expect(result.bonusXP).toBe(3);
+    expect(result.suggestions.some((s) => s.includes('import "fmt"'))).toBe(true);
+  });
+});
+
+// ── Import form (gofmt idiom) ──
+
+describe("import_form — one import plain, several grouped", () => {
+  const passes = (code: string) =>
+    analyzeZen("chapter-04:scaffold", code).jolts.some((j) => j.includes("gofmt writes it"));
+
+  test("one plain import passes", () => {
+    expect(passes(`package main\n\nimport "fmt"\n\nfunc main() {}`)).toBe(true);
+  });
+
+  test("one import in parentheses fails, with a suggestion to drop them", () => {
+    const code = `package main\n\nimport (\n\t"fmt"\n)\n\nfunc main() {}`;
+    expect(passes(code)).toBe(false);
+    const suggestion = analyzeZen("chapter-01:scaffold", code).suggestions.join("\n");
+    expect(suggestion).toContain("no parentheses");
+  });
+
+  test("several imports in one factored block pass", () => {
+    expect(passes(`package main\n\nimport (\n\t"fmt"\n\t"strings"\n\t"strconv"\n)\n\nfunc main() {}`)).toBe(true);
+  });
+
+  test("several single-line imports fail, with a suggestion to group them", () => {
+    const code = `package main\n\nimport "fmt"\nimport "strings"\n\nfunc main() {}`;
+    expect(passes(code)).toBe(false);
+    expect(analyzeZen("chapter-04:scaffold", code).suggestions.join("\n")).toContain("group them in one block");
+  });
+
+  test("analyzeImports reads both forms", () => {
+    expect(analyzeImports(`import (\n  "fmt"\n  "terminal/cellblock"\n)`)).toEqual({
+      paths: ["fmt", "terminal/cellblock"],
+      factoredBlocks: 1,
+      singleLines: 0,
+    });
+    expect(analyzeImports(`import "fmt"`)).toEqual({ paths: ["fmt"], factoredBlocks: 0, singleLines: 1 });
+  });
+
+  test("no ch1 zen tip ever recommends parentheses around a single import", () => {
+    for (const rule of [...ZEN_RULES["chapter-01:scaffold"], ...ZEN_RULES["chapter-01:location"]]) {
+      expect(rule.suggestion).not.toMatch(/even for one|import \( \\?"fmt\\?" \)/);
+      expect(rule.jolt).not.toMatch(/even (for|with) one/);
+    }
   });
 });
 
@@ -2112,9 +2138,7 @@ describe("mastery filtering — skip already-mastered rules", () => {
   test("mastered rules are skipped entirely", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
@@ -2125,7 +2149,7 @@ func main() {
     expect(r1.jolts.length).toBe(3);
 
     // With all mastered: no XP, no jolts, no suggestions
-    const mastered = new Set(["grouped_import", "package_import_sep", "import_func_sep"]);
+    const mastered = new Set(["import_form", "package_import_sep", "import_func_sep"]);
     const r2 = analyzeZen("chapter-01:scaffold", code, mastered);
     expect(r2.bonusXP).toBe(0);
     expect(r2.jolts.length).toBe(0);
@@ -2135,45 +2159,43 @@ func main() {
   test("partially mastered: only new rules yield XP", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
 }`;
-    const mastered = new Set(["grouped_import"]);
+    const mastered = new Set(["import_form"]);
     const result = analyzeZen("chapter-01:scaffold", code, mastered);
-    // packageImportSep(3) + importFuncSep(2) = 5, grouped_import(10) skipped
+    // packageImportSep(3) + importFuncSep(2) = 5, import_form(10) skipped
     expect(result.bonusXP).toBe(5);
     expect(result.jolts.length).toBe(2);
   });
 
   test("mastered rule that player now fails: no suggestion shown", () => {
-    // Player mastered grouped_import before, but now writes non-grouped import
+    // Player mastered import_form before, but now writes parenthesized single import
     const code = `package main
-import "fmt"
+import (
+  "fmt"
+)
 func main() {}`;
-    const mastered = new Set(["grouped_import"]);
+    const mastered = new Set(["import_form"]);
     const result = analyzeZen("chapter-01:scaffold", code, mastered);
-    // grouped_import is mastered → skipped (no suggestion even though it fails now)
+    // import_form is mastered → skipped (no suggestion even though it fails now)
     // packageImportSep and importFuncSep both fail → 2 suggestions
     expect(result.suggestions.length).toBe(2);
     expect(result.bonusXP).toBe(0);
   });
 
-  test("cross-chapter mastery: ch01 grouped_import mastered, ch02 scaffold reuses it", () => {
+  test("cross-chapter mastery: ch01 import_form mastered, ch02 scaffold reuses it", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("ready")
 }`;
     // ch02:scaffold has same rules as ch01:scaffold
-    const mastered = new Set(["grouped_import", "package_import_sep", "import_func_sep"]);
+    const mastered = new Set(["import_form", "package_import_sep", "import_func_sep"]);
     const result = analyzeZen("chapter-02:scaffold", code, mastered);
     expect(result.bonusXP).toBe(0);
     expect(result.jolts.length).toBe(0);
@@ -2183,9 +2205,7 @@ func main() {
   test("empty mastered set behaves like no mastery", () => {
     const code = `package main
 
-import (
-  "fmt"
-)
+import "fmt"
 
 func main() {
   fmt.Println("hello")
