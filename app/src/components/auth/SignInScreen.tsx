@@ -62,7 +62,7 @@ export function SignInScreen({
           >
             SIGNAL
           </div>
-          <div className="text-[#1a6a3a] text-[9px] tracking-[5px] mt-1.5">
+          <div className="text-[var(--color-dim)] text-[11px] tracking-[5px] mt-1.5">
             {subtitle}
           </div>
         </div>
@@ -75,10 +75,10 @@ export function SignInScreen({
             animation: "intro-in .6s ease .15s forwards",
           }}
         >
-          <div className="text-[#1a6a4a] text-[8px] tracking-[3px] mb-2">
+          <div className="text-[var(--color-dim)] text-[10px] tracking-[3px] mb-2">
             {eyebrow}
           </div>
-          <p className="text-[#3a7a5a] text-xs leading-[1.8]">{lines[0]}</p>
+          <p className="text-[var(--color-foreground)] text-xs leading-[1.8]">{lines[0]}</p>
           <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">{lines[1]}</p>
         </div>
 
@@ -98,17 +98,17 @@ export function SignInScreen({
           </button>
 
           {!authAvailable && (
-            <div className="text-center mt-3 text-[var(--color-alert)] text-[9px] tracking-[2px] leading-[1.7]">
+            <div className="text-center mt-3 text-[var(--color-alert)] text-[11px] tracking-[2px] leading-[1.7]">
               CLOUD BACKUP OFFLINE — AUTH NOT CONFIGURED
             </div>
           )}
           {error && (
-            <div className="text-center mt-3 text-[var(--color-alert)] text-[9px] tracking-[2px]">
+            <div className="text-center mt-3 text-[var(--color-alert)] text-[11px] tracking-[2px]">
               {error.toUpperCase()}
             </div>
           )}
 
-          <div className="text-center mt-3 text-[#0a3a2a] text-[8px] tracking-[2px]">
+          <div className="text-center mt-3 text-[var(--color-dim)] text-[10px] tracking-[2px]">
             {footer}{" "}
             <span className="cursor-blink">█</span>
           </div>
