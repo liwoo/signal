@@ -1336,3 +1336,8 @@
     transition: none;
   }
 }
+
+.soon {
+  font-style: normal;
+  color: var(--lp-warning);
+}

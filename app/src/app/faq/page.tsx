@@ -1,88 +1,100 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
+import { landingCurriculum } from "@/data/landing";
+import { PRICE_SINGLE, SUPPORT_EMAIL, pageMetadata } from "@/lib/site";
+
+export const metadata = pageMetadata({
+  title: "FAQ — SIGNAL",
+  description:
+    "Answers about SIGNAL: what's free, what the full Go course costs, how Python and JavaScript work, boss fights, mobile play, and using SIGNAL with a class.",
+  path: "/faq",
+});
 
 interface FAQItem {
   q: string;
   a: string;
 }
 
-const FAQS: FAQItem[] = [
-  {
-    q: "What is SIGNAL?",
-    a: "SIGNAL is a narrative coding game that teaches Go programming through an escape thriller. you write real Go code to help maya chen escape a research facility. every chapter introduces new language concepts through puzzles, timed challenges, and boss fights.",
-  },
-  {
-    q: "Do I need any coding experience?",
-    a: "No. act I starts from absolute zero — your first program is a single fmt.Println call. the game introduces concepts one at a time, with beginner mode available for extra guidance before each level.",
-  },
-  {
-    q: "Is the code I write real Go?",
-    a: "Yes. your code is compiled and executed on the official Go Playground backend. you get real compiler errors, real output, and learn real Go syntax — not a simplified subset.",
-  },
-  {
-    q: "How much is free?",
-    a: "Act I (4 chapters + 1 boss fight) is completely free in go, python, or javascript. you sign in with google so your progress saves to the cloud and follows you to any device. act I covers variables, loops, conditionals, functions, slices, and multi-return values.",
-  },
-  {
-    q: "What does the full game cost?",
-    a: "$9.99 one-time for the full game — 4 acts, 22 chapters, and 4 boss fights. lifetime access, no subscription. team licenses ($69.99 for 10 seats) are available for bootcamps and engineering teams.",
-  },
-  {
-    q: "What does the full game include?",
-    a: "4 acts covering the full Go language — from hello world to goroutines, channels, HTTP servers, generics, and production architecture. 22 chapters, 4 boss fights, an AI tutor, and a zen library of idiomatic Go patterns.",
-  },
-  {
-    q: "How long does the full game take?",
-    a: "Most players complete act I in 1-2 hours. the full curriculum (acts I-IV) covers everything you need to be a productive Go developer, typically 20-40 hours depending on your pace.",
-  },
-  {
-    q: "What are boss fights?",
-    a: "Boss fights are timed multi-file debugging challenges where you fix corrupted weapon code while a boss AI attacks maya. they test everything you've learned in the act under pressure — real compiler errors, real time limits.",
-  },
-  {
-    q: "Can I use vim keybindings?",
-    a: "Yes. vim mode is available in settings (off by default). it supports normal/insert modes, motion commands (h/j/k/l/w/b/e), editing (d/c/y/p), and visual feedback.",
-  },
-  {
-    q: "What is the zen system?",
-    a: "Zen analyzes your code for idiomatic Go patterns after each submission. writing clean, idiomatic code earns bonus XP and builds your zen library — a personal reference of Go best practices.",
-  },
-  {
-    q: "Does it work on mobile?",
-    a: "Yes. SIGNAL has a touch-first mobile layout with a coding keyboard, mobile-friendly timing, and persistent drafts. a hardware keyboard is optional, and desktop/laptop browsers remain supported.",
-  },
-  {
-    q: "What browser do I need?",
-    a: "Any modern browser — Chrome, Firefox, Safari, or Edge. SIGNAL uses Canvas 2D for all visuals (no WebGL required) and the Web Audio API for sound.",
-  },
-  {
-    q: "Can I use SIGNAL with my class?",
-    a: "Yes. sign in at /teach and create a teacher account (your name and school). then create a class for each period or group — each gets its own 6-letter join code and invite link. students open the link or type the code at /join, sign in with their own google account, and appear on your roster.",
-  },
-  {
-    q: "What can teachers see?",
-    a: "For each student: chapters cleared, the step they're on, when they last played, XP, and a timeline of passed and failed tries, hints, and game overs. students who fail the same step 5+ times are flagged as stuck, and the roster exports to csv. teachers can't see students' code or their chats with maya, and can't change anyone's progress. students can leave a class at any time.",
-  },
-  {
-    q: "Do teachers and students need separate accounts?",
-    a: "Yes. a teacher account can't join a class as a student, and a google account that's already in a class as a student can't become a teacher. use your school account to teach.",
-  },
-  {
-    q: "How do team licenses work?",
-    a: "A team license unlocks the full game for every seat. it's built for classes, bootcamps, university courses, and engineering teams learning Go — pair it with the teacher console to follow everyone's progress.",
-  },
-];
+function faqs(): FAQItem[] {
+  const { actCount, chapterCount } = landingCurriculum();
+  return [
+    {
+      q: "What is SIGNAL?",
+      a: "SIGNAL is a narrative coding game. You write real Go, Python, or JavaScript to help Maya Chen escape a research facility. Every chapter introduces new language concepts through puzzles, timed challenges, and boss fights.",
+    },
+    {
+      q: "Do I need any coding experience?",
+      a: "No. Act I starts from zero: your first program prints a single line. The game introduces one concept at a time, and Maya's hints and the field manual are there whenever you're stuck.",
+    },
+    {
+      q: "Is the code I write real?",
+      a: "Yes. Go code is compiled and run on the official Go Playground, so you get real compiler errors and real output. Python and JavaScript run in your browser. Either way, you're learning the real language, not a simplified subset.",
+    },
+    {
+      q: "How much is free?",
+      a: "Act I (three chapters and the Lockmaster boss fight) is free in Go, Python, and JavaScript. You sign in with Google so your progress saves and follows you to any device. No credit card required.",
+    },
+    {
+      q: "What does the full game cost?",
+      a: `$${PRICE_SINGLE}, one time, for the full Go curriculum: ${actCount} acts and ${chapterCount} chapters, each act ending in a boss fight. Acts are still being released, and your license includes each one as it ships. No subscription.`,
+    },
+    {
+      q: "What does the full Go curriculum cover?",
+      a: "From your first program to structs, interfaces, error handling, goroutines and channels, HTTP clients and servers, databases, middleware, and a full web app, plus an in-game tutor and a zen library of idiomatic Go patterns.",
+    },
+    {
+      q: "Do Python and JavaScript go beyond Act I?",
+      a: "Not yet. Act I is free in both, and more is coming.",
+    },
+    {
+      q: "How long does it take?",
+      a: "Most players finish Act I in one to two hours.",
+    },
+    {
+      q: "What are boss fights?",
+      a: "Each act ends with a boss fight that tests everything the act taught. You dodge and duck into cover, then write code to arm Maya before the boss closes in.",
+    },
+    {
+      q: "Can I use vim keybindings?",
+      a: "Yes. Vim mode is in settings (off by default). It supports normal and insert modes, motions (h/j/k/l/w/b/e), editing (d/c/y/p), and undo.",
+    },
+    {
+      q: "What is the zen system?",
+      a: "After each submission, zen checks your code for idiomatic patterns. Writing clean, idiomatic code earns bonus XP and builds your zen library, a personal reference of best practices.",
+    },
+    {
+      q: "Does it work on mobile?",
+      a: "Yes. SIGNAL has a touch-first mobile layout with a coding keyboard and saved drafts. A hardware keyboard is optional, and desktop and laptop browsers are fully supported.",
+    },
+    {
+      q: "What browser do I need?",
+      a: "Any modern browser: Chrome, Firefox, Safari, or Edge. The 3D story scenes use WebGL where it's available and fall back to 2D where it isn't.",
+    },
+    {
+      q: "Can I use SIGNAL with my class?",
+      a: "Yes. Sign in at /teach and create a teacher account with your name and school. Then create a class for each period or group. Each class gets its own 6-letter join code and invite link. Students open the link or enter the code at /join, sign in with their own Google account, and appear on your roster.",
+    },
+    {
+      q: "What can teachers see?",
+      a: "For each student: chapters cleared, the step they're on, when they last played, XP, and a timeline of passed and failed tries, hints, and game overs. Students who fail the same step 5 or more times are flagged as stuck, and you can export the roster as a CSV. Teachers can't see students' code or their chats with Maya, and can't change anyone's progress. Students can leave a class at any time.",
+    },
+    {
+      q: "Do teachers and students need separate accounts?",
+      a: "Yes. A teacher account can't join a class as a student, and a Google account that's already in a class as a student can't become a teacher. Use your school account to teach.",
+    },
+    {
+      q: "Can students under 13 play?",
+      a: "Yes, with consent. In a class, the school gives consent for educational use when the teacher sets up their account. At home, a parent or guardian needs to agree first. The privacy policy explains how.",
+    },
+    {
+      q: "Is there team or school pricing?",
+      a: `Team and school plans are coming. Act I is free for every student in the meantime. For a classroom, school, or district, email ${SUPPORT_EMAIL}.`,
+    },
+  ];
+}
 
 export default function FAQPage() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
   return (
-    <div
-      className="min-h-dvh"
-      style={{ background: "var(--color-background)" }}
-    >
+    <div className="min-h-dvh" style={{ background: "var(--color-background)" }}>
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -91,103 +103,64 @@ export default function FAQPage() {
         }}
       />
 
-      <div className="relative max-w-[640px] mx-auto px-4 py-10">
+      <main className="relative max-w-[640px] mx-auto px-4 py-10">
         <Link
           href="/"
-          className="text-[12px] tracking-[2px] transition-colors"
-          style={{
-            color: "var(--color-dim)",
-            textDecoration: "none",
-          }}
+          className="text-[12px] tracking-[2px]"
+          style={{ color: "var(--color-foreground)", opacity: 0.8, textDecoration: "none" }}
         >
           ◂ BACK
         </Link>
 
-        <div className="text-center mt-8 mb-10">
-          <div
+        <header className="text-center mt-8 mb-10">
+          <h1
             className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-2"
             style={{ fontSize: "22px", color: "var(--color-signal)" }}
           >
             FAQ
-          </div>
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
+          </h1>
+          <p className="text-[13px]" style={{ color: "var(--color-foreground)", opacity: 0.8 }}>
             frequently asked questions about SIGNAL
-          </div>
-        </div>
+          </p>
+        </header>
 
+        {/* Native <details>: answers are in the HTML, so they read (and index) without JavaScript. */}
         <div className="flex flex-col gap-1">
-          {FAQS.map((faq, i) => {
-            const isOpen = openIndex === i;
-            return (
-              <div key={i}>
-                <button
-                  onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="w-full bg-transparent text-left cursor-pointer px-4 py-3 transition-colors"
-                  style={{
-                    border: "1px solid",
-                    borderColor: isOpen
-                      ? "rgba(var(--signal-rgb),.15)"
-                      : "rgba(255,255,255,.04)",
-                    background: isOpen
-                      ? "rgba(var(--signal-rgb),.03)"
-                      : "rgba(4,8,16,.4)",
-                  }}
+          {faqs().map((faq) => (
+            <details
+              key={faq.q}
+              className="group"
+              style={{ border: "1px solid rgba(var(--signal-rgb),.12)", background: "rgba(4,8,16,.4)" }}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                <h2
+                  className="text-[13px] leading-[1.6] font-normal group-open:text-[var(--color-signal)]"
+                  style={{ color: "var(--color-foreground)" }}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <span
-                      className="text-[13px] leading-[1.6]"
-                      style={{
-                        color: isOpen
-                          ? "var(--color-signal)"
-                          : "var(--color-foreground)",
-                      }}
-                    >
-                      {faq.q}
-                    </span>
-                    <span
-                      className="text-[12px] shrink-0 transition-transform"
-                      style={{
-                        color: "var(--color-dim)",
-                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                      }}
-                    >
-                      ▸
-                    </span>
-                  </div>
-                </button>
-                {isOpen && (
-                  <div
-                    className="px-4 py-3"
-                    style={{
-                      borderLeft: "1px solid rgba(var(--signal-rgb),.1)",
-                      borderRight: "1px solid rgba(var(--signal-rgb),.1)",
-                      borderBottom: "1px solid rgba(var(--signal-rgb),.1)",
-                      background: "rgba(var(--signal-rgb),.015)",
-                    }}
-                  >
-                    <p
-                      className="text-[13px] leading-[1.8]"
-                      style={{
-                        color: "var(--color-foreground)",
-                        opacity: 0.75,
-                      }}
-                    >
-                      {faq.a}
-                    </p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  {faq.q}
+                </h2>
+                <span
+                  aria-hidden="true"
+                  className="text-[12px] shrink-0 transition-transform group-open:rotate-90"
+                  style={{ color: "var(--color-foreground)", opacity: 0.7 }}
+                >
+                  ▸
+                </span>
+              </summary>
+              <p
+                className="px-4 pb-4 text-[13px] leading-[1.8]"
+                style={{ color: "var(--color-foreground)", opacity: 0.85 }}
+              >
+                {faq.a}
+              </p>
+            </details>
+          ))}
         </div>
 
         <div className="text-center mt-10">
           <Link
-            href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
+            href="/play"
+            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px]"
             style={{
               border: "2px solid var(--color-signal)",
               color: "var(--color-signal)",
@@ -197,7 +170,7 @@ export default function FAQPage() {
             GET STARTED
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

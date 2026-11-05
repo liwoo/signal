@@ -1,250 +1,73 @@
-interface Company {
-  title: string;
-  url: string;
-}
+import { WhyLanguagePage, type WhyLink, type WhyReason } from "@/components/why/WhyLanguagePage";
+import { pageMetadata } from "@/lib/site";
 
-interface Reason {
-  title: string;
-  text: string;
-  stat: string;
-  statLabel: string;
-}
+export const metadata = pageMetadata({
+  title: "Why learn Go? — SIGNAL",
+  description:
+    "Why SIGNAL teaches Go: a small language you can hold in your head, a compiler that catches errors before your code runs, built-in concurrency, and a standard library you can build real software with.",
+  path: "/why-go",
+});
 
-const reasons: Array<Reason> = [
+const reasons: WhyReason[] = [
   {
     title: "SIMPLE BY DESIGN",
-    text: "Go has 25 keywords. no classes, no inheritance, no generics complexity (until you need them). the language spec fits in your head. this means you spend time solving problems, not fighting the language.",
+    text: "Go has 25 keywords. There are no classes and no inheritance, and the language spec fits in your head. You spend your time solving problems, not fighting the language.",
     stat: "25",
     statLabel: "KEYWORDS",
   },
   {
     title: "REAL COMPILER FEEDBACK",
-    text: "Go's compiler catches errors before your code runs — unused variables, type mismatches, missing imports. this makes it an incredible teaching language. every error message is a lesson.",
-    stat: "0",
-    statLabel: "RUNTIME SURPRISES",
+    text: "Go's compiler catches errors before your code runs: unused variables, type mismatches, missing imports. That makes it a great teaching language, because every error message is a lesson.",
+    statLabel: "ERRORS CAUGHT BEFORE IT RUNS",
   },
   {
-    title: "INDUSTRY DEMAND",
-    text: "Go developers are among the highest-paid in the industry. the language is used by big companies like Google, Uber, Twitch, Dropbox, Cloudflare, and thousands of startups. learning Go is a direct career investment.",
-    stat: "#4",
-    statLabel: "MOST WANTED (STACK OVERFLOW)",
+    title: "USED IN PRODUCTION",
+    text: "Go runs critical infrastructure at companies like Google, Uber, Twitch, Dropbox, and Cloudflare. Docker, Kubernetes, and Terraform are written in it. Learning Go means learning the language behind much of the modern cloud.",
   },
   {
     title: "CONCURRENCY BUILT IN",
-    text: "Goroutines and channels make concurrent programming intuitive. while other languages bolt on async/await, Go was designed for it from day one. you'll learn real concurrency in Act III.",
-    stat: "1M+",
-    statLabel: "GOROUTINES PER PROCESS",
+    text: "Goroutines and channels make concurrent programming approachable. Go was designed for concurrency from day one, rather than adding it later. You'll write real concurrent code in Act III.",
+    stat: "2 KB",
+    statLabel: "STARTING STACK PER GOROUTINE",
   },
   {
     title: "FAST COMPILATION",
-    text: "Go compiles in seconds, not minutes. in SIGNAL, your code is compiled and executed on the Go Playground in real time. no waiting, no configuration, no build tools.",
-    stat: "<1s",
-    statLabel: "COMPILE TIME",
+    text: "Go compiles in seconds, not minutes. In SIGNAL, your code is compiled and run on the official Go Playground, with no setup, no configuration, and no build tools.",
   },
   {
     title: "BATTERIES INCLUDED",
-    text: "Go's standard library includes HTTP servers, JSON parsing, crypto, testing, and more. you can build production software without any dependencies. Acts II-IV teach the full standard library.",
+    text: "Go's standard library includes HTTP servers, JSON parsing, cryptography, testing, and more. You can build production software without a single dependency, and SIGNAL's later acts put that library to work.",
     stat: "150+",
-    statLabel: "STD LIB PACKAGES",
+    statLabel: "STANDARD LIBRARY PACKAGES",
   },
 ];
 
-// "Google",
-// "Uber",
-// "Twitch",
-// "Dropbox",
-// "Cloudflare",
-// "Docker",
-// "Kubernetes",
-// "Terraform",
-// "Stripe",
-// "Netflix",
-// "PayPal",
-// "American Express",
-// "Meta",
-// "Salesforce"
-
-const companies: Array<Company> = [
-  {
-    title: "Google",
-    url: "https://google.com",
-  },
-  {
-    title: "Uber",
-    url: "https://uber.com",
-  },
-  {
-    title: "Twitch",
-    url: "https://twitch.tv",
-  },
-  {
-    title: "Dropbox",
-    url: "https://dropbox.com",
-  },
-  {
-    title: "Cloudflare",
-    url: "https://google.com",
-  },
-  {
-    title: "Docker",
-    url: "https://google.com",
-  },
-  {
-    title: "Kubernetes",
-    url: "https://google.com",
-  },
-  {
-    title: "Terraform",
-    url: "https://google.com",
-  },
+const companies: WhyLink[] = [
+  { title: "Google", url: "https://go.dev/solutions/google/" },
+  { title: "Uber", url: "https://go.dev/solutions/uber" },
+  { title: "Twitch", url: "https://go.dev/solutions/twitch" },
+  { title: "Dropbox", url: "https://go.dev/solutions/dropbox" },
+  { title: "Cloudflare", url: "https://go.dev/solutions/cloudflare" },
+  { title: "Docker", url: "https://github.com/moby/moby" },
+  { title: "Kubernetes", url: "https://github.com/kubernetes/kubernetes" },
+  { title: "Terraform", url: "https://github.com/hashicorp/terraform" },
 ];
 
 export default function WhyGoPage() {
-  const PAGE_TITLE = "Why Go";
-  const PAGE_SUBTITLE = "why we chose Go as the language for SIGNAL";
-
   return (
-    <div
-      className="min-h-dvh"
-      style={{ background: "var(--color-background)" }}
-    >
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(var(--signal-rgb),.015) 2px, rgba(var(--signal-rgb),.015) 4px)",
-        }}
-      />
-
-      <div className="relative max-w-[640px] mx-auto px-4 py-10">
-        <a
-          href="/"
-          className="text-[12px] tracking-[2px] transition-colors"
-          style={{
-            color: "var(--color-dim)",
-            textDecoration: "none",
-          }}
-        >
-          ◂ BACK
-        </a>
-
-        <div className="text-center mt-8 mb-10">
-          <div
-            className="font-[family-name:var(--font-display)] font-black tracking-[4px] mb-2 uppercase"
-            style={{ fontSize: "22px", color: "var(--color-signal)" }}
-          >
-            {PAGE_TITLE}
-          </div>
-          <div
-            className="text-[13px]"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            {PAGE_SUBTITLE}
-          </div>
-        </div>
-
-        {/* Intro */}
-        <div
-          className="px-4 py-4 mb-6"
-          style={{
-            border: "1px solid rgba(var(--signal-rgb),.1)",
-            borderLeft: "3px solid var(--color-signal)",
-            background: "rgba(var(--signal-rgb),.02)",
-          }}
-        >
-          <p
-            className="text-[14px] leading-[1.9]"
-            style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-          >
-            Go is the fastest-growing backend language in the world. designed at
-            Google, it powers infrastructure at every major tech company —
-            Docker, Kubernetes, Terraform, and thousands of production APIs.
-            it&apos;s also one of the best first languages to learn.
-          </p>
-        </div>
-
-        {/* Reasons */}
-        <div className="flex flex-col gap-4">
-          {reasons.map(({ title, stat, statLabel, text }) => (
-            <div
-              key={title}
-              className="px-4 py-4"
-              style={{
-                border: "1px solid rgba(255,255,255,.04)",
-                background: "rgba(4,8,16,.4)",
-              }}
-            >
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <div
-                  className="font-[family-name:var(--font-display)] text-[13px] tracking-[2px] font-bold"
-                  style={{ color: "var(--color-foreground)" }}
-                >
-                  {title}
-                </div>
-                <div className="text-right shrink-0">
-                  <div
-                    className="font-[family-name:var(--font-display)] text-[16px] font-black"
-                    style={{ color: "var(--color-signal)" }}
-                  >
-                    {stat}
-                  </div>
-                  <div
-                    className="text-[10px] tracking-[1px]"
-                    style={{ color: "var(--color-dim)" }}
-                  >
-                    {statLabel}
-                  </div>
-                </div>
-              </div>
-              <p
-                className="text-[13px] leading-[1.8]"
-                style={{ color: "var(--color-foreground)", opacity: 0.8 }}
-              >
-                {text}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Who uses Go */}
-        <div className="mt-8 mb-6">
-          <div
-            className="text-[11px] tracking-[3px] text-center mb-4"
-            style={{ color: "var(--color-dim)" }}
-          >
-            COMPANIES USING GO IN PRODUCTION
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            {companies.map(({ title, url }) => (
-              <a
-                key={title}
-                href={url}
-                className="opacity-[60%] text-[12px] tracking-[1px] px-2.5 py-1 hover:bg-slate-800 hover:text-green-600 cursor-pointer"
-                style={{
-                  border: "1px solid rgba(var(--signal-rgb),.08)",
-                }}
-              >
-                {title}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center mt-10">
-          <a
-            href="/"
-            className="inline-block bg-transparent py-3 px-8 font-[family-name:var(--font-display)] text-[14px] tracking-[3px] transition-colors"
-            style={{
-              border: "2px solid var(--color-signal)",
-              color: "var(--color-signal)",
-              textDecoration: "none",
-            }}
-          >
-            START LEARNING GO
-          </a>
-        </div>
-      </div>
-    </div>
+    <WhyLanguagePage
+      language="go"
+      name="Go"
+      subtitle="why SIGNAL teaches Go"
+      intro={
+        <p>
+          Designed at Google, Go powers infrastructure at major tech companies. Docker, Kubernetes, and Terraform are
+          written in it, along with countless production APIs. It&apos;s also one of the best first languages to learn.
+        </p>
+      }
+      reasons={reasons}
+      usedBy={companies}
+      usedByLabel="GO IN PRODUCTION"
+    />
   );
 }

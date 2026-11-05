@@ -1,5 +1,5 @@
 import { logEvent } from "firebase/analytics";
-import { getFirebaseAnalytics } from "./firebase";
+import { analyticsPermitted, getFirebaseAnalytics } from "./firebase";
 
 // ── Typed event helper ──
 
@@ -8,6 +8,7 @@ type EventParams = Record<string, string | number | boolean>;
 async function track(name: string, params?: EventParams) {
   const analytics = await getFirebaseAnalytics();
   if (!analytics) {
+    if (!analyticsPermitted()) return; // no consent — drop silently
     console.warn(`[Analytics] Dropped "${name}" — analytics not available`);
     return;
   }

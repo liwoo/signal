@@ -205,6 +205,20 @@ export function saveActiveJeopardy(events: JeopardyEvent[]): void {
   safeSessionSet(KEYS.jeopardy, events);
 }
 
+// ── Analytics consent (cookie banner) ──
+
+const ANALYTICS_CONSENT_KEY = "signal_analytics_consent";
+
+export type AnalyticsConsent = "granted" | "denied";
+
+export function loadAnalyticsConsent(): AnalyticsConsent | null {
+  return safeGet<AnalyticsConsent | null>(ANALYTICS_CONSENT_KEY, null);
+}
+
+export function saveAnalyticsConsent(consent: AnalyticsConsent): void {
+  safeSet(ANALYTICS_CONSENT_KEY, consent);
+}
+
 // ── Reset ──
 
 export function resetAllProgress(): void {

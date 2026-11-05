@@ -1,5 +1,7 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+import { getAnalytics, isSupported, setAnalyticsCollectionEnabled, type Analytics } from "firebase/analytics";
+import { analyticsAllowed, browserTimeZone } from "./consent";
+import { loadAnalyticsConsent } from "./storage/local";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,10 +21,16 @@ const app = hasConfig && getApps().length === 0 ? initializeApp(firebaseConfig) 
 let analyticsInstance: Analytics | null = null;
 let initPromise: Promise<Analytics | null> | null = null;
 
-/** Resolves the analytics instance (browser-only, lazy). */
+/** False until an EU/UK visitor opts in, or after anyone opts out (cookie banner). */
+export function analyticsPermitted(): boolean {
+  if (typeof window === "undefined") return false;
+  return analyticsAllowed(loadAnalyticsConsent(), browserTimeZone());
+}
+
+/** Resolves the analytics instance (browser-only, lazy, consent-gated). */
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
+  if (!analyticsPermitted()) return null;
   if (analyticsInstance) return analyticsInstance;
-  if (typeof window === "undefined") return null;
   if (!hasConfig || !app) {
     console.warn("[Firebase] Missing config — check NEXT_PUBLIC_FIREBASE_* env vars",
       { apiKey: !!firebaseConfig.apiKey, projectId: !!firebaseConfig.projectId, appId: !!firebaseConfig.appId, measurementId: !!firebaseConfig.measurementId });
@@ -51,4 +59,10 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
 /** Eagerly initialize analytics — call once on app mount. */
 export function initFirebaseAnalytics(): void {
   getFirebaseAnalytics();
+}
+
+/** Apply a cookie-banner choice: start analytics, or stop an instance that's already running. */
+export function applyAnalyticsConsent(granted: boolean): void {
+  if (analyticsInstance) setAnalyticsCollectionEnabled(analyticsInstance, granted);
+  if (granted) initFirebaseAnalytics();
 }

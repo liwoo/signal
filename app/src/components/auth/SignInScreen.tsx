@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "./AuthProvider";
 
 interface SignInScreenProps {
@@ -111,6 +112,13 @@ export function SignInScreen({
             {footer}{" "}
             <span className="cursor-blink">█</span>
           </div>
+
+          <p className="text-center mt-4 text-[11px] leading-[1.7]" style={{ color: "var(--color-foreground)", opacity: 0.75 }}>
+            By continuing you agree to the{" "}
+            <Link href="/terms" className="underline" style={{ color: "var(--color-signal)" }}>terms</Link> and{" "}
+            <Link href="/privacy" className="underline" style={{ color: "var(--color-signal)" }}>privacy policy</Link>.
+            Under 13? Play through your class, or ask a parent or guardian first.
+          </p>
         </div>
       </div>
     </div>

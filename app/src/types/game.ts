@@ -337,7 +337,7 @@ export const LEVEL_THRESHOLDS: LevelThreshold[] = [
   { level: 6, xpRequired: 3500, unlock: "Syntax highlighting — permanent" },
   { level: 7, xpRequired: 5500, unlock: "Extra energy capacity (+50)" },
   { level: 8, xpRequired: 8000, unlock: "GHOST channel" },
-  { level: 9, xpRequired: 10000, unlock: "Part II + Web Mode theme" },
+  { level: 9, xpRequired: 10000, unlock: "Web acts (VI–IX) + Web Mode theme" },
   { level: 10, xpRequired: 12500, unlock: "HTTP request preview panel" },
   { level: 11, xpRequired: 15000, unlock: "AI token capacity +5" },
   { level: 12, xpRequired: 18000, unlock: "NEXUS dossier" },
