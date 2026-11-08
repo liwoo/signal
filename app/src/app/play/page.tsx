@@ -192,6 +192,8 @@ interface ChapterConfig {
   // Intro screen content
   tagline: string;
   storyLines: [string, string];
+  /** Where a story line names Go concepts, the line in another language. */
+  storyLinesByLanguage?: Partial<Record<LanguageId, [string, string]>>;
   ctaLabel: string;
   // Boss fight config (only for boss chapters)
   bossFightConfig?: BossFightConfig;
@@ -290,6 +292,16 @@ const CHAPTERS: ChapterConfig[] = [
       "dr. reeves photographed the guard schedule. five guards, four floors.",
       "maps. range. find the gap. one floor goes clear in the next window.",
     ],
+    storyLinesByLanguage: {
+      python: [
+        "dr. reeves photographed the guard schedule. five guards, four floors.",
+        "dictionaries. sets. find the gap. one floor goes clear in the next window.",
+      ],
+      javascript: [
+        "dr. reeves photographed the guard schedule. five guards, four floors.",
+        "objects. sets. find the gap. one floor goes clear in the next window.",
+      ],
+    },
     ctaLabel: "START CHAPTER",
   },
   {
@@ -308,6 +320,16 @@ const CHAPTERS: ChapterConfig[] = [
       "GHOST's keyword scanners intercept every outgoing message. plain text is death.",
       "strings. runes. strconv. build the cipher. encrypt the relay. stay invisible.",
     ],
+    storyLinesByLanguage: {
+      python: [
+        "GHOST's keyword scanners intercept every outgoing message. plain text is death.",
+        "strings. slices. try/except. build the cipher. encrypt the relay. stay invisible.",
+      ],
+      javascript: [
+        "GHOST's keyword scanners intercept every outgoing message. plain text is death.",
+        "strings. characters. NaN. build the cipher. encrypt the relay. stay invisible.",
+      ],
+    },
     ctaLabel: "START CHAPTER",
   },
 ];
@@ -316,7 +338,7 @@ export default function PlayPage() {
   return <GameRouter />;
 }
 
-/** The chapters playable in a language, each realized in it (Act I ships in every language). */
+/** The chapters playable in a language, each realized in it (Act I and the built Act II ship in every language). */
 function chaptersFor(language: LanguageId): ChapterConfig[] {
   return CHAPTERS.filter((c) => isChallengeAvailable(c.challenge.id, language)).map((c) => ({
     ...c,
@@ -324,7 +346,9 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
     introLevel: realizeAdventureLevel(c.introLevel, language),
     completeLevel: realizeAdventureLevel(c.completeLevel, language),
     bossLevel: c.bossLevel ? realizeBossLevel(c.bossLevel, language) : undefined,
-    storyLines: c.storyLines.map((l) => l.replace("{LANG}", getLanguageService(language).label)) as [string, string],
+    storyLines: (c.storyLinesByLanguage?.[language] ?? c.storyLines).map((l) =>
+      l.replace("{LANG}", getLanguageService(language).label),
+    ) as [string, string],
   }));
 }
 
