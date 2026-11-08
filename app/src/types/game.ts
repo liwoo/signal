@@ -274,6 +274,10 @@ export interface PlayerSettings {
   languageChosen: boolean;
   /** True once the opening "how she got here" prologue has played (it plays once). */
   prologueSeen: boolean;
+  /** Study (no countdown, no rush) or Thriller (the timed escape). Unset = thriller. */
+  pace?: Pace;
+  /** What the player already codes in, asked on the first session. */
+  priorLanguage?: PriorLanguage;
 }
 
 // ── Chat ──
@@ -322,7 +326,7 @@ export interface SubmissionResult {
   firstTry?: boolean;
 }
 
-/** The actionable result of a rejected submission, kept beside the editor. */
+/** The actionable result of a TEST run or a rejected transmission, kept beside the editor. */
 export interface SubmissionFeedback {
   /** The compiler or mission-check message in plain language. */
   message: string;
@@ -330,7 +334,70 @@ export interface SubmissionFeedback {
   line?: number;
   /** A small, opt-in nudge that teaches the underlying idea without solving it. */
   lesson?: string;
+  /** A free local TEST run, or a TRANSMIT to Maya that she rejected. Defaults to "transmit". */
+  source?: "test" | "transmit";
+  /** What "correct" means for this step, check by check, as of this run. */
+  report?: CheckReport;
+  /** The code that was run — the panel reads as stale once the player edits past it. */
+  code?: string;
 }
+
+// ── Mission checks ──
+// "Correct" is three separate things — it runs, it uses the data it should, and
+// its output matches. Reporting them separately lets the player see which one
+// failed instead of a single pass/fail.
+
+export type CheckId = "runs" | "uses" | "output";
+/** "pending" = not reached this run (e.g. output can't be checked when it doesn't compile). */
+export type CheckStatus = "pass" | "fail" | "pending";
+
+export interface MissionCheck {
+  id: CheckId;
+  /** Short, stable label, e.g. "Runs without errors". */
+  label: string;
+  status: CheckStatus;
+  /** Why it failed, in one line (only set on "fail"). */
+  detail?: string;
+}
+
+/** One line of output split around the part that differs. */
+export interface DiffLine {
+  before: string;
+  /** The differing segment — empty when this side is missing something. */
+  mid: string;
+  after: string;
+}
+
+/** The first place the program's output departs from the expected output. */
+export interface OutputDiff {
+  /** One-based line number of the first mismatch. */
+  line: number;
+  /** Lines in the expected output. */
+  totalLines: number;
+  expected: DiffLine;
+  /** null when the program printed fewer lines than expected. */
+  actual: DiffLine | null;
+  /** One plain sentence naming the difference, e.g. `missing "- " before "SUBLEVEL"`. */
+  note: string;
+}
+
+export interface CheckReport {
+  checks: MissionCheck[];
+  /** Every check passed — the step would clear on TRANSMIT. */
+  passed: boolean;
+  /** Present when the output was compared and didn't match. */
+  diff?: OutputDiff;
+  /** What the program printed (when it ran). */
+  actual?: string;
+  /** The compiler couldn't be reached; only local checks ran. */
+  offline?: boolean;
+}
+
+/** How much pressure the player wants: study = no countdown or rush; thriller = the timed escape. */
+export type Pace = "study" | "thriller";
+
+/** What the player already codes in before SIGNAL — drives the syntax bridge. */
+export type PriorLanguage = LanguageId | "none";
 
 // ── Economy ──
 

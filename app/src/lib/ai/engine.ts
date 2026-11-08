@@ -1,4 +1,5 @@
-import type { CompileModule, LanguageId } from "@/types/game";
+import type { CheckReport, CompileModule, LanguageId, MissionCheck } from "@/types/game";
+import { buildReport, CHECK_LABELS, diffOutput, usesCheck } from "@/lib/game/checks";
 import { getLanguageService } from "@/lib/lang/registry";
 import type { LanguageService } from "@/lib/lang/types";
 import type { StepBank } from "./banks/types";
@@ -12,6 +13,8 @@ export type { StepBank };
 export interface MayaResponse {
   reply: string;
   isComplete: boolean;
+  /** Code submissions: the mission checks, one by one, as of this run. */
+  report?: CheckReport;
 }
 
 // ── Keyword Matching ──
@@ -2170,13 +2173,37 @@ export async function callMayaEngineAsync(
   }
   const lang = getLanguageService(language);
 
+  // The three checks a player can see: it runs, it uses what it must, and its
+  // output is right. Each return below reports them alongside Maya's reply.
+  const required = stepTest?.requiredCode ?? [];
+  const uses = required.length > 0 ? usesCheck(required, lang.codeForRequiredCheck(userMessage)) : null;
+  const outputLabel = stepTest?.expectedOutput
+    ? stepTest.testHarness ? CHECK_LABELS.harness : CHECK_LABELS.output
+    : CHECK_LABELS.verdict;
+  const checks = (runs: MissionCheck, output: MissionCheck["status"], outputDetail?: string): MissionCheck[] => [
+    runs,
+    ...(uses ? [uses] : []),
+    {
+      id: "output",
+      label: outputLabel,
+      status: output,
+      ...(output === "fail" && outputDetail ? { detail: outputDetail } : {}),
+    },
+  ];
+  const runsOk: MissionCheck = { id: "runs", label: CHECK_LABELS.runs, status: "pass" };
+  const runsFail = (detail: string): MissionCheck => ({ id: "runs", label: CHECK_LABELS.runs, status: "fail", detail });
+
   // 1. Local diagnostics first (instant)
   const diagnostics = lang.diagnose(userMessage);
   const localErrors = diagnostics.filter((d) => d.severity === "error");
   if (localErrors.length > 0) {
     const first = localErrors[0];
     const prefix = inRush ? "no time for bugs. " : "";
-    return { reply: `${prefix}line ${first.line}: ${first.message}`, isComplete: false };
+    return {
+      reply: `${prefix}line ${first.line}: ${first.message}`,
+      isComplete: false,
+      report: buildReport(checks(runsFail(`line ${first.line}: ${first.message}`), "pending")),
+    };
   }
 
   // 2–3. Run it. The language injects the test harness and bundles any shipped
@@ -2189,40 +2216,59 @@ export async function callMayaEngineAsync(
 
   // 4. Offline fallback → use local pattern matching
   if (run.status === "offline") {
-    return evaluateCodeLocal(bank, userMessage, inRush, attempts, lang);
+    const local = evaluateCodeLocal(bank, userMessage, inRush, attempts, lang);
+    return {
+      ...local,
+      report: buildReport(
+        checks({ id: "runs", label: CHECK_LABELS.runs, status: "pending" }, "pending"),
+        { offline: true },
+      ),
+    };
   }
 
   // 5. Compile/runtime errors → Maya reports them
   if (run.status === "error") {
-    return { reply: lang.explainError(run.error, inRush), isComplete: false };
+    const reply = lang.explainError(run.error, inRush);
+    return { reply, isComplete: false, report: buildReport(checks(runsFail(reply), "pending")) };
   }
 
   // 5b. Analyzer warnings (code runs but has issues like Println with format verbs)
   if (run.warning) {
-    return { reply: lang.explainWarning(run.warning, inRush), isComplete: false };
+    const reply = lang.explainWarning(run.warning, inRush);
+    return { reply, isComplete: false, report: buildReport(checks(runsFail(reply), "pending"), { actual: run.stdout }) };
   }
 
   // 6. Test harness — output comparison (the scalable path)
   if (stepTest?.expectedOutput) {
-    if (outputsMatch(run.stdout, stepTest.expectedOutput)) {
+    const diff = diffOutput(stepTest.expectedOutput, run.stdout);
+    const report = buildReport(
+      checks(runsOk, diff ? "fail" : "pass", diff?.note),
+      { actual: run.stdout, ...(diff ? { diff } : {}) },
+    );
+    if (!diff) {
       // Check requiredCode — prevent hardcoding the answer
-      if (stepTest.requiredCode && stepTest.requiredCode.length > 0) {
-        const checked = lang.codeForRequiredCheck(userMessage);
-        const missing = stepTest.requiredCode.find((pat) => !checked.includes(pat));
-        if (missing) {
-          return {
-            reply: `output is correct but you're not using the right approach. your code must include \`${missing}\`.`,
-            isComplete: false,
-          };
-        }
+      if (uses?.status === "fail") {
+        const missing = required.find((pat) => !lang.codeForRequiredCheck(userMessage).includes(pat));
+        return {
+          reply: `output is correct but you're not using the right approach. your code must include \`${missing}\`.`,
+          isComplete: false,
+          report,
+        };
       }
       const reply = bank.correctResponse.replace("||COMPLETE||", "").trim();
-      return { reply, isComplete: true };
+      return { reply, isComplete: true, report };
     }
     // Output didn't match — use outputPatterns for targeted feedback, then a
     // concrete diff so the player can see exactly what's off.
-    return evaluateWrongOutput(bank, run.stdout, inRush, stepTest.expectedOutput);
+    return { ...evaluateWrongOutput(bank, run.stdout, inRush, stepTest.expectedOutput), report };
   }
+
+  // Steps graded by Maya's patterns have no fixed expected string: the third
+  // check is her verdict on what the program printed / how it's written.
+  const verdict = (res: MayaResponse): MayaResponse => ({
+    ...res,
+    report: buildReport(checks(runsOk, res.isComplete ? "pass" : "fail", res.reply), { actual: run.stdout }),
+  });
 
   // 7. Output pattern matching (for steps without test harness)
   if (bank.outputPatterns) {
@@ -2230,13 +2276,13 @@ export async function callMayaEngineAsync(
       if (pattern.match(run.stdout)) {
         const isComplete = pattern.response.includes("||COMPLETE||");
         const reply = pattern.response.replace("||COMPLETE||", "").trim();
-        return { reply, isComplete };
+        return verdict({ reply, isComplete });
       }
     }
   }
 
   // 9. Fall back to code pattern matching
-  return evaluateCodePatterns(bank, userMessage, inRush, attempts);
+  return verdict(evaluateCodePatterns(bank, userMessage, inRush, attempts));
 }
 
 // ── Wrong output feedback ──
@@ -2264,17 +2310,6 @@ function evaluateWrongOutput(bank: StepBank, output: string, inRush: boolean, ex
     reply += "\n\n" + pickRandom(bank.rushDialogue);
   }
   return { reply, isComplete: false };
-}
-
-/**
- * Compare program output to the expected string. Trims surrounding whitespace.
- * Required output is plain ASCII (paste is disabled in the editor, so every
- * character must be on a normal keyboard); a player who still types an
- * interpunct separator (· • ∙) from an older brief is read as the plain dash.
- */
-function outputsMatch(output: string, expected: string): boolean {
-  const norm = (s: string) => s.trim().replace(/[·•∙]/g, "-");
-  return norm(output) === norm(expected);
 }
 
 // ── Local Code Evaluation (sync, offline) ──

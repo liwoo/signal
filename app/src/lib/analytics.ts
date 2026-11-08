@@ -50,6 +50,11 @@ export function trackCodeSubmit(chapterId: string, stepIndex: number, attempt: n
   });
 }
 
+/** A free local TEST run (not a submission). */
+export function trackCodeTest(chapterId: string, stepIndex: number, passed: boolean) {
+  track("code_test", { chapter_id: chapterId, step_index: stepIndex, passed });
+}
+
 // ── Boss fight ──
 
 export function trackBossStart(bossId: string) {

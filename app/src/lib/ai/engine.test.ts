@@ -1851,3 +1851,58 @@ func main() {
     expect(r.reply).toContain("GRANT");
   });
 });
+
+// ═══════════════════════════════════════════════
+//  MISSION CHECKS — the report beside the editor
+// ═══════════════════════════════════════════════
+
+describe("mission check report", () => {
+  const locationTest: StepTestConfig = {
+    expectedOutput: "CELL B-09 - SUBLEVEL 3",
+    requiredCode: ["cellblock.Cell", "cellblock.Sublevel"],
+  };
+  const usesBoth = `package main
+import "fmt"
+func main() {
+    fmt.Println("CELL", "cellblock.Cell", "cellblock.Sublevel")
+}`;
+
+  it("reports runs / uses / output separately and pinpoints the output difference", async () => {
+    mockCompile("CELL B-09 SUBLEVEL 3\n");
+    const r = await callAsync("chapter-01:location", { code: usesBoth, stepTest: locationTest });
+    expect(r.isComplete).toBe(false);
+    expect(r.report?.checks.map((c) => [c.id, c.status])).toEqual([
+      ["runs", "pass"],
+      ["uses", "pass"],
+      ["output", "fail"],
+    ]);
+    expect(r.report?.diff?.note).toBe('missing "- " before "SUBLEVEL"');
+    expect(r.report?.passed).toBe(false);
+  });
+
+  it("flags hardcoding even when the output matches", async () => {
+    mockCompile("CELL B-09 - SUBLEVEL 3\n");
+    const r = await callAsync("chapter-01:location", { stepTest: locationTest });
+    expect(r.isComplete).toBe(false);
+    const uses = r.report?.checks.find((c) => c.id === "uses");
+    expect(uses?.status).toBe("fail");
+    expect(r.report?.checks.find((c) => c.id === "output")?.status).toBe("pass");
+  });
+
+  it("marks output pending when the program doesn't compile", async () => {
+    mockCompile("", "./prog.go:4:5: undefined: cellblock");
+    const r = await callAsync("chapter-01:location", { code: usesBoth, stepTest: locationTest });
+    expect(r.report?.checks.map((c) => [c.id, c.status])).toEqual([
+      ["runs", "fail"],
+      ["uses", "pass"],
+      ["output", "pending"],
+    ]);
+  });
+
+  it("passes every check on a correct solution", async () => {
+    mockCompile("CELL B-09 - SUBLEVEL 3\n");
+    const r = await callAsync("chapter-01:location", { code: usesBoth, stepTest: locationTest });
+    expect(r.isComplete).toBe(true);
+    expect(r.report?.passed).toBe(true);
+  });
+});

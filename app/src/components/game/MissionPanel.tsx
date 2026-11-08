@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Challenge, ChallengeStep } from "@/types/game";
+import { CHECK_LABELS, usesLabel } from "@/lib/game/checks";
 
 interface MissionPanelProps {
   challenge: Challenge;
@@ -93,6 +94,8 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
         </p>
       </div>
 
+      <DoneWhen step={currentStep} />
+
       {currentStep.quickCheck ? (
         <div className="mb-5 flex items-center gap-2 px-4 py-3" style={{ border: "1px solid color-mix(in srgb, var(--color-info) 30%, transparent)", background: "color-mix(in srgb, var(--color-info) 4%, transparent)" }}>
           <span className="text-[10px] leading-[1.5]" style={{ color: "var(--color-info)" }}>
@@ -100,6 +103,52 @@ export function MissionPanel({ challenge, currentStep, currentStepIndex, totalSt
           </span>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * What "correct" means for this step — the same checks, with the same labels,
+ * that TEST reports after a run. Expected output is shown when the player's own
+ * program prints it (not for hidden test runs).
+ */
+function DoneWhen({ step }: { step: ChallengeStep }) {
+  const required = step.requiredCode ?? [];
+  const outputLabel = step.expectedOutput
+    ? step.testHarness ? CHECK_LABELS.harness : CHECK_LABELS.output
+    : CHECK_LABELS.verdict;
+  const items = [CHECK_LABELS.runs, ...(required.length > 0 ? [usesLabel(required)] : []), outputLabel];
+  const showExpected = !!step.expectedOutput && !step.testHarness;
+
+  return (
+    <div className="mb-5 p-4" style={{ border: "1px solid var(--color-border)" }}>
+      <div className="text-[10px] font-[family-name:var(--font-display)] font-bold tracking-[2px] mb-2" style={{ color: "var(--color-foreground)" }}>
+        ▸ DONE WHEN
+      </div>
+      <ol className="flex flex-col gap-1">
+        {items.map((label, i) => (
+          <li key={label} className="flex items-baseline gap-2 text-[13px]" style={{ color: "var(--color-foreground)" }}>
+            <span className="text-[10px]" style={{ color: "var(--color-dim)" }}>{i + 1}</span>
+            <span>
+              {label.split("`").map((part, j) =>
+                j % 2 === 1 ? <code key={j} style={{ color: "var(--color-syn-ident)" }}>{part}</code> : <span key={j}>{part}</span>,
+              )}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {showExpected ? (
+        <pre
+          className="mt-2.5 max-h-[160px] overflow-y-auto px-3 py-2 text-[12px] leading-[1.5]"
+          style={{ background: "var(--color-code-bg)", color: "var(--color-signal)", border: "1px solid var(--color-border)" }}
+          aria-label="Expected output"
+        >
+          {step.expectedOutput}
+        </pre>
+      ) : null}
+      <p className="mt-2.5 text-[11px] leading-[1.5]" style={{ color: "var(--color-dim)" }}>
+        ▷ TEST checks these for free. TRANSMIT sends it to maya.
+      </p>
     </div>
   );
 }

@@ -72,6 +72,13 @@ src/
 - **Autocomplete for shipped packages is automatic.** `extraPackagesFromModule(compileModule)` (in `src/lib/go/completions.ts`) parses exported `const`/`var`/`func`/`type`; `play/page.tsx` passes the result as `CodeEditor`'s `extraPackages` prop. So `pkg.` lists members and a bare prefix suggests the package once imported. Don't hardcode game packages into the stdlib registry.
 - **Every chapter's scaffold step starts by printing `Hello World` into an empty editor** (`starterCode: ""`, no injected code) — printing teases out package/import/main naturally. Don't frame scaffold steps as "set up the skeleton." Example follow-on: Ch1 Step 2 imports `terminal/cellblock` and prints `Cell`/`Sublevel` (teaches importing a package's exported members, blocks hardcoding).
 
+### Test / Transmit, Pace & Takeaways
+
+- **TEST is free, TRANSMIT counts.** `useGame.testCode` runs the same grading as a transmission but is not an attempt, never messages Maya, and doesn't touch the first-try bonus; the clock keeps running. Both show the mission-check panel (runs / uses / output + expected-vs-actual diff) from `MayaResponse.report`. Keep button labels stable (`▷ TEST`, `TRANSMIT TO MAYA ▸`). Spec: `../spec/infrastructure/test-transmit-pace-takeaway.md`.
+- **Pace is separate from guided mode.** `settings.pace` (`study` = no countdown, no rush, no time rewards; unset = `thriller`) is passed to `useGame`. Guided mode is instruction, pace is pressure.
+- **First session is one choice per screen** (hook → what you know → pace), driven by `onboarding` state in `GameRouter`. Don't add choices to the intro panel.
+- **Every realized chapter needs a takeaway** in `src/data/takeaways.ts` (headline, pattern, per-language snippet rule + fallback, why, where it's used, one transfer question). `takeaway.test.ts` enforces it. Preview all of this at `/dev/ux`.
+
 ### Adventure Levels (playable story beats)
 
 - **Cinematics are now playable.** Each chapter's intro and aftermath is an `AdventureLevel` (`src/lib/adventure/levels.ts`): a Sims-style 3D stealth beat where the player steers Maya and she only relinquishes control at her terminal. `ChapterConfig.introLevel` / `completeLevel` in `play/page.tsx`; the old `introScenes` / `completeScenes` are the WebGL fallback only.
