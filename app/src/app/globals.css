@@ -309,6 +309,22 @@ textarea {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
+/* Language mascot idle hop — stepped, like the sprites */
+@keyframes mascot-bob {
+  0%, 60%, 100% { transform: translateY(0); }
+  70% { transform: translateY(-12%); }
+  80% { transform: translateY(0); }
+  88% { transform: translateY(-5%); }
+}
+
+.mascot-bob {
+  animation: mascot-bob 2.4s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-bob { animation: none; }
+}
+
 /* AI button entrance glow */
 @keyframes ai-glow {
   0%, 100% {

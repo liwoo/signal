@@ -1,6 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { LanguageMascot } from "@/components/ui/LanguageMascot";
+import { useLanguage } from "@/components/game/LanguageContext";
+import { LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 
 interface TopBarProps {
   xp: number;
@@ -18,6 +21,8 @@ interface TopBarProps {
 
 export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, compact = false, musicEnabled = true, onToggleMusic }: TopBarProps) {
   const pct = Math.min((xp / xpMax) * 100, 100);
+  const language = useLanguage();
+  const langLabel = LANGUAGE_OPTIONS.find((o) => o.id === language)?.label ?? "GO";
 
   return (
     <div
@@ -30,6 +35,20 @@ export function TopBar({ xp, xpMax, level, inRush, busy, timerSlot, hearts, comp
       {/* Logo */}
       <div className={`font-[family-name:var(--font-display)] text-[var(--color-signal)] shrink-0 glow-pulse ${compact ? "text-[10px] tracking-[2px]" : "text-[11px] tracking-[4px]"}`}>
         SIGNAL
+      </div>
+
+      {/* The language being learned — its mascot, always in view */}
+      <div
+        className="flex items-center gap-1.5 shrink-0"
+        title={`learning in ${langLabel.toLowerCase()}`}
+        aria-label={`learning in ${langLabel.toLowerCase()}`}
+      >
+        <LanguageMascot language={language} size={compact ? 18 : 20} />
+        {!compact ? (
+          <span className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-[9px] tracking-[2px]">
+            {langLabel}
+          </span>
+        ) : null}
       </div>
 
       {/* XP Bar */}

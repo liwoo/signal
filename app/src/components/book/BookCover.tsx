@@ -2,6 +2,7 @@
 
 import { bookFor } from "@/data/book";
 import { useLanguage } from "@/components/game/LanguageContext";
+import { LanguageMascot } from "@/components/ui/LanguageMascot";
 import type { BookChapter } from "@/data/book";
 
 interface BookCoverProps {
@@ -18,9 +19,12 @@ interface BookCoverProps {
  * gradients and an SVG grain, no images, no border-radius, no box-shadow.
  */
 export function BookCover({ chapter = null, width = 220, className = "" }: BookCoverProps) {
-  const BOOK = bookFor(useLanguage());
+  const language = useLanguage();
+  const BOOK = bookFor(language);
   const height = Math.round(width * 1.5);
   const unit = width / 220;
+  // Gilt title fits inside the embossed frame (~168 units): GO stays big, JAVASCRIPT shrinks.
+  const titleSize = Math.min(46, 160 / (BOOK.title.length * 1.05));
   return (
     <div className={`relative select-none ${className}`} style={{ width, height: height + 10 * unit }} aria-label={`${BOOK.title}: ${BOOK.subtitle}, by ${BOOK.author}`}>
       {/* Page block showing below the boards */}
@@ -44,13 +48,26 @@ export function BookCover({ chapter = null, width = 220, className = "" }: BookC
         />
         {/* Title block */}
         <div className="absolute flex flex-col items-center text-center" style={{ left: 28 * unit, right: 16 * unit, top: 56 * unit }}>
-          <div className="book-gilt font-[family-name:var(--font-book)] font-semibold" style={{ fontSize: 46 * unit, letterSpacing: `${0.28 * unit}em`, lineHeight: 1 }}>
+          <div className="book-gilt font-[family-name:var(--font-book)] font-semibold" style={{ fontSize: titleSize * unit, letterSpacing: `${0.28 * unit}em`, lineHeight: 1 }}>
             {BOOK.title}
           </div>
           <div className="book-gilt mt-2 font-[family-name:var(--font-book)]" style={{ fontSize: 11 * unit, letterSpacing: `${0.34 * unit}em` }}>
             {BOOK.subtitle}
           </div>
           <div className="mt-3 h-px" style={{ width: 46 * unit, background: "rgba(201,165,90,0.6)" }} />
+        </div>
+        {/* The language's mascot, stuck on the leather like a laptop sticker */}
+        <div
+          className="book-paper absolute flex items-center justify-center"
+          style={{
+            left: 44 * unit, top: 176 * unit, width: 58 * unit, height: 58 * unit,
+            transform: "rotate(-7deg)",
+            opacity: 0.94,
+            outline: "1px solid rgba(0,0,0,0.18)",
+          }}
+          aria-hidden="true"
+        >
+          <LanguageMascot language={language} size={42 * unit} />
         </div>
         <div className="book-emboss absolute text-center font-[family-name:var(--font-book)] italic" style={{ left: 28 * unit, right: 16 * unit, bottom: 36 * unit, fontSize: 11 * unit, letterSpacing: `${0.2 * unit}em` }}>
           {BOOK.author}

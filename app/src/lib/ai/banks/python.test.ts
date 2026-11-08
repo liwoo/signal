@@ -9,7 +9,7 @@ import { chapter03 } from "@/data/challenges/chapter-03";
 import { realizeChallenge } from "@/data/challenges/realizations";
 import { callMayaEngine, callMayaEngineAsync, type StepTestConfig } from "@/lib/ai/engine";
 import { usePyodideInNode } from "@/lib/python/node-backend";
-import { SOLUTIONS } from "@/lib/lang/act1.fixtures";
+import { SOLUTIONS } from "@/lib/lang/fixtures";
 import { PYTHON_BANKS } from "./python";
 
 const PY = SOLUTIONS.python;

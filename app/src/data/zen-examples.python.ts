@@ -1,6 +1,6 @@
 import type { ZenExample } from "./zen-examples";
 
-// Before → after for every Python zen rule (src/lib/game/zen-python.ts).
+// Before → after for every Python zen rule (src/lib/game/zen-python.ts), Acts I and II.
 export const PYTHON_ZEN_EXAMPLES: Record<string, ZenExample> = {
   py_no_semicolon: {
     before: 'print("Hello World");',
@@ -111,5 +111,80 @@ export const PYTHON_ZEN_EXAMPLES: Record<string, ZenExample> = {
     before: "result = validate_code(25, 30)\nprint(result[0], result[1])",
     after: "s, v = validate_code(25, 30)\nprint(s, v)",
     change: "unpack the tuple into names, not positions",
+  },
+  py_line_length: {
+    before: 'roster = {"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2", "Park": "Floor 3"}',
+    after: 'roster = {\n    "Chen": "Floor 1",\n    "Alvarez": "Floor 2",\n    "Volkov": "Floor 2",\n    "Park": "Floor 3",\n}',
+    change: "break long lines inside their brackets — 79 characters at most",
+  },
+  py_dict_literal: {
+    before: 'def build_roster():\n    roster = {}\n    roster["Chen"] = "Floor 1"\n    roster["Park"] = "Floor 3"\n    return roster',
+    after: 'def build_roster():\n    return {\n        "Chen": "Floor 1",\n        "Park": "Floor 3",\n    }',
+    change: "write the whole dict in one literal",
+  },
+  py_one_pair_per_line: {
+    before: 'return {"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2"}',
+    after: 'return {\n    "Chen": "Floor 1",\n    "Alvarez": "Floor 2",\n    "Volkov": "Floor 2",\n}',
+    change: "one pair per line, a comma after each — the next one is a one-line change",
+  },
+  py_set_membership: {
+    before: "occupied = list(guards.values())\nif name not in occupied:",
+    after: "occupied = set(guards.values())\nif name not in occupied:",
+    change: "a set answers `in` at once and holds each floor once",
+  },
+  py_dict_values: {
+    before: "for name in guards:\n    occupied.add(guards[name])",
+    after: "occupied = set(guards.values())",
+    change: "ask for the values — you never needed the names",
+  },
+  py_not_in: {
+    before: "if not name in occupied:",
+    after: "if name not in occupied:",
+    change: "`not in` is one operator and reads like english",
+  },
+  py_blank_line_limit: {
+    before: 'print("Hello World")\n\n\n\nprint("relay online")',
+    after: 'print("Hello World")\n\nprint("relay online")',
+    change: "two blank lines at most",
+  },
+  py_slice_reverse: {
+    before: 'def reverse_word(s):\n    out = ""\n    for ch in s:\n        out = ch + out\n    return out',
+    after: "def reverse_word(s):\n    return s[::-1]",
+    change: "a slice with step -1 is the whole reversal",
+  },
+  py_no_range_len: {
+    before: 'for i in range(len(s)):\n    out = s[i] + out',
+    after: "for ch in s:\n    out = ch + out",
+    change: "loop over the characters, not their positions",
+  },
+  py_join_words: {
+    before: 'out = ""\nfor w in words:\n    out += reverse_word(w) + " "',
+    after: 'out = " ".join(reverse_word(w) for w in words)',
+    change: "join puts spaces only between the words",
+  },
+  py_split_whitespace: {
+    before: 'words = msg.split(" ")',
+    after: "words = msg.split()",
+    change: "no argument — split on any whitespace, no empty words",
+  },
+  py_comprehension_join: {
+    before: 'result = []\nfor w in msg.split():\n    result.append(reverse_word(w))\nreturn " ".join(result)',
+    after: 'return " ".join(reverse_word(w) for w in msg.split())',
+    change: "the loop moves inside the join",
+  },
+  py_narrow_except: {
+    before: 'try:\n    n = int(code)\nexcept:\n    return f"F{floor}-ERR"',
+    after: 'try:\n    n = int(code)\nexcept ValueError:\n    return f"F{floor}-ERR"',
+    change: "catch the error you expect, not every error",
+  },
+  py_small_try: {
+    before: 'try:\n    n = int(code)\n    return f"F{floor}-C{n * 2}"\nexcept ValueError:\n    return f"F{floor}-ERR"',
+    after: 'try:\n    n = int(code)\nexcept ValueError:\n    return f"F{floor}-ERR"\nreturn f"F{floor}-C{n * 2}"',
+    change: "only the line that can fail goes inside the try",
+  },
+  py_fstring_header: {
+    before: 'return "F" + str(floor) + "-C" + str(n * 2)',
+    after: 'return f"F{floor}-C{n * 2}"',
+    change: "an f-string reads like the header it builds",
   },
 };

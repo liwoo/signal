@@ -1,5 +1,5 @@
 // ── Python Zen ──
-// Heuristic idiom coaching for the Python realization of Act I. Same shape as
+// Heuristic idiom coaching for the Python realizations of Acts I and II. Same shape as
 // Go's rules in ./zen.ts: `check` passing earns the bonus and Maya's memory
 // jolt, failing earns a gentle suggestion. Based on `import this` (the zen of
 // python) and pep 8. Pure functions only.
@@ -461,6 +461,244 @@ const tupleUnpacking: ZenRule = {
   suggestion: "unpack the result straight into names: `s, v = validate_code(25, 30)`. names read better than `result[0]` and `result[1]`.",
 };
 
+// ══════════════════════════════════════════════════════
+//  Act II helpers
+// ══════════════════════════════════════════════════════
+
+/** Body of `def name(...)` as written (comments and strings kept), or null. Same lines as defBody. */
+function rawBody(code: string, name: string): string | null {
+  const re = new RegExp(`^\\s*def\\s+${name}\\s*\\(`);
+  const at = maskPy(code).split("\n").findIndex((l) => re.test(l));
+  return at === -1 ? null : blockAt(code.split("\n"), at);
+}
+
+/** First parameter name of `def name(...)`, or null. */
+function firstParam(code: string, name: string): string | null {
+  const m = maskPy(code).match(new RegExp(`^\\s*def\\s+${name}\\s*\\(\\s*\\*{0,2}(\\w+)`, "m"));
+  return m ? m[1] : null;
+}
+
+/** Masked text of the first `{ ... }` in `body`, braces included, or null. */
+function firstBraces(body: string): string | null {
+  const open = body.indexOf("{");
+  if (open === -1) return null;
+  let depth = 0;
+  for (let i = open; i < body.length; i++) {
+    if (body[i] === "{") depth++;
+    else if (body[i] === "}" && --depth === 0) return body.slice(open, i + 1);
+  }
+  return null;
+}
+
+/** `"key": value` pairs inside a masked dict literal. */
+const pairCount = (text: string) => (text.match(/["']x*["']\s*:/g) ?? []).length;
+
+// ── chapter-04:scaffold ──
+
+const lineLength: ZenRule = {
+  id: "py_line_length",
+  principle: "lines that fit in 79 characters",
+  isRelevant: (code) => code.trim().length > 0,
+  check: (code) => code.split("\n").every((l) => l.length <= 79),
+  bonusXP: 3,
+  jolt: "every line fits in 79 characters. pep 8 keeps lines short so two files sit side by side and nobody scrolls sideways. the roster's coming — five guards. short lines are about to matter.",
+  suggestion: "a line runs past 79 characters. pep 8 keeps them short — break a long one inside its brackets, one item per line.",
+};
+
+// ── chapter-04:guardmap ──
+
+const dictLiteralRoster: ZenRule = {
+  id: "py_dict_literal",
+  principle: "build the dict in one literal",
+  isRelevant: (code) => defBody(code, "build_roster") !== null,
+  check: (code) => {
+    const body = defBody(code, "build_roster") ?? "";
+    const braces = firstBraces(body);
+    return !!braces && pairCount(braces) > 0 && !/\b\w+\s*\[[^\]\n]*\]\s*=(?!=)/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "...the whole roster in one literal. you can read every guard at a glance — the dict looks like the schedule it came from. no empty dict filled in line by line. \"readability counts.\"",
+  suggestion: "you don't need an empty dict and five assignments. write it in one go: `return {\"Chen\": \"Floor 1\", ...}` — the data reads like the schedule.",
+};
+
+const onePairPerLine: ZenRule = {
+  id: "py_one_pair_per_line",
+  principle: "one pair per line, trailing comma",
+  isRelevant: (code) => {
+    const braces = firstBraces(defBody(code, "build_roster") ?? "");
+    return !!braces && pairCount(braces) >= 3;
+  },
+  check: (code) => {
+    const braces = firstBraces(defBody(code, "build_roster") ?? "")!;
+    const lines = braces.slice(1, -1).split("\n");
+    const filled = lines.filter((l) => l.trim());
+    const lastLine = braces.slice(braces.lastIndexOf("\n") + 1);
+    return (
+      lines.length > 1 &&
+      filled.every((l) => pairCount(l) === 1) &&
+      /,\s*$/.test(filled[filled.length - 1] ?? "") &&
+      lastLine.trim() === "}"
+    );
+  },
+  bonusXP: 5,
+  jolt: "one guard per line, a comma after every one — even the last — and the brace on its own line. add a sixth guard and exactly one line changes. pep 8 calls that trailing comma helpful. it is.",
+  suggestion: "with five pairs, give each its own line, end every line with a comma — the last one too — and close the brace on its own line. the next guard is then a one-line change.",
+};
+
+// ── chapter-04:clearfloors ──
+
+const setMembership: ZenRule = {
+  id: "py_set_membership",
+  principle: "a set for membership",
+  isRelevant: (code) => defBody(code, "find_clear_floor") !== null,
+  check: (code) => /\bset\s*\(|\{[^:{}]*\bfor\b[^:{}]*\}/.test(defBody(code, "find_clear_floor") ?? ""),
+  bonusXP: 15,
+  jolt: "...a set. each floor in it once, and `in` answers straight away instead of walking a list. some languages have no set at all — you fake one with a dict full of trues. python just hands you the real thing.",
+  suggestion: "collect the occupied floors in a set: `set(guards.values())`. checking `in` on a list walks every item; a set answers at once and drops the repeats.",
+};
+
+const dictValues: ZenRule = {
+  id: "py_dict_values",
+  principle: "ask for the values you need",
+  isRelevant: (code) => {
+    const g = firstParam(code, "find_clear_floor");
+    return !!g && new RegExp(`\\b${g}\\b`).test(defBody(code, "find_clear_floor") ?? "");
+  },
+  check: (code) => {
+    const g = firstParam(code, "find_clear_floor")!;
+    const body = defBody(code, "find_clear_floor") ?? "";
+    return (
+      new RegExp(`\\b${g}\\s*\\.\\s*values\\s*\\(`).test(body) &&
+      !new RegExp(`\\b${g}\\s*\\[|\\b${g}\\s*\\.\\s*(items|keys)\\s*\\(`).test(body)
+    );
+  },
+  bonusXP: 10,
+  jolt: "`guards.values()` — you never needed the names here, so you didn't ask for them. no `guards[name]` round trip. the code says exactly what it uses.",
+  suggestion: "you only need the floors, not the names. `guards.values()` hands them straight over — no looping through keys to look each one up.",
+};
+
+const notIn: ZenRule = {
+  id: "py_not_in",
+  principle: "`not in`, not `not ... in`",
+  isRelevant: (code) => /^\s*(if|elif|while)\b[^\n]*\bin\b/m.test(maskPy(code)),
+  check: (code) => !/\bnot\s+\(?\s*[\w.]+(?:\([^()\n]*\))?\s+in\b/.test(maskPy(code)),
+  bonusXP: 5,
+  jolt: "`name not in occupied` — one operator, and it reads like a sentence. pep 8 asks for exactly that over `not name in occupied`. small. it made me smile.",
+  suggestion: "write `name not in occupied`, not `not name in occupied`. same result, but `not in` is one operator and reads like english — pep 8 prefers it.",
+};
+
+// ── chapter-04.2:scaffold ──
+
+const blankLineLimit: ZenRule = {
+  id: "py_blank_line_limit",
+  principle: "never more than two blank lines",
+  isRelevant: (code) => code.trim().length > 0,
+  check: (code) => !/\n[ \t]*\n[ \t]*\n[ \t]*\n/.test(code.trim()),
+  bonusXP: 3,
+  jolt: "no long gaps. pep 8 puts two blank lines between top-level functions and never more — enough to breathe, not enough to lose your place. the cipher's about to need a few functions. you're ready.",
+  suggestion: "there are three or more blank lines in a row. pep 8 says two at most, around top-level functions. trim the gap.",
+};
+
+// ── chapter-04.2:reverseword ──
+
+const sliceReverse: ZenRule = {
+  id: "py_slice_reverse",
+  principle: "slice it backwards",
+  isRelevant: (code) => defBody(code, "reverse_word") !== null,
+  check: (code) => /\[\s*:\s*:\s*-\s*1\s*\]/.test(defBody(code, "reverse_word") ?? ""),
+  bonusXP: 15,
+  jolt: "...`s[::-1]`. the whole cipher in five characters. no swapping, no counters — a string is already a sequence, so you just walked it backwards. \"simple is better than complex.\"",
+  suggestion: "a loop works, but a slice does the whole reversal: `return s[::-1]`. empty start, empty stop, step -1.",
+};
+
+const noRangeLen: ZenRule = {
+  id: "py_no_range_len",
+  principle: "loop over the thing, not its indexes",
+  isRelevant: (code) => /^\s*for\s/m.test(defBody(code, "reverse_word") ?? ""),
+  check: (code) => !/\brange\s*\(\s*len\s*\(/.test(defBody(code, "reverse_word") ?? ""),
+  bonusXP: 5,
+  jolt: "`for ch in s` — you walked the characters themselves, not their positions. no `s[i]`, no index to get wrong by one.",
+  suggestion: "`for i in range(len(s))` works, but python loops can hand you the characters directly: `for ch in s:`. no index to keep track of.",
+};
+
+// ── chapter-04.2:encode ──
+
+const joinWords: ZenRule = {
+  id: "py_join_words",
+  principle: "join, don't concatenate",
+  isRelevant: (code) => defBody(code, "encode") !== null,
+  check: (code) => {
+    const body = defBody(code, "encode") ?? "";
+    return /\.\s*join\s*\(/.test(body) && !/\+=/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "`\" \".join(...)` — spaces only between the words, never a stray one on the end. and no string rebuilt on every pass of a loop. one call does the gluing.",
+  suggestion: "skip the `+=` gluing — it leaves a stray space and rebuilds the string every pass. `\" \".join(words)` puts spaces only between them.",
+};
+
+const splitWhitespace: ZenRule = {
+  id: "py_split_whitespace",
+  principle: "split() with no argument",
+  isRelevant: (code) => /\.\s*split\s*\(/.test(defBody(code, "encode") ?? ""),
+  check: (code) => /\.\s*split\s*\(\s*\)/.test(defBody(code, "encode") ?? ""),
+  bonusXP: 5,
+  jolt: "`msg.split()` — empty brackets. it splits on any run of spaces, tabs or newlines and never hands back an empty word. a double space can't break your cipher.",
+  suggestion: "`split(\" \")` leaves an empty word wherever there's a double space. `msg.split()` with no argument splits on any run of whitespace and skips the empties.",
+};
+
+const comprehensionJoin: ZenRule = {
+  id: "py_comprehension_join",
+  principle: "a comprehension instead of an append loop",
+  isRelevant: (code) => /\.\s*join\s*\(/.test(defBody(code, "encode") ?? ""),
+  check: (code) => {
+    const body = defBody(code, "encode") ?? "";
+    const inline = /\.\s*join\s*\([^\n]*\bfor\b/.test(body) || /\.\s*join\s*\(\s*map\s*\(/.test(body);
+    const built = /=\s*\[[^\n]*\bfor\b/.test(body);
+    return (inline || built) && !/\.\s*append\s*\(/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "...`reverse_word(w) for w in msg.split()`, straight into the join. no empty list, no append, no loop to read past. the transformation is the whole line. that's the pythonic shape.",
+  suggestion: "the append loop works, but python can say it in one line: `\" \".join(reverse_word(w) for w in msg.split())`. the loop lives inside the brackets.",
+};
+
+// ── chapter-04.2:relayheader ──
+
+const narrowExcept: ZenRule = {
+  id: "py_narrow_except",
+  principle: "catch the error you expect",
+  isRelevant: (code) => /^\s*except\b/m.test(defBody(code, "relay_header") ?? ""),
+  check: (code) => !/^\s*except\s*(:|\(?\s*(Exception|BaseException)\b)/m.test(defBody(code, "relay_header") ?? ""),
+  bonusXP: 15,
+  jolt: "...`except ValueError`. you caught the one failure you expected and let everything else stay loud. a typo still crashes where you can see it. \"errors should never pass silently, unless explicitly silenced.\" you silenced exactly one.",
+  suggestion: "a bare `except:` catches everything — typos included — and turns them all into `ERR`. catch the one you expect: `except ValueError:`.",
+};
+
+const smallTry: ZenRule = {
+  id: "py_small_try",
+  principle: "keep the try block small",
+  isRelevant: (code) => /^\s*try\s*:/m.test(defBody(code, "relay_header") ?? ""),
+  check: (code) => {
+    const lines = (defBody(code, "relay_header") ?? "").split("\n");
+    return lines.every((l, i) => !/^\s*try\s*:/.test(l) || blockAt(lines, i).split("\n").filter((x) => x.trim()).length === 1);
+  },
+  bonusXP: 5,
+  jolt: "one line inside the `try` — the conversion, the only thing that can fail. the header-building sits outside, where a mistake would still show. you know exactly what the except is guarding.",
+  suggestion: "keep only the risky line inside `try:` — `n = int(code)`. build and return the header after it, so the except only ever catches the bad number.",
+};
+
+const fStringHeader: ZenRule = {
+  id: "py_fstring_header",
+  principle: "f-strings for the header",
+  isRelevant: (code) => defBody(code, "relay_header") !== null,
+  check: (code) => {
+    const body = rawBody(code, "relay_header") ?? "";
+    return codeTokens(body).some(isFString) && !gluesStrings(body);
+  },
+  bonusXP: 10,
+  jolt: "`f\"F{floor}-C{n * 2}\"` — the header looks like the header. no `str()`, no `+` chains, and the doubling happens right where it lands.",
+  suggestion: "gluing with `+` and `str()` works, but an f-string reads like the header itself: `f\"F{floor}-C{n * 2}\"`.",
+};
+
 // ── Registry ──
 
 export const PYTHON_ZEN_RULES: Record<string, ZenRule[]> = {
@@ -473,4 +711,11 @@ export const PYTHON_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-03:scaffold": [consistentQuotes, commentSpace],
   "chapter-03:sumfunc": [pureFunction, sumBuiltin, augmentedAssign],
   "chapter-03:validate": [directBoolReturn, reuseUnpack, tupleUnpacking],
+  "chapter-04:scaffold": [lineLength],
+  "chapter-04:guardmap": [dictLiteralRoster, onePairPerLine],
+  "chapter-04:clearfloors": [setMembership, dictValues, notIn],
+  "chapter-04.2:scaffold": [blankLineLimit],
+  "chapter-04.2:reverseword": [sliceReverse, noRangeLen],
+  "chapter-04.2:encode": [joinWords, splitWhitespace, comprehensionJoin],
+  "chapter-04.2:relayheader": [narrowExcept, smallTry, fStringHeader],
 };

@@ -6,16 +6,13 @@ import { CodeEditor } from "@/components/game/CodeEditor";
 import { LanguageProvider } from "@/components/game/LanguageContext";
 import { getLanguageService, isLanguageId, LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 import { callMayaEngineAsync } from "@/lib/ai/engine";
-import { chapter01 } from "@/data/challenges/chapter-01";
-import { chapter02 } from "@/data/challenges/chapter-02";
-import { chapter03 } from "@/data/challenges/chapter-03";
 import { realizeChallenge } from "@/data/challenges/realizations";
-import { SOLUTIONS } from "@/lib/lang/act1.fixtures";
+import { REALIZED_CHAPTERS, SOLUTIONS } from "@/lib/lang/fixtures";
 import type { LanguageId } from "@/types/game";
 
 // Development-only language QA:
 //   /dev/lang?lang=python      → an editor + RUN on the real in-browser backend
-//   RUN ACT I                   → every Act I reference solution through the
+//   RUN ALL                     → every realized reference solution through the
 //                                 real engine (worker / Pyodide), PASS/FAIL each
 
 interface Row {
@@ -62,7 +59,7 @@ function LangPreview() {
     if (language === "go") return;
     setBusy(true);
     setRows([]);
-    const steps = [chapter01, chapter02, chapter03].flatMap((c) => realizeChallenge(c, language).steps);
+    const steps = REALIZED_CHAPTERS.flatMap((c) => realizeChallenge(c, language).steps);
     for (const step of steps) {
       const t = performance.now();
       const res = await callMayaEngineAsync(
@@ -91,7 +88,7 @@ function LangPreview() {
             </a>
           ))}
           <button type="button" onClick={runAct1} disabled={busy || language === "go"} data-testid="run-act1" className="ml-auto border border-[var(--color-signal)] px-3 py-1 text-[var(--color-signal)]">
-            RUN ACT I
+            RUN ALL
           </button>
         </div>
         <div className="h-[320px]" data-testid="editor">

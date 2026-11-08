@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { analyzeZen, getZenRules, type ZenRule } from "./zen";
 import { PYTHON_ZEN_RULES } from "./zen-python";
 import { PYTHON_ZEN_EXAMPLES } from "@/data/zen-examples.python";
-import { SOLUTIONS } from "@/lib/lang/act1.fixtures";
+import { SOLUTIONS } from "@/lib/lang/fixtures";
 
 const PY = SOLUTIONS.python;
 
@@ -75,6 +75,46 @@ const CASES: [string, string, string][] = [
     PY["chapter-03:validate"],
     PY["chapter-03:validate"].replace("s, v = validate_code(1)\nprint(s, v)", "result = validate_code(1)\nprint(result[0], result[1])"),
   ],
+  // ── Act II ──
+  ["py_line_length", PY["chapter-04:scaffold"], `print("${"x".repeat(90)}")`],
+  ["py_dict_literal", PY["chapter-04:guardmap"], 'def build_roster():\n    roster = {}\n    roster["Chen"] = "Floor 1"\n    return roster'],
+  [
+    "py_one_pair_per_line",
+    PY["chapter-04:guardmap"],
+    'def build_roster():\n    return {"Chen": "Floor 1", "Alvarez": "Floor 2", "Volkov": "Floor 2"}',
+  ],
+  ["py_set_membership", PY["chapter-04:clearfloors"], PY["chapter-04:clearfloors"].replace("set(guards.values())", "list(guards.values())")],
+  ["py_dict_values", PY["chapter-04:clearfloors"], PY["chapter-04:clearfloors"].replace("set(guards.values())", "set(guards[g] for g in guards)")],
+  ["py_not_in", PY["chapter-04:clearfloors"], PY["chapter-04:clearfloors"].replace("if name not in occupied:", "if not name in occupied:")],
+  ["py_blank_line_limit", 'print("Hello World")', 'print("a")\n\n\n\nprint("b")'],
+  ["py_slice_reverse", PY["chapter-04.2:reverseword"], 'def reverse_word(s):\n    return "".join(reversed(s))'],
+  [
+    "py_no_range_len",
+    'def reverse_word(s):\n    out = ""\n    for ch in s:\n        out = ch + out\n    return out',
+    'def reverse_word(s):\n    out = ""\n    for i in range(len(s)):\n        out = s[i] + out\n    return out',
+  ],
+  [
+    "py_join_words",
+    PY["chapter-04.2:encode"],
+    'def encode(msg):\n    out = ""\n    for w in msg.split():\n        out += w[::-1] + " "\n    return out',
+  ],
+  ["py_split_whitespace", PY["chapter-04.2:encode"], PY["chapter-04.2:encode"].replace("msg.split()", 'msg.split(" ")')],
+  [
+    "py_comprehension_join",
+    PY["chapter-04.2:encode"],
+    'def encode(msg):\n    words = []\n    for w in msg.split():\n        words.append(reverse_word(w))\n    return " ".join(words)',
+  ],
+  ["py_narrow_except", PY["chapter-04.2:relayheader"], PY["chapter-04.2:relayheader"].replace("except ValueError:", "except:")],
+  [
+    "py_small_try",
+    PY["chapter-04.2:relayheader"],
+    'def relay_header(floor, code):\n    try:\n        n = int(code)\n        return f"F{floor}-C{n * 2}"\n    except ValueError:\n        return f"F{floor}-ERR"',
+  ],
+  [
+    "py_fstring_header",
+    PY["chapter-04.2:relayheader"],
+    'def relay_header(floor, code):\n    try:\n        n = int(code)\n    except ValueError:\n        return "F" + str(floor) + "-ERR"\n    return "F" + str(floor) + "-C" + str(n * 2)',
+  ],
 ];
 
 describe("python zen rules", () => {
@@ -144,6 +184,13 @@ describe("python zen · reference solutions", () => {
     "chapter-03:scaffold": ["py_consistent_quotes"],
     "chapter-03:sumfunc": ["py_pure_function", "py_augmented_assign"],
     "chapter-03:validate": ["py_direct_bool_return", "py_reuse_unpack", "py_tuple_unpacking"],
+    "chapter-04:scaffold": ["py_line_length"],
+    "chapter-04:guardmap": ["py_dict_literal", "py_one_pair_per_line"],
+    "chapter-04:clearfloors": ["py_set_membership", "py_dict_values", "py_not_in"],
+    "chapter-04.2:scaffold": ["py_blank_line_limit"],
+    "chapter-04.2:reverseword": ["py_slice_reverse"],
+    "chapter-04.2:encode": ["py_join_words", "py_split_whitespace", "py_comprehension_join"],
+    "chapter-04.2:relayheader": ["py_narrow_except", "py_small_try", "py_fstring_header"],
   };
   for (const [stepId, ids] of Object.entries(FOLLOWED)) {
     it(`${stepId} earns its jolts`, () => {

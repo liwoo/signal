@@ -402,11 +402,11 @@
 .languageMark {
   display: grid;
   place-items: center;
-  width: 45px;
-  height: 45px;
+  width: 56px;
+  height: 56px;
   font-size: 19px;
   font-weight: 700;
-  background: var(--lp-soft);
+  background: var(--lp-night);
   color: var(--lp-accent);
   border-radius: 7px;
   margin-bottom: 20px;
@@ -1128,29 +1128,40 @@
 }
 .heroLanguages > div {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   gap: 18px;
   margin-top: 9px;
 }
-.heroLanguages span {
+.heroLanguage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 8px;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.heroLanguage:hover,
+.heroLanguage:focus-visible {
+  border-color: var(--hero-border);
+  transform: translateY(-2px);
+}
+.heroLanguage span {
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: 2px;
   font-weight: 700;
 }
-.heroLanguages span:nth-child(1) {
+.heroLanguage[data-lang="go"] span {
   color: var(--hero-green);
 }
-.heroLanguages span:nth-child(3) {
+.heroLanguage[data-lang="python"] span {
   color: var(--hero-python);
 }
-.heroLanguages span:nth-child(5) {
+.heroLanguage[data-lang="javascript"] span {
   color: var(--hero-javascript);
-}
-.heroLanguages span:nth-child(even) {
-  color: var(--hero-border);
-  font-family: var(--font-mono);
 }
 .heroActions {
   display: flex;
@@ -1286,8 +1297,11 @@
   .heroLanguages > div {
     gap: 10px;
   }
-  .heroLanguages span {
-    font-size: 12px;
+  .heroLanguage {
+    padding: 8px 6px 6px;
+  }
+  .heroLanguage span {
+    font-size: 11px;
     letter-spacing: 1px;
   }
   .heroActions {

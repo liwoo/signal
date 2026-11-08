@@ -1,11 +1,8 @@
-// Content contract for Act I in each non-Go language: Maya's answer banks,
+// Content contract for every realized chapter in each non-Go language: Maya's answer banks,
 // zen rules, and the field-manual notes must exist for every step, speak in
 // Maya's voice, contain no Go, and drive the real engine end to end.
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { chapter01 } from "@/data/challenges/chapter-01";
-import { chapter02 } from "@/data/challenges/chapter-02";
-import { chapter03 } from "@/data/challenges/chapter-03";
 import { realizeChallenge } from "@/data/challenges/realizations";
 import { callMayaEngine, callMayaEngineAsync, getStepBank, type StepTestConfig } from "@/lib/ai/engine";
 import { analyzeZen, getZenRules } from "@/lib/game/zen";
@@ -13,7 +10,7 @@ import { ZEN_EXAMPLES } from "@/data/zen-examples";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { bookChapterFor, bookFor } from "@/data/book";
 import { usePyodideInNode } from "@/lib/python/node-backend";
-import { HARDCODED, SOLUTIONS } from "./act1.fixtures";
+import { HARDCODED, REALIZED_CHAPTERS, SOLUTIONS } from "./fixtures";
 import type { ChallengeStep, LanguageId } from "@/types/game";
 
 const GOISMS = /fmt\.|func main|package main|:=|go vet|gofmt|\bgo (program|code|compiler|file)\b|\bgolang\b/i;
@@ -21,7 +18,7 @@ const LANGS = ["javascript", "python"] as const;
 const PREFIX: Record<(typeof LANGS)[number], string> = { javascript: "js_", python: "py_" };
 
 const STEPS = (language: LanguageId): ChallengeStep[] =>
-  [chapter01, chapter02, chapter03].flatMap((c) => realizeChallenge(c, language).steps);
+  REALIZED_CHAPTERS.flatMap((c) => realizeChallenge(c, language).steps);
 
 function stepTest(step: ChallengeStep): StepTestConfig {
   return {
@@ -148,7 +145,7 @@ describe.each(LANGS)("field manual · %s", (language) => {
     expect(bookChapterFor("chapter-01", language)!.found).toContain(`'${language}: a field manual'`);
   });
 
-  for (const id of ["chapter-01", "chapter-02", "chapter-03", "boss-01"]) {
+  for (const id of [...REALIZED_CHAPTERS.map((c) => c.id), "boss-01"]) {
     it(`${id}: has notes with no go in the code`, () => {
       const notes = getBeginnerNotes(id, language);
       expect(notes, "notes missing").not.toBeNull();

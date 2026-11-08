@@ -33,7 +33,7 @@ export const CLASSROOM_CHAPTERS: ClassroomChapter[] = [
   entry(chapter04_2),
 ];
 
-/** The chapters a student can play in `language` (Act II is Go-only for now). */
+/** The chapters a student can play in `language` (unrealized chapters are Go-only). */
 export function classroomChaptersFor(language: LanguageId): ClassroomChapter[] {
   return CLASSROOM_CHAPTERS.filter((c) => isChallengeAvailable(c.id, language));
 }

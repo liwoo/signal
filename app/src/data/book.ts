@@ -58,7 +58,7 @@ export interface BookChapter {
   /** Maya's thought when she finds it (lowercase). */
   found: string;
   /** Per-language overrides where the Go wording doesn't fit (e.g. no "skeleton" outside Go). */
-  byLanguage?: Partial<Record<LanguageId, Partial<Pick<BookChapter, "title" | "marginNote">>>>;
+  byLanguage?: Partial<Record<LanguageId, Partial<Pick<BookChapter, "title" | "marginNote" | "found">>>>;
 }
 
 export const BOOK_CHAPTERS: BookChapter[] = [
@@ -110,6 +110,18 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     hiddenIn: "behind the rack · surveillance room",
     marginNote: "the roster is a map. keys first, then values.",
     found: "chapter five. reeves said it would be here. maps — keys and values.",
+    byLanguage: {
+      python: {
+        title: "Dicts & Sets",
+        marginNote: "the roster is a dictionary. keys first, then values.",
+        found: "chapter five. reeves said it would be here. dictionaries — keys and values.",
+      },
+      javascript: {
+        title: "Objects & Sets",
+        marginNote: "the roster is an object. keys first, then values.",
+        found: "chapter five. reeves said it would be here. objects — keys and values.",
+      },
+    },
   },
   {
     challengeId: "chapter-04.2",
@@ -119,16 +131,21 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     hiddenIn: "inside the relay cabinet · comms room",
     marginNote: "they read our words. make the words unreadable.",
     found: "chapter six. the last one she hid. strings, runes, the cipher.",
+    byLanguage: {
+      python: { title: "Strings & Slices", found: "chapter six. the last one she hid. strings, slices, the cipher." },
+      javascript: { title: "Strings & Characters", found: "chapter six. the last one she hid. strings, characters, the cipher." },
+    },
   },
 ];
 
 export function bookChapterFor(challengeId: string, language: LanguageId = "go"): BookChapter | null {
   const chapter = BOOK_CHAPTERS.find((c) => c.challengeId === challengeId) ?? null;
   if (!chapter || language === "go") return chapter;
+  const local = chapter.byLanguage?.[language];
   return {
     ...chapter,
-    ...chapter.byLanguage?.[language],
-    found: localizeManualMention(chapter.found, language),
+    ...local,
+    found: localizeManualMention(local?.found ?? chapter.found, language),
   };
 }
 

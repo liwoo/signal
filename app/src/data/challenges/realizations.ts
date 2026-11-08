@@ -1,8 +1,9 @@
 // ── Per-language realizations ──
 // Go is authored inline in the chapter files (it's the spine's own
 // realization). Other languages realize the same steps here. A chapter is
-// playable in a language only when it has a realization for it — Act I ships
-// in all three; later acts are Go-only until they're authored.
+// playable in a language only when it has a realization for it — Act I and the
+// built Act II chapters ship in all three; anything newer is Go-only until it's
+// authored (docs/cross-language-act-2-plan.md).
 
 import type { Challenge, ChallengeRealization, LanguageId } from "@/types/game";
 import type { AdventureLevel, BossPhase } from "@/lib/adventure/types";
@@ -50,13 +51,36 @@ export function realizeBossLevel(level: AdventureLevel, language: LanguageId): A
   };
 }
 
+// Where Maya names a Go-only concept in a story line, the phrase she'd use in
+// each language. Whole phrases, so an unrelated "map" or "string" is untouched.
+const STORY_TERMS: Record<Exclude<LanguageId, "go">, [string, string][]> = {
+  python: [
+    ["room — maps.", "room — dictionaries."],
+    ["maps — keys and values", "dictionaries — keys and values"],
+    ["strings and runes", "strings and slices"],
+    ["strings, runes,", "strings, slices,"],
+  ],
+  javascript: [
+    ["room — maps.", "room — objects."],
+    ["maps — keys and values", "objects — keys and values"],
+    ["strings and runes", "strings and characters"],
+    ["strings, runes,", "strings, characters,"],
+  ],
+};
+
+function localizeStoryLine(text: string, language: Exclude<LanguageId, "go">): string {
+  const named = localizeManualMention(text, language);
+  return STORY_TERMS[language].reduce((t, [from, to]) => t.replaceAll(from, to), named);
+}
+
 /**
  * A story level as played in `language`. The adventure layer is language-neutral
- * except where Maya names the field manual she finds ("'go: a field manual'").
+ * except where Maya names the field manual she finds ("'go: a field manual'") or
+ * the Go concept a chapter teaches ("maps", "runes").
  */
 export function realizeAdventureLevel(level: AdventureLevel, language: LanguageId): AdventureLevel {
   if (language === "go") return level;
-  const loc = (t: string | undefined) => (t === undefined ? t : localizeManualMention(t, language));
+  const loc = (t: string | undefined) => (t === undefined ? t : localizeStoryLine(t, language));
   return {
     ...level,
     opening: loc(level.opening),
