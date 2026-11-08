@@ -1,6 +1,6 @@
 # SIGNAL — Cross-Language Plan for Act II
 
-**Status:** Phase 1 in progress · **Date:** 2026-11-08 · **Scope:** Act II ("INSIDE THE MACHINE") in **Python and JavaScript**, alongside Go
+**Status:** Phase 1 shipped (Ch 4 + 4.2 in Python/JS) · Phases 2–4 planned · **Date:** 2026-11-08 · **Scope:** Act II ("INSIDE THE MACHINE") in **Python and JavaScript**, alongside Go
 **Builds on:** `docs/cross-language-act-1-plan.md` (the seam, the realization model, the divergence policy) and `spec/infrastructure/languages.md` (what shipped).
 
 > Act I proved the architecture: the step is the spine, the code is the realization. Act II reuses it unchanged. The new work is content, plus the first real **topic divergences** — structs, interfaces, error values and Go's `testing` package have no 1:1 twin in Python or JavaScript.
@@ -167,6 +167,10 @@ Go has `go test`; our sandboxes run one program and read stdout. Grading must st
 3. **`stake` on every Act II step** in the Go spine (the playbook rule Act II predates).
 4. Phase 3 only: a shipped JS `check.js` module for 6.2 — uses the existing `compileModule` path; no backend change.
 5. No backend work expected: Pyodide (3.14) has `enum`, `dataclasses`, `typing`; the JS worker runs ES2023 (`class`, `#private`, `replaceAll`, `Set`).
+
+## 6b. Language branding
+
+The three languages are visible everywhere, not just in the accent colour. `src/components/ui/LanguageMascot.tsx` draws one original pixel mascot per language (a gopher, a snake, the yellow JS block): drawn in-house in the game's sprite style, not copied logo art. They appear on the intro-screen picker (`components/game/LanguagePicker.tsx`, the chosen one hops), as a HUD badge next to SIGNAL (`TopBar`), on the landing hero and language cards, and as a sticker on the field-manual cover. Preview: `/dev/mascots`.
 
 ## 7. Per-chapter checklist (each language)
 

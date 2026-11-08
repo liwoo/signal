@@ -30,6 +30,7 @@ import {
 } from "@/lib/analytics";
 import { numberWord, type LandingCurriculum } from "@/data/landing";
 import { PAYMENT_PROVIDER, PRICE_SINGLE, REFUND_WINDOW_DAYS, SUPPORT_EMAIL } from "@/lib/site";
+import { LanguageMascot } from "@/components/ui/LanguageMascot";
 import styles from "./Paywall.module.css";
 
 const PromoLoop = dynamic(
@@ -56,7 +57,6 @@ const LANGUAGES = [
   {
     id: "go",
     name: "Go",
-    mark: "Go",
     href: "/why-go",
     detail:
       "Start with the fundamentals, then explore structs, concurrency, and more.",
@@ -64,7 +64,6 @@ const LANGUAGES = [
   {
     id: "python",
     name: "Python",
-    mark: "Py",
     href: "/why-python",
     detail:
       "Practice readable syntax, loops, and functions in a language used across disciplines.",
@@ -72,7 +71,6 @@ const LANGUAGES = [
   {
     id: "javascript",
     name: "JavaScript",
-    mark: "JS",
     href: "/why-javascript",
     detail:
       "Build a foundation in the language of the web, right in your browser.",
@@ -184,11 +182,17 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             <div className={styles.heroLanguages}>
               <p>ONE ESCAPE · THREE LANGUAGES</p>
               <div>
-                <span>GO</span>
-                <span aria-hidden="true">/</span>
-                <span>PYTHON</span>
-                <span aria-hidden="true">/</span>
-                <span>JAVASCRIPT</span>
+                {LANGUAGES.map((language) => (
+                  <Link
+                    key={language.id}
+                    href={language.href}
+                    className={styles.heroLanguage}
+                    data-lang={language.id}
+                  >
+                    <LanguageMascot language={language.id} size={56} />
+                    <span>{language.name.toUpperCase()}</span>
+                  </Link>
+                ))}
               </div>
             </div>
             <div className={styles.heroActions}>
@@ -446,14 +450,14 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             {LANGUAGES.map((language) => (
               <article className={styles.languageCard} key={language.name}>
                 <span className={styles.languageMark} aria-hidden="true">
-                  {language.mark}
+                  <LanguageMascot language={language.id} size={34} />
                 </span>
                 <h3>{language.name}</h3>
                 <p>{language.detail}</p>
                 <p className={styles.languageNote}>
                   {language.id === "go"
                     ? `Act I free · Full course: ${curriculum.actCount} acts`
-                    : "Act I free, more coming"}
+                    : "Act I free · Act II arriving now"}
                 </p>
                 <Link className={styles.textLink} href={language.href}>
                   Why learn {language.name}?{" "}
@@ -531,7 +535,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                   </li>
                   <li>
                     <Check size={18} aria-hidden="true" /> Python and
-                    JavaScript: Act I free, more coming
+                    JavaScript: Act I free, Act II arriving now
                   </li>
                   <li>
                     <Check size={18} aria-hidden="true" /> Built-in hints and
