@@ -9,7 +9,6 @@ import {
   wordBackPos,
   deleteLine,
   findInnerRange,
-  type VimInput,
   type VimOutput,
 } from "./engine";
 
@@ -17,49 +16,17 @@ import {
 
 /** Simulate a sequence of keystrokes and return final state */
 function sim(code: string, pos: number, keys: string): VimOutput {
-  let state: VimInput = {
-    code,
-    pos,
-    mode: "normal",
-    pending: "",
-    yank: "",
-    yankLinewise: false,
-    undoStack: [],
-    key: "",
-  };
-  let result: VimOutput = {
-    code, pos, mode: "normal", pending: "", yank: "", yankLinewise: false,
-    undoStack: [], handled: false, codeChanged: false,
-  };
-
-  for (const key of keys) {
-    state = {
-      code: result.code,
-      pos: result.pos,
-      mode: result.mode,
-      pending: result.pending,
-      yank: result.yank,
-      yankLinewise: result.yankLinewise,
-      undoStack: result.undoStack,
-      key,
-    };
-    result = processKey(state);
-  }
+  let result: VimOutput = processKey({
+    code, pos, mode: "normal", pending: "", yank: "", yankLinewise: false, undoStack: [], key: "",
+  });
+  result = { ...result, code, pos, pending: "" };
+  for (const key of keys) result = processKey({ ...result, key });
   return result;
 }
 
 /** Continue from a previous result with one more key */
 function cont(prev: VimOutput, key: string): VimOutput {
-  return processKey({
-    code: prev.code,
-    pos: prev.pos,
-    mode: prev.mode,
-    pending: prev.pending,
-    yank: prev.yank,
-    yankLinewise: prev.yankLinewise,
-    undoStack: prev.undoStack,
-    key,
-  });
+  return processKey({ ...prev, key });
 }
 
 /** Get the text of the line the cursor is on */
@@ -538,9 +505,9 @@ describe("cc — change line", () => {
 });
 
 describe("cw — change word", () => {
-  test("deletes word and enters insert", () => {
+  test("changes to the end of the word (like ce) and enters insert", () => {
     const r = sim("hello world", 0, "cw");
-    expect(r.code).toBe("world");
+    expect(r.code).toBe(" world");
     expect(r.mode).toBe("insert");
     expect(r.pos).toBe(0);
     expect(r.yankLinewise).toBe(false);
@@ -788,7 +755,7 @@ describe("combined workflows", () => {
     expect(r1.pos).toBe(4);
     const r2 = sim("foo bar baz", r1.pos, "cw");
     expect(r2.mode).toBe("insert");
-    expect(r2.code).toBe("foo baz");
+    expect(r2.code).toBe("foo  baz"); // vim's cw keeps the space after the word
     const r3 = cont(r2, "Escape");
     expect(r3.mode).toBe("normal");
   });

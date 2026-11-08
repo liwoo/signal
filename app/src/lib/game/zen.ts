@@ -31,6 +31,37 @@ export interface ZenResult {
   suggestions: string[];   // tips for unfollowed rules
 }
 
+/**
+ * A judge's read of one rule against the player's code (from Jev, the
+ * decision model): probabilities in [0, 1]. Either may be missing.
+ */
+export interface ZenVerdict {
+  /** P(the rule applies to this code). */
+  relevant?: number;
+  /** P(the code follows the idiom). */
+  follows?: number;
+}
+
+export type ZenVerdicts = Record<string, ZenVerdict>;
+
+/** A judge only overrides the heuristic when it is confident either way. */
+export const ZEN_JUDGE_CONFIDENT_YES = 0.75;
+export const ZEN_JUDGE_CONFIDENT_NO = 0.25;
+
+function judged(p: number | undefined, heuristic: () => boolean): boolean {
+  if (p === undefined || Number.isNaN(p)) return heuristic();
+  if (p >= ZEN_JUDGE_CONFIDENT_YES) return true;
+  if (p <= ZEN_JUDGE_CONFIDENT_NO) return false;
+  return heuristic();
+}
+
+/** One rule's outcome for a piece of code. */
+export interface ZenRuleOutcome {
+  rule: ZenRule;
+  relevant: boolean;
+  passed: boolean;
+}
+
 // ── Minify ──
 // Strip comments and whitespace for pattern matching that shouldn't
 // care about formatting. Does NOT lowercase — type names are case-sensitive.
@@ -1099,6 +1130,25 @@ export function getZenRules(stepId: string, language: LanguageId = "go"): ZenRul
 // ── Analysis ──
 
 /**
+ * Judge every rule of a step against the code. Heuristics decide by default;
+ * a confident judge verdict (Jev) overrides them — the heuristics are shape
+ * checks and can misread intent (e.g. a `break` that exits a loop, not a case).
+ */
+export function evaluateZenRules(
+  stepId: string,
+  code: string,
+  language: LanguageId = "go",
+  verdicts?: ZenVerdicts
+): ZenRuleOutcome[] {
+  return getZenRules(stepId, language).map((rule) => {
+    const v = verdicts?.[rule.id];
+    const relevant = judged(v?.relevant, () => !rule.isRelevant || rule.isRelevant(code));
+    const passed = relevant && judged(v?.follows, () => rule.check(code));
+    return { rule, relevant, passed };
+  });
+}
+
+/**
  * Analyze code for zen patterns.
  * @param masteredIds — IDs of rules the player already mastered in previous rounds.
  *   Mastered rules are skipped: no XP, no jolt, no suggestion.
@@ -1107,25 +1157,20 @@ export function analyzeZen(
   stepId: string,
   code: string,
   masteredIds?: Set<string>,
-  language: LanguageId = "go"
+  language: LanguageId = "go",
+  verdicts?: ZenVerdicts
 ): ZenResult {
-  const rules = getZenRules(stepId, language);
-  if (!rules || rules.length === 0) {
-    return { bonusXP: 0, jolts: [], suggestions: [] };
-  }
-
   let bonusXP = 0;
   const jolts: string[] = [];
   const suggestions: string[] = [];
 
-  for (const rule of rules) {
-    const alreadyMastered = masteredIds?.has(rule.id) ?? false;
-    if (alreadyMastered) continue;
-
+  for (const { rule, relevant, passed } of evaluateZenRules(stepId, code, language, verdicts)) {
+    // Mastered rules (from previous rounds) are skipped: no XP, no jolt, no suggestion.
+    if (masteredIds?.has(rule.id)) continue;
     // Skip rules that aren't relevant to the user's code
-    if (rule.isRelevant && !rule.isRelevant(code)) continue;
+    if (!relevant) continue;
 
-    if (rule.check(code)) {
+    if (passed) {
       bonusXP += rule.bonusXP;
       jolts.push(rule.jolt);
     } else {
@@ -1168,11 +1213,17 @@ export function buildZenMessage(result: ZenResult, missedXP?: number, languageNa
   return parts.join("\n\n");
 }
 
-export function calculateMissedXP(stepId: string, result: ZenResult, code?: string, language: LanguageId = "go"): number {
+export function calculateMissedXP(
+  stepId: string,
+  result: ZenResult,
+  code?: string,
+  language: LanguageId = "go",
+  verdicts?: ZenVerdicts
+): number {
   const rules = getZenRules(stepId, language);
   if (rules.length === 0) return 0;
   const relevant = code
-    ? rules.filter((r) => !r.isRelevant || r.isRelevant(code))
+    ? evaluateZenRules(stepId, code, language, verdicts).filter((o) => o.relevant).map((o) => o.rule)
     : rules;
   const maxXP = relevant.reduce((sum, r) => sum + r.bonusXP, 0);
   return maxXP - result.bonusXP;
