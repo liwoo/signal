@@ -1,12 +1,9 @@
-// Golden tests for Act I across languages: every step's reference solution,
+// Golden tests for every realized chapter across languages: every step's reference solution,
 // run through the language's real backend (in-process JS, Pyodide for Python),
 // must print exactly the step's expectedOutput and satisfy requiredCode — and
 // the obvious hardcoded shortcut must not.
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { chapter01 } from "@/data/challenges/chapter-01";
-import { chapter02 } from "@/data/challenges/chapter-02";
-import { chapter03 } from "@/data/challenges/chapter-03";
 import { boss01 } from "@/data/challenges/boss-01";
 import { realizeAdventureLevel, realizeBossLevel, realizeChallenge, isChallengeAvailable } from "@/data/challenges/realizations";
 import { ALL_LEVELS } from "@/lib/adventure/levels";
@@ -14,18 +11,18 @@ import { LOCKMASTER_ARENA } from "@/lib/adventure/boss-levels";
 import { getLanguageService } from "./registry";
 import { usePyodideInNode } from "@/lib/python/node-backend";
 import type { Challenge, ChallengeStep, LanguageId } from "@/types/game";
-import { HARDCODED, SOLUTIONS } from "./act1.fixtures";
+import { HARDCODED, REALIZED_CHAPTERS, SOLUTIONS } from "./fixtures";
 
 const norm = (s: string) => s.trim().replace(/[·•∙]/g, "-");
 
-const ACT_1: Challenge[] = [chapter01, chapter02, chapter03];
+const CHAPTERS: Challenge[] = REALIZED_CHAPTERS;
 
 // Paste is disabled in the editor, so every character a step requires the
 // player to print must be on an ordinary keyboard. (Playtest 2 Nov 2026: the
 // `·` in Ch1's "CELL B-09 · SUBLEVEL 3" stopped players cold.)
 describe.each(["go", "javascript", "python"] as const)("required output is typeable · %s", (language) => {
-  it("every Act I expectedOutput is printable ASCII", () => {
-    for (const c of [...ACT_1, boss01]) {
+  it("every realized expectedOutput is printable ASCII", () => {
+    for (const c of [...CHAPTERS, boss01]) {
       for (const step of realizeChallenge(c, language).steps) {
         for (const text of [step.expectedOutput, step.expectedBehavior]) {
           if (!text || text === "valid-go-scaffold") continue;
@@ -50,18 +47,18 @@ beforeAll(() => {
   usePyodideInNode();
 });
 
-describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
+describe.each(["javascript", "python"] as const)("realized chapters in %s", (language) => {
   const solutions = SOLUTIONS[language];
 
-  it("realizes every Act I chapter, including the boss", () => {
-    for (const c of [...ACT_1, boss01]) {
+  it("realizes every chapter, including the boss", () => {
+    for (const c of [...CHAPTERS, boss01]) {
       expect(isChallengeAvailable(c.id, language)).toBe(true);
       expect(() => realizeChallenge(c, language)).not.toThrow();
     }
   });
 
   it("keeps the story spine — ids, stakes, XP, events, timers are untouched", () => {
-    for (const c of ACT_1) {
+    for (const c of CHAPTERS) {
       const r = realizeChallenge(c, language);
       expect(r.steps.map((s) => s.id)).toEqual(c.steps.map((s) => s.id));
       expect(r.timer).toEqual(c.timer);
@@ -78,6 +75,7 @@ describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
     for (const level of ALL_LEVELS) {
       const text = JSON.stringify(realizeAdventureLevel(level, language));
       expect(text, level.id).not.toMatch(/'go: a field manual'/);
+      expect(text, level.id).not.toMatch(/\bmaps — |\brunes?\b/);
     }
     expect(JSON.stringify(realizeAdventureLevel(ALL_LEVELS.find((l) => l.id === "chapter-01-intro")!, language))).toContain(
       `'${language}: a field manual'`,
@@ -85,7 +83,7 @@ describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
   });
 
   it("leaks no Go into the player-facing step text", () => {
-    for (const c of ACT_1) {
+    for (const c of CHAPTERS) {
       for (const s of realizeChallenge(c, language).steps) {
         const text = [s.brief, ...s.hints.map((h) => h.text), ...(s.quickCheck?.items ?? []).flatMap((q) => [q.question, q.answer])].join("\n");
         expect(text, s.id).not.toMatch(/fmt\.|func main|package main|:=|\bgo program\b/);
@@ -93,7 +91,7 @@ describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
     }
   });
 
-  for (const c of ACT_1) {
+  for (const c of CHAPTERS) {
     for (const spine of c.steps) {
       it(`${spine.id}: reference solution passes`, async () => {
         const step = realizeChallenge(c, language).steps.find((s) => s.id === spine.id)!;
@@ -114,7 +112,7 @@ describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
 
   for (const [stepId, code] of Object.entries(HARDCODED[language])) {
     it(`${stepId}: the hardcoded shortcut is rejected`, async () => {
-      const c = ACT_1.find((ch) => stepId.startsWith(ch.id + ":"))!;
+      const c = CHAPTERS.find((ch) => stepId.startsWith(ch.id + ":"))!;
       const step = realizeChallenge(c, language).steps.find((s) => s.id === stepId)!;
       const res = await runStep(language, step, code!);
       const outputOk = res.status === "ok" && norm(res.stdout) === norm(step.expectedOutput!);
@@ -153,7 +151,7 @@ describe.each(["javascript", "python"] as const)("Act I in %s", (language) => {
 
 describe("Go is the spine's own realization", () => {
   it("returns every Go chapter unchanged", () => {
-    for (const c of [...ACT_1, boss01]) expect(realizeChallenge(c, "go")).toBe(c);
+    for (const c of [...CHAPTERS, boss01]) expect(realizeChallenge(c, "go")).toBe(c);
     expect(realizeBossLevel(LOCKMASTER_ARENA, "go")).toBe(LOCKMASTER_ARENA);
   });
 });

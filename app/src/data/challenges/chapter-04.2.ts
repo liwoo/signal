@@ -12,6 +12,8 @@ export const chapter04_2: Challenge = {
     {
       id: "chapter-04.2:scaffold",
       title: "SCAFFOLD",
+      stake:
+        "Bring the comms room terminal online before GHOST's next keyword sweep.",
       brief:
         "set up the terminal. this time you need three imports — fmt, strings, and strconv. print \"ready\" so the relay initializes.",
       starterCode: `package main
@@ -59,6 +61,8 @@ export const chapter04_2: Challenge = {
     {
       id: "chapter-04.2:reverseword",
       title: "REVERSE",
+      stake:
+        "Scramble a single word so GHOST's scanners can't recognise it.",
       brief:
         "write `func reverseWord(s string) string` that reverses the characters of a single word.\n\nkey: convert to `[]rune` first (not bytes — runes handle unicode safely), reverse the slice, convert back to `string`.\n\nthe terminal will test it with multiple words.",
       starterCode: null,
@@ -120,6 +124,8 @@ export const chapter04_2: Challenge = {
     {
       id: "chapter-04.2:encode",
       title: "ENCODE",
+      stake:
+        "Scramble whole messages — and prove Reeves can unscramble them on her end.",
       brief:
         "write `func encode(msg string) string` that splits the message into words, reverses each word using `reverseWord`, and joins them back with spaces.\n\nuse `strings.Fields` to split and `strings.Join` to rejoin.\n\nbonus: `encode(encode(x)) == x` — reversing twice recovers the original. the terminal tests this.",
       starterCode: null,
@@ -166,6 +172,8 @@ export const chapter04_2: Challenge = {
     {
       id: "chapter-04.2:relayheader",
       title: "HEADER",
+      stake:
+        "Stamp every message with where it's going, without the relay choking on garbage.",
       brief:
         'write `func relayHeader(floor int, code string) string` that:\n\n1. converts the floor number to a string using `strconv.Itoa`\n2. converts the code string to an int using `strconv.Atoi`\n3. returns `"F<floor>-C<code_int * 2>"`\n\nif Atoi fails (bad input), return `"F<floor>-ERR"`.\n\nthis is go\'s error pattern — no exceptions. `Atoi` returns `(int, error)`. check `err != nil`.',
       starterCode: null,

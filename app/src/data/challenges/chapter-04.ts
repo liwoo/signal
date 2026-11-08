@@ -12,6 +12,8 @@ export const chapter04: Challenge = {
     {
       id: "chapter-04:scaffold",
       title: "SCAFFOLD",
+      stake:
+        "Wake the surveillance terminal so Maya can read the guard schedule Reeves photographed.",
       brief:
         "every go program starts the same way. set up the skeleton — package, import, and a main function. print \"ready\" so the terminal initializes.",
       starterCode: `package main
@@ -59,6 +61,8 @@ export const chapter04: Challenge = {
     {
       id: "chapter-04:guardmap",
       title: "MAP",
+      stake:
+        "Put every guard and their floor in one place, so Maya can look anyone up in an instant.",
       brief:
         'write a function `buildRoster() map[string]string` that returns a map with these key-value pairs:\n\n"Chen": "Floor 1"\n"Alvarez": "Floor 2"\n"Volkov": "Floor 2"\n"Park": "Floor 3"\n"Santos": "Floor 1"\n\nadd it above main. the terminal will test it automatically.',
       starterCode: null, // carry forward from scaffold
@@ -116,6 +120,8 @@ export const chapter04: Challenge = {
     {
       id: "chapter-04:clearfloors",
       title: "CLEAR",
+      stake:
+        "Find the one floor nobody is watching — that's where Maya moves next.",
       brief:
         'write a function `findClearFloor(guards map[string]string, maxFloor int) string` that:\n\n1. builds `occupied := map[string]bool{}` from the guard map values using `range`\n2. loops from 1 to `maxFloor` (the function receives this as a parameter — use it in your loop condition)\n3. returns the first floor name not in the occupied set\n\nuse `fmt.Sprintf("Floor %d", i)` to build floor names. the terminal will test it with different guard configs and floor counts.',
       starterCode: null, // carry forward
