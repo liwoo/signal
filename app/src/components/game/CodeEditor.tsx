@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useEffect } from "react";
 import { useVim, type VimMode } from "@/hooks/useVim";
 import { getLanguageService } from "@/lib/lang/registry";
 import { smartEnter } from "@/lib/editor/smart-enter";
-import type { Completion, ExtraPackage, LanguageService } from "@/lib/lang/types";
+import type { Completion, ExtraPackage, LanguageService, Token } from "@/lib/lang/types";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
 import type { LanguageId, SubmissionFeedback } from "@/types/game";
 
@@ -49,31 +49,78 @@ const TOKEN_COLORS: Record<string, string> = {
   unknown: "var(--color-foreground)",
 };
 
-function highlightCode(source: string, lang: LanguageService): React.ReactNode[] {
-  const tokens = lang.tokenize(source);
-  const nodes: React.ReactNode[] = [];
-  let lastEnd = 0;
+/** Where to draw the block cursor inside the highlighted code, if anywhere. */
+interface InlineCursor {
+  pos: number;
+  /** Cursor fill colour (vim mode colour, or the signal colour for the "ready" cursor). */
+  color: string;
+}
 
-  for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
-    // Render any gap (whitespace between tokens)
-    if (tok.start > lastEnd) {
-      nodes.push(source.slice(lastEnd, tok.start));
+/**
+ * Render the source as coloured token spans. The block cursor is drawn here,
+ * inline, around the character it sits on — so it can never drift from the
+ * text the way a separately measured overlay can (wrapping, scrollbars, font
+ * metrics all match by construction).
+ */
+function highlightCode(
+  source: string,
+  tokens: Token[],
+  cursor: InlineCursor | null,
+  cursorRef: React.Ref<HTMLSpanElement>
+): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const at = cursor ? Math.max(0, Math.min(cursor.pos, source.length)) : -1;
+  let key = 0;
+
+  const cursorSpan = (ch: string, color: string | undefined) => (
+    <span
+      key={`cursor-${key++}`}
+      ref={cursorRef}
+      data-editor-cursor=""
+      className="term-cursor"
+      style={{ ["--tok" as string]: color, ["--cursor-bg" as string]: cursor!.color }}
+    >
+      {ch}
+    </span>
+  );
+
+  const push = (start: number, end: number, color: string | undefined) => {
+    if (end <= start) return;
+    const text = source.slice(start, end);
+    const wrap = (t: string) =>
+      color ? <span key={key++} style={{ color }}>{t}</span> : <span key={key++}>{t}</span>;
+    if (at < start || at >= end) {
+      nodes.push(color ? wrap(text) : text);
+      return;
     }
-    nodes.push(
-      <span key={i} style={{ color: TOKEN_COLORS[tok.type] }}>
-        {tok.value}
-      </span>
-    );
+    const i = at - start;
+    if (i > 0) nodes.push(wrap(text.slice(0, i)));
+    if (text[i] === "\n") {
+      // cursor on a line end: a blank cell, then the newline itself
+      nodes.push(cursorSpan(" ", color), "\n");
+    } else {
+      nodes.push(cursorSpan(text[i], color));
+    }
+    if (i + 1 < text.length) nodes.push(wrap(text.slice(i + 1)));
+  };
+
+  let lastEnd = 0;
+  for (const tok of tokens) {
+    if (tok.start > lastEnd) push(lastEnd, tok.start, undefined);
+    push(tok.start, tok.end, TOKEN_COLORS[tok.type]);
     lastEnd = tok.end;
   }
-  // Trailing whitespace/newlines
-  if (lastEnd < source.length) {
-    nodes.push(source.slice(lastEnd));
-  }
-
+  if (lastEnd < source.length) push(lastEnd, source.length, undefined);
+  if (at === source.length) nodes.push(cursorSpan(" ", undefined));
   return nodes;
 }
+
+const VIM_MODE_COLOR: Record<VimMode, string> = {
+  normal: "var(--color-info)",
+  insert: "var(--color-signal)",
+  visual: "var(--color-alert)",
+  "visual-line": "var(--color-alert)",
+};
 
 function vimModeLabel(mode: VimMode): string {
   switch (mode) {
@@ -83,6 +130,8 @@ function vimModeLabel(mode: VimMode): string {
       return "INSERT";
     case "visual":
       return "VISUAL";
+    case "visual-line":
+      return "V-LINE";
   }
 }
 
@@ -148,8 +197,10 @@ export function CodeEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const lineNumRef = useRef<HTMLDivElement>(null);
-  const cursorRef = useRef<HTMLDivElement>(null);
+  const cursorSpanRef = useRef<HTMLSpanElement>(null);
   const [vim, vimActions] = useVim(vimEnabled);
+  /** Vim is driving the cursor (normal / visual) — the native caret is hidden. */
+  const vimCommandMode = vim.enabled && vim.mode !== "insert";
   const [cursorPos, setCursorPos] = useState(0);
 
   // Autocomplete state
@@ -210,7 +261,7 @@ export function CodeEditor({
   // cost (it grows with the file). The output only depends on the text and the
   // language, so memoize it — a parent re-render (timers, chat) no longer
   // re-highlights, and a keystroke highlights exactly once.
-  const highlightedNodes = useMemo(() => highlightCode(code, lang), [code, lang]);
+  const tokens = useMemo(() => lang.tokenize(code), [code, lang]);
 
   // Format
   const [formatting, setFormatting] = useState(false);
@@ -228,11 +279,10 @@ export function CodeEditor({
     }
   }, [code, onCodeChange, formatting, disabled, busy, lang]);
 
-  const isBlockCursor = vim.enabled && vim.mode === "normal";
-  // Show a thick terminal cursor either in vim-normal, or when the terminal is
-  // "on" and awaiting player input.
-  const readyCursor = awaitingInput && !disabled && !isBlockCursor;
-  const showBlockCursor = isBlockCursor || readyCursor;
+  // Block cursor: vim normal/visual, or a thick "ready for input" terminal
+  // cursor when the terminal is on and awaiting the player.
+  const readyCursor = awaitingInput && !disabled && !vim.enabled;
+  const showBlockCursor = vimCommandMode || readyCursor;
   const [isMac, setIsMac] = useState(false);
   useEffect(() => {
     setIsMac(navigator.platform?.startsWith("Mac") || navigator.userAgent.includes("Mac"));
@@ -310,73 +360,20 @@ export function CodeEditor({
     });
   }, [code, acStart, cursorPos, codeChangeWithUndo]);
 
-  // A single reused measuring element, so cursor positioning doesn't churn the
-  // DOM (create → append → remove) on every keystroke.
-  const measureElRef = useRef<HTMLSpanElement | null>(null);
-  const cursorRafRef = useRef<number | null>(null);
-
-  // Update block cursor position
-  const updateCursorOverlay = useCallback(() => {
-    if (!showBlockCursor || !cursorRef.current || !textareaRef.current || !highlightRef.current) return;
-    const ta = textareaRef.current;
-    const pos = ta.selectionStart;
-    setCursorPos(pos);
-
-    // Measure the cursor's pixel position with a hidden mirror of the text.
-    let measure = measureElRef.current;
-    if (!measure) {
-      measure = document.createElement("span");
-      measureElRef.current = measure;
-      document.body.appendChild(measure);
-    }
-    measure.style.cssText = `
-      position: absolute; visibility: hidden; white-space: pre-wrap; word-break: break-all;
-      font-family: var(--font-mono); font-size: ${fontSize}px; line-height: ${lineHeight}px; tab-size: 4;
-      padding: 12px; width: ${highlightRef.current.clientWidth}px; box-sizing: border-box; top: 0; left: 0;
-    `;
-    measure.textContent = code.slice(0, pos);
-    const marker = document.createElement("span");
-    marker.textContent = code[pos] || " ";
-    measure.appendChild(marker);
-
-    const markerRect = marker.getBoundingClientRect();
-    const measureRect = measure.getBoundingClientRect();
-    const x = markerRect.left - measureRect.left;
-    const y = markerRect.top - measureRect.top;
-    const w = markerRect.width;
-
-    measure.textContent = ""; // drop the marker; keep the element for next time
-
-    const cursor = cursorRef.current;
-    cursor.style.transform = `translate(${x}px, ${y - ta.scrollTop}px)`;
-    // Thick terminal cursor when awaiting input; slim block for vim-normal.
-    cursor.style.width = readyCursor ? `${Math.max(w, Math.round(fontSize * 0.6))}px` : `${Math.max(w, 7)}px`;
-  }, [showBlockCursor, readyCursor, code, fontSize, lineHeight]);
-
-  // Measure in an animation frame rather than synchronously inside the commit:
-  // the browser lays out once and rapid keystrokes coalesce to one measurement
-  // per frame, so the forced reflow no longer lands on the typing critical path.
-  useEffect(() => {
-    if (cursorRafRef.current !== null) cancelAnimationFrame(cursorRafRef.current);
-    cursorRafRef.current = requestAnimationFrame(() => {
-      cursorRafRef.current = null;
-      updateCursorOverlay();
-    });
-    return () => {
-      if (cursorRafRef.current !== null) {
-        cancelAnimationFrame(cursorRafRef.current);
-        cursorRafRef.current = null;
-      }
-    };
-  }, [updateCursorOverlay, cursorPos, code]);
-
-  // Tear down the reused measuring element with the editor.
-  useEffect(() => () => {
-    if (measureElRef.current) {
-      measureElRef.current.remove();
-      measureElRef.current = null;
-    }
-  }, []);
+  const blockCursorPos = vimCommandMode && vim.cursor >= 0 ? vim.cursor : cursorPos;
+  const inlineCursor = useMemo<InlineCursor | null>(
+    () =>
+      showBlockCursor
+        ? { pos: blockCursorPos, color: vim.enabled ? VIM_MODE_COLOR[vim.mode] : "var(--color-signal)" }
+        : null,
+    [showBlockCursor, blockCursorPos, vim.enabled, vim.mode]
+  );
+  // Re-tokenizing is memoized on the code; splicing the cursor in is a cheap
+  // linear pass over the tokens.
+  const highlightedNodes = useMemo(
+    () => highlightCode(code, tokens, inlineCursor, cursorSpanRef),
+    [code, tokens, inlineCursor]
+  );
 
   // Sync scroll between textarea and highlight overlay
   const syncScroll = useCallback(() => {
@@ -398,6 +395,32 @@ export function CodeEditor({
     }
   }, []);
 
+  // A vim edit changes the code first; once React has committed it, put the
+  // cursor where vim says — before paint, so it never flashes elsewhere.
+  useLayoutEffect(() => {
+    vimActions.syncAfterRender(textareaRef.current);
+  }, [code, vimActions]);
+
+  // Keep vim's cursor on screen: the textarea doesn't scroll for a cursor it
+  // isn't drawing, so follow the inline cursor ourselves.
+  useLayoutEffect(() => {
+    const ta = textareaRef.current;
+    const span = cursorSpanRef.current;
+    if (!vimCommandMode || !ta || !span) return;
+    const top = span.offsetTop;
+    const bottom = top + (span.offsetHeight || lineHeight);
+    const margin = lineHeight;
+    if (top - margin < ta.scrollTop) ta.scrollTop = Math.max(0, top - margin);
+    else if (bottom + margin > ta.scrollTop + ta.clientHeight) ta.scrollTop = bottom + margin - ta.clientHeight;
+    syncScroll();
+  }, [vimCommandMode, blockCursorPos, code, lineHeight, syncScroll]);
+
+  /** Mouse/touch moved the caret: vim adopts it, the "ready" cursor follows it. */
+  const handleSelect = useCallback(() => {
+    vimActions.syncFromDom(textareaRef.current, code);
+    trackCursor();
+  }, [vimActions, code, trackCursor]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       // Block all input when disabled (Maya typing / game paused)
@@ -408,8 +431,8 @@ export function CodeEditor({
 
       // Autocomplete navigation
       if (acVisible) {
-        const isDown = e.key === "ArrowDown" || (vim.enabled && vim.mode === "normal" && e.key === "j");
-        const isUp = e.key === "ArrowUp" || (vim.enabled && vim.mode === "normal" && e.key === "k");
+        const isDown = e.key === "ArrowDown";
+        const isUp = e.key === "ArrowUp";
         if (isDown) {
           e.preventDefault();
           setAcIndex((i) => Math.min(i + 1, acItems.length - 1));
@@ -428,9 +451,13 @@ export function CodeEditor({
           }
         }
         if (e.key === "Escape") {
-          e.preventDefault();
           setAcVisible(false);
-          return;
+          // In vim insert mode one Escape closes the popup AND leaves insert —
+          // otherwise the popup (which shows while typing) eats every Escape.
+          if (!vim.enabled) {
+            e.preventDefault();
+            return;
+          }
         }
       }
 
@@ -468,7 +495,7 @@ export function CodeEditor({
 
       // Let vim handle first
       if (vimActions.handleKeyDown(e, code, codeChangeWithUndo)) {
-        requestAnimationFrame(trackCursor);
+        setAcVisible(false);
         return;
       }
 
@@ -661,6 +688,17 @@ export function CodeEditor({
         {!isMobile ? <div
           className="flex items-center gap-2"
         >
+          <VimSwitch
+            enabled={vim.enabled}
+            mode={vim.mode}
+            pending={vim.pending}
+            onToggle={() => {
+              const ta = textareaRef.current;
+              vimActions.toggle(ta, code);
+              onVimToggle?.(!vim.enabled);
+              ta?.focus({ preventScroll: true });
+            }}
+          />
           {lang.format ? <button
             type="button"
             onClick={handleFormat}
@@ -733,14 +771,33 @@ export function CodeEditor({
           ))}
         </div>
 
-        {/* Highlight + textarea stack */}
-        <div className="flex-1 relative min-w-0 overflow-hidden">
+        {/* Highlight + textarea stack — a mode-coloured edge while vim is on */}
+        <div
+          className="flex-1 relative min-w-0 overflow-hidden"
+          style={vim.enabled ? { borderLeft: `2px solid ${VIM_MODE_COLOR[vim.mode]}` } : undefined}
+        >
+          {vim.enabled && !isMobile ? (
+            <div
+              className="absolute bottom-1.5 right-3 z-20 pointer-events-none flex items-center gap-2 font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
+              style={{ color: VIM_MODE_COLOR[vim.mode], opacity: 0.85 }}
+              aria-hidden="true"
+            >
+              {vim.pending ? (
+                <span className="font-[family-name:var(--font-mono)] tracking-[1px]" style={{ color: "var(--color-foreground)" }}>
+                  {vim.pending}
+                </span>
+              ) : null}
+              <span>-- {vimModeLabel(vim.mode)} --</span>
+            </div>
+          ) : null}
           {/* Syntax-highlighted overlay */}
           <pre
             ref={highlightRef}
             aria-hidden="true"
-            className={`absolute inset-0 p-3 m-0 overflow-hidden pointer-events-none ${isMobile ? "whitespace-pre" : "whitespace-pre-wrap break-words"}`}
+            className={`absolute inset-0 p-3 m-0 overflow-hidden pointer-events-none ${isMobile ? "whitespace-pre" : "whitespace-pre-wrap"}`}
             style={{
+              // must wrap exactly like the textarea above it
+              wordBreak: isMobile ? "normal" : "break-all",
               fontFamily: "var(--font-mono)",
               fontSize: `${fontSize}px`,
               lineHeight: `${lineHeight}px`,
@@ -752,23 +809,6 @@ export function CodeEditor({
             {/* Ensure trailing newline renders */}
             {"\n"}
           </pre>
-
-          {/* Block cursor — vim-normal, or a thick "ready for input" terminal cursor */}
-          {showBlockCursor && (
-            <div
-              ref={cursorRef}
-              className="absolute pointer-events-none"
-              style={{
-                top: 0,
-                left: 0,
-                height: lineHeight,
-                background: "var(--color-signal)",
-                opacity: readyCursor ? 0.9 : 0.7,
-                mixBlendMode: readyCursor ? "screen" : undefined,
-                animation: "blink 1s step-end infinite",
-              }}
-            />
-          )}
 
           {/* Autocomplete popup */}
           {acVisible && acItems.length > 0 && (
@@ -822,22 +862,24 @@ export function CodeEditor({
             readOnly={disabled}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            onKeyUp={trackCursor}
+            onKeyUp={vimCommandMode ? undefined : trackCursor}
+            onSelect={handleSelect}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
             data-form-type="other"
             onClick={() => {
-              trackCursor();
-              if (textareaRef.current) {
+              handleSelect();
+              if (textareaRef.current && !vimCommandMode) {
                 updateAutocomplete(code, textareaRef.current.selectionStart);
               }
             }}
             onPaste={isMobile ? undefined : (e) => e.preventDefault()}
             onScroll={syncScroll}
             spellCheck={false}
-            className="absolute inset-0 w-full h-full bg-transparent border-0 text-transparent
-                       p-3 resize-none focus:outline-none"
+            aria-label={vim.enabled ? `Code editor, vim ${vimModeLabel(vim.mode).toLowerCase()} mode` : "Code editor"}
+            className={`code-input${vim.enabled && (vim.mode === "visual" || vim.mode === "visual-line") ? " vim-visual" : ""} absolute inset-0 w-full h-full bg-transparent border-0 text-transparent
+                       p-3 resize-none focus:outline-none`}
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: `${lineHeight}px`,
@@ -906,36 +948,6 @@ export function CodeEditor({
         }}
       >
         <div className={`gap-2.5 text-[10px] items-center ${isMobile ? "hidden" : "flex"}`}>
-          {/* Vim toggle + mode */}
-          <button
-            onClick={() => {
-              vimActions.toggle();
-              onVimToggle?.(!vim.enabled);
-            }}
-            className={`bg-transparent border px-1.5 py-0.5 text-[10px] tracking-[1px] cursor-pointer transition-colors${!vim.enabled ? " vim-flicker" : ""}`}
-            style={{
-              borderColor: vim.enabled ? "var(--color-signal)" : "var(--color-border)",
-              color: vim.enabled ? "var(--color-signal)" : "var(--color-dim)",
-            }}
-          >
-            VIM
-          </button>
-          {vim.enabled && (
-            <span
-              className="text-[10px] tracking-[2px] font-[family-name:var(--font-display)]"
-              style={{
-                color:
-                  vim.mode === "normal"
-                    ? "var(--color-info)"
-                    : vim.mode === "insert"
-                      ? "var(--color-signal)"
-                      : "var(--color-alert)",
-              }}
-            >
-              {vimModeLabel(vim.mode)}
-            </span>
-          )}
-
           {aiButton}
           <span className="text-[var(--color-dim)]">{lineCount}L</span>
           {attempts === 0 && !inRush && (
@@ -1089,5 +1101,66 @@ function EditorAccessoryKey({
     >
       {label}
     </button>
+  );
+}
+
+/** The vim on/off switch + live mode badge, in the editor header. */
+function VimSwitch({
+  enabled,
+  mode,
+  pending,
+  onToggle,
+}: {
+  enabled: boolean;
+  mode: VimMode;
+  pending: string;
+  onToggle: () => void;
+}) {
+  const color = VIM_MODE_COLOR[mode];
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        onClick={onToggle}
+        title={enabled ? "Vim keys on — click to turn off" : "Turn on vim keys (normal / insert / visual modes)"}
+        className={`cursor-pointer flex items-center gap-1.5 px-1.5 py-0.5 text-[10px] tracking-[1px]${enabled ? "" : " vim-flicker"}`}
+        style={{
+          background: enabled ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "rgba(4,8,16,.85)",
+          border: `1px solid ${enabled ? "var(--color-signal)" : "var(--color-border)"}`,
+          color: enabled ? "var(--color-signal)" : "var(--color-dim)",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        VIM
+        {/* switch track */}
+        <span
+          aria-hidden="true"
+          className="relative inline-block"
+          style={{ width: 20, height: 10, border: `1px solid ${enabled ? "var(--color-signal)" : "var(--color-dim)"}` }}
+        >
+          <span
+            className="absolute top-[1px] transition-[left] duration-150"
+            style={{ left: enabled ? 11 : 1, width: 6, height: 6, background: enabled ? "var(--color-signal)" : "var(--color-dim)" }}
+          />
+        </span>
+        <span className="min-w-[22px] text-left">{enabled ? "ON" : "OFF"}</span>
+      </button>
+      {enabled ? (
+        <span
+          aria-live="polite"
+          className="px-1.5 py-0.5 text-[10px] tracking-[2px] font-[family-name:var(--font-display)] min-w-[64px] text-center"
+          style={{ background: color, color: "var(--color-code-bg)" }}
+        >
+          {vimModeLabel(mode)}
+        </span>
+      ) : null}
+      {enabled && pending ? (
+        <span className="text-[10px] font-[family-name:var(--font-mono)]" style={{ color: "var(--color-foreground)" }}>
+          {pending}
+        </span>
+      ) : null}
+    </div>
   );
 }

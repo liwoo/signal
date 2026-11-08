@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import type { BossTab } from "@/types/game";
 import { tokenize, type Token } from "@/lib/go/tokenizer";
 import { useVim, type VimMode } from "@/hooks/useVim";
@@ -62,6 +62,11 @@ export function BossEditor({
   }, [selectedTab, activeTab]);
 
   const currentCode = tabCode[selectedTab] ?? "";
+
+  // Place vim's cursor once an edit has been committed.
+  useLayoutEffect(() => {
+    vimActions.syncAfterRender(textareaRef.current);
+  }, [currentCode, vimActions]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {

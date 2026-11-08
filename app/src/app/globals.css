@@ -147,6 +147,29 @@ textarea {
   animation: vim-flicker 5s ease-in-out infinite;
 }
 
+/* Editor block cursor — rendered inline in the highlighted code so it always
+   sits exactly on its character. --tok is the character's syntax colour,
+   shown again on the "off" beat of the blink. */
+@keyframes term-cursor-blink {
+  0%, 100% { background: var(--cursor-bg, var(--color-signal)); color: var(--color-code-bg); }
+  50% { background: transparent; color: var(--tok, var(--color-foreground)); }
+}
+
+.term-cursor {
+  background: var(--cursor-bg, var(--color-signal));
+  color: var(--color-code-bg);
+  animation: term-cursor-blink 1.1s step-end infinite;
+}
+
+/* Selection in the transparent code textarea — amber in vim visual mode */
+.code-input::selection {
+  background: color-mix(in srgb, var(--color-signal) 22%, transparent);
+}
+
+.code-input.vim-visual::selection {
+  background: color-mix(in srgb, var(--color-alert) 32%, transparent);
+}
+
 /* Rush timer bar */
 @keyframes rush-shrink {
   from { width: 100%; }

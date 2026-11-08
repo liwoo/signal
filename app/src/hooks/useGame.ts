@@ -7,7 +7,9 @@ import { buildReward } from "@/lib/game/reward";
 import type { Reward } from "@/lib/game/reward";
 import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, LanguageId } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
-import { callMayaEngine, callMayaEngineAsync } from "@/lib/ai/engine";
+import { callMayaEngine, callMayaEngineAsync, getStepBank } from "@/lib/ai/engine";
+import { chooseHelpReply, isJevStep } from "@/lib/ai/jev";
+import { jevJudgeZen, jevRouteHelp } from "@/lib/ai/jev-client";
 import { createEventScheduler } from "@/lib/game/events";
 import { calculateTotalXP, calculateSpeedXP, calculateLevel } from "@/lib/game/xp";
 import {
@@ -17,7 +19,7 @@ import {
   type JeopardyState,
 } from "@/lib/game/jeopardy";
 import { INITIAL_HEARTS, loseHeart, buyHeart, canBuyHeart, HEART_COST_XP } from "@/lib/game/hearts";
-import { analyzeZen, buildZenMessage, calculateMissedXP, getZenRules } from "@/lib/game/zen";
+import { analyzeZen, buildZenMessage, calculateMissedXP, evaluateZenRules } from "@/lib/game/zen";
 import { getLanguageService } from "@/lib/lang/registry";
 import {
   createLibraryState,
@@ -601,7 +603,7 @@ export function useGame(
     addMsg("YOU", msg, "you");
     trackChatAsk(challenge.id, currentStep.id, msg);
 
-    const { reply } = callMayaEngine(
+    const { reply: keywordReply } = callMayaEngine(
       currentStep.id,
       msg,
       false,
@@ -610,16 +612,35 @@ export function useGame(
       attempts,
       language
     );
-    addMayaChunked("MAYA", reply, "maya", true);
-    logChatMessage({
-      step_id: currentStep.id,
-      kind: "chat",
-      user_message: msg,
-      maya_reply: reply,
-      is_complete: false,
-      attempt: attempts,
-    });
-  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language, challenge.id, holdClock]);
+    const answer = (reply: string) => {
+      addMayaChunked("MAYA", reply, "maya", true);
+      logChatMessage({
+        step_id: currentStep.id,
+        kind: "chat",
+        user_message: msg,
+        maya_reply: reply,
+        is_complete: false,
+        attempt: attempts,
+      });
+    };
+
+    const bank = getStepBank(currentStep.id, language);
+    if (!isJevStep(currentStep.id) || !bank) {
+      answer(keywordReply);
+      return;
+    }
+    // Act I: Jev reads what the player is really asking (and how stuck they
+    // are) and picks which of Maya's authored answers fits. Any failure falls
+    // straight back to the keyword reply.
+    const firstError = getLanguageService(language).diagnose(code).find((d) => d.severity === "error");
+    const diagnostic = firstError ? `line ${firstError.line}: ${firstError.message}` : null;
+    void jevRouteHelp({ stepId: currentStep.id, language, message: msg, code, attempts })
+      .then((decision) =>
+        chooseHelpReply(decision, { bank, attempts, inRush, diagnostic, fallback: keywordReply }).reply
+      )
+      .catch(() => keywordReply)
+      .then(answer);
+  }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language, challenge.id, holdClock, code]);
 
   const submitCode = useCallback(async () => {
     if (!code.trim() || busy) return;
@@ -629,6 +650,12 @@ export function useGame(
     setBusy(true);
     addMsg("YOU", `[ transmitting · ${currentStep.title} · attempt ${attempts + 1} ]`, "dim");
     trackCodeSubmit(challenge.id, stepIndex, attempts + 1, false); // success updated below if complete
+
+    // Act I: ask Jev to judge the zen rules while the code compiles, so a
+    // passing submission doesn't wait on it. Null (no key, timeout) → heuristics.
+    const zenVerdictsPromise = isJevStep(currentStep.id)
+      ? jevJudgeZen(currentStep.id, language, code).catch(() => null)
+      : Promise.resolve(null);
 
     const { reply, isComplete } = await callMayaEngineAsync(
       currentStep.id,
@@ -683,26 +710,24 @@ export function useGame(
         1
       );
       const masteredIds = getMasteredRuleIds(libraryRef.current);
-      const zenResult = analyzeZen(currentStep.id, code, masteredIds, language);
+      const zenVerdicts = (await zenVerdictsPromise) ?? undefined;
+      const zenResult = analyzeZen(currentStep.id, code, masteredIds, language, zenVerdicts);
       const totalEarned = earned + zenResult.bonusXP;
 
       // Record zen results in library — only rules relevant to the player's code
-      const stepRules = getZenRules(currentStep.id, language);
-      const relevantRules = stepRules.filter(
-        (r) => !r.isRelevant || r.isRelevant(code)
-      );
+      const zenOutcomes = evaluateZenRules(currentStep.id, code, language, zenVerdicts).filter((o) => o.relevant);
       // Computed eagerly (not in a setState updater) so the save below
       // persists exactly what the player now holds.
       const nextLibrary = recordZenResults(
         libraryRef.current,
         currentStep.id,
-        relevantRules.map((r) => ({
+        zenOutcomes.map(({ rule: r, passed }) => ({
           id: r.id,
           principle: r.principle,
           jolt: r.jolt,
           suggestion: r.getSuggestion ? r.getSuggestion(code) : r.suggestion,
           bonusXP: r.bonusXP,
-          passed: r.check(code),
+          passed,
         }))
       );
       libraryRef.current = nextLibrary;
@@ -777,7 +802,7 @@ export function useGame(
       addMayaChunked("MAYA", reply, "win");
 
       // Queue zen message chunks
-      const missedXP = calculateMissedXP(currentStep.id, zenResult, code, language);
+      const missedXP = calculateMissedXP(currentStep.id, zenResult, code, language, zenVerdicts);
       const zenMsg = buildZenMessage(zenResult, missedXP, getLanguageService(language).label.toLowerCase());
       if (zenMsg) {
         const zenChunks = splitMayaMessage(zenMsg);

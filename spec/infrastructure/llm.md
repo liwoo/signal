@@ -125,3 +125,34 @@ Respond with JSON: { "pass": bool, "feedback": "1 sentence as Maya" }
 - AI token store (localStorage)
 - Chat UI component
 - Network status detection (for API fallback messaging)
+
+---
+
+## Jev — decision model (Act I)
+
+Jev (TypeSafe AI's "System One" model) answers typed questions — yes/no (`noul`), `choice`, `score` — about a piece of state, with probabilities. It never writes prose, so Maya's voice stays authored: **Jev decides, the banks speak.** Act I only (chapters 1–3 + boss-01, all three languages); later acts are untouched.
+
+### What it decides
+
+1. **Zen judging.** On every submission (in parallel with the compile) Jev answers one yes/no per *semantic* zen rule of the step — "is the classification a tagless switch?", "does `sumCodes` only return the sum?". Rubric: `src/data/jev-zen-criteria.ts` (neutral questions, not Maya's lines). Formatting rules (blank lines, quotes, semicolons, indentation) stay purely heuristic. `evaluateZenRules()` in `zen.ts` lets a verdict override the heuristic only when confident (≥ 0.75 / ≤ 0.25); in between, the heuristic stands.
+2. **Help routing.** A chat message gets `intent` (next_step / concept / error / story / chatter / off_topic), `topic` (which of the step's STUCK? items or concept-FAQ answers fits, or none) and `frustration` (0–2). `chooseHelpReply()` maps that to an authored answer: the chosen answer, the step's most direct `stuckResponses` hint for a frustrated player, or the first compiler error for an "it doesn't work" question. Story/small talk and low-confidence reads fall back to the keyword engine.
+
+### Wiring
+
+- `src/lib/ai/jev.ts` — pure question builders + answer interpreters (shared server/client)
+- `src/lib/ai/jev-server.ts` — `callJev()` → `POST {base}/v1/systemone`, Bearer auth, 3.5s timeout
+- `src/app/api/jev/route.ts` — `GET` → `{ enabled }`; `POST { task: "zen" | "help", stepId, language, code, message?, attempts? }`. Builds every question from the step's own data, rejects non–Act I steps and oversized input, so it is not a general Jev proxy.
+- `src/lib/ai/jev-client.ts` — best-effort browser calls; any failure → `null` → heuristics/keyword banks.
+
+### Env (server only)
+
+| Var | Effect |
+| --- | --- |
+| `JEV_API_KEY` | key for `JEV_BASE_URL`, default `https://ai-gateway.vercel.sh/typesafe` (model `typesafe-ai/jev`) |
+| `TYPESAFE_API_KEY` | TypeSafe key (`apikey_…`), calls `https://api.typesafe.ai` directly with model `jev-latest` (required field; `GET /v1/models` also lists `jev-preview`) |
+| `AI_GATEWAY_API_KEY` | Vercel AI Gateway key (TypeSafe-compatible API) |
+| `JEV_BASE_URL` / `JEV_MODEL` | overrides |
+
+No key → `/api/jev` reports `enabled: false` and the game behaves exactly as before.
+
+Verified live (Nov 2026, jev-1.14.0): ~130–330ms per call; errors come back as `{ detail: { error_type, message } }`.
