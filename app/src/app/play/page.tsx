@@ -31,6 +31,8 @@ import { ZenDebrief } from "@/components/game/ZenDebrief";
 import { StreakLabel } from "@/components/story/StreakLabel";
 import { GameOver } from "@/components/story/GameOver";
 import { WinModal } from "@/components/game/WinModal";
+import { ChapterTakeaway } from "@/components/game/ChapterTakeaway";
+import { takeawayFor } from "@/data/takeaways";
 import { LibraryPanel } from "@/components/game/LibraryPanel";
 import { NotesPanel } from "@/components/game/NotesPanel";
 import { ConceptTracker } from "@/components/game/ConceptTracker";
@@ -90,7 +92,7 @@ import {
   resumeFor,
   type ProgressSave,
 } from "@/lib/game/progress";
-import type { Challenge, LanguageId, PlayerSettings, BossFightConfig } from "@/types/game";
+import type { Challenge, LanguageId, Pace, PlayerSettings, PriorLanguage, BossFightConfig } from "@/types/game";
 import type { SceneDefinition } from "@/lib/sprites/scenes";
 import {
   trackChapterStart,
@@ -104,6 +106,7 @@ import {
 } from "@/lib/analytics";
 import { recordActivity } from "@/lib/classroom/activity";
 import { LanguagePicker } from "@/components/game/LanguagePicker";
+import { KnowStep, LoopStrip, PaceStep } from "@/components/game/FirstSession";
 import { BootScreen } from "@/components/game/BootScreen";
 
 // ── Heavy stages, split out of the first load ──
@@ -371,6 +374,9 @@ function GameRouter() {
   const chapters = useMemo(() => chaptersFor(language), [language]);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileChecked, setMobileChecked] = useState(false);
+  // The first-session screens (hook → what you know → pace). Held here, above
+  // GameScreen, because picking a language re-keys (remounts) GameScreen.
+  const [onboarding, setOnboarding] = useState<OnboardingStage | null>(null);
 
   // Compact gameplay uses a dedicated single-pane shell.
   useEffect(() => {
@@ -403,6 +409,7 @@ function GameRouter() {
     loadPersistedState().then((state) => {
       if (!active) return;
       setPersisted(state);
+      if (!state.settings.languageChosen) setOnboarding("hook");
       // Resume at this language's checkpoint / first uncleared chapter
       const lang = state.settings.language ?? "go";
       setChapterIndex(resumeIndex(state, lang));
@@ -512,6 +519,8 @@ function GameRouter() {
         introDone={resume?.introDone ?? false}
         onSaveSettings={handleSaveSettings}
         onChangeLanguage={changeLanguage}
+        onboarding={onboarding}
+        onOnboardingChange={setOnboarding}
         language={language}
         settings={persisted.settings}
         isMobile={isMobile}
@@ -536,15 +545,19 @@ interface GameScreenProps {
   introDone: boolean;
   onSaveSettings: (settings: Partial<PlayerSettings>) => void;
   onChangeLanguage: (language: LanguageId) => void;
+  /** First-session screen being shown on the intro, or null for the normal intro. */
+  onboarding: OnboardingStage | null;
+  onOnboardingChange: (stage: OnboardingStage | null) => void;
   language: LanguageId;
   completedChapterIds: string[];
   settings: PlayerSettings;
   isMobile: boolean;
 }
 
-function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onIntroDone, introDone, onSaveSettings, onChangeLanguage, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
+function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSave, onIntroDone, introDone, onSaveSettings, onChangeLanguage, onboarding, onOnboardingChange, language, settings, completedChapterIds, isMobile }: GameScreenProps) {
   const { challenge, twist, introScenes, completeScenes } = config;
-  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language);
+  const pace = settings.pace ?? "thriller";
+  const [state, actions] = useGame(challenge, twist ?? null, initialState, onSave, isMobile ? 1.5 : 1, language, pace);
   const lang = getLanguageService(language);
   // Heavy backends (Python's interpreter) start loading while the intro plays.
   useEffect(() => {
@@ -722,6 +735,13 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     }
   };
 
+  const startGuided = () => {
+    setForceBeginner(true);
+    onSaveSettings({ beginnerMode: true });
+    if (!isMobile) setShowTour(true);
+    beginStory();
+  };
+
   if (state.phase === "intro" && !showPrologue && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
     return <IntroScreen
       config={config}
@@ -734,11 +754,23 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         : undefined}
       onChangeLanguage={onChangeLanguage}
       onStart={() => beginStory()}
-      onGuidedStart={() => {
-        setForceBeginner(true);
-        onSaveSettings({ beginnerMode: true });
-        if (!isMobile) setShowTour(true);
-        beginStory();
+      onGuidedStart={startGuided}
+      pace={pace}
+      onChangePace={(next) => onSaveSettings({ pace: next })}
+      onboarding={onboarding}
+      onOnboardingChange={onOnboardingChange}
+      priorLanguage={settings.priorLanguage}
+      onChangePrior={(prior) => onSaveSettings({ priorLanguage: prior })}
+      onFinishOnboarding={(next) => {
+        // Instruction and pressure are separate choices: what you already
+        // know decides guided mode; the pace decides the clock.
+        onSaveSettings({ pace: next });
+        onOnboardingChange(null);
+        if (settings.priorLanguage === "none") startGuided();
+        else {
+          if (settings.beginnerMode) onSaveSettings({ beginnerMode: false });
+          beginStory();
+        }
       }}
       onReplayPrologue={config.prologueScenes && settings.prologueSeen ? () => beginStory(true) : undefined}
     />;
@@ -979,6 +1011,36 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         />
       );
     }
+    const replayChapter = () => {
+      setShowWinCinematic(false);
+      setDebriefDone(false);
+      actions.retryFromCheckpoint();
+    };
+    const continueEscape = hasNextChapter ? onNextChapter : () => { window.location.href = "/"; };
+    const endNote = !hasNextChapter
+      ? `that's every chapter built so far. the rest of act ii is on its way — your ${lang.label.toLowerCase()} progress is saved.`
+      : undefined;
+    // The takeaway: the pattern from the player's own solution, then an
+    // optional transfer check. Falls back to the summary modal.
+    const takeaway = takeawayFor(challenge.id);
+    if (takeaway) {
+      return (
+        <ChapterTakeaway
+          chapterId={challenge.id}
+          title={config.completeTitle}
+          subtitle={config.completeSubtitle}
+          takeaway={takeaway}
+          language={language}
+          code={state.code}
+          module={challenge.steps[challenge.steps.length - 1].compileModule}
+          xp={state.xp}
+          level={state.level}
+          onRetry={replayChapter}
+          onContinue={continueEscape}
+          note={endNote}
+        />
+      );
+    }
     return (
       <WinModal
         xp={state.xp}
@@ -987,15 +1049,9 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         title={config.completeTitle}
         subtitle={config.completeSubtitle}
         completedChapter={challenge.id}
-        onRetry={() => {
-          setShowWinCinematic(false);
-          setDebriefDone(false);
-          actions.retryFromCheckpoint();
-        }}
-        onContinue={hasNextChapter ? onNextChapter : () => { window.location.href = "/"; }}
-        note={!hasNextChapter
-          ? `that's every chapter built so far. the rest of act ii is on its way — your ${lang.label.toLowerCase()} progress is saved.`
-          : undefined}
+        onRetry={replayChapter}
+        onContinue={continueEscape}
+        note={endNote}
       />
     );
   }
@@ -1086,7 +1142,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
               hearts={state.hearts}
               musicEnabled={musicOn}
               onToggleMusic={toggleMusic}
-              timerSlot={state.timerStartMs > 0 ? (
+              timerSlot={state.timerStartMs > 0 ? pace === "study" ? <StudyPaceLabel compact /> : (
                 <LevelTimer
                   compact
                   startTimeMs={state.timerStartMs}
@@ -1145,6 +1201,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                 code={state.code}
                 onCodeChange={actions.setCode}
                 onSubmit={actions.submitCode}
+                onTest={actions.testCode}
+                testing={state.testing}
                 busy={state.busy}
                 disabled={state.gamePaused}
                 submissionFeedback={state.submissionFeedback}
@@ -1213,7 +1271,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           musicEnabled={musicOn}
           onToggleMusic={toggleMusic}
           timerSlot={
-            state.timerStartMs > 0 && (
+            state.timerStartMs > 0 && (pace === "study" ? <StudyPaceLabel /> :
               <LevelTimer
                 startTimeMs={state.timerStartMs}
                 timeLimitSeconds={state.timerLimitSeconds}
@@ -1337,6 +1395,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
                   code={state.code}
                   onCodeChange={actions.setCode}
                   onSubmit={actions.submitCode}
+                onTest={actions.testCode}
+                testing={state.testing}
                   busy={state.busy}
                   disabled={state.gamePaused}
                   submissionFeedback={state.submissionFeedback}
@@ -1431,6 +1491,19 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   );
 }
 
+/** Where the countdown would be, in study pace: say plainly there's no clock. */
+function StudyPaceLabel({ compact = false }: { compact?: boolean }) {
+  return (
+    <span
+      className={`font-[family-name:var(--font-display)] tracking-[2px] ${compact ? "text-[10px]" : "text-[11px]"}`}
+      style={{ color: "var(--color-info)" }}
+      title="Study pace — no countdown. Switch to Thriller on any chapter intro."
+    >
+      {compact ? "STUDY" : "STUDY · NO CLOCK"}
+    </span>
+  );
+}
+
 // Live establishing shot behind the chapter intro panel — the room the
 // chapter opens in, breathing under its own light, on a slow ping-pong drift.
 function introAmbientShot(config: ChapterConfig): SceneDefinition {
@@ -1449,7 +1522,12 @@ function introAmbientShot(config: ChapterConfig): SceneDefinition {
   };
 }
 
-function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue }: {
+type OnboardingStage = "hook" | "know" | "pace";
+
+function IntroScreen({
+  config, language, languageChosen, ctaOverride, onChangeLanguage, onStart, onGuidedStart, onReplayPrologue,
+  pace, onChangePace, onboarding, onOnboardingChange, priorLanguage, onChangePrior, onFinishOnboarding,
+}: {
   config: ChapterConfig;
   language: LanguageId;
   languageChosen: boolean;
@@ -1460,10 +1538,19 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
   onGuidedStart: () => void;
   /** Set once the prologue has played: watch it again, then into the chapter. */
   onReplayPrologue?: () => void;
+  pace: Pace;
+  onChangePace: (pace: Pace) => void;
+  /** First visit: hook → what you know → pace, one screen each. null = normal intro. */
+  onboarding: OnboardingStage | null;
+  onOnboardingChange: (stage: OnboardingStage | null) => void;
+  priorLanguage: PriorLanguage | undefined;
+  onChangePrior: (prior: PriorLanguage) => void;
+  onFinishOnboarding: (pace: Pace) => void;
 }) {
   const { challenge, tagline, introTitle, introSubtitle, storyLines, ctaLabel } = config;
   const langLabel = getLanguageService(language).label;
   const ambient = useMemo(() => introAmbientShot(config), [config]);
+  const firstVisit = onboarding === "hook";
 
   return (
     <div
@@ -1517,6 +1604,23 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
         className="max-w-[480px] w-full relative px-5 py-6"
         style={{ background: "color-mix(in srgb, var(--color-background) 62%, transparent)" }}
       >
+        {onboarding === "know" ? (
+          <KnowStep
+            language={language}
+            prior={priorLanguage}
+            onChangeLanguage={onChangeLanguage}
+            onChangePrior={onChangePrior}
+            onNext={() => onOnboardingChange("pace")}
+            onBack={() => onOnboardingChange("hook")}
+          />
+        ) : onboarding === "pace" ? (
+          <PaceStep
+            pace={pace}
+            onPick={onFinishOnboarding}
+            onBack={() => onOnboardingChange("know")}
+          />
+        ) : (
+        <>
         {/* Title — no entrance fade: it carries straight on from the boot
             screen's title, so there's no dark beat between the two. */}
         <div className="text-center mb-7">
@@ -1534,33 +1638,53 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
           </div>
         </div>
 
-        {/* Stats */}
-        <div
-          className="flex gap-1.5 mb-4 opacity-0"
-          style={{ animation: "intro-in .6s ease .1s forwards" }}
-        >
-          {[
-            [String(challenge.steps.length), challenge.steps.length === 1 ? "STEP" : "STEPS"],
-            [String(challenge.steps.reduce((s, st) => s + st.xp.base, 0)), "BASE XP"],
-            [challenge.timer.gameOverOnExpiry ? "TIMED" : "OPEN", "EVENTS"],
-          ].map(([v, l]) => (
-            <div
-              key={l}
-              className="flex-1 border border-[#0a2a1a] py-2.5 text-center"
+        {/* First visit: how a mission works. After that: the chapter at a glance. */}
+        {firstVisit ? (
+          <LoopStrip />
+        ) : (
+          <div
+            className="flex gap-1.5 mb-4 opacity-0"
+            style={{ animation: "intro-in .6s ease .1s forwards" }}
+          >
+            {[
+              [String(challenge.steps.length), challenge.steps.length === 1 ? "STEP" : "STEPS"],
+              [String(challenge.steps.reduce((s, st) => s + st.xp.base, 0)), "BASE XP"],
+            ].map(([v, l]) => (
+              <div
+                key={l}
+                className="flex-1 border border-[#0a2a1a] py-2.5 text-center"
+                style={{ background: "rgba(0,255,80,.015)" }}
+              >
+                <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-base font-bold">
+                  {v}
+                </div>
+                <div className="text-[var(--color-dim)] text-[10px] tracking-[2px] mt-0.5">
+                  {l}
+                </div>
+              </div>
+            ))}
+            {/* Pace — one tap to switch between study and thriller */}
+            <button
+              type="button"
+              onClick={() => onChangePace(pace === "study" ? "thriller" : "study")}
+              className="flex-1 border border-[#0a2a1a] py-2.5 text-center cursor-pointer transition-colors hover:border-[var(--color-signal)]"
               style={{ background: "rgba(0,255,80,.015)" }}
+              title={pace === "study" ? "Study: no countdown. Tap for the timed escape." : "Thriller: the timed escape. Tap for no countdown."}
             >
               <div className="font-[family-name:var(--font-display)] text-[var(--color-signal)] text-base font-bold">
-                {v}
+                {pace === "study" ? "STUDY" : "THRILLER"}
               </div>
               <div className="text-[var(--color-dim)] text-[10px] tracking-[2px] mt-0.5">
-                {l}
+                PACE · SWITCH ⇄
               </div>
-            </div>
-          ))}
-        </div>
+            </button>
+          </div>
+        )}
 
-        {/* Language — asked once (defaults to Go), switchable on any chapter intro */}
-        <LanguagePicker language={language} highlight={!languageChosen} onChange={onChangeLanguage} />
+        {/* Language — switchable on any chapter intro (asked on the first visit's next screen) */}
+        {!firstVisit && (
+          <LanguagePicker language={language} highlight={!languageChosen} onChange={onChangeLanguage} />
+        )}
 
         {/* Story */}
         <div
@@ -1577,7 +1701,8 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
             {storyLines[0]}
           </p>
           <p className="text-[var(--color-signal)] text-xs leading-[1.8] mt-1.5">
-            {storyLines[1]}
+            {/* The language is asked on the next screen — don't name one yet. */}
+            {firstVisit ? storyLines[1].replace(`a ${langLabel} programmer`, "a programmer") : storyLines[1]}
           </p>
         </div>
 
@@ -1587,7 +1712,7 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
           style={{ animation: "intro-in .6s ease .4s forwards" }}
         >
           <button
-            onClick={onStart}
+            onClick={firstVisit ? () => onOnboardingChange("know") : onStart}
             className="w-full py-3.5 bg-transparent border-2 border-[var(--color-signal)]
                        text-[var(--color-signal)] font-[family-name:var(--font-display)]
                        text-xs tracking-[6px] cursor-pointer
@@ -1596,14 +1721,16 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
           >
             {ctaOverride ?? ctaLabel}
           </button>
-          <button
-            type="button"
-            onClick={onGuidedStart}
-            className="w-full mt-2.5 py-2.5 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
-            style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
-          >
-            NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
-          </button>
+          {!firstVisit && (
+            <button
+              type="button"
+              onClick={onGuidedStart}
+              className="w-full mt-2.5 py-2.5 bg-transparent text-[10px] tracking-[2px] cursor-pointer transition-colors"
+              style={{ color: "var(--color-info)", border: "1px solid rgba(122,184,216,.3)" }}
+            >
+              NEW TO {langLabel.toUpperCase()}? START GUIDED MODE
+            </button>
+          )}
           {onReplayPrologue && (
             <button
               type="button"
@@ -1614,11 +1741,15 @@ function IntroScreen({ config, language, languageChosen, ctaOverride, onChangeLa
               ▶ REPLAY THE PROLOGUE · HOW SHE GOT HERE
             </button>
           )}
-          <div className="text-center mt-2 text-[var(--color-dim)] text-[10px] tracking-[2px]">
-            ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
-            <span className="cursor-blink">█</span>
-          </div>
+          {!firstVisit && (
+            <div className="text-center mt-2 text-[var(--color-dim)] text-[10px] tracking-[2px]">
+              ⚡ FIRST TRY BONUS · SPEED BONUS · PLOT TWISTS{" "}
+              <span className="cursor-blink">█</span>
+            </div>
+          )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

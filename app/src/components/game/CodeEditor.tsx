@@ -6,12 +6,18 @@ import { getLanguageService } from "@/lib/lang/registry";
 import { smartEnter } from "@/lib/editor/smart-enter";
 import type { Completion, ExtraPackage, LanguageService, Token } from "@/lib/lang/types";
 import { trackCodeFormat, trackAutocomplete } from "@/lib/analytics";
-import type { LanguageId, SubmissionFeedback } from "@/types/game";
+import type { CheckStatus, DiffLine, LanguageId, SubmissionFeedback } from "@/types/game";
+import { firstFailure, passedCount } from "@/lib/game/checks";
 
 interface CodeEditorProps {
   code: string;
   onCodeChange: (code: string) => void;
+  /** TRANSMIT TO MAYA — the attempt that counts. */
   onSubmit: () => void;
+  /** TEST — run the mission checks locally (free, not sent to Maya). */
+  onTest?: () => void;
+  /** A TEST run is in flight. */
+  testing?: boolean;
   busy: boolean;
   attempts: number;
   inRush: boolean;
@@ -35,7 +41,7 @@ interface CodeEditorProps {
   language?: LanguageId;
 }
 
-const TOKEN_COLORS: Record<string, string> = {
+export const TOKEN_COLORS: Record<string, string> = {
   keyword: "var(--color-syn-keyword)",
   builtin: "var(--color-syn-builtin)",
   type: "var(--color-syn-type)",
@@ -174,6 +180,8 @@ export function CodeEditor({
   code,
   onCodeChange,
   onSubmit,
+  onTest,
+  testing = false,
   busy,
   attempts,
   inRush,
@@ -486,10 +494,13 @@ export function CodeEditor({
         return;
       }
 
-      // Cmd+Enter (Mac) / Ctrl+Enter (other) → submit
+      // Cmd/Ctrl+Enter → TEST (free); add Shift → TRANSMIT TO MAYA. The
+      // everyday shortcut is the one that can't cost an attempt.
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        if (!busy && code.trim()) onSubmit();
+        if (busy || testing || !code.trim()) return;
+        if (e.shiftKey || !onTest) onSubmit();
+        else onTest();
         return;
       }
 
@@ -600,7 +611,7 @@ export function CodeEditor({
         requestAnimationFrame(trackCursor);
       }
     },
-    [code, codeChangeWithUndo, onSubmit, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
+    [code, codeChangeWithUndo, onSubmit, onTest, testing, busy, disabled, vim, vimActions, trackCursor, acVisible, acItems, acIndex, acceptCompletion, updateAutocomplete, undo, redo, handleFormat]
   );
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -897,8 +908,9 @@ export function CodeEditor({
 
       {submissionFeedback ? (
         <SubmissionFeedbackPanel
-          key={`${submissionFeedback.line ?? "mission"}:${submissionFeedback.message}`}
+          key={`${submissionFeedback.source ?? "transmit"}:${submissionFeedback.line ?? "mission"}:${submissionFeedback.message}`}
           feedback={submissionFeedback}
+          stale={submissionFeedback.code !== undefined && submissionFeedback.code !== code}
           onDismiss={onDismissSubmissionFeedback}
         />
       ) : null}
@@ -977,87 +989,223 @@ export function CodeEditor({
             </span>
           )}
         </div>
-        <button
-          data-tour="transmit-btn"
-          onClick={onSubmit}
-          disabled={busy || disabled || !code.trim()}
-          className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[10px] tracking-[2px] cursor-pointer
-                     transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
-          style={{
-            background: inRush ? "rgba(255,80,20,.1)" : "rgba(110,255,160,.06)",
-            border: `1px solid ${inRush ? "#ff6a2a" : "var(--color-signal)"}`,
-            color: inRush ? "var(--color-alert)" : "var(--color-signal)",
-          }}
-        >
-          {busy
-            ? "TRANSMITTING..."
-            : inRush
-              ? `▸ HURRY · +${baseXP} XP`
-              : `▸ SUBMIT · +${baseXP} XP`}
-          {!busy && !isMobile && (
-            <span
-              className="text-[10px] tracking-[1px] opacity-80"
-            >
-              {isMac ? "⌘" : "Ctrl"}⏎
-            </span>
-          )}
-        </button>
+        {(() => {
+          // A passing TEST makes TRANSMIT the obvious next move.
+          const readyToSend =
+            submissionFeedback?.source === "test" &&
+            submissionFeedback.report?.passed === true &&
+            submissionFeedback.code === code;
+          const mod = isMac ? "⌘" : "Ctrl";
+          const accent = inRush ? "var(--color-alert)" : "var(--color-signal)";
+          return (
+            <div className={`flex items-center gap-1.5 ${isMobile ? "flex-1" : ""}`}>
+              {onTest ? (
+                <button
+                  type="button"
+                  data-tour="test-btn"
+                  onClick={onTest}
+                  disabled={busy || testing || disabled || !code.trim()}
+                  className={`${isMobile ? "min-h-11 px-3 py-2" : "py-1.5 px-3.5"} bg-transparent text-[10px] tracking-[2px] cursor-pointer
+                             transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
+                  style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
+                  title="Run the mission checks here. Free — not sent to Maya, not an attempt."
+                >
+                  {testing ? "TESTING…" : "▷ TEST"}
+                  {!testing && !isMobile && <span className="text-[10px] tracking-[1px] opacity-60">{mod}⏎</span>}
+                </button>
+              ) : null}
+              <button
+                data-tour="transmit-btn"
+                onClick={onSubmit}
+                disabled={busy || testing || disabled || !code.trim()}
+                className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[10px] tracking-[2px] cursor-pointer
+                           transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
+                style={{
+                  background: readyToSend ? accent : inRush ? "rgba(255,80,20,.1)" : "rgba(110,255,160,.06)",
+                  border: `1px solid ${inRush ? "#ff6a2a" : "var(--color-signal)"}`,
+                  color: readyToSend ? "var(--color-background)" : accent,
+                }}
+                title="Send it to Maya. This is the attempt that counts."
+              >
+                {busy ? "TRANSMITTING…" : "TRANSMIT TO MAYA ▸"}
+                {!busy && !isMobile && onTest && (
+                  <span className="text-[10px] tracking-[1px] opacity-70">⇧{mod}⏎</span>
+                )}
+                {!busy && !isMobile && !onTest && (
+                  <span className="text-[10px] tracking-[1px] opacity-70">{mod}⏎</span>
+                )}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
 }
 
+const CHECK_ICON: Record<CheckStatus, string> = { pass: "✓", fail: "✗", pending: "–" };
+const CHECK_COLOR: Record<CheckStatus, string> = {
+  pass: "var(--color-signal)",
+  fail: "var(--color-danger)",
+  pending: "var(--color-dim)",
+};
+
+/** A label with `backticked` code rendered as code. */
+function CodeLabel({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("`").map((part, i) =>
+        i % 2 === 1 ? (
+          <code key={i} style={{ color: "var(--color-syn-ident)" }}>{part}</code>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/** One side of the expected/actual comparison, with the difference lit. */
+function DiffRow({ label, line, tone }: { label: string; line: DiffLine | null; tone: "expected" | "actual" }) {
+  const color = tone === "expected" ? "var(--color-signal)" : "var(--color-danger)";
+  return (
+    <div className="flex items-baseline gap-3 text-[12px] leading-[1.6]">
+      <span className="shrink-0 w-[68px] text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>{label}</span>
+      {line ? (
+        <span className="min-w-0 whitespace-pre-wrap break-all" style={{ color: "var(--color-foreground)" }}>
+          {line.before}
+          {line.mid ? (
+            <span style={{ background: `color-mix(in srgb, ${color} 22%, transparent)`, color, outline: `1px solid color-mix(in srgb, ${color} 45%, transparent)` }}>
+              {line.mid}
+            </span>
+          ) : (
+            // Something is missing here: mark the gap.
+            <span aria-label="missing" style={{ borderLeft: `2px solid ${color}`, marginLeft: 1, marginRight: 1 }} />
+          )}
+          {line.after}
+        </span>
+      ) : (
+        <span className="text-[11px]" style={{ color: "var(--color-danger)" }}>(no line)</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The result of a TEST or a rejected TRANSMIT: the three checks in a row, then
+ * the ONE thing to fix next — the expected-vs-actual difference when output is
+ * off, the error when it doesn't run, the missing code when it hardcodes.
+ */
 function SubmissionFeedbackPanel({
   feedback,
+  stale,
   onDismiss,
 }: {
   feedback: SubmissionFeedback;
+  /** The code has been edited since this run. */
+  stale: boolean;
   onDismiss?: () => void;
 }) {
   const [lessonOpen, setLessonOpen] = useState(false);
+  const report = feedback.report;
+  const isTest = feedback.source === "test";
+  const passed = report?.passed === true;
+  const failure = report ? firstFailure(report) : undefined;
+  const tone = passed ? "var(--color-signal)" : isTest ? "var(--color-alert)" : "var(--color-danger)";
+
+  const title = report?.offline
+    ? "COMPILER UNREACHABLE"
+    : isTest
+      ? passed ? "TEST · ALL CHECKS PASS" : `TEST · ${report ? passedCount(report) : "0"} CHECKS PASS`
+      : report ? `REJECTED · ${passedCount(report)} CHECKS PASS` : "TRANSMISSION REJECTED";
 
   return (
     <div
-      className="shrink-0 px-3 py-2"
+      className="shrink-0 px-3 py-2 transition-opacity"
       style={{
-        borderTop: "1px solid rgba(255,64,64,.35)",
-        borderBottom: "1px solid rgba(255,64,64,.2)",
-        background: "rgba(255,64,64,.055)",
+        borderTop: `1px solid color-mix(in srgb, ${tone} 40%, transparent)`,
+        background: `color-mix(in srgb, ${tone} 5%, transparent)`,
+        opacity: stale ? 0.55 : 1,
       }}
       role="status"
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]"
-              style={{ color: "var(--color-danger)" }}
-            >
-              TRANSMISSION REJECTED
-            </span>
-            {feedback.line ? (
-              <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-alert)" }}>
-                LINE {feedback.line}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-1 text-[11px] leading-[1.45]" style={{ color: "var(--color-foreground)" }}>
-            {feedback.message}
-          </p>
-        </div>
+      {/* Header: what kind of run, how many checks passed */}
+      <div className="flex items-center gap-2">
+        <span className="font-[family-name:var(--font-display)] text-[10px] tracking-[2px]" style={{ color: tone }}>
+          {title}
+        </span>
+        {!report && feedback.line ? (
+          <span className="text-[10px] tracking-[1px]" style={{ color: "var(--color-alert)" }}>LINE {feedback.line}</span>
+        ) : null}
+        <span className="ml-auto text-right text-[10px] tracking-[1px]" style={{ color: "var(--color-dim)" }}>
+          {stale ? "EDITED SINCE THIS RUN" : isTest ? <>LOCAL<span className="hidden sm:inline"> · NOT SENT TO MAYA</span></> : ""}
+        </span>
         {onDismiss ? (
           <button
             type="button"
             onClick={onDismiss}
-            className="bg-transparent px-1 text-[10px] cursor-pointer"
+            className="bg-transparent px-1 text-[11px] cursor-pointer"
             style={{ color: "var(--color-dim)", border: "none" }}
-            aria-label="Dismiss submission feedback"
+            aria-label="Dismiss result"
           >
             ×
           </button>
         ) : null}
       </div>
-      {feedback.lesson ? (
+
+      {/* The checks — what "correct" means, each judged on its own */}
+      {report && !report.offline ? (
+        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]" aria-label="Mission checks">
+          {report.checks.map((check) => (
+            <li key={check.id} className="flex items-baseline gap-1.5" style={{ color: check.status === "pending" ? "var(--color-dim)" : "var(--color-foreground)" }}>
+              <span aria-hidden="true" style={{ color: CHECK_COLOR[check.status] }}>{CHECK_ICON[check.status]}</span>
+              <span className="sr-only">{check.status}:</span>
+              <span><CodeLabel text={check.label} /></span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {/* The one thing to do next */}
+      <div className="mt-1.5">
+        {report?.offline ? (
+          <p className="text-[11px] leading-[1.5]" style={{ color: "var(--color-foreground)" }}>
+            couldn&apos;t reach the compiler, so nothing ran. {isTest ? "transmit and maya will check it her way." : feedback.message}
+          </p>
+        ) : passed ? (
+          <p className="text-[11px] leading-[1.5]" style={{ color: "var(--color-foreground)" }}>
+            {isTest ? "every check passes. transmit it to maya to clear the step." : feedback.message}
+          </p>
+        ) : report?.diff && failure?.id === "output" ? (
+          <div>
+            <DiffRow label="EXPECTED" line={report.diff.expected} tone="expected" />
+            <DiffRow label="ACTUAL" line={report.diff.actual} tone="actual" />
+            <p className="mt-0.5 text-[11px] leading-[1.5]" style={{ color: tone }}>
+              <CodeLabel text={report.diff.note} />
+            </p>
+          </div>
+        ) : failure?.detail ? (
+          <>
+            <p className="text-[11px] leading-[1.5] whitespace-pre-line" style={{ color: "var(--color-foreground)" }}>
+              <CodeLabel text={failure.id === "uses" ? `${failure.detail} — the answer has to be worked out by your code, not typed in by hand.` : failure.detail} />
+            </p>
+            {failure.id === "output" && report?.actual?.trim() ? (
+              <div className="mt-1 flex items-baseline gap-3 text-[11px]">
+                <span className="shrink-0 w-[68px] text-[10px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>PRINTED</span>
+                <span className="min-w-0 whitespace-pre-wrap break-all" style={{ color: "var(--color-foreground)" }}>
+                  {report.actual.trim().split("\n").slice(0, 3).join("\n")}
+                </span>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-[11px] leading-[1.45]" style={{ color: "var(--color-foreground)" }}>
+            {feedback.message}
+          </p>
+        )}
+      </div>
+
+      {feedback.lesson && !passed ? (
         <div className="mt-1.5">
           <button
             type="button"

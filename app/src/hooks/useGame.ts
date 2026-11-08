@@ -5,7 +5,7 @@ import { createHintState, revealNextHint } from "@/lib/game/hints";
 import type { HintState } from "@/lib/game/hints";
 import { buildReward } from "@/lib/game/reward";
 import type { Reward } from "@/lib/game/reward";
-import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, LanguageId } from "@/types/game";
+import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, LanguageId, Pace } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
 import { callMayaEngine, callMayaEngineAsync, getStepBank } from "@/lib/ai/engine";
 import { chooseHelpReply, isJevStep } from "@/lib/ai/jev";
@@ -50,6 +50,7 @@ import {
 import { recordActivity } from "@/lib/classroom/activity";
 import {
   trackCodeSubmit,
+  trackCodeTest,
   trackStepComplete,
   trackChapterComplete,
   trackGameOver,
@@ -69,6 +70,14 @@ import { logChatMessage } from "@/lib/supabase/chat-log";
 import { clearGameDraft } from "@/lib/storage/local";
 import { buildSubmissionFeedback } from "@/lib/game/submission-feedback";
 import type { SubmissionFeedback } from "@/types/game";
+import type { StepTestConfig } from "@/lib/ai/engine";
+
+/** What the engine needs to grade a step (undefined → Maya's pattern checks only). */
+function stepTestFor(step: ChallengeStep): StepTestConfig | undefined {
+  return step.testHarness || step.expectedOutput || step.compileModule
+    ? { testHarness: step.testHarness, expectedOutput: step.expectedOutput, requiredCode: step.requiredCode, compileModule: step.compileModule }
+    : undefined;
+}
 
 /**
  * Clearing a step buys time back on the level clock. Getting it right should
@@ -166,6 +175,8 @@ export interface GameState {
   stepStartedAt: number;
   /** The latest rejected submission, shown next to the code instead of burying it in chat. */
   submissionFeedback: SubmissionFeedback | null;
+  /** A TEST run is in flight. */
+  testing: boolean;
 }
 
 export interface GameActions {
@@ -198,6 +209,8 @@ export interface GameActions {
   revealHint: () => void;
   dismissReward: () => void;
   dismissSubmissionFeedback: () => void;
+  /** Run the mission checks locally without transmitting (no attempt, no Maya). */
+  testCode: () => void;
 }
 
 export function useGame(
@@ -206,8 +219,11 @@ export function useGame(
   initial?: InitialPersistedState,
   onSave?: (payload: SavePayload) => void,
   timingScale = 1,
-  language: LanguageId = "go"
+  language: LanguageId = "go",
+  /** Study: no countdown, no rush, no time rewards — same story. Thriller: the timed escape. */
+  pace: Pace = "thriller"
 ): [GameState, GameActions] {
+  const study = pace === "study";
   const [phase, setPhase] = useState<GameState["phase"]>("intro");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -216,6 +232,7 @@ export function useGame(
   const [hintState, setHintState] = useState<HintState>(createHintState);
   const [reward, setReward] = useState<Reward | null>(null);
   const [submissionFeedback, setSubmissionFeedback] = useState<SubmissionFeedback | null>(null);
+  const [testing, setTesting] = useState(false);
   const [stepStartedAt, setStepStartedAt] = useState(0);
   const [level, setLevel] = useState(initial?.level ?? 1);
   const [attempts, setAttempts] = useState(0);
@@ -453,7 +470,7 @@ export function useGame(
       } else if (event.type === "system") {
         setInterrupt({ who: "SYSTEM", text: event.message });
         addMsg("SYS", event.message, "sys", true);
-      } else if (event.type === "rush") {
+      } else if (event.type === "rush" && !study) {
         // Rush is a pressure *moment*, not a second countdown. It pours its
         // bonus time straight onto the single main clock (granted up front so
         // the player has room to do the harder step) and flips the UI into its
@@ -474,7 +491,7 @@ export function useGame(
         setPowerCut(true);
       }
     },
-    [addMsg, challenge.id, challenge.steps, stepIndex, timingScale, holdClock]
+    [addMsg, challenge.id, challenge.steps, stepIndex, timingScale, holdClock, study]
   );
 
   // Clean up schedulers on unmount
@@ -642,8 +659,31 @@ export function useGame(
       .then(answer);
   }, [chatInput, busy, currentStep, inRush, attempts, jeopardy.chatLocked, addMsg, addMayaChunked, language, challenge.id, holdClock, code]);
 
+  // TEST: run the mission checks locally. Free — it isn't an attempt, doesn't
+  // touch the first-try bonus, and Maya never sees it. The clock keeps running,
+  // so time is its only cost. TRANSMIT is the one that counts.
+  const testCode = useCallback(async () => {
+    if (!code.trim() || busy || testing) return;
+    setTesting(true);
+    const ran = code;
+    try {
+      const { reply, report } = await callMayaEngineAsync(
+        currentStep.id, ran, true, false, false, attempts, stepTestFor(currentStep), language
+      );
+      trackCodeTest(challenge.id, stepIndex, report?.passed ?? false);
+      setSubmissionFeedback({
+        ...buildSubmissionFeedback(ran, reply, currentStep.hints[0]?.text, language),
+        source: "test",
+        code: ran,
+        ...(report ? { report } : {}),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }, [code, busy, testing, currentStep, attempts, language, challenge.id, stepIndex]);
+
   const submitCode = useCallback(async () => {
-    if (!code.trim() || busy) return;
+    if (!code.trim() || busy || testing) return;
     const isFirst = attempts === 0;
     const wasRush = inRush;
     setAttempts((a) => a + 1);
@@ -657,16 +697,14 @@ export function useGame(
       ? jevJudgeZen(currentStep.id, language, code).catch(() => null)
       : Promise.resolve(null);
 
-    const { reply, isComplete } = await callMayaEngineAsync(
+    const { reply, isComplete, report } = await callMayaEngineAsync(
       currentStep.id,
       code,
       true,
       false,
       inRush,
       attempts,
-      currentStep.testHarness || currentStep.expectedOutput || currentStep.compileModule
-        ? { testHarness: currentStep.testHarness, expectedOutput: currentStep.expectedOutput, requiredCode: currentStep.requiredCode, compileModule: currentStep.compileModule }
-        : undefined,
+      stepTestFor(currentStep),
       language
     );
 
@@ -745,7 +783,7 @@ export function useGame(
       // on chapter clear) and only when running out actually costs the player.
       const isLastStep = stepIndex >= challenge.steps.length - 1;
       const timeReward =
-        isLastStep || !challenge.timer.gameOverOnExpiry
+        isLastStep || !challenge.timer.gameOverOnExpiry || study
           ? 0
           : Math.round(
               (STEP_TIME_REWARD_SECONDS + (isFirst ? FIRST_TRY_TIME_REWARD_SECONDS : 0)) *
@@ -843,6 +881,7 @@ export function useGame(
             const isFinalCheckpoint = nextStepIndex === challenge.steps.length - 1;
             if (
               challenge.id === "chapter-03" &&
+              !study &&
               isFinalCheckpoint &&
               !finalCheckpointBonusRef.current.has(nextStep.id)
             ) {
@@ -895,17 +934,18 @@ export function useGame(
 
     // A rejected attempt is feedback, not a cutscene. Keep the editor live so
     // the player can make the one fix and immediately try again.
-    setSubmissionFeedback(buildSubmissionFeedback(
+    setSubmissionFeedback({
+      ...buildSubmissionFeedback(code, reply, currentStep.hints[0]?.text, language),
+      source: "transmit",
       code,
-      reply,
-      currentStep.hints[0]?.text,
-      language,
-    ));
+      ...(report ? { report } : {}),
+    });
     addMsg("MAYA", reply, "err");
     setBusy(false);
   }, [
     code,
     busy,
+    testing,
     attempts,
     inRush,
     currentStep,
@@ -921,6 +961,7 @@ export function useGame(
     syncPauseState,
     language,
     setStopped,
+    study,
   ]);
 
   const dismissTwist = useCallback(() => {
@@ -1142,6 +1183,7 @@ export function useGame(
     hints: hintState,
     stepStartedAt,
     submissionFeedback,
+    testing,
     reward,
   };
 
@@ -1178,6 +1220,7 @@ export function useGame(
     revealHint,
     dismissReward: () => setReward(null),
     dismissSubmissionFeedback: () => setSubmissionFeedback(null),
+    testCode,
     useAISuggestion: (suggestion: AISuggestion) => {
       const newTokens = useToken(aiTokens);
       if (newTokens === null) return;

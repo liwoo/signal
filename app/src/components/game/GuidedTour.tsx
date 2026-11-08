@@ -35,7 +35,7 @@ function tourSteps(lang: LanguageService): TourStep[] {
   {
     target: "code-editor",
     title: "CODE EDITOR",
-    description: `write your ${name} code here. maya's survival depends on what you type. when you're ready, hit TRANSMIT to run it.`,
+    description: `write your ${name} code here. maya's survival depends on what you type.`,
     position: "left",
   },
   {
@@ -45,9 +45,15 @@ function tourSteps(lang: LanguageService): TourStep[] {
     position: "top",
   },
   {
+    target: "test-btn",
+    title: "TEST",
+    description: `${runs} test as often as you like — it's free, it isn't an attempt, and maya doesn't see it. it shows each check and exactly where your output differs.`,
+    position: "top",
+  },
+  {
     target: "transmit-btn",
-    title: "TRANSMIT",
-    description: `${runs} if it runs and passes the challenge, maya moves forward. if not, she'll tell you what went wrong.`,
+    title: "TRANSMIT TO MAYA",
+    description: "when every check passes, send it. this is the attempt that counts — pass on the first transmission for a bonus.",
     position: "top",
   },
   {
@@ -59,7 +65,7 @@ function tourSteps(lang: LanguageService): TourStep[] {
   {
     target: "top-bar",
     title: "STATUS",
-    description: "your XP, level, hearts, and the countdown timer. lose all hearts and maya gets captured. move fast — the clock is ticking.",
+    description: "your XP, level, hearts, and — in thriller pace — the countdown. lose all hearts and maya gets captured. in study pace there's no clock.",
     position: "bottom",
   },
   ];
