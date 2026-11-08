@@ -94,4 +94,74 @@ export const JAVASCRIPT_ZEN_EXAMPLES: Record<string, ZenExample> = {
     after: "const [total, valid] = validateCode(25, 30, 50, 10);\nconsole.log(total, valid);",
     change: "destructure the pair — names beat result[0] and result[1]",
   },
+  js_plain_string: {
+    before: "console.log(`Hello World`);",
+    after: 'console.log("Hello World");',
+    change: "plain quotes for plain text — backticks only when a value drops in",
+  },
+  js_object_literal: {
+    before: 'function buildRoster() {\n  const roster = {};\n  roster.Chen = "Floor 1";\n  roster.Alvarez = "Floor 2";\n  roster.Volkov = "Floor 2";\n  return roster;\n}',
+    after: 'function buildRoster() {\n  return {\n    Chen: "Floor 1",\n    Alvarez: "Floor 2",\n    Volkov: "Floor 2",\n  };\n}',
+    change: "one object literal — the code looks like the roster it builds",
+  },
+  js_trailing_comma: {
+    before: 'return {\n  Park: "Floor 3",\n  Santos: "Floor 1"\n};',
+    after: 'return {\n  Park: "Floor 3",\n  Santos: "Floor 1",\n};',
+    change: "a comma after the last pair too — every line has the same shape",
+  },
+  js_set_lookup: {
+    before: "const occupied = Object.values(guards);\nif (!occupied.includes(name)) return name;",
+    after: "const occupied = new Set(Object.values(guards));\nif (!occupied.has(name)) return name;",
+    change: "a real Set answers .has straight away — no walking the list",
+  },
+  js_object_values: {
+    before: "const occupied = new Set();\nfor (const name of Object.keys(guards)) {\n  occupied.add(guards[name]);\n}",
+    after: "const occupied = new Set(Object.values(guards));",
+    change: "Object.values goes straight to the floors — no keys to look back up",
+  },
+  js_floor_template: {
+    before: 'const name = "Floor " + i;',
+    after: "const name = `Floor ${i}`;",
+    change: "a template literal reads like the name it builds",
+  },
+  js_no_import_needed: {
+    before: 'import { reverse } from "./strings.js";\n\nconsole.log("Hello World");',
+    after: 'console.log("Hello World");',
+    change: "split, join, reverse and Number are built in — nothing to import",
+  },
+  js_spread_chars: {
+    before: 'return s.split("").reverse().join("");',
+    after: 'return [...s].reverse().join("");',
+    change: "spreading keeps every character whole — split(\"\") cuts emoji in half",
+  },
+  js_builtin_reverse: {
+    before: 'let out = "";\nfor (let i = s.length - 1; i >= 0; i--) {\n  out += s[i];\n}\nreturn out;',
+    after: 'return [...s].reverse().join("");',
+    change: "let the array reverse itself — no index loop to get off by one",
+  },
+  js_map_transform: {
+    before: 'const out = [];\nfor (const w of msg.split(" ")) {\n  out.push(reverseWord(w));\n}\nreturn out.join(" ");',
+    after: 'return msg.split(" ").map(reverseWord).join(" ");',
+    change: ".map is the whole push loop in one call",
+  },
+  js_reuse_reverse: {
+    before: 'return msg.split(" ").map((w) => [...w].reverse().join("")).join(" ");',
+    after: 'return msg.split(" ").map(reverseWord).join(" ");',
+    change: "call reverseWord instead of reversing all over again",
+  },
+  js_number_isnan: {
+    before: "const n = Number(code);\nif (n === NaN) return `F${floor}-ERR`;",
+    after: "const n = Number(code);\nif (Number.isNaN(n)) return `F${floor}-ERR`;",
+    change: "NaN never equals itself — Number.isNaN is the check that works",
+  },
+  js_number_over_parseint: {
+    before: "const n = parseInt(code);",
+    after: "const n = Number(code);",
+    change: "Number rejects \"12abc\" outright — parseInt quietly reads the 12",
+  },
+  js_header_template: {
+    before: 'return "F" + floor + "-C" + n * 2;',
+    after: "return `F${floor}-C${n * 2}`;",
+    change: "a template literal reads like the header on the wire",
+  },
 };

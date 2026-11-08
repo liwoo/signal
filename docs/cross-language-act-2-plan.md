@@ -38,7 +38,7 @@ So "Act II for both languages" is two kinds of work:
 | `for _, v := range m` | `for v in d.values()` | `Object.values(o)` / `for…of` | — |
 | `fmt.Sprintf("Floor %d", i)` | f-string | template literal | — |
 | `[]rune(s)` reversal | `s[::-1]` | `[...s].reverse().join("")` | JS `[...s]` *is* the rune lesson (`split("")` breaks emoji); Python strings are already code points |
-| `strings.Fields` / `Join` | `str.split()` / `" ".join()` | `split(/\s+/)` / `join(" ")` | — |
+| `strings.Fields` / `Join` | `str.split()` / `" ".join()` | `split(" ")` / `join(" ")` | — |
 | `strconv.Itoa` | `str(n)` / f-string | `String(n)` / template | — |
 | `strconv.Atoi` → `(int, error)` | `int()` **raises** `ValueError` → `try/except` | `Number()` **returns `NaN`** → `Number.isNaN` | **three error models** — the headline cross-language moment of Act II |
 | `strings.ToLower/Replace/Contains/HasPrefix` | `.lower()/.replace()/in/.startswith()` | `.toLowerCase()/.replaceAll()/.includes()/.startsWith()` | — |

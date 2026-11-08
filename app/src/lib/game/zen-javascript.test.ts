@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { JAVASCRIPT_ZEN_RULES } from "./zen-javascript";
 import { analyzeZen, type ZenRule } from "./zen";
-import { SOLUTIONS } from "@/lib/lang/act1.fixtures";
+import { SOLUTIONS } from "@/lib/lang/fixtures";
 
 const ALL = Object.values(JAVASCRIPT_ZEN_RULES).flat();
 

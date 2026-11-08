@@ -1,6 +1,6 @@
 // ── Maya's answer banks · Python ──
 // Same story beats and stakes as the Go banks in ../engine.ts, teaching Python
-// and agreeing with src/data/challenges/python/act-1.ts. When the interpreter
+// and agreeing with src/data/challenges/python/act-1.ts + act-2.ts. When the interpreter
 // can't load (offline), the engine falls back to these codePatterns — so each
 // step's ||COMPLETE|| pattern recognizes a genuinely correct program, and the
 // patterns above it catch the classic mistakes first (first match wins).
@@ -1438,6 +1438,967 @@ const ch03Validate: StepBank = {
   deflections: ["focus on `validate_code`. two return values: the sum and whether it's over 100."],
 };
 
+// ══════════════════════════════════════════════════════════════
+//  Act II shape helpers
+// ══════════════════════════════════════════════════════════════
+
+/** Body of `def name(...)` with strings kept (comments blanked), or null. Same lines as defBody. */
+function rawDefBody(code: string, name: string): string | null {
+  const masked = maskPy(code).split("\n");
+  const re = new RegExp(`^\\s*def\\s+${name}\\s*\\(`);
+  const at = masked.findIndex((l) => re.test(l));
+  return at === -1 ? null : blockAt(noComments(code).split("\n"), at);
+}
+
+/** Parameter names of `def name(...)` (defaults and annotations dropped), or null when it isn't defined. */
+function paramNames(code: string, name: string): string[] | null {
+  const params = defParams(code, name);
+  if (params === null) return null;
+  return params.split(",").map((p) => p.replace(/[:=].*$/, "").trim()).filter(Boolean);
+}
+
+type Check<K extends string> = (code: string) => K | null;
+
+/** One pattern per issue a step's check can find (first issue wins), then `done` when it finds none. */
+function checkPatterns<K extends string>(check: Check<K>, messages: Record<K, string>, done: string): CodePattern[] {
+  let last: { code: string; issue: K | null } | null = null;
+  const run = (code: string) => {
+    if (last?.code !== code) last = { code, issue: check(code) };
+    return last.issue;
+  };
+  return [
+    ...(Object.keys(messages) as K[]).map((k) => ({ match: (code: string) => run(code) === k, response: messages[k] })),
+    { match: (code: string) => run(code) === null, response: done },
+  ];
+}
+
+type StyleIssue = "otherDef" | "camel";
+
+/** Another language's function keyword, or the camelCase name the brief doesn't use. */
+function defStyle(code: string, camel: string): StyleIssue | null {
+  const m = maskPy(code);
+  if (/\b(function|func)\s+\w+\s*\(/.test(m)) return "otherDef";
+  if (new RegExp(`^\\s*def\\s+${camel}\\s*\\(`, "m").test(m)) return "camel";
+  return null;
+}
+
+type ShapeIssue = "byHand" | "noDef" | "arity" | "prints" | "noReturn";
+
+/** The function exists, takes `arity` parameters, and returns something. */
+function fnShape(code: string, name: string, arity: number, byHand: RegExp): ShapeIssue | null {
+  const params = paramNames(code, name);
+  if (params === null) {
+    return printsSomething(code) && stringsOf(code).some((s) => byHand.test(literalText(s).trim())) ? "byHand" : "noDef";
+  }
+  if (params.length !== arity) return "arity";
+  const body = defBody(code, name)!;
+  if (!/\breturn\b/.test(body)) return /\bprint\s*\(/.test(body) ? "prints" : "noReturn";
+  return null;
+}
+
+function styleMessages(name: string, signature: string): Record<StyleIssue, string> {
+  return {
+    otherDef: `that's another language's way to write a function. python uses \`def\`: \`def ${signature}:\`.`,
+    camel: `python names functions in snake_case — the terminal calls \`${name}\`, with an underscore.`,
+  };
+}
+
+function shapeMessages(name: string, signature: string, arity: string, noReturn: string): Record<ShapeIssue, string> {
+  return {
+    byHand: `you're printing the answers yourself. the terminal doesn't read your prints — it calls \`${name}\` itself and checks what comes back.`,
+    noDef: `i need a function called \`${name}\`: \`def ${signature}:\`.`,
+    arity,
+    prints: `you're printing inside \`${name}\` instead of returning. the terminal calls it and uses what comes back — \`return\` it.`,
+    noReturn,
+  };
+}
+
+/** Lines of the block a `for ... in range(...)` opens in a masked body, or null. */
+function rangeLoopIn(body: string): { v: string; args: string[]; block: string[] } | null {
+  const lines = body.split("\n");
+  const at = lines.findIndex((l) => /\bfor\s+\w+\s+in\s+range\s*\(/.test(l));
+  if (at === -1) return null;
+  const line = lines[at];
+  const m = line.match(/\bfor\s+(\w+)\s+in\s+range\s*\(/)!;
+  const args: string[] = [];
+  let depth = 1;
+  let start = m.index! + m[0].length;
+  let i = start;
+  for (; i < line.length; i++) {
+    const ch = line[i];
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) {
+      depth--;
+      if (depth === 0) break;
+    } else if (ch === "," && depth === 1) {
+      args.push(line.slice(start, i));
+      start = i + 1;
+    }
+  }
+  args.push(line.slice(start, i));
+  return { v: m[1], args: args.map((a) => a.replace(/\s+/g, "")).filter(Boolean), block: blockAt(lines, at).split("\n") };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Chapter 04
+// ══════════════════════════════════════════════════════════════
+
+const CH04_SCAFFOLD_DONE =
+  "terminal's awake. the schedule reeves photographed is coming through — five guards, four floors.\n\nnow build the roster.\n\n||COMPLETE||";
+
+const ch04Scaffold: StepBank = {
+  intro:
+    "we're in surveillance. reeves photographed the guard schedule, and this terminal can read it — but it's asleep. wake it: print `Hello World`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["print", "output"],
+      response: "`print(\"Hello World\")` — the same one-liner. it's always the first thing.",
+    },
+    {
+      keywords: ["import", "package", "setup", "skeleton", "scaffold"],
+      response: "nothing to import. dictionaries and sets are built into python — you'll use both in a minute.",
+    },
+    {
+      keywords: ["dict", "dictionary", "map", "set", "roster", "guard"],
+      response: "the roster comes next step. right now just wake the terminal.",
+    },
+    {
+      keywords: ["main", "entry", "start"],
+      response: "python starts at the top of the file and runs down. no main needed.",
+    },
+  ],
+
+  codePatterns: scaffoldPatterns(CH04_SCAFFOLD_DONE),
+  correctResponse: CH04_SCAFFOLD_DONE,
+  genericWrong: SCAFFOLD_GENERIC,
+  rushDialogue: [],
+  stuckResponses: [
+    "same as every time: `print(\"Hello World\")`.",
+    "lowercase `print`, round brackets, the text in quotes. one line.",
+  ],
+  deflections: ["wake the terminal first. one line."],
+};
+
+// ── chapter-04:guardmap ──
+
+const ROSTER: [string, string][] = [
+  ["Chen", "Floor 1"],
+  ["Alvarez", "Floor 2"],
+  ["Volkov", "Floor 2"],
+  ["Park", "Floor 3"],
+  ["Santos", "Floor 1"],
+];
+
+/**
+ * Every name → floor pair the roster is built from, repeats kept: a dict
+ * literal, `roster["Chen"] = ...` lines, or `dict(Chen=...)`. Looks in
+ * build_roster first, then the whole file (a module-level dict it returns).
+ */
+function rosterPairs(code: string): [string, string][] {
+  const scan = (src: string) => {
+    const found: [number, string, string][] = [];
+    const collect = (re: RegExp, k: number, v: number) => {
+      for (const m of src.matchAll(re)) found.push([m.index!, m[k], m[v]]);
+    };
+    collect(/(["'])([^"'\n]*)\1\s*:\s*(["'])([^"'\n]*)\3/g, 2, 4);
+    collect(/\[\s*(["'])([^"'\n]*)\1\s*\]\s*=(?!=)\s*(["'])([^"'\n]*)\3/g, 2, 4);
+    if (/\bdict\s*\(/.test(src)) collect(/[(,]\s*([A-Za-z_]\w*)\s*=(?!=)\s*(["'])([^"'\n]*)\2/g, 1, 3);
+    return found.sort((a, b) => a[0] - b[0]).map(([, k, v]) => [k, v] as [string, string]);
+  };
+  const inBody = scan(rawDefBody(code, "build_roster") ?? "");
+  return inBody.length > 0 ? inBody : scan(noComments(code));
+}
+
+type RosterIssue =
+  | StyleIssue | ShapeIssue
+  | "unquoted" | "comma" | "empty" | "case" | "missing" | "dup" | "spelling" | "floor" | "extra";
+
+function rosterCheck(code: string): RosterIssue | null {
+  const style = defStyle(code, "buildRoster");
+  if (style) return style;
+  const shape = fnShape(code, "build_roster", 0, /^Floor \d$/);
+  if (shape) return shape;
+  const body = defBody(code, "build_roster")!;
+  if (/[{,]\s*[A-Z][a-z]+\s*:/.test(body)) return "unquoted";
+  if (/["']\s+["'][^"'\n]*["']\s*:/.test(rawDefBody(code, "build_roster")!)) return "comma";
+  const pairs = rosterPairs(code);
+  if (pairs.length === 0) return "empty";
+  const keys = pairs.map(([k]) => k);
+  for (const [name, floor] of ROSTER) {
+    const hits = pairs.filter(([k]) => k === name);
+    if (hits.length === 0) return keys.some((k) => k.toLowerCase() === name.toLowerCase()) ? "case" : "missing";
+    if (hits.length > 1) return "dup";
+    const value = hits[0][1];
+    if (value !== floor) {
+      const loose = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+      return loose(value) === loose(floor) ? "spelling" : "floor";
+    }
+  }
+  if (keys.some((k) => !ROSTER.some(([n]) => n === k))) return "extra";
+  return null;
+}
+
+const ROSTER_MESSAGES: Record<RosterIssue, string> = {
+  ...styleMessages("build_roster", "build_roster()"),
+  ...shapeMessages(
+    "build_roster",
+    "build_roster()",
+    "`build_roster` takes nothing — the terminal calls it with empty brackets: `def build_roster():`.",
+    "the function never hands the roster back. put the dict after `return`: `return {\"Chen\": \"Floor 1\", ...}`.",
+  ),
+  unquoted:
+    "the names need quotes: `\"Chen\": \"Floor 1\"`. without them python goes looking for a variable called `Chen` and stops.",
+  comma: "a comma's missing between two pairs. every pair ends with one — `\"Chen\": \"Floor 1\",` — even the last is fine with it.",
+  empty: "i don't see any pairs. each guard is a name, a colon, a floor: `\"Chen\": \"Floor 1\"`, all inside `{ }`.",
+  case: "keys are case-sensitive. the terminal looks guards up by their exact names: `\"Chen\"`, `\"Alvarez\"`, `\"Volkov\"`, `\"Park\"`, `\"Santos\"`.",
+  missing: "a guard's missing. the roster needs all five: `Chen`, `Alvarez`, `Volkov`, `Park`, `Santos`.",
+  dup: "a name's in there twice. a dict keeps one value per key — the second silently replaces the first, and the count comes up short.",
+  spelling: "the floors are spelled exactly — capital F, one space, the number: `\"Floor 1\"`.",
+  floor:
+    "someone's on the wrong floor. `Chen` and `Santos` are on `Floor 1`, `Alvarez` and `Volkov` on `Floor 2`, `Park` on `Floor 3`.",
+  extra: "there's a name in there that isn't on the schedule. just the five guards — the terminal counts them.",
+};
+
+const CH04_ROSTER_DONE =
+  "roster confirmed. i ask for volkov, i get floor 2. five guards, no searching.\n\nnow find me a floor nobody's watching.\n\n||COMPLETE||";
+
+const ch04Guardmap: StepBank = {
+  intro:
+    "i need every guard and their floor in one place, so i can look anyone up in an instant. write `build_roster()` and have it return a dictionary — each name paired with a floor:\n\n`\"Chen\": \"Floor 1\"`, `\"Alvarez\": \"Floor 2\"`, `\"Volkov\": \"Floor 2\"`, `\"Park\": \"Floor 3\"`, `\"Santos\": \"Floor 1\"`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["dict", "dictionary", "what is a dict", "key", "value", "pair"],
+      response: "a dict pairs keys with values: `{\"Chen\": \"Floor 1\"}`. the name is the key, the floor is the value. ask for a key, get its value back.",
+    },
+    {
+      keywords: ["map", "object", "hash", "table"],
+      response: "python calls it a dict. curly braces, `key: value` pairs, commas between them.",
+    },
+    {
+      keywords: ["comma", "multiple", "more than one", "several", "each line", "format"],
+      response: "commas between pairs. with five guards, one pair per line reads best — and end every line with a comma, even the last.",
+    },
+    {
+      keywords: ["quote", "quotes"],
+      response: "the names and floors are text, so both go in quotes: `\"Chen\": \"Floor 1\"`.",
+    },
+    {
+      keywords: ["lookup", "look up", "access", "bracket", "keyerror", "get"],
+      response: "`r[\"Volkov\"]` hands back `\"Floor 2\"`. ask for a name that isn't there and python raises a `KeyError` — `r.get(\"Nobody\")` gives `None` instead.",
+    },
+    {
+      keywords: ["len", "count", "how many", "size", "five"],
+      response: "`len(r)` counts the pairs. the terminal expects 5.",
+    },
+    {
+      keywords: ["twice", "duplicate", "same key", "repeat"],
+      response: "a key can only appear once. write it twice and python keeps the last value without a word — and you're a guard short.",
+    },
+    {
+      keywords: ["return", "print"],
+      response: "`return` the dict. the terminal calls `build_roster()` and does the lookups itself — printing it doesn't hand it over.",
+    },
+    {
+      keywords: ["order"],
+      response: "dicts keep the order you wrote them in. the terminal asks by name, though, so order doesn't matter here.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`def build_roster():`, then `return {` with the five pairs, then `}`. the terminal does the lookups.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => {
+        const lines = out.trim().split("\n");
+        return lines.length === 3 && /^\d+$/.test(lines[2]) && lines[2] !== "5";
+      },
+      response: "the count's off — the terminal expects 5 guards. one's missing, or a name is in there twice and the second copy replaced the first.",
+    },
+    {
+      match: (out) => out.trim().split("\n")[0] !== "Floor 2",
+      response: "the terminal asked for `Volkov` and didn't get `Floor 2`. check his pair — name and floor spelled exactly.",
+    },
+    {
+      match: (out) => out.trim().split("\n")[1] !== "Floor 1",
+      response: "the terminal asked for `Chen` and didn't get `Floor 1`. check her pair — name and floor spelled exactly.",
+    },
+  ],
+
+  codePatterns: checkPatterns(rosterCheck, ROSTER_MESSAGES, CH04_ROSTER_DONE),
+  correctResponse: CH04_ROSTER_DONE,
+
+  genericWrong: [
+    "not matching. `build_roster()` needs to return a dict with all five guards.",
+    "the terminal looked guards up and didn't get the right floors. check every pair.",
+  ],
+
+  rushDialogue: [
+    "we don't have long. build the roster.",
+    "hurry — one dict, five guards, returned.",
+  ],
+
+  stuckResponses: [
+    "```\ndef build_roster():\n    return {\n        \"Chen\": \"Floor 1\",\n        \"Alvarez\": \"Floor 2\",\n        \"Volkov\": \"Floor 2\",\n        \"Park\": \"Floor 3\",\n        \"Santos\": \"Floor 1\",\n    }\n```",
+    "one function, one dict, five pairs. name in quotes, colon, floor in quotes, comma.",
+  ],
+
+  deflections: [
+    "focus. the roster first.",
+    "not now — i need to know where every guard is.",
+  ],
+};
+
+// ── chapter-04:clearfloors ──
+
+type ClearIssue =
+  | StyleIssue | "roster" | ShapeIssue
+  | "names" | "noValues" | "noLoop" | "fixedTop" | "offByOne" | "fromZero"
+  | "noSpace" | "lowercase" | "noFloorName" | "inverted" | "noCheck" | "givesUp";
+
+function clearCheck(code: string): ClearIssue | null {
+  const style = defStyle(code, "findClearFloor");
+  if (style) return style;
+  if (rosterCheck(code) !== null) return "roster";
+  const shape = fnShape(code, "find_clear_floor", 2, /^Floor \d$/);
+  if (shape) return shape;
+  const [g, top] = paramNames(code, "find_clear_floor")!;
+  const body = defBody(code, "find_clear_floor")!;
+  const raw = rawDefBody(code, "find_clear_floor")!;
+
+  if (new RegExp(`\\bset\\s*\\(\\s*${g}\\s*\\)|\\b${g}\\s*\\.\\s*keys\\s*\\(`).test(body)) return "names";
+  if (!new RegExp(`\\b${g}\\s*\\.\\s*(values|items)\\s*\\(|\\b${g}\\s*\\[`).test(body)) {
+    return new RegExp(`\\bin\\s+${g}\\b`).test(body) ? "names" : "noValues";
+  }
+
+  const loop = rangeLoopIn(body);
+  if (!loop || loop.args.length === 0 || loop.args.length > 3) return "noLoop";
+  const [start, stop] = loop.args.length === 1 ? ["0", loop.args[0]] : loop.args;
+  if (!new RegExp(`\\b${top}\\b`).test(stop)) return "fixedTop";
+  const plusOne = stop === `${top}+1` || stop === `1+${top}`;
+  if (start === "1") {
+    if (!plusOne) return "offByOne";
+  } else if (start === "0") {
+    if (!new RegExp(`\\b${loop.v}\\s*\\+\\s*1\\b|\\b1\\s*\\+\\s*${loop.v}\\b`).test(body)) return "fromZero";
+  } else {
+    return "fromZero";
+  }
+
+  if (!/["']Floor /.test(raw)) {
+    if (/["']Floor/.test(raw)) return "noSpace";
+    return /["']floor/i.test(raw) ? "lowercase" : "noFloorName";
+  }
+
+  const okCheck = /^\s*if\b[^\n]*\bnot\b[^\n]*\bin\b/m.test(body) || /^\s*if\b[^\n]*\bin\b[^\n]*:\s*(\n\s*)?continue\b/m.test(body);
+  if (!okCheck) return /^\s*if\b[^\n]*\bin\b/m.test(body) ? "inverted" : "noCheck";
+
+  const block = loop.block;
+  const givesUp = block.some((l, k) => /^\s*else\s*:/.test(l) && /\breturn\b/.test(blockAt(block, k)));
+  if (givesUp) return "givesUp";
+  return null;
+}
+
+const CLEAR_MESSAGES: Record<ClearIssue, string> = {
+  ...styleMessages("find_clear_floor", "find_clear_floor(guards, max_floor)"),
+  roster: "keep `build_roster` from the last step, all five guards right — the terminal still calls it to get the real roster.",
+  ...shapeMessages(
+    "find_clear_floor",
+    "find_clear_floor(guards, max_floor)",
+    "it takes two things — the roster and the top floor: `def find_clear_floor(guards, max_floor):`.",
+    "the function never hands a floor back. when you find the gap, `return` its name.",
+  ),
+  names:
+    "that's collecting the names, not the floors. looping over a dict, or `.keys()`, gives you keys. `guards.values()` gives the floors.",
+  noValues: "get the floors out of the roster first: `set(guards.values())` — every floor that has a guard, each one once.",
+  noLoop: "walk the floors one by one: `for i in range(1, max_floor + 1):`.",
+  fixedTop:
+    "loop up to `max_floor`, not a number you picked. the terminal tries a three-floor building too — the top floor has to come from the parameter.",
+  offByOne: "range stops before its end, so `range(1, max_floor)` never checks the top floor. add one: `range(1, max_floor + 1)`.",
+  fromZero: "the floors start at 1, and `range(max_floor)` starts at 0. give range both ends: `range(1, max_floor + 1)`.",
+  noSpace: "the floor names need a space: `f\"Floor {i}\"`. the roster says `Floor 1`, not `Floor1`.",
+  lowercase: "the roster spells it with a capital: `f\"Floor {i}\"`. `floor 1` won't match `Floor 1`.",
+  noFloorName: "build each floor's name the way the roster writes it: `f\"Floor {i}\"`.",
+  inverted:
+    "that check is backwards — it returns the first floor that has a guard. you want the first one that doesn't: `if name not in occupied:`.",
+  noCheck: "check each floor against the set: `if name not in occupied:` — then return it.",
+  givesUp:
+    "the `else: return` fires on the very first occupied floor, so you give up after one check. drop the else and let the loop keep going.",
+};
+
+const CH04_CLEAR_DONE = "floor 4 is clear. that's our window. forty minutes.\n\n||COMPLETE||";
+
+const ch04Clearfloors: StepBank = {
+  intro:
+    "now find the one floor nobody is watching — that's where i move next. write `find_clear_floor(guards, max_floor)`: put every floor that has a guard into a set, then check `Floor 1` up to `Floor max_floor` and return the first one that isn't in it.",
+
+  conceptFAQ: [
+    {
+      keywords: ["set", "what is a set", "why set"],
+      response: "a set holds each thing once and answers `in` instantly. `set(guards.values())` is every floor that has a guard on it.",
+    },
+    {
+      keywords: ["values", "floors", "just the floors", ".values"],
+      response: "`guards.values()` hands you every value in the dict — the floors — without the names. `guards.keys()` would be the names.",
+    },
+    {
+      keywords: ["list", "why not a list"],
+      response: "a list works, but it checks every item one by one to answer `in`. a set jumps straight to the answer — and drops the repeats.",
+    },
+    {
+      keywords: ["not in", "membership", "check", "contains", "in"],
+      response: "`if name not in occupied:` — reads like english. true when nobody's on that floor.",
+    },
+    {
+      keywords: ["range", "loop", "1 to", "max_floor", "+ 1", "+1"],
+      response: "`for i in range(1, max_floor + 1):` — range stops before its end, so add one to reach the top floor.",
+    },
+    {
+      keywords: ["f-string", "fstring", "name", "floor name", "build", "format"],
+      response: "an f-string: `f\"Floor {i}\"`. it has to match the roster exactly — capital F, one space.",
+    },
+    {
+      keywords: ["{}", "empty set", "empty"],
+      response: "careful — `{}` is an empty dict, not a set. an empty set is `set()`. but `set(guards.values())` builds the full one in a single call.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`occupied = set(guards.values())`, then loop `range(1, max_floor + 1)`, build `f\"Floor {i}\"`, and return the first one `not in occupied`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /^Floor 0$/m.test(out),
+      response: "`Floor 0` — your loop starts at 0. the floors start at 1: `range(1, max_floor + 1)`.",
+    },
+    {
+      match: (out) => out.trim() === "Floor 1\nFloor 1\nFloor 1",
+      response:
+        "`Floor 1` every time — the check never sees a guard. make sure the set holds the floors (`guards.values()`, not the names) and you return the floor that's `not in` it.",
+    },
+    {
+      match: (out) => {
+        const lines = out.trim().split("\n");
+        return lines.length === 3 && lines[1] === "Floor 2" && /^(None|)$/.test(lines[0]) && /^(None|)$/.test(lines[2]);
+      },
+      response: "the top floor never gets checked — range stops before its end. `range(1, max_floor + 1)`.",
+    },
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` means the function finished without returning a floor. `return name` the moment you find one that's clear.",
+    },
+    {
+      match: (out) => /^Floor\d/m.test(out),
+      response: "the names need a space — `f\"Floor {i}\"`. `Floor1` doesn't match the roster's `Floor 1`, so every floor looks empty.",
+    },
+  ],
+
+  codePatterns: checkPatterns(clearCheck, CLEAR_MESSAGES, CH04_CLEAR_DONE),
+  correctResponse: CH04_CLEAR_DONE,
+
+  genericWrong: [
+    "not matching. build the set of occupied floors, walk 1 to `max_floor`, return the first gap.",
+    "the terminal tries different rosters and floor counts. the logic has to work for any of them, not just ours.",
+  ],
+
+  rushDialogue: [
+    "reeves is waiting. find the clear floor.",
+    "the window is closing. finish the function.",
+  ],
+
+  stuckResponses: [
+    "```\ndef find_clear_floor(guards, max_floor):\n    occupied = set(guards.values())\n    for i in range(1, max_floor + 1):\n        name = f\"Floor {i}\"\n        if name not in occupied:\n            return name\n```",
+    "three moves: a set of the occupied floors, a loop from 1 to the top, return the first floor that's not in the set.",
+  ],
+
+  deflections: [
+    "focus. i need the clear floor.",
+    "not now — find me a floor nobody's watching.",
+  ],
+};
+
+// ══════════════════════════════════════════════════════════════
+//  Chapter 04.2
+// ══════════════════════════════════════════════════════════════
+
+const CH04_2_SCAFFOLD_DONE =
+  "relay terminal online. nothing to import — python had it all along.\n\nnow build the cipher.\n\n||COMPLETE||";
+
+const ch04_2Scaffold: StepBank = {
+  intro:
+    "the comms room. ghost's keyword sweep comes around every thirty seconds, and i need this terminal online before the next one. print `Hello World`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["print", "output"],
+      response: "`print(\"Hello World\")`. one line.",
+    },
+    {
+      keywords: ["import", "package", "strings", "setup", "skeleton", "scaffold"],
+      response: "nothing to import. slicing, `split`, `join`, `int` and `str` are all built in.",
+    },
+    {
+      keywords: ["cipher", "reverse", "encode", "scramble"],
+      response: "the cipher comes next. get the terminal online first.",
+    },
+    {
+      keywords: ["main", "entry", "start"],
+      response: "no main. python runs the file from the top.",
+    },
+  ],
+
+  codePatterns: scaffoldPatterns(CH04_2_SCAFFOLD_DONE),
+  correctResponse: CH04_2_SCAFFOLD_DONE,
+  genericWrong: SCAFFOLD_GENERIC,
+  rushDialogue: [],
+  stuckResponses: [
+    "`print(\"Hello World\")` — that's all.",
+    "lowercase `print`, round brackets, text in quotes.",
+  ],
+  deflections: ["terminal first. one line, before the sweep."],
+};
+
+// ── chapter-04.2:reverseword ──
+
+type ReverseIssue =
+  | StyleIssue | ShapeIssue
+  | "jsSplit" | "strReverse" | "reverseNone" | "immutable" | "iterator" | "badSlice" | "unknown";
+
+function reverseCheck(code: string): ReverseIssue | null {
+  const style = defStyle(code, "reverseWord");
+  if (style) return style;
+  const shape = fnShape(code, "reverse_word", 1, /^(olleh|oG)$/);
+  if (shape) return shape;
+  const [p] = paramNames(code, "reverse_word")!;
+  const body = defBody(code, "reverse_word")!;
+  if (/\.\s*split\s*\(\s*(["'])\1\s*\)/.test(body)) return "jsSplit";
+  if (new RegExp(`\\b${p}\\s*\\.\\s*reverse\\s*\\(`).test(body)) return "strReverse";
+  if (/\breturn\b[^\n]*\.\s*reverse\s*\(|=\s*[^\n=]*\.\s*reverse\s*\(\s*\)/.test(body)) return "reverseNone";
+  if (new RegExp(`\\b${p}\\s*\\[[^\\]\\n]*\\]\\s*(,[^=\\n]*)?=(?!=)`).test(body)) return "immutable";
+  if (/\breversed\s*\(/.test(body) && !/\.\s*join\s*\(/.test(body)) return "iterator";
+
+  const emptyJoin = /(["'])\1\s*\.\s*join\s*\(/.test(body);
+  const sliceOnP = new RegExp(`\\b${p}\\s*\\[\\s*(-\\s*1|len\\s*\\(\\s*${p}\\s*\\)(\\s*-\\s*1)?)?\\s*:\\s*:\\s*-\\s*1\\s*\\]`).test(body);
+  const anySlice = /\[\s*:\s*:\s*-\s*1\s*\]/.test(body);
+  const loopVar = body.match(new RegExp(`\\bfor\\s+(\\w+)\\s+in\\s+${p}\\s*:`))?.[1];
+  const prepends = !!loopVar && new RegExp(`\\b(\\w+)\\s*=\\s*${loopVar}\\s*\\+\\s*\\1\\b`).test(body);
+  const backwardsIndex =
+    new RegExp(`range\\s*\\(\\s*len\\s*\\(\\s*${p}\\s*\\)\\s*-\\s*1\\s*,\\s*-\\s*1\\s*,\\s*-\\s*1\\s*\\)`).test(body) && /\+=/.test(body);
+  const listFlip = /\.\s*reverse\s*\(\s*\)/.test(body) && emptyJoin;
+  const joinReversed = /\.\s*join\s*\(\s*reversed\s*\(/.test(body) && emptyJoin;
+  if (sliceOnP || (anySlice && emptyJoin) || prepends || backwardsIndex || listFlip || joinReversed) return null;
+  if (new RegExp(`\\breturn\\s+${p}\\s*\\[`).test(body)) return "badSlice";
+  return "unknown";
+}
+
+const REVERSE_MESSAGES: Record<ReverseIssue, string> = {
+  ...styleMessages("reverse_word", "reverse_word(s)"),
+  ...shapeMessages(
+    "reverse_word",
+    "reverse_word(s)",
+    "it takes one thing — the word: `def reverse_word(s):`.",
+    "the function never hands the word back. end it with `return` and the reversed word.",
+  ),
+  jsSplit: "`split(\"\")` is how another language does it — python refuses an empty separator. a string is already a sequence of characters: `s[::-1]`.",
+  strReverse: "strings don't have `.reverse()` — that's a list thing. slice it backwards instead: `s[::-1]`.",
+  reverseNone:
+    "`.reverse()` flips a list in place and returns `None` — so there's nothing to hand back. use the slice: `return s[::-1]`.",
+  immutable: "strings can't be changed in place — python won't let you assign to `s[i]`. build a new string instead: `s[::-1]` does it in one go.",
+  iterator: "`reversed(s)` hands back an iterator, not a string. glue it: `\"\".join(reversed(s))` — or just `s[::-1]`.",
+  badSlice: "close — that slice isn't the whole word backwards. leave start and stop empty, step -1: `s[::-1]`.",
+  unknown: "the word has to come back backwards. a slice with a step of -1 does it: `return s[::-1]`.",
+};
+
+const CH04_2_REVERSE_DONE = "`olleh`... `oG`... the cipher works. one word at a time.\n\n||COMPLETE||";
+
+const ch04_2Reverseword: StepBank = {
+  intro:
+    "ghost's scanners read every word on this relay. scramble a word and they can't recognise it. write `reverse_word(s)` that returns the word backwards — `hello` comes back `olleh`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["slice", "slicing", "[::-1]", "colon", "step"],
+      response: "`s[start:stop:step]`. leave start and stop empty to take the whole word; a step of -1 walks it from the end. `s[::-1]`.",
+    },
+    {
+      keywords: ["change", "modify", "in place", "immutable", "assign"],
+      response: "strings can't be changed in place. you don't flip the old one — you build a new one and return it.",
+    },
+    {
+      keywords: ["index", "s[0]", "s[-1]", "character", "letter"],
+      response: "`s[0]` is the first character, `s[-1]` the last. negative numbers count from the end.",
+    },
+    {
+      keywords: ["reversed", "reverse()", ".reverse"],
+      response: "`reversed(s)` gives an iterator you'd have to join back up. `.reverse()` only exists on lists. the slice `s[::-1]` is the short way.",
+    },
+    {
+      keywords: ["unicode", "emoji", "bytes", "rune"],
+      response: "a python string is a sequence of unicode characters, not raw bytes — slicing never cuts one in half.",
+    },
+    {
+      keywords: ["return", "print"],
+      response: "`return` the reversed word. the terminal calls `reverse_word` and prints what comes back.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`def reverse_word(s):` and `return s[::-1]`. two lines.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` means the function didn't hand anything back. `return s[::-1]`.",
+    },
+    {
+      match: (out) => /<reversed object/.test(out),
+      response: "that's the iterator itself, not a word. `reversed(s)` needs gluing: `\"\".join(reversed(s))` — or use `s[::-1]`.",
+    },
+    {
+      match: (out) => /^\[/m.test(out),
+      response: "you're handing back a list of letters. glue them into one string — `\"\".join(...)` — or use `s[::-1]`.",
+    },
+    {
+      match: (out) => out.trim() === "hello\nGo\na",
+      response: "that's the same word back. the step needs to be -1: `s[::-1]`.",
+    },
+    {
+      match: (out) => out.trim() === "o\no\na",
+      response: "that's just the last letter. two colons, then -1: `s[::-1]` takes the whole word.",
+    },
+  ],
+
+  codePatterns: checkPatterns(reverseCheck, REVERSE_MESSAGES, CH04_2_REVERSE_DONE),
+  correctResponse: CH04_2_REVERSE_DONE,
+
+  genericWrong: [
+    "not matching. `reverse_word` should return the word backwards — `hello` to `olleh`.",
+    "the terminal tries more than one word. make sure every letter comes back, in reverse.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\ndef reverse_word(s):\n    return s[::-1]\n```",
+    "a slice with an empty start, an empty stop, and a step of -1. that's the whole trick.",
+  ],
+
+  deflections: [
+    "focus. one word, backwards.",
+    "not now — i need the word cipher working before the sweep.",
+  ],
+};
+
+// ── chapter-04.2:encode ──
+
+type EncodeIssue =
+  | StyleIssue | "reverse" | ShapeIssue
+  | "splitEmpty" | "whole" | "noSplit" | "concat" | "noJoin" | "joinEmpty" | "joinSep" | "listReversed" | "noReverse";
+
+function encodeCheck(code: string): EncodeIssue | null {
+  const style = defStyle(code, "reverseWord");
+  if (style) return style;
+  if (reverseCheck(code) !== null) return "reverse";
+  const shape = fnShape(code, "encode", 1, /^roolf si raelc$/);
+  if (shape) return shape;
+  const [p] = paramNames(code, "encode")!;
+  const body = defBody(code, "encode")!;
+  const raw = rawDefBody(code, "encode")!;
+  if (/\.\s*split\s*\(\s*(["'])\1\s*\)/.test(body)) return "splitEmpty";
+  if (!/\.\s*split\s*\(/.test(body)) {
+    return new RegExp(`\\breverse_word\\s*\\(\\s*${p}\\s*\\)|\\b${p}\\s*\\[\\s*:\\s*:\\s*-\\s*1`).test(body) ? "whole" : "noSplit";
+  }
+  if (!/\.\s*join\s*\(/.test(body)) return /\+=/.test(body) ? "concat" : "noJoin";
+  if (/(["'])\1\s*\.\s*join\s*\(/.test(body)) return "joinEmpty";
+  if (!/(["']) \1\s*\.\s*join\s*\(/.test(raw)) return "joinSep";
+  const words = body.match(/\b(\w+)\s*=\s*\w+\s*\.\s*split\s*\(/)?.[1];
+  if (/\breverse_word\s*\(\s*\w+\s*\.\s*split\s*\(/.test(body)) return "listReversed";
+  if (words && new RegExp(`\\breverse_word\\s*\\(\\s*${words}\\s*\\)|\\b${words}\\s*\\[\\s*:\\s*:\\s*-\\s*1`).test(body)) return "listReversed";
+  if (!/\breverse_word\b/.test(body) && !/\[\s*:\s*:\s*-\s*1\s*\]/.test(body)) return "noReverse";
+  return null;
+}
+
+const ENCODE_MESSAGES: Record<EncodeIssue, string> = {
+  ...styleMessages("encode", "encode(msg)"),
+  reverse: "keep `reverse_word` from the last step working — `encode` leans on it for every word.",
+  ...shapeMessages(
+    "encode",
+    "encode(msg)",
+    "it takes one thing — the message: `def encode(msg):`.",
+    "the function never hands the message back. `return` the joined words.",
+  ),
+  splitEmpty: "`split(\"\")` raises an error — python won't split on nothing. `msg.split()` with empty brackets splits on spaces.",
+  whole:
+    "that reverses the whole message, so the words swap places too. split it into words first — `msg.split()` — and reverse each one on its own.",
+  noSplit: "break the message into words first: `msg.split()` hands back a list of them.",
+  concat:
+    "building it with `+=` leaves a stray space on one end. `\" \".join(...)` puts spaces only between the words.",
+  noJoin: "glue the reversed words back into one string: `\" \".join(...)`. returning the list isn't a message.",
+  joinEmpty: "`\"\".join` glues them with nothing in between — the words run together. use a space: `\" \".join(...)`.",
+  joinSep: "join the words with a single space: `\" \".join(...)`. the string before `.join` is what goes between them.",
+  listReversed:
+    "that reverses the list, not the words — they swap places but stay readable. reverse each word: `[reverse_word(w) for w in words]`.",
+  noReverse: "every word needs reversing on its way through: `reverse_word(w)` for each `w`.",
+};
+
+const CH04_2_ENCODE_DONE =
+  "`roolf si raelc`. and twice through, it comes back clean — reeves can decode on her end.\n\n||COMPLETE||";
+
+const ch04_2Encode: StepBank = {
+  intro:
+    "one word isn't a message. scramble whole messages — and prove reeves can unscramble them on her end. write `encode(msg)`: split it into words, reverse each with `reverse_word`, join them back with spaces. run it twice and the original comes back.",
+
+  conceptFAQ: [
+    {
+      keywords: ["split", "words", "break"],
+      response: "`msg.split()` with empty brackets splits on any run of spaces and hands back a list of words.",
+    },
+    {
+      keywords: ["join", "glue", "combine", "back together"],
+      response: "`\" \".join(words)` — the string before `.join` goes between every word. a space here.",
+    },
+    {
+      keywords: ["list", "what is a list"],
+      response: "a list is an ordered row of values in square brackets: `[\"floor\", \"is\", \"clear\"]`. it's what `split` hands you.",
+    },
+    {
+      keywords: ["comprehension", "for w in", "each word", "every word", "loop"],
+      response: "loop and `append` each reversed word to a new list — or in one line: `[reverse_word(w) for w in words]`.",
+    },
+    {
+      keywords: ["append", "add to list"],
+      response: "`result.append(reverse_word(w))` adds one item to the end of the list. start with `result = []`.",
+    },
+    {
+      keywords: ["round trip", "twice", "decode", "encode(encode"],
+      response: "reverse a word twice and it's back where it started. so `encode(encode(x))` gives `x` — that's how reeves decodes.",
+    },
+    {
+      keywords: ["+=", "concatenate", "plus"],
+      response: "you can build it with `+=`, but you'll fight the spaces. `\" \".join` puts them only between words.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`def encode(msg):` and `return \" \".join(reverse_word(w) for w in msg.split())`. split, reverse each, join.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /^\[/m.test(out),
+      response: "that's the list itself. glue it back into one line: `\" \".join(...)`.",
+    },
+    {
+      match: (out) => out.trim().split("\n")[0] === "raelc si roolf",
+      response: "the whole message got reversed — the words swapped places. reverse each word on its own and keep them in order.",
+    },
+    {
+      match: (out) => out.trim().split("\n")[0] === "clear is floor",
+      response: "the words swapped places but they're still readable. that's reversing the list — reverse each word instead.",
+    },
+    {
+      match: (out) => out.trim().split("\n")[0] === "roolfsiraelc",
+      response: "the words ran together. join them with a space: `\" \".join(...)`.",
+    },
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` — `encode` didn't hand anything back. `return` the joined string.",
+    },
+  ],
+
+  codePatterns: checkPatterns(encodeCheck, ENCODE_MESSAGES, CH04_2_ENCODE_DONE),
+  correctResponse: CH04_2_ENCODE_DONE,
+
+  genericWrong: [
+    "not matching. split the message, reverse each word, join with spaces.",
+    "the round trip has to work — encoding twice should give the original back.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\ndef encode(msg):\n    words = msg.split()\n    return \" \".join(reverse_word(w) for w in words)\n```",
+    "split, reverse each, join. `msg.split()`, `reverse_word(w)` for every word, `\" \".join(...)`.",
+  ],
+
+  deflections: [
+    "focus. the whole message needs scrambling.",
+    "not now — the intercept's live. encode first.",
+  ],
+};
+
+// ── chapter-04.2:relayheader ──
+
+type HeaderIssue =
+  | StyleIssue | ShapeIssue
+  | "repeat" | "float" | "noInt" | "noTry" | "noExcept" | "wrongExcept" | "excNoReturn" | "noErr" | "errNoFloor" | "noDouble" | "noC";
+
+function headerCheck(code: string): HeaderIssue | null {
+  const style = defStyle(code, "relayHeader");
+  if (style) return style;
+  const shape = fnShape(code, "relay_header", 2, /^F\d-(C\d+|ERR)$/);
+  if (shape) return shape;
+  const [f, c] = paramNames(code, "relay_header")!;
+  const body = defBody(code, "relay_header")!;
+  const raw = rawDefBody(code, "relay_header")!;
+
+  if (!new RegExp(`\\bint\\s*\\(\\s*${c}\\b`).test(body)) {
+    if (new RegExp(`\\b${c}\\s*\\*|\\*\\s*${c}\\b`).test(body)) return "repeat";
+    return /\bfloat\s*\(/.test(body) ? "float" : "noInt";
+  }
+
+  if (!/^\s*try\s*:/m.test(body)) {
+    const looksFirst = new RegExp(`\\bnot\\s+${c}\\s*\\.\\s*(isdigit|isdecimal|isnumeric)\\s*\\(`).test(body) && /ERR/.test(raw);
+    if (!looksFirst) return "noTry";
+  } else {
+    const lines = body.split("\n");
+    const rawLines = raw.split("\n");
+    const handlers = lines.flatMap((l, i) => (/^\s*except\b/.test(l) ? [i] : []));
+    if (handlers.length === 0) return "noExcept";
+    const catches = handlers.some((i) => {
+      const kind = lines[i].replace(/^\s*except\b/, "").replace(/\bas\s+\w+/, "").replace(/:.*$/, "").trim();
+      return kind === "" || /\b(ValueError|Exception|BaseException)\b/.test(kind);
+    });
+    if (!catches) return "wrongExcept";
+    const handled = handlers.map((i) => blockAt(rawLines, i)).join("\n");
+    if (!/\breturn\b/.test(handled)) return "excNoReturn";
+    if (!/ERR/.test(handled)) return "noErr";
+    if (!new RegExp(`\\b${f}\\b`).test(handled)) return "errNoFloor";
+  }
+
+  if (!/\*\s*2\b|\b2\s*\*/.test(raw) && !/\b(\w+)\s*\+\s*\1\b/.test(raw)) return "noDouble";
+  const headerLine = raw.split("\n").some((l) => /-C/.test(l) && new RegExp(`\\b${f}\\b`).test(l));
+  if (!headerLine) return "noC";
+  return null;
+}
+
+const HEADER_MESSAGES: Record<HeaderIssue, string> = {
+  ...styleMessages("relay_header", "relay_header(floor, code)"),
+  ...shapeMessages(
+    "relay_header",
+    "relay_header(floor, code)",
+    "it takes two things — the floor and the code: `def relay_header(floor, code):`.",
+    "the function never hands a header back. `return` it.",
+  ),
+  repeat:
+    "`code` is still text, and text times 2 just repeats it — `\"50\" * 2` is `\"5050\"`. turn it into a number first: `int(code)`.",
+  float: "`float` gives you `100.0` — the header wants a whole number. use `int(code)`.",
+  noInt: "`code` arrives as text. turn it into a number with `int(code)` before you double it.",
+  noTry:
+    "`int(\"abc\")` raises a `ValueError` and the whole relay stops. put the conversion in a `try:` and catch it: `except ValueError:`.",
+  noExcept: "a `try:` needs an `except ValueError:` underneath — that's where the bad code lands.",
+  wrongExcept: "`int(\"abc\")` raises a `ValueError` — that's the one to catch: `except ValueError:`.",
+  excNoReturn:
+    "the except catches the bad code, then carries on with no number. hand back the error header right there: `return f\"F{floor}-ERR\"`.",
+  noErr: "on a bad code the header ends in `-ERR`: `F3-ERR`. return that from the except.",
+  errNoFloor: "the error header still needs the floor in front: `f\"F{floor}-ERR\"` gives `F3-ERR`.",
+  noDouble: "the relay doubles the code as a checksum — `\"50\"` goes out as `C100`. multiply the number by 2.",
+  noC: "the header reads `F2-C100`: `F`, the floor, `-C`, then the doubled code. `f\"F{floor}-C{n * 2}\"`.",
+};
+
+const CH04_2_HEADER_DONE =
+  "`F2-C100`. `F3-ERR`. `F1-C50`. headers confirmed — bad codes bounce, good ones go through. the relay is live.\n\n||COMPLETE||";
+
+const ch04_2Relayheader: StepBank = {
+  intro:
+    "last piece. every message gets stamped with where it's going, and the relay can't choke on garbage. write `relay_header(floor, code)`: floor 2 with code `\"50\"` becomes `F2-C100` — the code doubled. `code` arrives as text, so turn it into a number with `int()`. if it isn't a number, return `F3-ERR` for floor 3 instead of crashing.",
+
+  conceptFAQ: [
+    {
+      keywords: ["int", "convert", "string to int", "number", "text to number"],
+      response: "`int(\"50\")` gives you the number 50. `int(\"abc\")` can't, so it raises a `ValueError`.",
+    },
+    {
+      keywords: ["str", "int to string", "to text"],
+      response: "`str(2)` gives `\"2\"`. but an f-string converts for you: `f\"F{floor}\"`.",
+    },
+    {
+      keywords: ["valueerror", "error", "crash", "exception", "raise"],
+      response: "when `int` can't read the text it raises a `ValueError`. nothing catches it, the program stops — that's the crash.",
+    },
+    {
+      keywords: ["try", "except", "catch", "handle"],
+      response: "risky line under `try:`, fallback under `except ValueError:`. if the conversion fails, python jumps straight to the except.",
+    },
+    {
+      keywords: ["eafp", "forgiveness", "permission", "check first", "isdigit"],
+      response: "python's habit is to try it and handle the failure — easier to ask forgiveness than permission. checking `isdigit()` first works here, but `int` already knows what a number is.",
+    },
+    {
+      keywords: ["bare except", "except:", "exception", "catch everything"],
+      response: "catch the error you expect — `except ValueError:`. a bare `except:` swallows every mistake, typos included, and hides them as `ERR`.",
+    },
+    {
+      keywords: ["*2", "* 2", "double", "multiply", "times two", "why"],
+      response: "the relay doubles the code as a checksum. the scanner expects it.",
+    },
+    {
+      keywords: ["f-string", "format", "header", "build"],
+      response: "`f\"F{floor}-C{n * 2}\"` — the floor and the doubled code drop straight into the text.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`try:` then `n = int(code)`. under `except ValueError:` return `f\"F{floor}-ERR\"`. after that, return `f\"F{floor}-C{n * 2}\"`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /-C5050\b|-Cabcabc\b/.test(out),
+      response:
+        "`5050` — the code is still text, and text times 2 repeats it. turn it into a number first: `int(code)`.",
+    },
+    {
+      match: (out) => /^F\d-C\d+\.\d+$/m.test(out),
+      response: "that's a decimal. the header wants a whole number — `int(code)`, not `float(code)`.",
+    },
+    {
+      match: (out) => out.trim() === "F2-ERR\nF3-ERR\nF1-ERR",
+      response:
+        "every header came back `ERR`, even the good codes. something else in the `try` is failing and the except is hiding it. keep only `int(code)` inside, and catch `ValueError`, not everything.",
+    },
+    {
+      match: (out) => /^F3-C0$/m.test(out),
+      response: "a bad code came through as `C0`. it should bounce: return `f\"F{floor}-ERR\"` from the except.",
+    },
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` — one of the paths doesn't return anything. both the except and the happy path need a `return`.",
+    },
+    {
+      match: (out) => /^F2-C50$/m.test(out),
+      response: "`C50` — the code isn't doubled. the relay wants `n * 2`.",
+    },
+  ],
+
+  codePatterns: checkPatterns(headerCheck, HEADER_MESSAGES, CH04_2_HEADER_DONE),
+  correctResponse: CH04_2_HEADER_DONE,
+
+  genericWrong: [
+    "not matching. `int(code)` inside a `try`, `F<floor>-ERR` when it fails, `F<floor>-C<double>` when it doesn't.",
+    "check the format: `F2-C100`, and `F3-ERR` for a bad code.",
+  ],
+
+  rushDialogue: [
+    "scanner sweep in thirty seconds. finish the headers.",
+    "no time — `int` inside a `try`, `except ValueError`, return the header.",
+  ],
+
+  stuckResponses: [
+    "```\ndef relay_header(floor, code):\n    try:\n        n = int(code)\n    except ValueError:\n        return f\"F{floor}-ERR\"\n    return f\"F{floor}-C{n * 2}\"\n```",
+    "convert inside `try`, bounce the bad ones in `except ValueError`, and build the header with an f-string.",
+  ],
+
+  deflections: [
+    "focus. the headers, before the sweep.",
+    "not now — i need those headers stamped.",
+  ],
+};
+
 // ── Registry ──
 
 export const PYTHON_BANKS: Record<string, StepBank> = {
@@ -1450,4 +2411,11 @@ export const PYTHON_BANKS: Record<string, StepBank> = {
   "chapter-03:scaffold": ch03Scaffold,
   "chapter-03:sumfunc": ch03Sum,
   "chapter-03:validate": ch03Validate,
+  "chapter-04:scaffold": ch04Scaffold,
+  "chapter-04:guardmap": ch04Guardmap,
+  "chapter-04:clearfloors": ch04Clearfloors,
+  "chapter-04.2:scaffold": ch04_2Scaffold,
+  "chapter-04.2:reverseword": ch04_2Reverseword,
+  "chapter-04.2:encode": ch04_2Encode,
+  "chapter-04.2:relayheader": ch04_2Relayheader,
 };

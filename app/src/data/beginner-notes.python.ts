@@ -1,9 +1,9 @@
 // ── Beginner Notes · Python ──
-// Reeves' "PYTHON: A Field Manual" chapters for Act I, under the shared
+// Reeves' "PYTHON: A Field Manual" chapters for Acts I and II, under the shared
 // challenge ids. Same shape as the Go notes (beginner-notes.ts) — `blocks` is
 // the book (BookReader), `notesBlocks` is the in-game NOTES quick reference.
 // No `beginnerBlocks` / diagram blocks: those animations are Go-specific.
-// Names and wording agree with data/challenges/python/act-1.ts + boss-01.ts.
+// Names and wording agree with data/challenges/python/act-1.ts, boss-01.ts + act-2.ts.
 
 import type { BeginnerNotes } from "./beginner-notes";
 
@@ -609,6 +609,489 @@ print("DMG", damage, "RATE", 260, "RANGE", 8)
         section: 3,
         content: `def combo(*mods):
     return sum(mods)`,
+      },
+    ],
+  },
+  "chapter-04": {
+    title: "DICTS & SETS",
+    subtitle: "KEYS, VALUES, AND WHO'S WHERE",
+    blocks: [
+      // Section 0: scaffold
+      {
+        type: "text",
+        section: 0,
+        content:
+          "same first line as always: wake the surveillance terminal with Hello World. nothing to import this chapter — dictionaries and sets are built into python, ready the moment the file runs.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `print("Hello World")`,
+      },
+
+      // Section 1: dict literal + lookup
+      {
+        type: "text",
+        section: 1,
+        content:
+          "you met the dict at the keypad: a ticket in, a coat out. this time the tickets are names. each guard is a key, their floor is the value, and a colon sits between them. curly braces hold the whole thing, commas separate the pairs.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `guards = {
+    "Chen": "Floor 1",
+    "Volkov": "Floor 2",
+    "Park": "Floor 3",
+}
+
+print(guards["Volkov"])   # Floor 2
+print(len(guards))        # 3`,
+        hotspots: [
+          { text: `"Chen": "Floor 1",`, tip: "one pair: the key, a colon, the value, a comma. names and floors are text, so both go in quotes." },
+          { text: `guards["Volkov"]`, tip: "a lookup. square brackets with a key hand back its value — no searching, python jumps straight to it." },
+          { text: "len(guards)", tip: "len counts the pairs — one per key." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "with more than a couple of pairs, give each its own line and end every line with a comma — even the last one. add a guard later and only one line changes. dicts also remember the order you wrote them in, though you'll always look things up by key.",
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "each key appears once. write the same name twice and python keeps the last value without a word of warning — and len comes up one short. ask for a key that isn't there and python raises a KeyError; guards.get(\"Nobody\") hands back None instead.",
+      },
+
+      // Section 2: returning a dict
+      {
+        type: "text",
+        section: 2,
+        content:
+          "the terminal won't read a dict you leave lying around. it calls a function and looks guards up in whatever comes back. a function can return a dict like any other value — and the literal can go straight after return.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `def build_roster():
+    return {
+        "Chen": "Floor 1",
+        "Alvarez": "Floor 2",
+        "Volkov": "Floor 2",
+        "Park": "Floor 3",
+        "Santos": "Floor 1",
+    }
+
+r = build_roster()
+print(r["Chen"])   # Floor 1`,
+        hotspots: [
+          { text: "def build_roster():", tip: "empty brackets — it needs nothing from the caller. the roster is the same every time." },
+          { text: "return {", tip: "the dict literal is the return value. no need to name it first." },
+          { text: "r = build_roster()", tip: "the caller gets the whole dict back and can look anyone up." },
+        ],
+      },
+
+      // Section 3: looping over a dict
+      {
+        type: "text",
+        section: 3,
+        content:
+          "a for loop walks a dict too. on its own it hands you the keys. ask for .values() and you get the values instead, or .items() for both at once, as pairs.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `for name in guards:
+    print(name)            # Chen, Volkov, Park
+
+for floor in guards.values():
+    print(floor)           # Floor 1, Floor 2, Floor 3
+
+for name, floor in guards.items():
+    print(name, floor)     # Chen Floor 1 ...`,
+        hotspots: [
+          { text: "for name in guards:", tip: "looping over the dict itself gives you the keys — the names." },
+          { text: "guards.values()", tip: "just the values — the floors. use it when you don't care who's there, only where." },
+          { text: "guards.items()", tip: "key and value together. two names after for, a comma between them." },
+        ],
+      },
+
+      // Section 4: sets
+      {
+        type: "text",
+        section: 4,
+        content:
+          "to find an empty floor, first collect every floor that has a guard. a set is made for that: it holds each value once, drops the repeats, keeps no order, and answers in or not in at once instead of checking item by item like a list would.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `occupied = set(guards.values())
+print(occupied)   # {'Floor 1', 'Floor 2', 'Floor 3'} — in any order
+
+print("Floor 2" in occupied)      # True
+print("Floor 4" not in occupied)  # True`,
+        hotspots: [
+          { text: "set(guards.values())", tip: "set() takes any group of values and keeps one of each. two guards on floor 2 still means one Floor 2." },
+          { text: `"Floor 2" in occupied`, tip: "membership — True or False. a set answers without looking at every item." },
+          { text: "not in", tip: "the opposite test, written as one operator. reads like english." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        important: true,
+        content:
+          "go has no set type — you fake one with a map from each value to true. python has the real thing. one trap: {} on its own is an empty dict, not a set. an empty set is set().",
+      },
+
+      // Section 5: finding the gap
+      {
+        type: "text",
+        section: 5,
+        content:
+          "now walk the floors from 1 to the top and stop at the first one nobody's on. range stops before its end, so add one to reach the top floor. build each floor's name with an f-string so it matches the roster exactly.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `def find_clear_floor(guards, max_floor):
+    occupied = set(guards.values())
+    for i in range(1, max_floor + 1):
+        name = f"Floor {i}"
+        if name not in occupied:
+            return name
+
+print(find_clear_floor(build_roster(), 4))   # Floor 4`,
+        hotspots: [
+          { text: "range(1, max_floor + 1)", tip: "1 up to and including max_floor. without the + 1, the top floor never gets checked." },
+          { text: `f"Floor {i}"`, tip: "capital F, one space, the number — exactly how the roster writes it, or nothing will match." },
+          { text: "return name", tip: "the first gap wins. return stops the loop right there." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "max_floor comes in as a parameter. the terminal tries a four-floor building and a three-floor one, so the loop has to use it — not a number you picked.",
+      },
+
+      // Section 6: zen recap
+      {
+        type: "text",
+        section: 6,
+        content:
+          "habits for this level. write the dict as one literal, one pair per line, trailing commas. ask for exactly what you need — .values() when the names don't matter. put things you'll test with in into a set. and write name not in occupied, not not name in occupied.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `# one literal — clean
+roster = {
+    "Chen": "Floor 1",
+    "Park": "Floor 3",
+}
+
+# filled in by hand — works, but noisier
+roster = {}
+roster["Chen"] = "Floor 1"
+roster["Park"] = "Floor 3"`,
+        hotspots: [
+          { text: `roster = {}`, tip: "an empty dict, filled one assignment at a time. fine when you're building it as you go — not when you already know every pair." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "a dict — keys to values, looked up by key." },
+      {
+        type: "code",
+        section: 0,
+        content: `guards = {
+    "Chen": "Floor 1",
+    "Volkov": "Floor 2",
+}
+guards["Volkov"]   # Floor 2
+len(guards)        # 2`,
+      },
+      { type: "text", section: 1, content: "the values, gathered into a set." },
+      {
+        type: "code",
+        section: 1,
+        content: `occupied = set(guards.values())
+"Floor 3" not in occupied   # True`,
+      },
+      { type: "text", section: 2, content: "walk the floors, return the first gap." },
+      {
+        type: "code",
+        section: 2,
+        content: `for i in range(1, max_floor + 1):
+    name = f"Floor {i}"
+    if name not in occupied:
+        return name`,
+      },
+    ],
+  },
+
+  "chapter-04.2": {
+    title: "STRINGS & SLICES",
+    subtitle: "THE CIPHER, AND WHAT TO DO WHEN IT BREAKS",
+    blocks: [
+      // Section 0: scaffold
+      {
+        type: "text",
+        section: 0,
+        content:
+          "bring the relay online with Hello World. other languages need three imports for this chapter's work. python needs none: slicing, split, join, int and str are all built in.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `print("Hello World")`,
+      },
+
+      // Section 1: strings are sequences
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a string is a sequence of characters, and you can reach into it by position. positions start at 0. negative positions count from the end, so -1 is always the last character.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `word = "relay"
+print(word[0])     # r
+print(word[-1])    # y
+print(len(word))   # 5`,
+        hotspots: [
+          { text: "word[0]", tip: "the first character. python counts from 0, so the fifth one is word[4]." },
+          { text: "word[-1]", tip: "the last character, whatever the length. -2 is the one before it." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "strings can't be changed in place. word[0] = \"R\" stops with a TypeError. to change a string you build a new one — every trick in this chapter returns a fresh string and leaves the old one alone.",
+      },
+
+      // Section 2: slicing
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a slice takes a piece of the string: [start:stop]. like range, it stops before stop. leave start empty to begin at the front, leave stop empty to run to the end. a third number is the step — and a step of -1 walks backwards.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `word = "hello"
+print(word[1:4])    # ell
+print(word[:3])     # hel
+print(word[::2])    # hlo
+print(word[::-1])   # olleh`,
+        hotspots: [
+          { text: "word[1:4]", tip: "from position 1 up to, but not including, position 4." },
+          { text: "word[::2]", tip: "the whole word, every second character." },
+          { text: "word[::-1]", tip: "empty start, empty stop, step -1: the whole word, back to front. that's the cipher." },
+        ],
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `def reverse_word(s):
+    return s[::-1]
+
+print(reverse_word("relay"))   # yaler`,
+        hotspots: [
+          { text: "return s[::-1]", tip: "a new, reversed string. s itself is untouched." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "python strings hold whole unicode characters, not raw bytes, so a slice never cuts an accented letter in half. there's also reversed(s), but it hands back an iterator you'd have to glue together again — the slice is shorter.",
+      },
+
+      // Section 3: lists, split, join
+      {
+        type: "text",
+        section: 3,
+        content:
+          "a whole message needs each word reversed on its own. split() breaks a string into a list — an ordered row of values in square brackets. unlike a tuple, a list can grow: append adds to the end. join does the opposite of split: the string you call it on goes between every item.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `words = "floor is clear".split()
+print(words)              # ['floor', 'is', 'clear']
+
+flipped = []
+for w in words:
+    flipped.append(reverse_word(w))
+
+print(" ".join(flipped))  # roolf si raelc`,
+        hotspots: [
+          { text: ".split()", tip: "empty brackets split on any run of spaces and never hand back an empty word. split(\" \") would, wherever there's a double space." },
+          { text: "flipped.append(reverse_word(w))", tip: "adds one reversed word to the end of the list." },
+          { text: `" ".join(flipped)`, tip: "one string, with a single space between each word — and none on the ends." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "that loop builds a list from another list — common enough that python has a one-line form, the comprehension: the expression, then the for, inside square brackets. inside join you can even drop the brackets.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `flipped = [reverse_word(w) for w in words]
+
+def encode(msg):
+    return " ".join(reverse_word(w) for w in msg.split())
+
+print(encode(encode("round trip")))   # round trip`,
+        hotspots: [
+          { text: "[reverse_word(w) for w in words]", tip: "a list comprehension: what to make, then where it comes from. same list as the append loop." },
+          { text: "encode(encode(", tip: "reverse every word twice and you're back where you started. that's how reeves decodes." },
+        ],
+      },
+
+      // Section 4: int and str
+      {
+        type: "text",
+        section: 4,
+        content:
+          "text and numbers are different things, even when they look alike. \"50\" is two characters; 50 is a number. int() reads text as a number, str() writes a number as text. an f-string does the str() part for you.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `code = "50"
+n = int(code)
+print(n * 2)       # 100
+print(code * 2)    # 5050
+print(f"F{2}-C{n * 2}")   # F2-C100`,
+        hotspots: [
+          { text: "int(code)", tip: "text in, number out. now arithmetic works." },
+          { text: "code * 2", tip: "text times 2 repeats the text. no error — just the wrong answer. convert first." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        important: true,
+        content:
+          "int(\"abc\") can't work, so python raises a ValueError. if nothing catches it, the program stops right there with a traceback — the whole relay goes down over one bad code.",
+      },
+
+      // Section 5: try / except
+      {
+        type: "text",
+        section: 5,
+        content:
+          "python's answer is try and except. put the risky line under try. if it raises, python skips the rest of the try and jumps to the except that names that error. if it doesn't, the except never runs. python people call this easier to ask forgiveness than permission: just try it, and handle the failure.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `def relay_header(floor, code):
+    try:
+        n = int(code)
+    except ValueError:
+        return f"F{floor}-ERR"
+    return f"F{floor}-C{n * 2}"
+
+print(relay_header(2, "50"))    # F2-C100
+print(relay_header(3, "abc"))   # F3-ERR`,
+        hotspots: [
+          { text: "n = int(code)", tip: "the only line that can fail, so it's the only line inside the try." },
+          { text: "except ValueError:", tip: "catches exactly the error int raises on bad text. anything else still crashes loudly, where you can see it." },
+          { text: `return f"F{floor}-C{n * 2}"`, tip: "the happy path, after the try. you only get here if the conversion worked." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "name the error you expect. a bare except: catches everything — a typo, a wrong name — and quietly turns it into ERR. the zen of python: errors should never pass silently, unless explicitly silenced.",
+      },
+
+      // Section 6: three error models
+      {
+        type: "text",
+        section: 6,
+        content:
+          "reeves' last margin note compares three languages on the same bad input. go hands the error back: the conversion returns two values, the number and an error, and you check the error before going on. python raises it: the failure jumps out of the normal flow until an except catches it. javascript does neither — Number(\"abc\") quietly hands back NaN, \"not a number\", and you have to notice it yourself.",
+      },
+      {
+        type: "text",
+        section: 6,
+        important: true,
+        content:
+          "returned, raised, or quietly poisoned — three answers to the same question: what happens when the input is garbage. in python, if you don't catch it, it stops you. that's a feature.",
+      },
+
+      // Section 7: zen recap
+      {
+        type: "text",
+        section: 7,
+        content:
+          "habits for this level. slice instead of looping when a slice says it. split() with no argument. join the words instead of gluing with +=. a comprehension when you're turning one list into another. keep the try small and catch the one error you expect. and build text with f-strings.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `# narrow — clean
+try:
+    n = int(code)
+except ValueError:
+    return f"F{floor}-ERR"
+
+# bare — hides every mistake as ERR
+try:
+    n = int(code)
+except:
+    return f"F{floor}-ERR"`,
+        hotspots: [
+          { text: "except ValueError:", tip: "only bad numbers land here." },
+          { text: "except:", tip: "everything lands here, typos included. avoid it." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "slice backwards — [start:stop:step]." },
+      {
+        type: "code",
+        section: 0,
+        content: `def reverse_word(s):
+    return s[::-1]`,
+      },
+      { type: "text", section: 1, content: "split into a list, reverse each, join with spaces." },
+      {
+        type: "code",
+        section: 1,
+        content: `def encode(msg):
+    return " ".join(reverse_word(w) for w in msg.split())`,
+      },
+      { type: "text", section: 2, content: "int() raises ValueError on bad text — catch it." },
+      {
+        type: "code",
+        section: 2,
+        content: `try:
+    n = int(code)
+except ValueError:
+    return f"F{floor}-ERR"
+return f"F{floor}-C{n * 2}"`,
       },
     ],
   },
