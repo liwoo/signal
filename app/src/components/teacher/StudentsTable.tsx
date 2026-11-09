@@ -13,17 +13,19 @@ import { ActivityBars } from "./charts";
 import { STATUS_META, STATUS_ORDER, StatusBadge } from "./status";
 
 type SortKey = "attention" | "name" | "progress" | "lastActive" | "xp";
-type Filter = "all" | StudentStatus;
+export type StudentFilter = "all" | StudentStatus;
 
-const FILTERS: Filter[] = ["all", "stuck", "idle", "not_started", "active", "finished"];
+const FILTERS: StudentFilter[] = ["all", "stuck", "idle", "not_started", "active", "finished"];
 
-export function StudentsTable({ students, now, onSelect }: {
+/** The status filter is controlled, so a stat card ("Need help now") can open the Stuck view. */
+export function StudentsTable({ students, now, onSelect, filter, onFilterChange: setFilter }: {
   students: StudentSummary[];
   now: number;
   onSelect: (id: string) => void;
+  filter: StudentFilter;
+  onFilterChange: (filter: StudentFilter) => void;
 }) {
   const [sort, setSort] = useState<SortKey>("attention");
-  const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
 
   const visible = useMemo(() => {

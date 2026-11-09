@@ -12,11 +12,13 @@ interface ObjectiveBarProps {
 }
 
 /**
- * One distinct, succinct line that always answers "what do I do right now?".
- * Sits above the code. The ASK is the single short imperative (step.ask, or the
- * brief as a fallback); everything verbose — the why, the step path, the reward,
- * the hint pointer — lives one tap away behind SEE LEVEL OBJECTIVES. Amber =
- * mission voice, distinct from Maya's green narration in the chat.
+ * Always answers "what do I do right now?". Sits above the code. The ASK is the
+ * single short imperative (step.ask, or the brief as a fallback) and gets its
+ * own line, wrapping to two rather than truncating: a 390px phone used to show
+ * "Print Maya'…". Step pips, the TASK badge and the OBJECTIVES button sit in a
+ * small metadata row above it. Everything verbose — the why, the step path, the
+ * reward — lives one tap away behind OBJECTIVES. Amber = mission voice,
+ * distinct from Maya's green narration in the chat.
  */
 export function ObjectiveBar({
   challenge,
@@ -32,82 +34,82 @@ export function ObjectiveBar({
   return (
     <div
       data-tour="objective-bar"
-      className={`shrink-0 flex items-center ${compact ? "gap-2 px-2.5 py-2" : "gap-3 px-3 py-2.5"}`}
+      className={`shrink-0 flex flex-col ${compact ? "gap-1 px-3 pt-1.5 pb-2" : "gap-1.5 px-3.5 pt-2 pb-2.5"}`}
       style={{
         background: "rgba(255,159,28,.05)",
         borderBottom: "1px solid rgba(255,159,28,.18)",
         borderLeft: "3px solid var(--color-alert)",
       }}
     >
-      {/* Step pips */}
-      {multiStep && (
-        <div className="flex items-center gap-1 shrink-0" aria-label={`Step ${currentStepIndex + 1} of ${challenge.steps.length}`}>
-          {challenge.steps.map((step, i) => {
-            const done = i < currentStepIndex;
-            const active = i === currentStepIndex;
-            return (
-              <span
-                key={step.id}
-                title={step.title}
-                className="block transition-colors"
-                style={{
-                  width: active ? 18 : 8,
-                  height: 8,
-                  background: done ? "var(--color-signal)" : active ? "var(--color-alert)" : "transparent",
-                  border: `1px solid ${done ? "var(--color-signal)" : active ? "var(--color-alert)" : "rgba(184,212,160,.3)"}`,
-                }}
-              />
-            );
-          })}
-        </div>
-      )}
+      {/* Metadata: where you are in the level, hazards, the full brief */}
+      <div className="flex min-w-0 items-center gap-2.5">
+        {multiStep && (
+          <div className="flex items-center gap-1 shrink-0" aria-hidden="true">
+            {challenge.steps.map((step, i) => {
+              const done = i < currentStepIndex;
+              const active = i === currentStepIndex;
+              return (
+                <span
+                  key={step.id}
+                  title={step.title}
+                  className="block transition-colors"
+                  style={{
+                    width: active ? 18 : 8,
+                    height: 8,
+                    background: done ? "var(--color-signal)" : active ? "var(--color-alert)" : "transparent",
+                    border: `1px solid ${done ? "var(--color-signal)" : active ? "var(--color-alert)" : "rgba(184,212,160,.3)"}`,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+        <span
+          className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[11px] tracking-[1.5px] leading-none"
+          style={{ color: "var(--color-alert)" }}
+        >
+          {multiStep ? `TASK ${currentStepIndex + 1} OF ${challenge.steps.length}` : "TASK"}
+        </span>
 
-      {/* The ask — the single, distinct, succinct instruction */}
-      <div className="min-w-0 flex-1 flex items-center gap-2.5">
-        <span
-          className="shrink-0 font-[family-name:var(--font-display)] font-bold text-[10px] tracking-[2px] px-1.5 py-1 leading-none"
-          style={{ color: "var(--color-background)", background: "var(--color-alert)" }}
+        {/* Hazards — rare, real-time warnings */}
+        {jeopardy.length > 0 && (
+          <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+            {jeopardy.map((effect, i) => (
+              <span
+                key={`${effect}-${i}`}
+                className="shrink-0 text-[10px] tracking-[1px] px-1.5 py-0.5 whitespace-nowrap"
+                style={{
+                  color: "var(--color-danger)",
+                  border: "1px solid rgba(255,64,64,.3)",
+                  background: "rgba(255,64,64,.06)",
+                }}
+              >
+                ⚠ {effect.replace("_", " ").toUpperCase()}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* The full brief, one tap away */}
+        <button
+          type="button"
+          onClick={onOpenMission}
+          className={`ml-auto shrink-0 bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[11px] tracking-[1.5px] whitespace-nowrap transition-colors ${compact ? "min-h-8 px-2.5" : "px-2.5 py-1"}`}
+          style={{ color: "var(--color-alert)", border: "1px solid rgba(255,159,28,.4)" }}
+          title="See the full level objectives"
         >
-          {multiStep ? `TASK ${currentStepIndex + 1}/${challenge.steps.length}` : "TASK"}
-        </span>
-        <span
-          className={`min-w-0 truncate font-bold ${compact ? "text-[13px]" : "text-[15px]"}`}
-          style={{ color: "var(--color-foreground)" }}
-          title={ask}
-        >
-          {ask}
-        </span>
+          {compact ? "OBJECTIVES ›" : "SEE LEVEL OBJECTIVES ›"}
+        </button>
       </div>
 
-      {/* Hazards — rare, real-time warnings */}
-      {jeopardy.length > 0 && (
-        <div className="hidden sm:flex items-center gap-1 shrink-0">
-          {jeopardy.map((effect, i) => (
-            <span
-              key={`${effect}-${i}`}
-              className="text-[10px] tracking-[1px] px-1.5 py-0.5"
-              style={{
-                color: "var(--color-danger)",
-                border: "1px solid rgba(255,64,64,.3)",
-                background: "rgba(255,64,64,.06)",
-              }}
-            >
-              ⚠ {effect.replace("_", " ").toUpperCase()}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* The full brief, one tap away */}
-      <button
-        type="button"
-        onClick={onOpenMission}
-        className="shrink-0 bg-transparent cursor-pointer font-[family-name:var(--font-display)] text-[10px] tracking-[2px] px-2.5 py-1.5 transition-colors"
-        style={{ color: "var(--color-alert)", border: "1px solid rgba(255,159,28,.4)" }}
-        title="See the full level objectives"
+      {/* The ask — the single, distinct, succinct instruction. Wraps; never truncates. */}
+      <p
+        className={`m-0 min-w-0 font-bold line-clamp-2 break-words ${compact ? "text-[15px] leading-[1.35]" : "text-[17px] leading-[1.35]"}`}
+        style={{ color: "var(--color-foreground)" }}
+        title={ask}
       >
-        {compact ? "OBJECTIVES ›" : "SEE LEVEL OBJECTIVES ›"}
-      </button>
+        {ask}
+      </p>
     </div>
   );
 }

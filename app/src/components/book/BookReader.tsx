@@ -57,7 +57,7 @@ function buildPages(blocks: NoteBlock[]): Page[] {
  * real book. Two-page spread on wide screens, one page on phones; pages turn
  * with ▸/◂, the arrow keys, or a tap on the page edge. Hotspots in listings
  * become footnotes and still pay the +5 XP. Opening the book is mandatory, but
- * reading it is not — "SKIP · START LEVEL" closes it straight away (→ onReady).
+ * reading it is not — "SKIP · START LEVEL" ("START LEVEL" on phones) closes it straight away (→ onReady).
  */
 export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleChange, onReady, onHotspotXP, soundEnabled = true }: BookReaderProps) {
   const BOOK = bookFor(useLanguage());
@@ -131,10 +131,11 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
     <div className="book-desk fixed inset-0 z-[60] flex flex-col" role="dialog" aria-modal="true" aria-label={`${BOOK.title} — chapter ${chapter?.numeral ?? ""}`}>
       {/* Toolbar — the game's chrome, over the desk */}
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderBottom: "1px solid rgba(var(--signal-rgb),0.08)" }}>
-        <div className="min-w-0 text-[10px] tracking-[3px] sm:text-[11px]" style={{ color: "var(--color-dim)" }}>
-          ▸ FIELD MANUAL{chapter ? ` · CHAPTER ${chapter.numeral}` : ""} · {notes.title}
+        <div className="min-w-0 truncate text-[11px] tracking-[2px] sm:tracking-[3px]" style={{ color: "var(--color-dim)" }} title={notes.title}>
+          <span className="sm:hidden">▸ {chapter ? `CHAPTER ${chapter.numeral}` : "FIELD MANUAL"}</span>
+          <span className="hidden sm:inline">▸ FIELD MANUAL{chapter ? ` · CHAPTER ${chapter.numeral}` : ""} · {notes.title}</span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           {hasPlain && (
             <div className="hidden items-center sm:flex" style={{ border: "1px solid rgba(184,212,160,0.25)" }}>
               {(["manual", "plain"] as Edition[]).map((e) => (
@@ -150,15 +151,17 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
               ))}
             </div>
           )}
-          <div className="flex items-center gap-1">
-            <button type="button" aria-label="Smaller text" disabled={fontScale <= SCALE_MIN} onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))} className="cursor-pointer bg-transparent px-2 py-1 text-[10px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,0.25)" }}>A−</button>
-            <button type="button" aria-label="Larger text" disabled={fontScale >= SCALE_MAX} onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))} className="cursor-pointer bg-transparent px-2 py-1 text-[10px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,0.25)" }}>A+</button>
+          <div role="group" aria-label="Text size" className="flex items-center" style={{ border: "1px solid rgba(184,212,160,0.25)" }}>
+            <button type="button" aria-label="Smaller text" disabled={fontScale <= SCALE_MIN} onClick={() => onFontScaleChange(Math.max(SCALE_MIN, fontScale - SCALE_STEP))} className="min-h-10 min-w-10 cursor-pointer bg-transparent px-2 text-[13px] disabled:opacity-30" style={{ color: "var(--color-foreground)" }}>A−</button>
+            <button type="button" aria-label="Larger text" disabled={fontScale >= SCALE_MAX} onClick={() => onFontScaleChange(Math.min(SCALE_MAX, fontScale + SCALE_STEP))} className="min-h-10 min-w-10 cursor-pointer bg-transparent px-2 text-[13px] disabled:opacity-30" style={{ color: "var(--color-foreground)", borderLeft: "1px solid rgba(184,212,160,0.25)" }}>A+</button>
           </div>
           {earnedXP > 0 && (
-            <div className="text-[10px] tracking-[2px]" style={{ color: "var(--color-win)" }}>+{earnedXP} XP</div>
+            <div className="whitespace-nowrap text-[11px] tracking-[1px]" style={{ color: "var(--color-win)" }}>+{earnedXP} XP</div>
           )}
-          <button type="button" onClick={onReady} className="cursor-pointer bg-transparent px-2 py-1 text-[10px] tracking-[2px] sm:text-[11px]" style={{ color: "var(--color-dim)", border: "1px solid rgba(184,212,160,0.2)" }}>
-            SKIP · START LEVEL ▸▸
+          {/* Phones get the short label: the long one broke into four lines at 390px. */}
+          <button type="button" onClick={onReady} className="min-h-10 cursor-pointer whitespace-nowrap bg-transparent px-3 text-[11px] tracking-[2px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.3)" }}>
+            <span className="sm:hidden">START LEVEL ▸</span>
+            <span className="hidden sm:inline">SKIP · START LEVEL ▸▸</span>
           </button>
         </div>
       </div>
@@ -212,18 +215,18 @@ export function BookReader({ notes, chapter, chapterId, fontScale, onFontScaleCh
 
       {/* Navigation */}
       <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2 sm:px-6" style={{ background: "rgba(4,8,16,0.72)", borderTop: "1px solid rgba(var(--signal-rgb),0.08)" }}>
-        <button type="button" onClick={() => turn("prev")} disabled={spread === 0} className="cursor-pointer bg-transparent px-4 py-2 text-[10px] tracking-[3px] disabled:opacity-30" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,0.3)" }}>
+        <button type="button" onClick={() => turn("prev")} disabled={spread === 0} className="min-h-11 cursor-pointer whitespace-nowrap bg-transparent px-4 text-[11px] tracking-[2px] disabled:opacity-30 sm:tracking-[3px]" style={{ color: "var(--color-foreground)", border: "1px solid rgba(184,212,160,0.3)" }}>
           ◂ BACK
         </button>
-        <div className="text-[10px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
+        <div className="whitespace-nowrap text-[11px] tracking-[2px]" style={{ color: "var(--color-dim)" }}>
           {spread + 1} / {spreadCount}
         </div>
         {atEnd ? (
-          <button type="button" onClick={onReady} className="cursor-pointer bg-transparent px-5 py-2.5 text-[10px] tracking-[3px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:text-[11px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
-            CLOSE THE BOOK · START LEVEL <span style={{ opacity: 0.7, fontSize: 10 }}>⏎</span>
+          <button type="button" onClick={onReady} className="min-h-11 cursor-pointer whitespace-nowrap bg-transparent px-4 text-[11px] tracking-[2px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:px-5 sm:tracking-[3px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
+            <span className="hidden sm:inline">CLOSE THE BOOK · </span>START LEVEL <span className="hidden sm:inline" style={{ opacity: 0.7, fontSize: 10 }}>⏎</span>
           </button>
         ) : (
-          <button type="button" onClick={() => turn("next")} className="cursor-pointer bg-transparent px-5 py-2.5 text-[10px] tracking-[3px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:text-[11px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
+          <button type="button" onClick={() => turn("next")} className="min-h-11 cursor-pointer whitespace-nowrap bg-transparent px-4 text-[11px] tracking-[2px] hover:bg-[rgba(var(--signal-rgb),.08)] sm:px-5 sm:tracking-[3px]" style={{ color: "var(--color-signal)", border: "1px solid rgba(var(--signal-rgb),0.35)" }}>
             TURN THE PAGE ▸
           </button>
         )}

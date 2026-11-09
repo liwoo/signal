@@ -210,6 +210,8 @@ export function CodeEditor({
   /** Vim is driving the cursor (normal / visual) — the native caret is hidden. */
   const vimCommandMode = vim.enabled && vim.mode !== "insert";
   const [cursorPos, setCursorPos] = useState(0);
+  /** Mobile: the second row of accessory keys (format, cursor, redo) is open. */
+  const [moreKeys, setMoreKeys] = useState(false);
 
   // Autocomplete state
   const [acItems, setAcItems] = useState<Completion[]>([]);
@@ -916,25 +918,45 @@ export function CodeEditor({
       ) : null}
 
       {isMobile ? (
+        // One row of the keys a phone keyboard buries; the occasional ones
+        // (format, cursor nudges, redo) sit behind ⋯ so the editor keeps its
+        // height with the software keyboard open.
         <div
-          className="flex shrink-0 flex-wrap items-center justify-center gap-1 px-1.5 py-1"
+          className="shrink-0 px-1.5 py-1"
           style={{
             background: "#04090f",
             borderTop: "1px solid var(--color-border)",
           }}
+          role="toolbar"
           aria-label="Code keyboard shortcuts"
         >
-          {lang.format ? <EditorAccessoryKey label={formatting ? "FMT…" : "FMT"} onPress={handleFormat} /> : null}
-          <EditorAccessoryKey label="TAB" onPress={() => insertSnippet("    ")} />
-          <EditorAccessoryKey label={ACCESSORY_OPERATOR[language].label} onPress={() => insertSnippet(ACCESSORY_OPERATOR[language].insert)} />
-          <EditorAccessoryKey label="{ }" onPress={() => insertSnippet("{", "}")} />
-          <EditorAccessoryKey label="( )" onPress={() => insertSnippet("(", ")")} />
-          <EditorAccessoryKey label={'" "'} onPress={() => insertSnippet('"', '"')} />
-          <EditorAccessoryKey label="←" ariaLabel="Move cursor left" onPress={() => moveCursor(-1)} />
-          <EditorAccessoryKey label="→" ariaLabel="Move cursor right" onPress={() => moveCursor(1)} />
-          <EditorAccessoryKey label="UNDO" onPress={undo} />
-          <EditorAccessoryKey label="REDO" onPress={redo} />
-          {aiButton}
+          <div className="grid grid-cols-7 gap-1">
+            <EditorAccessoryKey label="TAB" onPress={() => insertSnippet("    ")} />
+            <EditorAccessoryKey label={ACCESSORY_OPERATOR[language].label} onPress={() => insertSnippet(ACCESSORY_OPERATOR[language].insert)} />
+            <EditorAccessoryKey label="{ }" onPress={() => insertSnippet("{", "}")} />
+            <EditorAccessoryKey label="( )" onPress={() => insertSnippet("(", ")")} />
+            <EditorAccessoryKey label={'" "'} onPress={() => insertSnippet('"', '"')} />
+            <EditorAccessoryKey label="UNDO" onPress={undo} />
+            <EditorAccessoryKey
+              label="⋯"
+              ariaLabel={moreKeys ? "Fewer keys" : "More keys"}
+              expanded={moreKeys}
+              onPress={() => setMoreKeys((open) => !open)}
+            />
+          </div>
+          {moreKeys ? (
+            <div className="mt-1 grid grid-cols-7 gap-1">
+              {lang.format ? (
+                <span className="col-span-2 grid">
+                  <EditorAccessoryKey label={formatting ? "FMT…" : "FMT"} ariaLabel="Format code" onPress={handleFormat} />
+                </span>
+              ) : null}
+              <EditorAccessoryKey label="←" ariaLabel="Move cursor left" onPress={() => moveCursor(-1)} />
+              <EditorAccessoryKey label="→" ariaLabel="Move cursor right" onPress={() => moveCursor(1)} />
+              <EditorAccessoryKey label="REDO" onPress={redo} />
+            </div>
+          ) : null}
+          {aiButton ? <div className="mt-1 grid">{aiButton}</div> : null}
         </div>
       ) : null}
 
@@ -1005,21 +1027,22 @@ export function CodeEditor({
                   data-tour="test-btn"
                   onClick={onTest}
                   disabled={busy || testing || disabled || !code.trim()}
-                  className={`${isMobile ? "min-h-11 px-3 py-2" : "py-1.5 px-3.5"} bg-transparent text-[10px] tracking-[2px] cursor-pointer
-                             transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
+                  className={`${isMobile ? "min-h-12 shrink-0 flex-col justify-center gap-0.5 px-3.5 py-1 text-[12px] tracking-[1.5px]" : "items-center gap-2 py-1.5 px-3.5 text-[10px] tracking-[2px]"} bg-transparent cursor-pointer
+                             transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex`}
                   style={{ border: "1px solid var(--color-border)", color: "var(--color-foreground)" }}
                   title="Run the mission checks here. Free — not sent to Maya, not an attempt."
                 >
-                  {testing ? "TESTING…" : "▷ TEST"}
+                  <span className="whitespace-nowrap">{testing ? "TESTING…" : "▷ TEST"}</span>
                   {!testing && !isMobile && <span className="text-[10px] tracking-[1px] opacity-60">{mod}⏎</span>}
+                  {isMobile && <span className="text-[10px] tracking-[1px] opacity-60">FREE</span>}
                 </button>
               ) : null}
               <button
                 data-tour="transmit-btn"
                 onClick={onSubmit}
                 disabled={busy || testing || disabled || !code.trim()}
-                className={`${isMobile ? "min-h-11 flex-1 justify-center px-4 py-2" : "py-1.5 px-5"} text-[10px] tracking-[2px] cursor-pointer
-                           transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex items-center gap-2`}
+                className={`${isMobile ? "min-h-12 min-w-0 flex-1 flex-col justify-center gap-0.5 px-3 py-1 text-[12px] tracking-[1.5px]" : "items-center gap-2 py-1.5 px-5 text-[10px] tracking-[2px]"} cursor-pointer
+                           transition-colors disabled:opacity-35 disabled:cursor-not-allowed flex`}
                 style={{
                   background: readyToSend ? accent : inRush ? "rgba(255,80,20,.1)" : "rgba(110,255,160,.06)",
                   border: `1px solid ${inRush ? "#ff6a2a" : "var(--color-signal)"}`,
@@ -1027,7 +1050,8 @@ export function CodeEditor({
                 }}
                 title="Send it to Maya. This is the attempt that counts."
               >
-                {busy ? "TRANSMITTING…" : "TRANSMIT TO MAYA ▸"}
+                <span className="whitespace-nowrap">{busy ? "TRANSMITTING…" : "TRANSMIT TO MAYA ▸"}</span>
+                {isMobile && <span className="text-[10px] tracking-[1px] opacity-70">COUNTS AS A TRY</span>}
                 {!busy && !isMobile && onTest && (
                   <span className="text-[10px] tracking-[1px] opacity-70">⇧{mod}⏎</span>
                 )}
@@ -1230,22 +1254,36 @@ function SubmissionFeedbackPanel({
 function EditorAccessoryKey({
   label,
   ariaLabel,
+  expanded,
   onPress,
 }: {
   label: string;
   ariaLabel?: string;
+  /** Set on a key that opens more keys. */
+  expanded?: boolean;
   onPress: () => void;
 }) {
   return (
     <button
       type="button"
       aria-label={ariaLabel ?? label}
+      aria-expanded={expanded}
+      // pointerdown + preventDefault keeps the textarea focused, so the
+      // software keyboard stays up while the player taps symbols.
       onPointerDown={(event) => {
         event.preventDefault();
         onPress();
       }}
-      className="min-h-11 min-w-11 shrink-0 bg-transparent px-2 text-[10px] font-bold"
-      style={{ color: "var(--color-signal)", border: "1px solid var(--color-border)" }}
+      // Keyboard / switch-access users still activate it with a click.
+      onClick={(event) => {
+        if (event.detail === 0) onPress();
+      }}
+      className="min-h-11 min-w-0 bg-transparent px-1 text-[12px] font-bold whitespace-nowrap"
+      style={{
+        color: "var(--color-signal)",
+        border: `1px solid ${expanded ? "var(--color-signal)" : "var(--color-border)"}`,
+        background: expanded ? "rgba(var(--signal-rgb),.08)" : "transparent",
+      }}
     >
       {label}
     </button>
