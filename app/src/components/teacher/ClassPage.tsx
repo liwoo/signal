@@ -22,7 +22,7 @@ import { Input, Label } from "@/components/teacher-ui/input";
 import { Skeleton } from "@/components/teacher-ui/misc";
 import { Dialog, DropdownMenu } from "@/components/teacher-ui/overlay";
 import { ChapterProgressChart } from "./charts";
-import { StudentsTable } from "./StudentsTable";
+import { StudentsTable, type StudentFilter } from "./StudentsTable";
 import { StudentSheet } from "./StudentSheet";
 import { sentence } from "./status";
 
@@ -42,6 +42,7 @@ export function ClassPage({ classroom, onChanged, onDeleted, onStudentCount }: {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<StudentFilter>("all");
   const [inviting, setInviting] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -187,12 +188,17 @@ export function ClassPage({ classroom, onChanged, onDeleted, onStudentCount }: {
             <StatCard
               title="Need help now"
               value={summary.stuck}
-              footnote={summary.stuck ? "5+ failed tries on one step" : "Nobody is stuck"}
+              footnote={summary.stuck ? "5+ failed tries on one step. Show who →" : "Nobody has failed one step 5+ times"}
               alert={summary.stuck > 0}
+              onClick={summary.stuck ? () => {
+                setFilter("stuck");
+                document.getElementById("class-roster")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              } : undefined}
             />
           </div>
 
-          <Card>
+          {/* On phones the roster (who needs help) comes before the big chart. */}
+          <Card className="max-md:order-last">
             <CardHeader>
               <CardTitle>Chapter progress</CardTitle>
               <CardDescription>How far the class has got through the story, chapter by chapter.</CardDescription>
@@ -202,7 +208,7 @@ export function ClassPage({ classroom, onChanged, onDeleted, onStudentCount }: {
             </CardContent>
           </Card>
 
-          <Card className="gap-4">
+          <Card id="class-roster" className="scroll-mt-20 gap-4">
             <CardHeader>
               <CardTitle>Students</CardTitle>
               <CardDescription>
@@ -226,7 +232,7 @@ export function ClassPage({ classroom, onChanged, onDeleted, onStudentCount }: {
               </CardAction>
             </CardHeader>
             <CardContent>
-              <StudentsTable students={students} now={now} onSelect={setSelectedId} />
+              <StudentsTable students={students} now={now} onSelect={setSelectedId} filter={filter} onFilterChange={setFilter} />
             </CardContent>
           </Card>
         </>
@@ -275,15 +281,28 @@ function pct(n: number, d: number): number {
   return d ? Math.round((n / d) * 100) : 0;
 }
 
-function StatCard({ title, value, footnote, alert = false }: { title: string; value: number; footnote: string; alert?: boolean }) {
-  return (
-    <Card className="gap-2">
+function StatCard({ title, value, footnote, alert = false, onClick }: {
+  title: string;
+  value: number;
+  footnote: string;
+  alert?: boolean;
+  /** Makes the whole card a button (e.g. jump to the students it counts). */
+  onClick?: () => void;
+}) {
+  const card = (
+    <Card className={`h-full gap-2 ${onClick ? "transition-colors hover:bg-tc-accent" : ""}`}>
       <CardHeader>
         <CardDescription>{title}</CardDescription>
         <CardTitle className={`text-2xl font-semibold tabular-nums md:text-3xl ${alert ? "text-tc-critical" : ""}`}>{value}</CardTitle>
       </CardHeader>
       <CardContent className="text-xs text-tc-muted-foreground md:text-sm">{footnote}</CardContent>
     </Card>
+  );
+  if (!onClick) return card;
+  return (
+    <button type="button" onClick={onClick} className="cursor-pointer rounded-xl text-left outline-none focus-visible:ring-[3px] focus-visible:ring-tc-ring/50">
+      {card}
+    </button>
   );
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 type MobileView = "chat" | "code" | "more";
 type SecondaryView = "library" | "notes" | "concepts" | null;
@@ -60,16 +60,18 @@ export function MobileGameLayout({
   // Auto-switch on each focus change, not continuously — so a deliberate tap
   // between turns is respected, but the phone always follows the action:
   // narrative → CHAT (read Maya, hints included), player's turn → CODE.
-  const prevFocus = useRef(focusMode);
-  useEffect(() => {
-    if (focusMode && focusMode !== prevFocus.current) {
+  // Adjusted during render (not in an effect) so the switch lands in the same
+  // paint as the focus change.
+  const [prevFocus, setPrevFocus] = useState(focusMode);
+  if (focusMode !== prevFocus) {
+    setPrevFocus(focusMode);
+    if (focusMode) {
       setView(focusMode === "narrative" ? "chat" : "code");
       setSecondaryView(null);
       // Whatever Maya said up to this beat counts as seen once we move.
       if (latestMessage) setLastReadMessage(latestMessage);
     }
-    prevFocus.current = focusMode;
-  }, [focusMode, latestMessage]);
+  }
 
   return (
     <div
@@ -102,7 +104,7 @@ export function MobileGameLayout({
                 setView(tab.id);
                 if (tab.id !== "more") setSecondaryView(null);
               }}
-              className="relative min-h-11 bg-transparent px-1 text-[10px] tracking-[1px]"
+              className="relative min-h-11 bg-transparent px-1 font-[family-name:var(--font-display)] text-[12px] tracking-[1.5px]"
               style={{
                 color: selected ? "var(--color-signal)" : "var(--color-dim)",
                 borderBottom: selected ? "2px solid var(--color-signal)" : "2px solid transparent",
@@ -135,9 +137,9 @@ export function MobileGameLayout({
             color: "var(--color-signal)",
           }}
         >
-          <span className="shrink-0 text-[10px] tracking-[2px]">MAYA</span>
-          <span className="min-w-0 flex-1 truncate text-[12px]">{latestMessage}</span>
-          <span className="text-[10px]">OPEN ›</span>
+          <span className="shrink-0 text-[11px] tracking-[2px]">MAYA</span>
+          <span className="min-w-0 flex-1 truncate text-[13px]">{latestMessage}</span>
+          <span className="shrink-0 text-[11px]">OPEN ›</span>
         </button>
       ) : null}
 
@@ -145,7 +147,7 @@ export function MobileGameLayout({
         <button
           type="button"
           onClick={() => setView("chat")}
-          className="min-h-11 shrink-0 px-3 text-left text-[10px] tracking-[2px]"
+          className="min-h-11 shrink-0 px-3 text-left text-[11px] tracking-[2px]"
           style={{
             color: "var(--color-alert)",
             background: "rgba(255,159,28,.04)",
@@ -169,7 +171,7 @@ export function MobileGameLayout({
               <button
                 type="button"
                 onClick={() => setSecondaryView(null)}
-                className="min-h-11 shrink-0 bg-transparent px-4 text-left text-[10px] tracking-[2px]"
+                className="min-h-11 shrink-0 bg-transparent px-4 text-left text-[11px] tracking-[2px]"
                 style={{ color: "var(--color-signal)", borderBottom: "1px solid var(--color-border)" }}
               >
                 ‹ BACK TO MORE
@@ -184,7 +186,7 @@ export function MobileGameLayout({
             </div>
           ) : (
             <div className="flex h-full flex-col gap-3 overflow-y-auto p-4">
-              <div className="mb-1 text-[10px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
+              <div className="mb-1 text-[11px] tracking-[3px]" style={{ color: "var(--color-dim)" }}>
                 ▸ FIELD RESOURCES
               </div>
               <MobileMoreButton
@@ -226,8 +228,8 @@ function MobileMoreButton({
       className="min-h-16 bg-transparent p-4 text-left"
       style={{ border: "1px solid var(--color-border)", color: "var(--color-signal)" }}
     >
-      <span className="block text-[11px] tracking-[2px]">{label}</span>
-      <span className="mt-1 block text-[11px] leading-5" style={{ color: "var(--color-dim)" }}>
+      <span className="block text-[12px] tracking-[2px]">{label}</span>
+      <span className="mt-1 block text-[13px] leading-5" style={{ color: "var(--color-dim)" }}>
         {description}
       </span>
     </button>

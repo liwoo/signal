@@ -1,49 +1,39 @@
 import { expect, test } from "@playwright/test";
+import { openCodeTab, signIn } from "./fixtures";
 
-// Simulate the keyboard being open by shrinking the viewport height, then check
-// that the editor's SUBMIT button and the FMT accessory key stay on-screen.
-test("editor submit + accessory keys stay visible when the keyboard is open", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("signal_warmup_completed", JSON.stringify(true));
+// Simulate the keyboard being open by shrinking the viewport, then check the
+// symbol keys stay a single row and TRANSMIT stays on-screen — down to 320px.
+for (const size of [{ width: 360, height: 430 }, { width: 320, height: 420 }]) {
+  test(`editor actions stay visible with the keyboard open at ${size.width}×${size.height}`, async ({ page }) => {
+    await signIn(page);
+    await openCodeTab(page);
+    await page.setViewportSize(size);
+    await page.waitForTimeout(400);
+
+    const transmit = page.getByRole("button", { name: /TRANSMIT TO MAYA/ });
+    const keys = page.getByRole("toolbar", { name: "Code keyboard shortcuts" });
+    const tab = keys.getByRole("button", { name: "TAB" });
+    const more = keys.getByRole("button", { name: "More keys" });
+
+    const transmitBox = (await transmit.boundingBox())!;
+    expect(transmitBox.y + transmitBox.height, "TRANSMIT bottom within viewport").toBeLessThanOrEqual(size.height + 1);
+    expect(transmitBox.x + transmitBox.width, "TRANSMIT right within viewport").toBeLessThanOrEqual(size.width + 1);
+
+    // One row: the first and last key share a baseline.
+    const [tabBox, moreBox] = [(await tab.boundingBox())!, (await more.boundingBox())!];
+    expect(Math.abs(tabBox.y - moreBox.y), "symbol keys fit one row").toBeLessThan(2);
+    expect(moreBox.x + moreBox.width).toBeLessThanOrEqual(size.width + 1);
+    expect(tabBox.height, "touch target height").toBeGreaterThanOrEqual(44);
+
+    // ⋯ reveals format / cursor / redo, without stealing focus from the editor.
+    await page.locator("textarea").first().focus();
+    await more.click();
+    await expect(keys.getByRole("button", { name: "Format code" })).toBeVisible();
+    await expect(keys.getByRole("button", { name: "REDO" })).toBeVisible();
+    await expect(keys.getByRole("button", { name: "Fewer keys" })).toHaveAttribute("aria-expanded", "true");
+
+    // The task is still readable at this width.
+    const task = page.locator('[data-tour="objective-bar"] p');
+    expect(await task.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   });
-  await page.goto("/play");
-  await page.addStyleTag({ content: "nextjs-portal{display:none !important;}" });
-  await page.getByRole("button", { name: "CONNECT TO MAYA" }).click();
-  await page.waitForTimeout(900);
-  await page.keyboard.press("Space");
-  const dismiss = page.getByRole("button", { name: "DON'T SHOW AGAIN" });
-  if (await dismiss.count()) await dismiss.click();
-
-  const gamePanels = page.getByRole("navigation", { name: "Game panels" });
-  await gamePanels.waitFor();
-
-  // Advance narration so the editor is live, then go to CODE.
-  const continueButton = page.getByRole("button", { name: /continue/i });
-  for (let i = 0; i < 8; i++) {
-    if (await continueButton.count()) {
-      await continueButton.first().click();
-      await page.waitForTimeout(350);
-    } else break;
-  }
-  await gamePanels.getByRole("button", { name: "CODE" }).click();
-  await page.waitForTimeout(300);
-
-  // Keyboard open ≈ short, narrow viewport (a compact Android with keyboard up).
-  await page.setViewportSize({ width: 360, height: 430 });
-  await page.waitForTimeout(400);
-
-  const vh = page.viewportSize()!.height;
-  const submit = page.getByRole("button", { name: /SUBMIT/ });
-  const fmt = page.getByRole("button", { name: "FMT" }).first();
-
-  const submitBox = await submit.boundingBox();
-  const fmtBox = await fmt.boundingBox();
-  console.log("VIEWPORT_H", vh, "SUBMIT", submitBox, "FMT", fmtBox);
-
-  // Both must sit fully within the visible viewport.
-  expect(submitBox, "SUBMIT button has a box").not.toBeNull();
-  expect(fmtBox, "FMT key has a box").not.toBeNull();
-  expect(submitBox!.y + submitBox!.height, "SUBMIT bottom within viewport").toBeLessThanOrEqual(vh + 1);
-  expect(submitBox!.x, "SUBMIT left within viewport").toBeGreaterThanOrEqual(-1);
-  expect(fmtBox!.x, "FMT left within viewport").toBeGreaterThanOrEqual(-1);
-});
+}
