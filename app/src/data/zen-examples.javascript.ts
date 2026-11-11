@@ -164,4 +164,124 @@ export const JAVASCRIPT_ZEN_EXAMPLES: Record<string, ZenExample> = {
     after: "return `F${floor}-C${n * 2}`;",
     change: "a template literal reads like the header on the wire",
   },
+  js_log_for_output: {
+    before: 'console.error("Hello World");',
+    after: 'console.log("Hello World");',
+    change: "console.log for output — console.error is the stream for things going wrong",
+  },
+  js_finally_log: {
+    before: 'for (const entry of archive[dir]) {\n  // …walk…\n}\nconsole.log("scanned:", dir);',
+    after: 'try {\n  for (const entry of archive[dir]) {\n    // …walk…\n  }\n} finally {\n  console.log("scanned:", dir);\n}',
+    change: "finally runs however the walk ends — a line after the loop is skipped on a throw",
+  },
+  js_closure_counter: {
+    before: "let count = 0;\n\nfunction scanArchive(archive, root) {\n  function scan(dir) { /* …count++… */ }\n  scan(root);\n  return count;\n}",
+    after: "function scanArchive(archive, root) {\n  let count = 0;\n  function scan(dir) { /* …count++… */ }\n  scan(root);\n  return count;\n}",
+    change: "the counter lives inside scanArchive — every scan starts from zero",
+  },
+  js_ends_with: {
+    before: 'if (entry[entry.length - 1] === "/") scan(entry.slice(0, -1));',
+    after: 'if (entry.endsWith("/")) scan(entry.slice(0, -1));',
+    change: "endsWith asks the question you mean — no index arithmetic",
+  },
+  js_throw_error: {
+    before: 'throw "corrupted directory";',
+    after: 'throw new Error("corrupted directory");',
+    change: "an Error carries a .message and a stack trace — a string carries neither",
+  },
+  js_error_message: {
+    before: "} catch (e) {\n  errors.push(`${dir}: ${e}`);\n}",
+    after: "} catch (e) {\n  errors.push(`${dir}: ${e.message}`);\n}",
+    change: "e.message is just the words — e prints with its type stuck on the front",
+  },
+  js_shorthand_props: {
+    before: "return { count: count, errors: errors };",
+    after: "return { count, errors };",
+    change: "when the variable already has the key's name, say it once",
+  },
+  js_sync_in_order: {
+    before: 'setTimeout(() => console.log("Hello World"), 0);',
+    after: 'console.log("Hello World");',
+    change: "nothing here waits — plain code runs top to bottom",
+  },
+  js_reuse_cut: {
+    before: "function cutAsync(name) {\n  setTimeout(() => console.log(`${name} circuit: DOWN`), 0);\n}",
+    after: "function cutAsync(name) {\n  setTimeout(() => cut(name), 0);\n}",
+    change: "schedule the cut you already wrote — one place knows how, the other decides when",
+  },
+  js_explicit_delay: {
+    before: "setTimeout(() => cut(name));",
+    after: "setTimeout(() => cut(name), 0);",
+    change: "the 0 says later-on-purpose out loud",
+  },
+  js_no_needless_async: {
+    before: "async function cutAsync(name) {\n  setTimeout(() => cut(name), 0);\n}",
+    after: "function cutAsync(name) {\n  setTimeout(() => cut(name), 0);\n}",
+    change: "nothing awaits inside — the async keyword only wraps a promise nobody uses",
+  },
+  js_promise_all_concurrent: {
+    before: "const lines = [];\nfor (const name of circuits) {\n  lines.push(await trip(name));\n}\nreturn lines;",
+    after: "return Promise.all(circuits.map(trip));",
+    change: "start every job, then wait once — not one at a time",
+  },
+  js_map_not_push: {
+    before: "const jobs = [];\nfor (const name of circuits) {\n  jobs.push(trip(name));\n}\nreturn Promise.all(jobs);",
+    after: "return Promise.all(circuits.map(trip));",
+    change: "map builds the promises in one call, in order",
+  },
+  js_promisified_sleep: {
+    before: "circuits.map(async (name, i) => {\n  await new Promise((resolve) => setTimeout(resolve, delays[i]));\n  // …\n});",
+    after: "const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\n\ncircuits.map(async (name, i) => {\n  await sleep(delays[i]);\n  // …\n});",
+    change: "wrap the timer once as sleep, then await it in one clean line",
+  },
+  js_map_index: {
+    before: "circuits.map(async (name) => {\n  const d = delays[circuits.indexOf(name)];\n  // …\n});",
+    after: "circuits.map(async (name, i) => {\n  const d = delays[i];\n  // …\n});",
+    change: "map passes the index — no indexOf, no counter to drift",
+  },
+  js_no_var: {
+    before: "for (var i = 0; i < circuits.length; i++) {\n  jobs.push(sleep(delays[i]).then(() => circuits[i]));\n}",
+    after: "for (let i = 0; i < circuits.length; i++) {\n  jobs.push(sleep(delays[i]).then(() => circuits[i]));\n}",
+    change: "let gives each pass its own i — with var every callback sees the last one",
+  },
+  js_minimal_program: {
+    before: 'const greeting = "Hello World";\nconsole.log(greeting);',
+    after: 'console.log("Hello World");',
+    change: "one call — no variable that does nothing but hold the text",
+  },
+  js_delay_param: {
+    before: "return new Promise((resolve) => setTimeout(() => resolve(`${team} responding`), 100));",
+    after: "return new Promise((resolve) => setTimeout(() => resolve(`${team} responding`), delayMs));",
+    change: "the timer waits as long as the caller asked",
+  },
+  js_sync_executor: {
+    before: "return new Promise(async (resolve) => {\n  await sleep(delayMs);\n  resolve(`${team} responding`);\n});",
+    after: "return new Promise((resolve) => setTimeout(() => resolve(`${team} responding`), delayMs));",
+    change: "a plain executor — an async one swallows its own errors and can hang",
+  },
+  js_no_redundant_async: {
+    before: "async function hail(team, delayMs) {\n  return new Promise(/* … */);\n}",
+    after: "function hail(team, delayMs) {\n  return new Promise(/* … */);\n}",
+    change: "hail already returns a promise — async only wraps it in another",
+  },
+  js_race_every_team: {
+    before: "return Promise.race([bravo]);",
+    after: "return Promise.race([alpha, bravo, charlie]);",
+    change: "race every team — racing the one you expect to win is a guess",
+  },
+  js_no_then_chain: {
+    before: "return Promise.race([alpha, bravo, charlie]).then((reply) => reply);",
+    after: "return Promise.race([alpha, bravo, charlie]);",
+    change: "hand the race back — a .then that passes the value along is an extra hop",
+  },
+  js_deadline_param: {
+    before: 'const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), 200));',
+    after: 'const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), timeoutMs));',
+    change: "the deadline is the caller's number, not yours",
+  },
+  js_sweep_no_wait: {
+    before: 'async function sweep(p) {\n  await sleep(0);\n  return Promise.race([p, "channel silent"]);\n}',
+    after: 'function sweep(p) {\n  return Promise.race([p, "channel silent"]);\n}',
+    change: "a sweep looks and leaves — no await, no timer",
+  },
 };

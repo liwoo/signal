@@ -11,6 +11,8 @@
 - Race-free fan-out: writing results by index into a pre-sized slice
 - `time.Sleep` / `time.Duration` for simulated work
 
+> **As built (Act III, Nov 2026):** expected output uses ASCII `-` (paste is disabled, so required output must be typeable). Step 2's harness adds a one-circuit run (`Aux`) to catch a hardcoded `wg.Add(4)`. Python realizes goroutines as asyncio tasks (`create_task`, `gather`); JavaScript as the event loop (`setTimeout`, `Promise.all`) — both on the sandbox's virtual clock so the step 3 window is measured exactly. See `docs/act-3-plan.md`.
+
 ## Story Context
 
 The thesis is on the gamma server — but the archive cage is wired into the alarm grid. Four circuits feed it: North, South, East, West, all reporting to the same self-check. Cut them one at a time and the grid notices the imbalance and seals the facility. Kill all four inside a single power cycle and the alarm goes blind. Maya can't throw four breakers at once — but Go can. One goroutine per circuit, a WaitGroup to hold the door until every breaker confirms. GHOST's deadline is nine hours out, and Kira has suddenly become very generous with grid schematics she shouldn't have.
@@ -23,7 +25,7 @@ Cut all four circuits concurrently. Launch one goroutine per breaker, collect co
 
 #### Step 0: Scaffold
 
-Same as always — `package main`, `import`, `func main()`, print "breaker console ready".
+Print `Hello World` into an empty editor (every chapter's scaffold — see app/CLAUDE.md).
 
 Imports for this chapter: `"fmt"` now; `"time"` arrives in step 1, `"sync"` in step 2. (Go refuses to compile unused imports — add them only when a step needs them.)
 

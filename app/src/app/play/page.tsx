@@ -8,6 +8,11 @@ import { chapter03, chapter03Twist } from "@/data/challenges/chapter-03";
 import { chapter04, chapter04Twist } from "@/data/challenges/chapter-04";
 import { chapter04_2, chapter04_2Twist } from "@/data/challenges/chapter-04.2";
 import { boss01, boss01Config } from "@/data/challenges/boss-01";
+import { chapter07, chapter07Twist } from "@/data/challenges/chapter-07";
+import { chapter08, chapter08Twist } from "@/data/challenges/chapter-08";
+import { chapter09, chapter09Twist } from "@/data/challenges/chapter-09";
+import { boss03 } from "@/data/challenges/boss-03";
+import { calculateLevel } from "@/lib/game/xp";
 import { useGame } from "@/hooks/useGame";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SignInScreen } from "@/components/auth/SignInScreen";
@@ -51,6 +56,14 @@ import {
   CHAPTER_04_COMPLETE_LEVEL,
   CHAPTER_04_2_INTRO_LEVEL,
   CHAPTER_04_2_COMPLETE_LEVEL,
+  CHAPTER_07_INTRO_LEVEL,
+  CHAPTER_07_COMPLETE_LEVEL,
+  CHAPTER_08_INTRO_LEVEL,
+  CHAPTER_08_COMPLETE_LEVEL,
+  CHAPTER_09_INTRO_LEVEL,
+  CHAPTER_09_COMPLETE_LEVEL,
+  BOSS_03_INTRO_LEVEL,
+  BOSS_03_COMPLETE_LEVEL,
 } from "@/lib/adventure/levels";
 import {
   PROLOGUE_SCENES,
@@ -66,6 +79,14 @@ import {
   CHAPTER_04_COMPLETE_SCENES,
   CHAPTER_04_2_INTRO_SCENES,
   CHAPTER_04_2_COMPLETE_SCENES,
+  CHAPTER_07_INTRO_SCENES,
+  CHAPTER_07_COMPLETE_SCENES,
+  CHAPTER_08_INTRO_SCENES,
+  CHAPTER_08_COMPLETE_SCENES,
+  CHAPTER_09_INTRO_SCENES,
+  CHAPTER_09_COMPLETE_SCENES,
+  BOSS_03_INTRO_SCENES,
+  BOSS_03_COMPLETE_SCENES,
 } from "@/lib/sprites/scenes";
 import type { SceneType } from "@/lib/sprites/scene-painter";
 import type { CharAnimation } from "@/lib/sprites/character-painter";
@@ -145,6 +166,8 @@ const [BookReader, preloadBookReader] = splitStage(
   () => import("@/components/book/BookReader").then((m) => m.BookReader), StageLoading);
 const [BossFight3D, preloadBossFight3D] = splitStage(
   () => import("@/components/boss/BossFight3D").then((m) => m.BossFight3D), StageLoading);
+const [AllegianceBoss] = splitStage(
+  () => import("@/components/boss/allegiance/AllegianceBoss").then((m) => m.AllegianceBoss), StageLoading);
 const [BossArena, preloadBossArena] = splitStage(
   () => import("@/components/boss/BossArena").then((m) => m.BossArena), StageLoading);
 // Decorative / inline: nothing while loading.
@@ -172,6 +195,9 @@ const CAM_FEED_CONFIG: Record<string, { scene: SceneType; animation: CharAnimati
   "chapter-03": { scene: "vent",   animation: "crawl-right", rushAnimation: "crawl-right" },
   "boss-01":    { scene: "boss-arena", animation: "hack",  rushAnimation: "hack" },
   "chapter-04.2": { scene: "server", animation: "hack", rushAnimation: "hack" },
+  "chapter-07": { scene: "server", animation: "hack", rushAnimation: "hack" },
+  "chapter-08": { scene: "server", animation: "hack", rushAnimation: "hack" },
+  "chapter-09": { scene: "server", animation: "hack", rushAnimation: "hack" },
 };
 
 const DEFAULT_CAM = { scene: "cell" as SceneType, animation: "hack" as CharAnimation, rushAnimation: "walk-right" as CharAnimation };
@@ -203,6 +229,8 @@ interface ChapterConfig {
   bossFightConfig?: BossFightConfig;
   /** 3D boss arena (the physical duel + code-at-cover). Replaces the 2D BossArena when set. */
   bossLevel?: AdventureLevelDef;
+  /** The judgment boss (Kira): study, verdict, redemption — no hearts, no game over. */
+  allegiance?: boolean;
 }
 
 const CHAPTERS: ChapterConfig[] = [
@@ -336,6 +364,109 @@ const CHAPTERS: ChapterConfig[] = [
     },
     ctaLabel: "START CHAPTER",
   },
+  // ── Act III · DEEPER IN ── (plays straight after 4.2 until the rest of Act II is built)
+  {
+    challenge: chapter07,
+    twist: chapter07Twist,
+    introScenes: CHAPTER_07_INTRO_SCENES,
+    completeScenes: CHAPTER_07_COMPLETE_SCENES,
+    introLevel: CHAPTER_07_INTRO_LEVEL,
+    completeLevel: CHAPTER_07_COMPLETE_LEVEL,
+    introTitle: "CHAPTER 7",
+    introSubtitle: "FILE TREE",
+    completeTitle: "CHAPTER 7 COMPLETE",
+    completeSubtitle: "THESIS LOCATED",
+    tagline: "▸ ACT III · SERVER ROOM · ARCHIVE",
+    storyLines: [
+      "three copies of maya's thesis sit somewhere in a nested archive. GHOST is booby-trapping it.",
+      "closures. recursion. defer. walk the tree, survive the traps, find the thesis.",
+    ],
+    storyLinesByLanguage: {
+      python: [
+        "three copies of maya's thesis sit somewhere in a nested archive. GHOST is booby-trapping it.",
+        "closures. recursion. try/finally. walk the tree, survive the traps, find the thesis.",
+      ],
+      javascript: [
+        "three copies of maya's thesis sit somewhere in a nested archive. GHOST is booby-trapping it.",
+        "closures. recursion. try/finally. walk the tree, survive the traps, find the thesis.",
+      ],
+    },
+    ctaLabel: "START CHAPTER",
+  },
+  {
+    challenge: chapter08,
+    twist: chapter08Twist,
+    introScenes: CHAPTER_08_INTRO_SCENES,
+    completeScenes: CHAPTER_08_COMPLETE_SCENES,
+    introLevel: CHAPTER_08_INTRO_LEVEL,
+    completeLevel: CHAPTER_08_COMPLETE_LEVEL,
+    introTitle: "CHAPTER 8",
+    introSubtitle: "CIRCUIT CUT",
+    completeTitle: "CHAPTER 8 COMPLETE",
+    completeSubtitle: "GRID BLIND",
+    tagline: "▸ ACT III · POWER PLANT · CIRCUIT ARRAY",
+    storyLines: [
+      "four circuits feed the alarm grid. cut them one at a time and it seals the facility.",
+      "goroutines. waitgroups. all four breakers, one power cycle.",
+    ],
+    storyLinesByLanguage: {
+      python: [
+        "four circuits feed the alarm grid. cut them one at a time and it seals the facility.",
+        "async. tasks. gather. all four breakers, one power cycle.",
+      ],
+      javascript: [
+        "four circuits feed the alarm grid. cut them one at a time and it seals the facility.",
+        "the event loop. promises. all four breakers, one power cycle.",
+      ],
+    },
+    ctaLabel: "START CHAPTER",
+  },
+  {
+    challenge: chapter09,
+    twist: chapter09Twist,
+    introScenes: CHAPTER_09_INTRO_SCENES,
+    completeScenes: CHAPTER_09_COMPLETE_SCENES,
+    introLevel: CHAPTER_09_INTRO_LEVEL,
+    completeLevel: CHAPTER_09_COMPLETE_LEVEL,
+    introTitle: "CHAPTER 9",
+    introSubtitle: "CHANNEL OF ESCAPE",
+    completeTitle: "CHAPTER 9 COMPLETE",
+    completeSubtitle: "BRAVO CONFIRMS",
+    tagline: "▸ ACT III · SERVER ROOM · COMMS ARRAY",
+    storyLines: [
+      "three extraction teams, three frequencies — all supplied by kira. any of them could be compromised.",
+      "channels. select. timeouts. take the first voice that answers. never wait on a dead line.",
+    ],
+    storyLinesByLanguage: {
+      python: [
+        "three extraction teams, three frequencies — all supplied by kira. any of them could be compromised.",
+        "tasks. asyncio.wait. timeouts. take the first voice that answers. never wait on a dead line.",
+      ],
+      javascript: [
+        "three extraction teams, three frequencies — all supplied by kira. any of them could be compromised.",
+        "promises. race. timeouts. take the first voice that answers. never wait on a dead line.",
+      ],
+    },
+    ctaLabel: "START CHAPTER",
+  },
+  {
+    challenge: boss03,
+    allegiance: true,
+    introScenes: BOSS_03_INTRO_SCENES,
+    completeScenes: BOSS_03_COMPLETE_SCENES,
+    introLevel: BOSS_03_INTRO_LEVEL,
+    completeLevel: BOSS_03_COMPLETE_LEVEL,
+    introTitle: "ACT III BOSS",
+    introSubtitle: "KIRA · ALLEGIANCE",
+    completeTitle: "VERDICT GIVEN",
+    completeSubtitle: "THE STREAM IS SET",
+    tagline: "▸ DOCK RELAY · KIRA'S CHANNEL",
+    storyLines: [
+      "kira sent six lines of code to protect the thesis on its way out. reeves says the frames came back wrong.",
+      "no clock. no fight. read her code, say what it does, and decide what she is.",
+    ],
+    ctaLabel: "OPEN HER CODE",
+  },
 ];
 
 export default function PlayPage() {
@@ -426,7 +557,13 @@ function GameRouter() {
       const lang = prev.settings.language ?? "go";
       const updated: PersistedState = {
         ...prev,
-        stats: { ...prev.stats, xp: payload.xp, level: payload.level, hearts: payload.hearts },
+        stats: {
+          ...prev.stats,
+          xp: payload.xp,
+          level: payload.level,
+          hearts: payload.hearts,
+          aiTokens: (prev.stats.aiTokens ?? 0) + (payload.aiTokensEarned ?? 0),
+        },
         library: payload.library,
         progress: withProgress(prev.progress, lang, applyProgressSave(progressFor(prev.progress, lang), payload)),
       };
@@ -577,6 +714,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
   // a new player's first mission.
   const [forceBeginner, setForceBeginner] = useState(false);
   const [showBossArena, setShowBossArena] = useState(false);
+  const [showAllegiance, setShowAllegiance] = useState(false);
   const [bossVictory, setBossVictory] = useState(false);
   // The full level brief, opened on demand from the objective bar. Closes itself
   // on step change so it never lingers over a new task.
@@ -685,6 +823,8 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     if (beginnerNotes) {
       trackBeginnerStart(challenge.id);
       setShowBeginner(true);
+    } else if (config.allegiance) {
+      setShowAllegiance(true);
     } else if (config.bossFightConfig) {
       requestAnimationFrame(() => setShowBossArena(true));
     } else {
@@ -742,7 +882,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
     beginStory();
   };
 
-  if (state.phase === "intro" && !showPrologue && !showCinematic && !showWarmup && !showBeginner && !showBossArena) {
+  if (state.phase === "intro" && !showPrologue && !showCinematic && !showWarmup && !showBeginner && !showBossArena && !showAllegiance) {
     return <IntroScreen
       config={config}
       language={language}
@@ -848,13 +988,44 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         onReady={() => {
           setShowBeginner(false);
           trackBeginnerComplete(challenge.id, 0);
-          if (config.bossFightConfig) {
+          if (config.allegiance) {
+            setShowAllegiance(true);
+          } else if (config.bossFightConfig) {
             setShowBossArena(true);
           } else {
             startRound();
           }
         }}
         onHotspotXP={actions.addXP}
+      />
+    );
+  }
+
+  // ── Boss 3: the judgment (Kira) — no hearts, no game over ──
+  if (showAllegiance && config.allegiance) {
+    return (
+      <AllegianceBoss
+        language={language}
+        compact={isMobile}
+        soundEnabled={settings.soundEnabled}
+        loopsEnabled={musicOn}
+        vimEnabled={settings.vimModeEnabled}
+        onFinish={(result) => {
+          const xp = initialState.xp + result.tally.total;
+          onSave({
+            xp,
+            level: calculateLevel(xp),
+            hearts: initialState.hearts,
+            library: initialState.library,
+            completedChapter: challenge.chapter,
+            kiraVerdict: result.verdict ?? undefined,
+            aiTokensEarned: result.tally.tokens,
+          });
+          setShowAllegiance(false);
+          setBossVictory(true);
+          trackBossVictory(challenge.id, result.tally.total, 0);
+          recordActivity({ kind: "chapter_complete", language, chapterId: challenge.id, data: { verdict: result.verdict ?? "none", outcome: result.outcome } });
+        }}
       />
     );
   }
@@ -962,6 +1133,11 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
         subtitle={config.completeSubtitle}
         completedChapter={challenge.id}
         onRetry={() => {
+          // Kira's verdict is permanent for the run — there's no replaying it.
+          if (config.allegiance) {
+            window.location.href = "/";
+            return;
+          }
           setBossVictory(false);
           setShowWinCinematic(false);
           setShowBossArena(true);

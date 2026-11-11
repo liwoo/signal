@@ -17,6 +17,6 @@ for (const api of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "impor
   }
 }
 
-scope.onmessage = (e) => {
-  scope.postMessage(executeJs(e.data));
+scope.onmessage = async (e) => {
+  scope.postMessage(await executeJs(e.data));
 };

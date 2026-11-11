@@ -4,7 +4,7 @@
  * as cleared. No React, no storage — GameRouter feeds these the persisted slice.
  */
 
-import type { ChapterResume, PlayerProgress } from "@/types/game";
+import type { ChapterResume, KiraVerdict, PlayerProgress } from "@/types/game";
 
 /** The two facts about a chapter progress needs: its Challenge id and number. */
 export interface ChapterRef {
@@ -22,6 +22,8 @@ export interface ProgressSave {
   checkpoint?: { stepIndex: number; code: string };
   /** Set when the chapter's intro beat has been played through. */
   introDone?: boolean;
+  /** Boss 3's verdict on Kira. Permanent for the run; sets the Act IV branch (A trusted, B rejected). */
+  kiraVerdict?: KiraVerdict;
 }
 
 /**
@@ -31,6 +33,13 @@ export interface ProgressSave {
  * point reached); finishing the intro beat marks it so it isn't forced again.
  */
 export function applyProgressSave(progress: PlayerProgress, save: ProgressSave): PlayerProgress {
+  if (save.kiraVerdict) {
+    progress = {
+      ...progress,
+      kiraVerdict: save.kiraVerdict,
+      storyBranch: save.kiraVerdict === "trusted" ? "a" : "b",
+    };
+  }
   if (save.completedChapter !== undefined) {
     const n = save.completedChapter;
     return {

@@ -1900,6 +1900,1077 @@ const ch04_2RelayheaderBank: StepBank = {
   deflections: ["focus. the headers, before the sweep."],
 };
 
+// ══════════════════════════════════════════════════════
+//  Act III
+// ══════════════════════════════════════════════════════
+// Every Act III step grades by expectedOutput on the sandbox's virtual clock,
+// so outputPatterns carry the near misses. Many classic mistakes here never
+// reach them — `setTimeout(resolve(x), ms)` throws, a race with no deadline
+// leaves the top-level await unsettled — and those come back as runtime
+// errors; the codePatterns below are the offline fallback for them.
+
+/** The body of a named function (comments stripped), or "" — enough for pattern checks. */
+function fnBody(code: string, name: string): string {
+  const c = stripComments(code);
+  const m = new RegExp(`\\b(?:function\\s+${name}\\s*\\(|(?:const|let|var)\\s+${name}\\s*=)`).exec(c);
+  if (!m) return "";
+  const open = c.indexOf("{", m.index);
+  if (open === -1) return c.slice(m.index);
+  let depth = 0;
+  for (let i = open; i < c.length; i++) {
+    if (c[i] === "{") depth++;
+    else if (c[i] === "}" && --depth === 0) return c.slice(open, i + 1);
+  }
+  return c.slice(open);
+}
+
+const defines = (code: string, name: string) =>
+  new RegExp(`\\bfunction\\s+${name}\\s*\\(|\\b(?:const|let|var)\\s+${name}\\s*=`).test(stripComments(code));
+
+/** An Act III scaffold: same one-liner, new terminal. */
+function act3Scaffold(intro: string, done: string, next: { keywords: string[]; response: string }, deflection: string): StepBank {
+  const correct = `${done}\n\n||COMPLETE||`;
+  return {
+    intro,
+    conceptFAQ: [
+      {
+        keywords: ["import", "library", "require", "package", "install"],
+        response: "nothing to import. everything this chapter uses is built into javascript.",
+      },
+      {
+        keywords: ["main", "setup", "set up", "skeleton", "scaffold", "structure"],
+        response: "no setup. the file is the program — one line and it runs.",
+      },
+      {
+        keywords: ["print", "console", "output"],
+        response: "`console.log(\"Hello World\");` — the same one-liner as every terminal so far.",
+      },
+      next,
+      {
+        keywords: ["kira", "who is she", "trust"],
+        response: "i don't know yet. she knows this building better than i do, and she wants something for it. wake the terminal first.",
+      },
+      {
+        keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+        response: "print `Hello World`. one line of `console.log`.",
+      },
+    ],
+    codePatterns: [
+      { match: hasCapitalConsole, response: "lowercase — `console.log`." },
+      { match: hasForeignPrint, response: "`print` isn't javascript. use `console.log(...)`." },
+      { match: (code) => hasLog(code) && /["'`]Hello World["'`]/.test(code), response: correct },
+      { match: (code) => !hasLog(code), response: "nothing came through. javascript prints with `console.log(...)`." },
+    ],
+    outputPatterns: [
+      {
+        match: (output) => output.trim() !== "Hello World" && output.trim().toLowerCase() === "hello world",
+        response: "capitals — `Hello World`, capital H, capital W.",
+      },
+      {
+        match: (output) => hasHelloWorld(output) && lines(output).length > 1,
+        response: "just the one line. `Hello World` and nothing else.",
+      },
+    ],
+    correctResponse: correct,
+    genericWrong: [
+      "the terminal didn't stir. one line: `console.log(\"Hello World\");`",
+      "not quite. `console.log`, text in quotes, inside the brackets.",
+    ],
+    rushDialogue: [],
+    stuckResponses: [
+      "```\nconsole.log(\"Hello World\");\n```",
+      "same one-liner as every terminal so far. `console.log` with `\"Hello World\"` inside.",
+    ],
+    deflections: [deflection],
+  };
+}
+
+// ── Chapter 07 · Step 0 — Scaffold ──
+
+const ch07ScaffoldBank = act3Scaffold(
+  "the server room. somewhere in this archive is my thesis — and the night cycle locks this terminal in a few minutes. wake it up: print `Hello World`.",
+  "archive terminal's up. directories everywhere, nested inside each other. now we count what's in there.",
+  {
+    keywords: ["archive", "thesis", "directory", "folder", "tree", "scan"],
+    response: "the archive scan comes next. right now just wake the terminal.",
+  },
+  "wake the archive terminal first. `Hello World`.",
+);
+
+// ── Chapter 07 · Step 1 — Scan ──
+
+const SCAN_CORRECT =
+  "nine files. the walk went all the way down and came back up — logs, the three servers, then root, last out. thesis drafts in alpha and gamma.\n\n||COMPLETE||";
+
+const ch07ScanBank: StepBank = {
+  intro:
+    "i need to know which server holds my thesis, and the archive is folders inside folders, as deep as it likes. count every file.\n\nwrite `scanArchive(archive, root)`. inside it, `let count = 0;` and an inner function `scan(dir)` that walks one directory: a name ending in `/` is another directory — call `scan` on it — anything else is a file, `count++`. wrap the walk in `try { … } finally { console.log(\"scanned:\", dir); }` and return `count`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["closure", "inner function", "capture", "remember", "outer variable"],
+      response:
+        "a function made inside another one can see the outer function's variables — and keeps seeing them. `scan` lives inside scanArchive, so `count++` in scan changes the very `count` scanArchive returns. that's a closure.",
+    },
+    {
+      keywords: ["recursion", "recursive", "call itself", "itself", "nested", "deep"],
+      response:
+        "a function can call itself. `scan(\"servers\")` finds `alpha/` and calls `scan(\"alpha\")`, which runs to the end and hands control back. each call has its own `dir`, so nobody loses their place.",
+    },
+    {
+      keywords: ["stop", "infinite", "base case", "end"],
+      response: "the recursion stops on its own: a directory with only files never calls scan again. files are the bottom of the tree.",
+    },
+    {
+      keywords: ["finally", "try", "after", "on the way out", "cleanup"],
+      response:
+        "`finally` runs when the `try` block is done — however it ends. put the log there and every directory reports as its call finishes. that's why the deepest folders print first and `scanned: root` prints last.",
+    },
+    {
+      keywords: ["slash", "endswith", "directory or file", "tell apart", "trailing"],
+      response: "`entry.endsWith(\"/\")` is true for a directory. strip the slash before you look it up: `entry.slice(0, -1)` — `\"logs/\"` becomes `\"logs\"`.",
+    },
+    {
+      keywords: ["not iterable", "undefined", "logs/"],
+      response:
+        "`archive[\"logs/\"]` doesn't exist — the keys have no slash. cut it off first: `scan(entry.slice(0, -1))`.",
+    },
+    {
+      keywords: ["order", "why root last", "post"],
+      response: "root starts first but it can't finish until every folder inside it has finished. the `finally` fires on the way out, so root is the last one out.",
+    },
+    {
+      keywords: ["parameter", "pass count", "argument", "copy"],
+      response:
+        "don't pass `count` into scan as an argument. a number arrives as a copy — scan would bump its own copy and the real count would never move. let the closure share it.",
+    },
+    {
+      keywords: ["global", "outside", "top of the file"],
+      response:
+        "keep `let count = 0;` inside scanArchive. out at the top of the file it survives between calls — the terminal scans two trees, and the second total would start at nine.",
+    },
+    {
+      keywords: ["print", "console", "return"],
+      response: "log `scanned:` inside scan's `finally`, and `return count;` from scanArchive. the terminal prints the totals itself.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`function scanArchive(archive, root)` with `let count = 0;` and an inner `function scan(dir)`. walk, recurse on directories, count files, log in `finally`. then `scan(root); return count;`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => lines(output)[0] === "scanned: root",
+      response:
+        "root logged first — you're reporting on the way in. move the log into a `finally` around the walk, so each directory reports as it finishes. root finishes last.",
+    },
+    {
+      match: (output) => /scanned:\S/.test(output),
+      response: "the space went missing — `scanned:logs`. `console.log(\"scanned:\", dir)` puts one between them for you.",
+    },
+    {
+      match: (output) => !output.includes("scanned:") && output.includes("total files"),
+      response: "the totals came through, but no `scanned:` lines. each scan call logs `console.log(\"scanned:\", dir)` in its `finally`.",
+    },
+    {
+      match: (output) => output.includes("total files: 11"),
+      response:
+        "the second tree came back 11 — it started counting at nine. `count` lives outside scanArchive, so it survives between calls. declare `let count = 0;` inside scanArchive.",
+    },
+    {
+      match: (output) => output.includes("total files: 14"),
+      response: "14 — you're counting the directories too. only entries without a trailing `/` are files. directories get scanned, not counted.",
+    },
+    {
+      match: (output) => output.includes("total files: 0"),
+      response:
+        "the count never moved. if you passed `count` into scan, scan bumped a copy. let scan reach the outer `let count` directly — `count++` inside the closure changes the real one.",
+    },
+    {
+      match: (output) => output.includes("total files: undefined"),
+      response: "the total came back `undefined`. scanArchive has to `return count;` after `scan(root)`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "scanArchive"),
+      response: "i need a function named `scanArchive` — capital A.",
+    },
+    {
+      match: (code) => !/\bfinally\b/.test(stripComments(code)),
+      response: "no `finally` yet. wrap the walk in `try { … } finally { console.log(\"scanned:\", dir); }` so each directory logs on the way out.",
+    },
+    {
+      match: (code) => /\bscan\s*\(\s*entry\s*\)/.test(stripComments(code)),
+      response: "`scan(entry)` still has the slash on it — `\"logs/\"` isn't a key. `scan(entry.slice(0, -1))`.",
+    },
+    {
+      match: (code) => /^\s*let\s+count\s*=\s*0/m.test(stripComments(code)) && !/\{[^}]*let\s+count\s*=\s*0/.test(stripComments(code)),
+      response: "`let count = 0;` is out at the top level — it'll carry over between scans. move it inside scanArchive.",
+    },
+    {
+      match: (code) => defines(code, "scanArchive") && /\bfinally\b/.test(code) && /\breturn\b/.test(fnBody(code, "scanArchive")),
+      response: SCAN_CORRECT,
+    },
+  ],
+
+  correctResponse: SCAN_CORRECT,
+
+  genericWrong: [
+    "not matching. directories log on the way out — `finally` — and only files add to the count.",
+    "the terminal scans the archive and a small test tree. both totals have to come from the walk, not from you.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nfunction scanArchive(archive, root) {\n  let count = 0;\n  function scan(dir) {\n    try {\n      for (const entry of archive[dir]) {\n        if (entry.endsWith(\"/\")) scan(entry.slice(0, -1));\n        else count++;\n      }\n    } finally {\n      console.log(\"scanned:\", dir);\n    }\n  }\n  scan(root);\n  return count;\n}\n```",
+    "the shape: a counter, an inner function that walks one folder and calls itself on the folders inside, a `finally` that logs, and `return count` at the end.",
+  ],
+
+  deflections: ["count the files first. then we talk about kira."],
+};
+
+// ── Chapter 07 · Step 2 — Recover ──
+
+const RECOVER_CORRECT =
+  "vault blew up in our hands and the scan kept walking. nine files, one corrupted sector, written down instead of tripping the alarm. that's how you survive a booby trap.\n\n||COMPLETE||";
+
+const ch07RecoverBank: StepBank = {
+  intro:
+    "ghost booby-trapped part of the archive. if the scan dies on a bad folder, the alarm trips — so it has to fall, get up, and keep counting.\n\nwrite `safeScan(archive, root)` that returns `{ count, errors }`. a folder whose entries are `null` is corrupted: `throw new Error(\"corrupted directory\")`. each `scan` call catches its own error with `catch (e)`, pushes ``${dir}: ${e.message}`` onto `errors`, and the walk carries on. keep the `finally`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["throw", "raise", "panic", "blow up"],
+      response:
+        "`throw new Error(\"corrupted directory\")` stops the function on the spot. the error climbs back up through the calls until a `catch` takes it. nothing catches it, the whole program dies.",
+    },
+    {
+      keywords: ["catch", "where does the catch go", "survive", "keep going", "continue"],
+      response:
+        "inside scan, around the walk: `try { …walk… } catch (e) { …record… } finally { …log… }`. vault's own call catches vault's error and returns normally, so root's loop just moves on to the next entry.",
+    },
+    {
+      keywords: ["e.message", "message", "error object", "what is e"],
+      response:
+        "`e` is the Error object you threw. `e.message` is just the text you gave it — `corrupted directory`. print `e` itself and you get `Error: corrupted directory`, with the type stuck on the front.",
+    },
+    {
+      keywords: ["throw a string", "new error", "why new error"],
+      response:
+        "you can throw a plain string, but then `e.message` is `undefined` — strings don't have one. `throw new Error(...)` gives you the message and a stack trace.",
+    },
+    {
+      keywords: ["null", "corrupted", "check", "vault"],
+      response: "`if (archive[dir] === null) throw new Error(\"corrupted directory\");` — put it inside the `try`, so the `finally` still logs vault.",
+    },
+    {
+      keywords: ["finally", "still log", "scanned: vault"],
+      response:
+        "`finally` runs whether the try finished cleanly or threw. that's why `scanned: vault` still prints — vault reports even on the way down.",
+    },
+    {
+      keywords: ["return two", "object", "count and errors", "both"],
+      response: "return an object: `return { count, errors };` — the short form of `{ count: count, errors: errors }`. the terminal reads `.count` and `.errors`.",
+    },
+    {
+      keywords: ["template", "backtick", "build the line"],
+      response: "``errors.push(`${dir}: ${e.message}`);`` — the folder, a colon, the message. the terminal adds `ERROR:` itself.",
+    },
+    {
+      keywords: ["scanarchive", "reuse", "copy", "same code"],
+      response: "safeScan is scanArchive plus the trap: same counter, same inner scan, plus `const errors = [];` and a `catch`. leave scanArchive where it is.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "copy the shape of scanArchive into `safeScan`. add `const errors = [];`, throw on `null`, catch inside scan, and `return { count, errors };`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => /ERROR: \w+: Error: /.test(output),
+      response:
+        "`Error: corrupted directory` — you printed the whole error, type and all. push ``${dir}: ${e.message}`` instead. `e.message` is just the text.",
+    },
+    {
+      match: (output) => output.includes(": undefined") && output.includes("ERROR"),
+      response:
+        "the message came back `undefined`. did you throw a plain string? strings have no `.message`. `throw new Error(\"corrupted directory\");`",
+    },
+    {
+      match: (output) => /^ERROR: (Error: )?corrupted directory$/m.test(output),
+      response: "the error lost its folder. push ``${dir}: ${e.message}`` — the terminal needs to know which directory blew.",
+    },
+    {
+      match: (output) => output.includes("total files: 1") && !lines(output).includes("scanned: b"),
+      response:
+        "the second tree stopped at the trap — `b` never got walked. the catch has to live inside scan, so only the bad folder's call fails and its parent keeps looping.",
+    },
+    {
+      match: (output) => output.includes("total files") && !output.includes("scanned: vault"),
+      response:
+        "vault never logged. the null check is outside the `try`, so its `finally` never runs. move the check inside the try.",
+    },
+    {
+      match: (output) => output.includes("total files") && !output.includes("ERROR"),
+      response: "no `ERROR` lines. the catch has to push onto `errors`, and safeScan has to return them: `return { count, errors };`.",
+    },
+    {
+      match: (output) => output.includes("total files: undefined"),
+      response: "`total files: undefined` — the terminal reads `.count`. return an object: `return { count, errors };`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "safeScan"),
+      response: "i need a function named `safeScan` — capital S in the middle.",
+    },
+    {
+      match: (code) => /\bthrow\s+["'`]/.test(stripComments(code)),
+      response: "you're throwing a plain string — it has no `.message`. `throw new Error(\"corrupted directory\");`",
+    },
+    {
+      match: (code) => !/\bthrow\b/.test(stripComments(code)),
+      response: "nothing throws yet. a `null` folder is corrupted: `throw new Error(\"corrupted directory\");`",
+    },
+    {
+      match: (code) => !/\bcatch\b/.test(stripComments(code)),
+      response: "no `catch` — the first trap would take the whole scan down. `catch (e)` inside scan, then push the message.",
+    },
+    {
+      match: (code) => /\bcatch\b/.test(code) && !/\.message\b/.test(stripComments(code)),
+      response: "use `e.message` — the text you threw — not the whole error object.",
+    },
+    {
+      match: (code) => defines(code, "safeScan") && /\bthrow\b/.test(code) && /\bcatch\b/.test(code) && /\bfinally\b/.test(code),
+      response: RECOVER_CORRECT,
+    },
+  ],
+
+  correctResponse: RECOVER_CORRECT,
+
+  genericWrong: [
+    "not matching. throw on `null`, catch inside scan, keep the `finally`, return `{ count, errors }`.",
+    "the terminal walks a trapped archive and a trapped test tree. every bad folder gets one `ERROR` line, and the scan never stops.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nfunction safeScan(archive, root) {\n  let count = 0;\n  const errors = [];\n  function scan(dir) {\n    try {\n      if (archive[dir] === null) throw new Error(\"corrupted directory\");\n      for (const entry of archive[dir]) {\n        if (entry.endsWith(\"/\")) scan(entry.slice(0, -1));\n        else count++;\n      }\n    } catch (e) {\n      errors.push(`${dir}: ${e.message}`);\n    } finally {\n      console.log(\"scanned:\", dir);\n    }\n  }\n  scan(root);\n  return { count, errors };\n}\n```",
+    "try, catch, finally — in that order, inside scan. the throw goes in the try, the push goes in the catch, the log stays in the finally.",
+  ],
+
+  deflections: ["the archive first. kira can wait — she said so herself."],
+};
+
+// ── Chapter 08 · Step 0 — Scaffold ──
+
+const ch08ScaffoldBank = act3Scaffold(
+  "the power plant. four breakers feed the alarm grid, and this console is the only way to reach them. bring it online: print `Hello World`.",
+  "breaker console's live. four circuits on the board. this time it's not what the code does — it's when.",
+  {
+    keywords: ["breaker", "circuit", "grid", "async", "await", "promise", "settimeout"],
+    response: "the breakers come next. this one runs top to bottom, in order, like everything so far. wake the console first.",
+  },
+  "console first. `Hello World`.",
+);
+
+// ── Chapter 08 · Step 1 — Schedule a breaker ──
+
+const GOROUTINE_CORRECT =
+  "north dropped. `orders sent` went out — and south dropped after it, on its own time. the program didn't stand there watching.\n\n||COMPLETE||";
+
+const ch08GoroutineBank: StepBank = {
+  intro:
+    "i can only throw one breaker at a time by hand. the program has to throw them for me — without stopping to watch each one.\n\nwrite `cut(name)` that logs ``${name} circuit: DOWN``, and `cutAsync(name)` that schedules cut for later — `setTimeout(() => cut(name), 0)` — and returns straight away.",
+
+  conceptFAQ: [
+    {
+      keywords: ["settimeout", "schedule", "later", "what does it do"],
+      response:
+        "`setTimeout(fn, ms)` hands `fn` to the event loop to run later and returns at once. the lines after it keep going. it doesn't pause anything.",
+    },
+    {
+      keywords: ["event loop", "loop", "queue", "how does it work"],
+      response:
+        "javascript runs one thing at a time. scheduled work waits in a queue. only when the current code finishes — or pauses at an `await` — does the event loop pick the next job off the queue.",
+    },
+    {
+      keywords: ["why orders sent", "before south", "order", "why first"],
+      response:
+        "javascript finishes what it's doing first. cutAsync schedules south and returns, the terminal logs `orders sent`, then pauses — and only then does the scheduled cut run.",
+    },
+    {
+      keywords: ["zero", "0", "why 0", "delay"],
+      response: "zero milliseconds means as soon as possible — still later, never right now. the current code always finishes first.",
+    },
+    {
+      keywords: ["arrow", "() =>", "wrap", "why not cut(name)"],
+      response:
+        "`setTimeout(cut(name), 0)` calls cut right now and hands setTimeout the result — `undefined`. `() => cut(name)` is a function that calls cut later. setTimeout needs the function, not the result.",
+    },
+    {
+      keywords: ["kill", "dies", "end", "unfinished", "does it still run"],
+      response:
+        "in javascript scheduled work still runs after the rest of the file is done — the program waits for the queue to empty. the lesson here is order, not survival.",
+    },
+    {
+      keywords: ["template", "backtick", "log the name"],
+      response: "``console.log(`${name} circuit: DOWN`);`` — the name drops in where `${name}` sits.",
+    },
+    {
+      keywords: ["return", "return value"],
+      response: "cutAsync doesn't need to return anything. its whole job is to schedule and get out of the way.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "two functions. `cut(name)` logs the line. `cutAsync(name)` calls `setTimeout(() => cut(name), 0);` and nothing else.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => lines(output)[1] === "South circuit: DOWN",
+      response:
+        "south went down before `orders sent` — cutAsync ran it right now and the terminal waited. schedule it instead: `setTimeout(() => cut(name), 0);`.",
+    },
+    {
+      match: (output) => output.includes("orders sent") && !output.includes("South circuit"),
+      response:
+        "south never went down. if you wrote `setTimeout(() => cut, 0)`, the arrow only names cut — it doesn't call it. `() => cut(name)`.",
+    },
+    {
+      match: (output) => /circuit: down/i.test(output) && !output.includes("circuit: DOWN"),
+      response: "capitals on `DOWN` — the grid reads it exactly: ``${name} circuit: DOWN``.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "cutAsync"),
+      response: "i need a function named `cutAsync` — capital A.",
+    },
+    {
+      match: (code) => /\bsetTimeout\s*\(\s*cut\s*\(/.test(stripComments(code)),
+      response:
+        "`setTimeout(cut(name), 0)` runs cut right now and hands setTimeout `undefined`. wrap it in an arrow: `setTimeout(() => cut(name), 0);`.",
+    },
+    {
+      match: (code) => !/\bsetTimeout\s*\(/.test(fnBody(code, "cutAsync")),
+      response: "cutAsync calls cut straight away — south goes down before the orders. schedule it: `setTimeout(() => cut(name), 0);`.",
+    },
+    {
+      match: (code) => defines(code, "cut") && /\bsetTimeout\s*\(/.test(fnBody(code, "cutAsync")),
+      response: GOROUTINE_CORRECT,
+    },
+  ],
+
+  correctResponse: GOROUTINE_CORRECT,
+
+  genericWrong: [
+    "not matching. north first, then `orders sent`, then south — cutAsync schedules, it doesn't wait.",
+    "the terminal cuts north, launches south, says so, then waits. south has to land after `orders sent`.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nfunction cut(name) {\n  console.log(`${name} circuit: DOWN`);\n}\n\nfunction cutAsync(name) {\n  setTimeout(() => cut(name), 0);\n}\n```",
+    "cut does the work. cutAsync only books it for later with `setTimeout` and an arrow.",
+  ],
+
+  deflections: ["the breakers. one scheduled cut, then we talk."],
+};
+
+// ── Chapter 08 · Step 2 — Fan-out ──
+
+const FANOUT_CORRECT =
+  "four breakers fired at once, four confirmations back, in order. and the aux line on its own. i can call the grid now.\n\n||COMPLETE||";
+
+const ch08FanoutBank: StepBank = {
+  intro:
+    "all four breakers have to drop together, and i can't call the grid blind until every one has confirmed.\n\nwrite `async function cutAll(circuits)`: start one async job per circuit, wait for them all with `Promise.all`, and return the confirmations — ``${name} circuit: DOWN`` — in circuit order.",
+
+  conceptFAQ: [
+    {
+      keywords: ["what is a promise", "promise", "not ready"],
+      response:
+        "a promise is a value that isn't ready yet. it settles later with an answer. `await` pauses until it does and hands you the answer.",
+    },
+    {
+      keywords: ["async", "async function", "what does async do"],
+      response:
+        "`async` marks a function that can `await` inside it. it always hands back a promise — even `async (name) => name` gives a promise of the name.",
+    },
+    {
+      keywords: ["promise.all", "wait for all", "all of them", "every"],
+      response:
+        "`Promise.all(array)` takes an array of promises, waits for every one, and settles with an array of their answers — in the order you passed them, not the order they finished.",
+    },
+    {
+      keywords: ["map", "one per circuit", "array of promises", "start"],
+      response:
+        "``circuits.map(async (name) => `${name} circuit: DOWN`)`` — map runs the async arrow once per circuit and gives you an array of promises, all started at once.",
+    },
+    {
+      keywords: ["await", "where does await go", "return"],
+      response:
+        "`return Promise.all(...)` hands the promise back and the terminal awaits it. `return await Promise.all(...)` works too. forget both and the terminal gets `undefined`.",
+    },
+    {
+      keywords: ["for loop", "loop", "one at a time", "sequential"],
+      response:
+        "awaiting each job inside a `for` loop waits for one before starting the next. it works here, but it's the slow way — next step, the slow way trips the alarm.",
+    },
+    {
+      keywords: ["waitgroup", "wait group", "counter", "done"],
+      response: "no counter to keep. `Promise.all` is the waiting and the results array in one call.",
+    },
+    {
+      keywords: ["order", "why in order", "results"],
+      response: "the answers come back in the same order as the promises you handed in. north first, west last — however they finish.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "``return Promise.all(circuits.map(async (name) => `${name} circuit: DOWN`));`` — one line inside `async function cutAll(circuits)`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => lines(output).some((l) => l === "{}" || l.includes("[object Promise]") || l.includes("Promise {")),
+      response:
+        "those are promises, not confirmations — nobody waited for them. wrap the array in `Promise.all(...)` and return that.",
+    },
+    {
+      match: (output) => output.includes("circuit: DOWN") && lines(output).includes("undefined"),
+      response:
+        "the jobs logged their lines but handed back `undefined`. return the line from each job instead of printing it — the terminal prints what comes back.",
+    },
+    {
+      match: (output) => lines(output).filter((l) => l.endsWith("circuit: DOWN")).length === 0 && output.includes("ALL CIRCUITS DOWN"),
+      response: "no confirmations came back. each job returns ``${name} circuit: DOWN`` and cutAll returns the `Promise.all`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "cutAll"),
+      response: "i need a function named `cutAll` — capital A.",
+    },
+    {
+      match: (code) => !/\bPromise\s*\.\s*all\s*\(/.test(stripComments(code)),
+      response: "no `Promise.all` yet. it's the one call that starts-and-waits for the whole array.",
+    },
+    {
+      match: (code) => {
+        const body = fnBody(code, "cutAll");
+        return /\bPromise\s*\.\s*all\s*\(/.test(body) && !/\breturn\b/.test(body);
+      },
+      response: "`Promise.all` runs, but cutAll never hands it back. `return Promise.all(...)` — otherwise the terminal gets `undefined`.",
+    },
+    {
+      match: (code) => /\bfor\b[^{]*\{[^}]*\bawait\b/.test(fnBody(code, "cutAll")),
+      response: "awaiting inside the loop starts one breaker, waits, then starts the next. start them all with `map`, then wait once with `Promise.all`.",
+    },
+    {
+      match: (code) => defines(code, "cutAll") && /\bPromise\s*\.\s*all\s*\(/.test(code),
+      response: FANOUT_CORRECT,
+    },
+  ],
+
+  correctResponse: FANOUT_CORRECT,
+
+  genericWrong: [
+    "not matching. one job per circuit, all at once, `Promise.all` to wait, confirmations back in order.",
+    "the terminal cuts four circuits, then one. cutAll has to work for any list.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nasync function cutAll(circuits) {\n  return Promise.all(circuits.map(async (name) => `${name} circuit: DOWN`));\n}\n```",
+    "map makes the promises, `Promise.all` waits for them, `return` hands the answers back.",
+  ],
+
+  deflections: ["four breakers first. her schematics can wait."],
+};
+
+// ── Chapter 08 · Step 3 — One cycle ──
+
+const WINDOW_CORRECT =
+  "450 milliseconds. the slowest breaker, not all of them added up. one power cycle — the grid never saw it happen. alarm's blind.\n\n||COMPLETE||";
+
+const ch08WindowBank: StepBank = {
+  intro:
+    "each breaker takes its own time to trip. all four have to be down inside one power cycle, or the grid seals the facility.\n\nwrite `async function cutTimed(circuits, delays)` — the same fan-out, but each job first waits its delay, then returns ``${name} circuit: DOWN (${ms}ms)``. you'll need a `sleep(ms)` that returns a promise: `const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));`",
+
+  conceptFAQ: [
+    {
+      keywords: ["sleep", "wait", "pause", "delay"],
+      response:
+        "javascript has no built-in sleep, so you make one. `new Promise((resolve) => setTimeout(resolve, ms))` is a promise the timer settles after `ms`. `await sleep(300)` pauses just that one job — everything else keeps running.",
+    },
+    {
+      keywords: ["new promise", "resolve", "executor", "how do i make a promise"],
+      response:
+        "`new Promise((resolve) => { ... })` hands you `resolve`. call it when the work is done and the promise settles. here the timer calls it for you.",
+    },
+    {
+      keywords: ["index", "which delay", "delays[i]", "second argument"],
+      response: "map hands the index as a second argument: `circuits.map(async (name, i) => ...)`. then `delays[i]` is that circuit's delay.",
+    },
+    {
+      keywords: ["for loop", "one at a time", "sum", "why not loop", "multi cycle"],
+      response:
+        "awaiting each sleep in a `for` loop waits for one breaker before starting the next — 300 plus 150 plus 450 plus 200. that's 1100ms, two cycles, alarm. start them all, then wait once: the window is the slowest, 450.",
+    },
+    {
+      keywords: ["var", "let", "undefined circuit", "same value", "loop variable"],
+      response:
+        "if you build callbacks in a `for` loop, use `let i`, never `var i`. `var` is one variable shared by every pass, so the callbacks all see its last value. `let` gives each pass its own.",
+    },
+    {
+      keywords: ["measure", "timer", "how does it time", "performance"],
+      response: "the terminal reads the clock before and after `await cutTimed(...)`. under 1100ms means one cycle. you just have to run the breakers at once.",
+    },
+    {
+      keywords: ["order", "finish order", "push"],
+      response: "push lines into an array as they finish and south lands first. return them from each job instead — `Promise.all` puts them back in circuit order.",
+    },
+    {
+      keywords: ["template", "line", "ms"],
+      response: "``return `${name} circuit: DOWN (${delays[i]}ms)`;`` — the delay drops in before `ms`, no space.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "write `sleep` first. then `return Promise.all(circuits.map(async (name, i) => { await sleep(delays[i]); return ...; }));`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => output.includes("MULTI CYCLE"),
+      response:
+        "two cycles — the alarm tripped. the breakers went one after another, so the window was the sum. start all four first, each sleeping inside its own job, and wait once with `Promise.all`.",
+    },
+    {
+      match: (output) => /undefined circuit|\(undefinedms\)/.test(output),
+      response:
+        "`undefined` where the name should be. if the callbacks were built in a `for (var i ...)` loop, they all read `i` after the loop ended. `let i` gives each pass its own — or use map's index.",
+    },
+    {
+      match: (output) => lines(output)[0] === "South circuit: DOWN (150ms)",
+      response:
+        "the lines came back in the order they finished — south first. return each line from its job instead of pushing it; `Promise.all` keeps circuit order.",
+    },
+    {
+      match: (output) => output.includes("circuit: DOWN") && !/\(\d+ms\)/.test(output),
+      response: "the delays are missing from the lines. ``${name} circuit: DOWN (${delays[i]}ms)``.",
+    },
+    {
+      match: (output) => lines(output).some((l) => l === "{}" || l.includes("Promise {")),
+      response: "those are promises, not lines. `return Promise.all(...)` so the terminal gets the answers.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "cutTimed"),
+      response: "i need a function named `cutTimed` — capital T.",
+    },
+    {
+      match: (code) => /\bfor\s*\(\s*var\b/.test(stripComments(code)),
+      response: "`var` in a for loop is one variable shared by every pass — callbacks all see the last value. `let`.",
+    },
+    {
+      match: (code) => /\bfor\b[^{]*\{[^}]*\bawait\b/.test(fnBody(code, "cutTimed")),
+      response: "awaiting inside a `for` loop runs the breakers one after another — the sum, 1100ms, alarm. map them all at once, then `Promise.all`.",
+    },
+    {
+      match: (code) => /\bsetTimeout\s*\(\s*resolve\s*\(/.test(stripComments(code)),
+      response: "`setTimeout(resolve(), ms)` resolves right now. hand it the function itself: `setTimeout(resolve, ms)`.",
+    },
+    {
+      match: (code) => !/\bPromise\s*\.\s*all\s*\(/.test(stripComments(code)),
+      response: "no `Promise.all` — nothing waits for all four together.",
+    },
+    {
+      match: (code) => defines(code, "cutTimed") && /\bPromise\s*\.\s*all\s*\(/.test(code) && /\bsetTimeout\s*\(/.test(code),
+      response: WINDOW_CORRECT,
+    },
+  ],
+
+  correctResponse: WINDOW_CORRECT,
+
+  genericWrong: [
+    "not matching. every breaker sleeps inside its own job, all at once. the window is the slowest, not the sum.",
+    "four lines with their delays, in circuit order, then `SINGLE CYCLE`. `Promise.all` over a map gets you all three.",
+  ],
+
+  rushDialogue: [
+    "the grid's about to self-check. all four at once.",
+    "hurry — one cycle. start them together, wait once.",
+    "it's counting. don't await them one by one.",
+  ],
+
+  stuckResponses: [
+    "```\nconst sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\n\nasync function cutTimed(circuits, delays) {\n  return Promise.all(\n    circuits.map(async (name, i) => {\n      await sleep(delays[i]);\n      return `${name} circuit: DOWN (${delays[i]}ms)`;\n    }),\n  );\n}\n```",
+    "the sleep goes inside each job, not around them. four jobs sleeping at once take as long as the slowest one.",
+  ],
+
+  deflections: ["one cycle. the grid won't wait for a chat."],
+};
+
+// ── Chapter 09 · Step 0 — Scaffold ──
+
+const ch09ScaffoldBank = act3Scaffold(
+  "the comms array. three extraction teams, three frequencies — and this is the only radio i've got. power it up: print `Hello World`.",
+  "array's powered. three frequencies humming. now we call for a way out.",
+  {
+    keywords: ["team", "frequency", "hail", "radio", "promise", "race"],
+    response: "the hails come next. power the array first.",
+  },
+  "power the array first. `Hello World`.",
+);
+
+// ── Chapter 09 · Step 1 — Hail ──
+
+const HAIL_CORRECT =
+  "`Bravo responding`. the call went out, the terminal kept moving, and the answer was waiting when we looked. a promise holds it until somebody asks.\n\n||COMPLETE||";
+
+const ch09HailBank: StepBank = {
+  intro:
+    "i have to call an extraction team and hear back — without freezing the terminal while i wait.\n\nwrite `hail(team, delayMs)` that returns a promise straight away: `new Promise((resolve) => setTimeout(() => resolve(...), delayMs))`, settling with ``${team} responding`` after `delayMs` milliseconds.",
+
+  conceptFAQ: [
+    {
+      keywords: ["resolve", "what is resolve", "settle"],
+      response:
+        "`resolve` is the function a new promise hands you to deliver its answer. call `resolve(value)` once and the promise settles with that value. call it again and nothing happens — it settles once.",
+    },
+    {
+      keywords: ["why return a promise", "why not return the text", "return"],
+      response:
+        "so the call comes back at once and the team answers later. `return new Promise(...)` — forget the `return` and the terminal awaits `undefined`.",
+    },
+    {
+      keywords: ["arrow", "() => resolve", "settimeout(resolve", "right now", "immediately"],
+      response:
+        "``setTimeout(resolve(`...`), delayMs)`` calls resolve right now and hands setTimeout the result. wrap it: ``setTimeout(() => resolve(`${team} responding`), delayMs)``. the timer calls the arrow later.",
+    },
+    {
+      keywords: ["await", "await p", "what does await give"],
+      response: "`await p` pauses until p settles and gives you its value. if it already settled, you get the value straight away — the answer was holding.",
+    },
+    {
+      keywords: ["async", "async function", "do i need async"],
+      response: "hail doesn't need `async`. it builds the promise itself and returns it. `async` is for functions that `await` inside.",
+    },
+    {
+      keywords: ["delay", "delayms", "how long"],
+      response: "use `delayMs` for the timer — not a number you picked. every team answers on its own time.",
+    },
+    {
+      keywords: ["channel", "mailbox", "holds"],
+      response: "a promise is a mailbox with room for one answer. the team drops it in and leaves. whoever looks later finds it there.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "``function hail(team, delayMs) { return new Promise((resolve) => setTimeout(() => resolve(`${team} responding`), delayMs)); }``",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => lines(output)[1] === "undefined",
+      response:
+        "the terminal got `undefined`. either hail doesn't `return` the promise, or the timer calls `resolve()` with nothing in it. return the promise, and resolve with ``${team} responding``.",
+    },
+    {
+      match: (output) => lines(output)[0] === "Bravo responding",
+      response: "bravo answered before `hailing Bravo...` — the reply was printed straight away. resolve the promise from a timer, don't log inside hail.",
+    },
+    {
+      match: (output) => lines(output).some((l) => l === "{}" || l.includes("Promise {")),
+      response: "the terminal printed a promise inside a promise. resolve with the text itself, not another promise.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "hail"),
+      response: "i need a function named `hail`.",
+    },
+    {
+      match: (code) => /\bsetTimeout\s*\(\s*resolve\s*\(/.test(stripComments(code)),
+      response: "``setTimeout(resolve(...), delayMs)`` resolves right now. wrap it in an arrow: ``setTimeout(() => resolve(`${team} responding`), delayMs)``.",
+    },
+    {
+      match: (code) => /\bnew\s+Promise\b/.test(fnBody(code, "hail")) && !/\breturn\b|=>\s*new\s+Promise/.test(fnBody(code, "hail")),
+      response: "the promise is built but never returned. `return new Promise(...)`.",
+    },
+    {
+      match: (code) => !/\bnew\s+Promise\b/.test(stripComments(code)),
+      response: "hail has to build its own promise: `return new Promise((resolve) => ...);`.",
+    },
+    {
+      match: (code) => defines(code, "hail") && /\bnew\s+Promise\b/.test(code) && /\bsetTimeout\s*\(/.test(code),
+      response: HAIL_CORRECT,
+    },
+  ],
+
+  correctResponse: HAIL_CORRECT,
+
+  genericWrong: [
+    "not matching. hail returns a promise at once, and a timer resolves it with ``${team} responding``.",
+    "the terminal hails bravo, says so, then awaits the answer. hail can't make it wait.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nfunction hail(team, delayMs) {\n  return new Promise((resolve) => setTimeout(() => resolve(`${team} responding`), delayMs));\n}\n```",
+    "outside in: return a new promise. inside it, start a timer. when the timer fires, resolve with the reply.",
+  ],
+
+  deflections: ["one hail first. the frequencies are hers — we use them carefully."],
+};
+
+// ── Chapter 09 · Step 2 — First contact ──
+
+const FIRST_CORRECT =
+  "bravo. first voice on the air, and we didn't wait for alpha or charlie to finish clearing their throats.\n\n||COMPLETE||";
+
+const ch09FirstBank: StepBank = {
+  intro:
+    "three teams hailed at once. i go with whoever answers first and i don't wait on the slow ones.\n\nwrite `firstResponder(alpha, bravo, charlie)` that returns whichever answer lands first. `Promise.race([...])` settles with the first promise in the array to settle.",
+
+  conceptFAQ: [
+    {
+      keywords: ["race", "promise.race", "what does race do"],
+      response:
+        "`Promise.race(array)` settles the moment the first promise in the array settles, with that promise's answer. the rest are ignored.",
+    },
+    {
+      keywords: ["await alpha", "why not await", "one at a time"],
+      response: "`await alpha` waits for alpha even though bravo answered sooner. race listens to all three at once.",
+    },
+    {
+      keywords: ["array", "brackets", "how do i pass"],
+      response: "one array, all three: `Promise.race([alpha, bravo, charlie])`. pass them loose and race gets no array at all.",
+    },
+    {
+      keywords: ["losers", "what happens to", "others", "cancel"],
+      response:
+        "they still settle later, and nobody's waiting. a promise holds its answer, so nothing gets stuck. javascript can't cancel a promise — it just stops caring.",
+    },
+    {
+      keywords: ["promise.all", "all"],
+      response: "`Promise.all` waits for every team. you want the first one — `Promise.race`.",
+    },
+    {
+      keywords: ["return", "await", "async"],
+      response: "just `return Promise.race([...]);`. the terminal awaits it. no `async` needed.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`function firstResponder(alpha, bravo, charlie) { return Promise.race([alpha, bravo, charlie]); }`",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => /first contact: (Alpha|Charlie) responding/.test(output),
+      response: "that's not the first voice — bravo answers at 100ms. you waited on one team. race all three: `Promise.race([alpha, bravo, charlie])`.",
+    },
+    {
+      match: (output) => /first contact: .*responding,/.test(output),
+      response: "you got every team's answer — that's `Promise.all`, which waits for all of them. `Promise.race` takes the first.",
+    },
+    {
+      match: (output) => /first contact: (undefined|\{\}|\[object)/.test(output),
+      response: "no answer came back. `return Promise.race([alpha, bravo, charlie]);` — one array, returned.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "firstResponder"),
+      response: "i need a function named `firstResponder` — capital R.",
+    },
+    {
+      match: (code) => /\bawait\s+(alpha|bravo|charlie)\b/.test(fnBody(code, "firstResponder")),
+      response: "`await alpha` waits on one team. bravo answers sooner. race them: `Promise.race([alpha, bravo, charlie])`.",
+    },
+    {
+      match: (code) => /\bPromise\s*\.\s*race\s*\(\s*[^[\s]/.test(stripComments(code)),
+      response: "race takes one array: `Promise.race([alpha, bravo, charlie])` — square brackets around all three.",
+    },
+    {
+      match: (code) => !/\bPromise\s*\.\s*race\s*\(/.test(stripComments(code)),
+      response: "no race yet. `Promise.race([alpha, bravo, charlie])` settles with whoever answers first.",
+    },
+    {
+      match: (code) => defines(code, "firstResponder") && /\bPromise\s*\.\s*race\s*\(\s*\[/.test(code),
+      response: FIRST_CORRECT,
+    },
+  ],
+
+  correctResponse: FIRST_CORRECT,
+
+  genericWrong: [
+    "not matching. all three teams in one race — whoever settles first wins.",
+    "the terminal hails alpha at 200, bravo at 100, charlie at 300. the race has to pick bravo on its own.",
+  ],
+
+  rushDialogue: [
+    "frequencies are degrading. race them.",
+    "hurry — first voice wins. don't wait on alpha.",
+  ],
+
+  stuckResponses: [
+    "```\nfunction firstResponder(alpha, bravo, charlie) {\n  return Promise.race([alpha, bravo, charlie]);\n}\n```",
+    "one line: return the race of all three, in one array.",
+  ],
+
+  deflections: ["first contact first. then kira's lesson."],
+};
+
+// ── Chapter 09 · Step 3 — Timeout ──
+
+const TIMEOUT_CORRECT =
+  "bravo when they answer. no contact when nobody does — and we walk instead of standing in a stairwell. a glance at the channel that never waits. extraction's locked.\n\n||COMPLETE||";
+
+const ch09TimeoutBank: StepBank = {
+  intro:
+    "if every frequency is jammed i can't stand in a stairwell forever. the program has to give up in time — and glance at a channel without stopping.\n\ntwo functions. `awaitContact(alpha, bravo, charlie, timeoutMs)` is step 2's race plus a fourth runner: a promise that settles with `NO CONTACT` after `timeoutMs`. `sweep(p)` never waits: race `p` against the plain value `\"channel silent\"`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["timeout", "deadline", "give up", "no contact"],
+      response:
+        "a deadline is a promise a timer settles: `new Promise((resolve) => setTimeout(() => resolve(\"NO CONTACT\"), timeoutMs))`. put it in the race. if no team beats the timer, the timer wins.",
+    },
+    {
+      keywords: ["timeoutms", "how long", "200", "number"],
+      response: "use `timeoutMs` — the terminal gives each call its own deadline. a number you typed in fits one call and breaks the next.",
+    },
+    {
+      keywords: ["sweep", "not wait", "glance", "non-blocking", "peek"],
+      response:
+        "race the promise against a value that's ready right now: `Promise.race([p, \"channel silent\"])`. if p already settled it goes first and wins. if not, the ready value wins on the spot.",
+    },
+    {
+      keywords: ["order", "why p first", "first in the array"],
+      response:
+        "when two runners are both ready, race takes the one earlier in the array. so p goes first — a settled p beats the plain string, a pending p can't.",
+    },
+    {
+      keywords: ["plain value", "string in race", "not a promise"],
+      response: "race treats a plain value as a promise that's already settled. `\"channel silent\"` is ready the instant you ask.",
+    },
+    {
+      keywords: ["await in sweep", "sleep", "wait in sweep"],
+      response: "sweep never awaits p and never sleeps. awaiting a jammed frequency means waiting forever — that's the whole thing sweep exists to avoid.",
+    },
+    {
+      keywords: ["reject", "error", "throw"],
+      response: "resolve the deadline with `\"NO CONTACT\"` — don't reject it. a timeout here is an answer, not a crash.",
+    },
+    {
+      keywords: ["timeout or sweep", "difference", "which when"],
+      response: "awaitContact waits, but never past the deadline. sweep doesn't wait at all — it only looks.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response:
+        "build the deadline promise inside awaitContact and `return Promise.race([alpha, bravo, charlie, deadline]);`. then `function sweep(p) { return Promise.race([p, \"channel silent\"]); }`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => lines(output)[2] === "contact: NO CONTACT",
+      response:
+        "the third call gave up too early. it has a 500ms deadline and alpha answers at 300 — your deadline isn't using `timeoutMs`. `setTimeout(() => resolve(\"NO CONTACT\"), timeoutMs)`.",
+    },
+    {
+      match: (output) => lines(output)[3] === "sweep: channel silent",
+      response:
+        "the sweep said silent on a channel that already had bravo's message. put `p` first in the race: `Promise.race([p, \"channel silent\"])` — when both are ready, the earlier one wins.",
+    },
+    {
+      match: (output) => output.includes("contact: undefined"),
+      response: "the deadline settled with nothing in it. `resolve(\"NO CONTACT\")`.",
+    },
+    {
+      match: (output) => lines(output)[1] !== undefined && lines(output)[1] !== "contact: NO CONTACT" && lines(output)[0] === "contact: Bravo responding",
+      response: "every frequency was jammed on the second call, and the deadline didn't win. the fourth runner has to settle with `NO CONTACT` after `timeoutMs`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => !defines(code, "awaitContact"),
+      response: "i need a function named `awaitContact` — capital C.",
+    },
+    {
+      match: (code) => !defines(code, "sweep"),
+      response: "i need `sweep(p)` too — it looks at one channel without waiting.",
+    },
+    {
+      match: (code) => {
+        const body = fnBody(code, "awaitContact");
+        return /\bsetTimeout\s*\(/.test(body) && !/\btimeoutMs\b/.test(body);
+      },
+      response: "the deadline is a number you picked. use `timeoutMs` — every call gets its own.",
+    },
+    {
+      match: (code) => !/\bsetTimeout\s*\(/.test(fnBody(code, "awaitContact")) && !/\bsleep\s*\(/.test(fnBody(code, "awaitContact")),
+      response: "no deadline in the race. a jammed channel would hang forever — add a timer promise that settles with `NO CONTACT`.",
+    },
+    {
+      match: (code) => /\bawait\s+p\b|\bsetTimeout\s*\(|\bsleep\s*\(/.test(fnBody(code, "sweep")),
+      response: "sweep waits. it should only look: `return Promise.race([p, \"channel silent\"]);`.",
+    },
+    {
+      match: (code) => /Promise\s*\.\s*race\s*\(\s*\[\s*["'`]channel silent/.test(stripComments(code)),
+      response: "the ready value is first in the array, so it always wins. put `p` first.",
+    },
+    {
+      match: (code) => defines(code, "awaitContact") && defines(code, "sweep") && /\bPromise\s*\.\s*race\s*\(/.test(code),
+      response: TIMEOUT_CORRECT,
+    },
+  ],
+
+  correctResponse: TIMEOUT_CORRECT,
+
+  genericWrong: [
+    "not matching. awaitContact races the three teams against a `timeoutMs` deadline. sweep races `p` against a ready string.",
+    "the terminal jams every frequency on the second call. only the deadline can answer it.",
+  ],
+
+  rushDialogue: [
+    "the window's closing. give the race a deadline.",
+    "hurry — we can't wait on a dead frequency.",
+    "extraction's leaving. timeout, then sweep.",
+  ],
+
+  stuckResponses: [
+    "```\nfunction awaitContact(alpha, bravo, charlie, timeoutMs) {\n  const deadline = new Promise((resolve) => setTimeout(() => resolve(\"NO CONTACT\"), timeoutMs));\n  return Promise.race([alpha, bravo, charlie, deadline]);\n}\n\nfunction sweep(p) {\n  return Promise.race([p, \"channel silent\"]);\n}\n```",
+    "the deadline is just one more runner in the race. sweep is a race whose other runner is already at the finish line.",
+  ],
+
+  deflections: ["the deadline first. kira's waiting for an answer, and so is bravo."],
+};
+
 // ── Registry ──
 
 export const JAVASCRIPT_BANKS: Record<string, StepBank> = {
@@ -1919,4 +2990,15 @@ export const JAVASCRIPT_BANKS: Record<string, StepBank> = {
   "chapter-04.2:reverseword": ch04_2ReversewordBank,
   "chapter-04.2:encode": ch04_2EncodeBank,
   "chapter-04.2:relayheader": ch04_2RelayheaderBank,
+  "chapter-07:scaffold": ch07ScaffoldBank,
+  "chapter-07:scan": ch07ScanBank,
+  "chapter-07:recover": ch07RecoverBank,
+  "chapter-08:scaffold": ch08ScaffoldBank,
+  "chapter-08:goroutine": ch08GoroutineBank,
+  "chapter-08:fanout": ch08FanoutBank,
+  "chapter-08:window": ch08WindowBank,
+  "chapter-09:scaffold": ch09ScaffoldBank,
+  "chapter-09:hail": ch09HailBank,
+  "chapter-09:first": ch09FirstBank,
+  "chapter-09:timeout": ch09TimeoutBank,
 };

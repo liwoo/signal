@@ -1,6 +1,6 @@
 // ── Maya's answer banks · Python ──
 // Same story beats and stakes as the Go banks in ../engine.ts, teaching Python
-// and agreeing with src/data/challenges/python/act-1.ts + act-2.ts. When the interpreter
+// and agreeing with src/data/challenges/python/act-1.ts, act-2.ts + act-3.ts. When the interpreter
 // can't load (offline), the engine falls back to these codePatterns — so each
 // step's ||COMPLETE|| pattern recognizes a genuinely correct program, and the
 // patterns above it catch the classic mistakes first (first match wins).
@@ -2399,6 +2399,1297 @@ const ch04_2Relayheader: StepBank = {
   ],
 };
 
+// ══════════════════════════════════════════════════════════════
+//  Act III shape helpers
+// ══════════════════════════════════════════════════════════════
+
+interface PyFn {
+  name: string;
+  isAsync: boolean;
+  params: string[];
+  /** Masked body (strings blanked, comments gone). */
+  body: string;
+  /** Body with strings kept, comments blanked. Same lines as `body`. */
+  raw: string;
+}
+
+const DEF_LINE = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)/;
+
+const parseParams = (text: string) =>
+  text.split(",").map((p) => p.replace(/[:=].*$/, "").replace(/^\*+/, "").trim()).filter(Boolean);
+
+const indentWidth = (line: string) => (line.match(/^[ \t]*/) ?? [""])[0].length;
+
+/** Index just past the block opened on `lines[at]`. */
+function blockEnd(lines: string[], at: number): number {
+  const base = indentWidth(lines[at]);
+  let end = at + 1;
+  for (let i = at + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (indentWidth(lines[i]) <= base) break;
+    end = i + 1;
+  }
+  return end;
+}
+
+function fnAt(masked: string[], raw: string[], at: number): PyFn {
+  const m = masked[at].match(DEF_LINE)!;
+  return { name: m[3], isAsync: !!m[2], params: parseParams(m[4]), body: blockAt(masked, at), raw: blockAt(raw, at) };
+}
+
+/** `def name(...)` or `async def name(...)` anywhere in the program, or null. */
+function pyFn(code: string, name: string): PyFn | null {
+  const masked = maskPy(code).split("\n");
+  const at = masked.findIndex((l) => l.match(DEF_LINE)?.[3] === name);
+  return at === -1 ? null : fnAt(masked, noComments(code).split("\n"), at);
+}
+
+/** Functions defined inside `f`, and `f`'s own lines with those blocks cut out. */
+function splitInner(f: PyFn): { inner: PyFn[]; outer: string } {
+  const masked = f.body.split("\n");
+  const raw = f.raw.split("\n");
+  const inner: PyFn[] = [];
+  const outer: string[] = [];
+  for (let i = 0; i < masked.length; i++) {
+    if (DEF_LINE.test(masked[i])) {
+      inner.push(fnAt(masked, raw, i));
+      i = blockEnd(masked, i) - 1;
+      continue;
+    }
+    outer.push(masked[i]);
+  }
+  return { inner, outer: outer.join("\n") };
+}
+
+/** The inner function that calls itself, else the first inner function. */
+function recursiveInner(f: PyFn): PyFn | null {
+  const { inner } = splitInner(f);
+  return inner.find((g) => new RegExp(`\\b${g.name}\\s*\\(`).test(g.body)) ?? inner[0] ?? null;
+}
+
+/** True when line `idx` sits inside the block opened on line `head`. */
+function insideBlock(lines: string[], head: number, idx: number): boolean {
+  return idx > head && idx < blockEnd(lines, head);
+}
+
+/** Lines of the first block whose opener matches `opener`, or null. */
+function clause(body: string, opener: RegExp): string | null {
+  const lines = body.split("\n");
+  const at = lines.findIndex((l) => opener.test(l));
+  return at === -1 ? null : blockAt(lines, at);
+}
+
+const hasAsyncioImport = (code: string) => /^\s*(import\s+asyncio\b|from\s+asyncio\s+import\b)/m.test(maskPy(code));
+
+/** Every argument written to `asyncio.sleep(...)` in the program. */
+const sleepArgs = (code: string) => [...maskPy(code).matchAll(/\basyncio\s*\.\s*sleep\s*\(([^)\n]*)\)/g)].map((m) => m[1]);
+
+/** Milliseconds → seconds: divides by 1000 (not floor), or multiplies by a thousandth. */
+const inSeconds = (arg: string) => /(?<!\/)\/\s*(1000|1e3|1_000)\b|\*\s*(0?\.001|1e-3)\b/.test(arg);
+const floorsSeconds = (arg: string) => /\/\/\s*(1000|1e3|1_000)\b/.test(arg);
+
+/** A `for` loop whose block awaits something — one at a time. */
+function awaitsInLoop(body: string): boolean {
+  const lines = body.split("\n");
+  return lines.some((l, i) => /^\s*(async\s+)?for\b/.test(l) && /\bawait\b/.test(blockAt(lines, i)));
+}
+
+const usesTimeSleep = (code: string) => /\btime\s*\.\s*sleep\s*\(|^\s*from\s+time\s+import\s+[^\n]*\bsleep\b/m.test(maskPy(code));
+
+const literals = (raw: string) => stringsOf(raw).map(literalText);
+
+// ══════════════════════════════════════════════════════════════
+//  Chapter 07
+// ══════════════════════════════════════════════════════════════
+
+const CH07_SCAFFOLD_DONE =
+  "archive terminal's up. there's a whole directory tree behind it — logs, servers, and something labelled vault.\n\nnow count what's in it.\n\n||COMPLETE||";
+
+const ch07Scaffold: StepBank = {
+  intro:
+    "the archive terminal locks the moment the server room's night cycle starts. wake it before then: print `Hello World`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["print", "output"],
+      response: "`print(\"Hello World\")` — the same one-liner as every terminal so far.",
+    },
+    {
+      keywords: ["import", "package", "setup", "skeleton", "scaffold"],
+      response: "nothing to import. the archive scan is built from plain functions — no modules needed.",
+    },
+    {
+      keywords: ["archive", "tree", "directory", "folder", "thesis"],
+      response: "the archive comes next step. wake the terminal first.",
+    },
+    {
+      keywords: ["main", "entry", "start"],
+      response: "python starts at the top of the file and runs down. no main needed.",
+    },
+  ],
+
+  codePatterns: scaffoldPatterns(CH07_SCAFFOLD_DONE),
+  correctResponse: CH07_SCAFFOLD_DONE,
+  genericWrong: SCAFFOLD_GENERIC,
+  rushDialogue: [],
+  stuckResponses: [
+    "same as every time: `print(\"Hello World\")`.",
+    "lowercase `print`, round brackets, the text in quotes. one line.",
+  ],
+  deflections: ["wake the terminal first. the night cycle won't wait."],
+};
+
+// ── chapter-07:scan ──
+
+type ScanIssue =
+  | StyleIssue | ShapeIssue
+  | "noInner" | "global" | "listHack" | "noNonlocal" | "noRecursion" | "slash" | "noFinally" | "noLog" | "noCall";
+
+/** Shared by scan and recover: an inner recursive walker with a nonlocal counter. */
+function walkerIssue(f: PyFn): "noInner" | "global" | "listHack" | "noNonlocal" | "noRecursion" | "slash" | null {
+  const inner = recursiveInner(f);
+  if (!inner) return "noInner";
+  if (/^\s*global\b/m.test(inner.body)) return "global";
+  if (/\b\w+\s*\[\s*0\s*\]\s*\+=/.test(inner.body)) return "listHack";
+  if (!/^\s*nonlocal\b/m.test(inner.body)) return "noNonlocal";
+  const self = new RegExp(`\\b${inner.name}\\s*\\(([^)\\n]*)\\)`);
+  const call = inner.body.match(self);
+  if (!call) return "noRecursion";
+  const loopVar = inner.body.match(/^\s*for\s+(\w+)\s+in\b/m)?.[1];
+  if (loopVar && call[1].trim() === loopVar) return "slash";
+  return null;
+}
+
+function scanCheck(code: string): ScanIssue | null {
+  const style = defStyle(code, "scanArchive");
+  if (style) return style;
+  const shape = fnShape(code, "scan_archive", 2, /^(scanned:|total files:)/);
+  if (shape && shape !== "noReturn" && shape !== "prints") return shape;
+  const f = pyFn(code, "scan_archive")!;
+  const walker = walkerIssue(f);
+  if (walker) return walker;
+  const inner = recursiveInner(f)!;
+  if (!/^\s*finally\s*:/m.test(inner.body)) return "noFinally";
+  if (!/\bprint\s*\(/.test(clause(inner.body, /^\s*finally\s*:/) ?? "")) return "noLog";
+  const { outer } = splitInner(f);
+  if (!new RegExp(`\\b${inner.name}\\s*\\(`).test(outer)) return "noCall";
+  if (!/\breturn\b/.test(outer)) return "noReturn";
+  return null;
+}
+
+const WALKER_MESSAGES = {
+  noInner:
+    "the counting happens in a function inside the function: `def scan(d):` written inside `scan_archive`, so it can see `archive` and `count` without passing them around.",
+  global:
+    "`global` reaches all the way out to the file, not to `scan_archive`. the counter lives one level up — `nonlocal count` is the word for that.",
+  listHack:
+    "a one-item list works, but that's the trick from before python had the real thing. keep `count = 0` and say `nonlocal count` inside `scan`.",
+  noNonlocal:
+    "`count += 1` inside `scan` makes python treat `count` as scan's own brand-new variable — that's an `UnboundLocalError`. put `nonlocal count` as scan's first line: i mean the one outside.",
+  noRecursion:
+    "the scan never goes deeper. when an entry ends in `/`, call `scan` again on it: `scan(entry[:-1])`. the function walks one level, then hands the next level to itself.",
+  slash:
+    "you're calling `scan` with the slash still on — `\"logs/\"` isn't a key in the archive, `\"logs\"` is. strip it: `scan(entry[:-1])`.",
+} as const;
+
+const SCAN_MESSAGES: Record<ScanIssue, string> = {
+  ...styleMessages("scan_archive", "scan_archive(archive, root)"),
+  ...shapeMessages(
+    "scan_archive",
+    "scan_archive(archive, root)",
+    "it takes two things — the archive and where to start: `def scan_archive(archive, root):`.",
+    "the function never hands the count back. last line of `scan_archive`: `return count`.",
+  ),
+  ...WALKER_MESSAGES,
+  noFinally:
+    "the log has to print as each directory finishes, even if something goes wrong inside. wrap the loop: `try:` … `finally: print(\"scanned:\", d)`.",
+  noLog: "the `finally` is there but it doesn't log. put the line in it: `print(\"scanned:\", d)`.",
+  noCall: "you built the walker but never set it off. after the inner function: `scan(root)`, then `return count`.",
+};
+
+const CH07_SCAN_DONE =
+  "nine files. gamma holds three of them — and two have thesis in the name. that's my work in there.\n\nbut the vault entry is wrong. something's waiting in it.\n\n||COMPLETE||";
+
+const ch07Scan: StepBank = {
+  intro:
+    "my thesis is on one of these servers. i need every file in the archive counted, however deep the folders go. write `scan_archive(archive, root)`: an inner `scan(d)` walks one directory, calls itself for every entry ending in `/`, and counts the rest. it changes `count`, so it needs `nonlocal count`. wrap its loop in `try:` … `finally: print(\"scanned:\", d)` so each directory logs as it finishes.",
+
+  conceptFAQ: [
+    {
+      keywords: ["unboundlocalerror", "unbound", "referenced before assignment"],
+      response: "assigning `count += 1` inside `scan` makes python decide `count` is scan's own variable — and it has no value yet. `nonlocal count` as scan's first line says: the one in scan_archive.",
+    },
+    {
+      keywords: ["nonlocal", "closure", "inner function", "nested", "function inside"],
+      response: "a function defined inside another one can read the outer one's names. to change one, it has to say so: `nonlocal count`. that's a closure — a function that remembers where it was made.",
+    },
+    {
+      keywords: ["global"],
+      response: "`global` jumps all the way out to the file. `count` lives in `scan_archive`, one level up — that's `nonlocal`.",
+    },
+    {
+      keywords: ["recursion", "recursive", "call itself", "calls itself", "deeper", "nested folder"],
+      response: "a function can call itself by name. `scan(\"servers\")` finds `alpha/` and calls `scan(\"alpha\")`, which finishes and hands control back. each call has its own `d`.",
+    },
+    {
+      keywords: ["finally", "try", "defer", "log", "scanned"],
+      response: "`finally` runs as the `try` block is left — normally or by an error. so `print(\"scanned:\", d)` in it logs each directory on its way out.",
+    },
+    {
+      keywords: ["order", "root last", "why last", "backwards"],
+      response: "root starts first but finishes last — everything inside it has to finish before it does. `finally` prints on the way out, so root's line is the last one.",
+    },
+    {
+      keywords: ["slash", "endswith", "directory", "file or", "folder"],
+      response: "`entry.endswith(\"/\")` tells you it's a directory. `entry[:-1]` is the name without the slash — that's the key in the archive.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`count = 0`, then `def scan(d):` inside with `nonlocal count`, a `try`/`finally` around `for entry in archive[d]:`, then `scan(root)` and `return count`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /^scanned: \w+\/$/m.test(out),
+      response: "the log has slashes in it — `scanned: logs/`. pass the name without the slash: `scan(entry[:-1])`.",
+    },
+    {
+      match: (out) => out.trim().startsWith("scanned: root"),
+      response: "root logged first — you're printing on the way in. the log belongs in `finally`, which runs as each directory finishes, so the deepest ones come out first.",
+    },
+    {
+      match: (out) => /total files:/.test(out) && !/scanned:/.test(out),
+      response: "the count's there but no directory logged. `finally: print(\"scanned:\", d)` inside `scan`.",
+    },
+    {
+      match: (out) => /^total files: 14$/m.test(out),
+      response: "14 — you're counting the directories too. an entry ending in `/` gets scanned, not counted.",
+    },
+    {
+      match: (out) => /^total files: 1$/m.test(out),
+      response: "1 file — the scan never went past root. call `scan` again for every entry that ends in `/`.",
+    },
+    {
+      match: (out) => /^total files: 0$/m.test(out),
+      response: "0 — the count never changed outside `scan`. make sure it's `nonlocal count`, and that `scan_archive` returns that same `count`.",
+    },
+    {
+      match: (out) => /^total files: 9$/m.test(out) && /^total files: 11$/m.test(out),
+      response: "the second tree says 11 — the count carried over from the first scan. keep `count = 0` inside `scan_archive`, so every call starts fresh.",
+    },
+  ],
+
+  codePatterns: checkPatterns(scanCheck, SCAN_MESSAGES, CH07_SCAN_DONE),
+  correctResponse: CH07_SCAN_DONE,
+
+  genericWrong: [
+    "not matching. every directory logs as it finishes, then the total — 9 for the archive, 2 for the test tree.",
+    "check the order: the deepest directories log first, root last. that's `finally` doing its job.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\ndef scan_archive(archive, root):\n    count = 0\n\n    def scan(d):\n        nonlocal count\n        try:\n            for entry in archive[d]:\n                if entry.endswith(\"/\"):\n                    scan(entry[:-1])\n                else:\n                    count += 1\n        finally:\n            print(\"scanned:\", d)\n\n    scan(root)\n    return count\n```",
+    "a counter outside, a walker inside that says `nonlocal count`, calls itself on directories, and logs in `finally`.",
+  ],
+
+  deflections: [
+    "focus. count the archive.",
+    "not now — my thesis is in there somewhere.",
+  ],
+};
+
+// ── chapter-07:recover ──
+
+type RecoverIssue =
+  | StyleIssue | ShapeIssue
+  | "noInner" | "global" | "listHack" | "noNonlocal" | "noRecursion" | "slash"
+  | "noRaise" | "genericRaise" | "outerExcept" | "noExcept" | "raiseOutside" | "noAs" | "noRecord" | "noFinally" | "noCall" | "oneValue";
+
+function recoverCheck(code: string): RecoverIssue | null {
+  const style = defStyle(code, "safeScan");
+  if (style) return style;
+  const shape = fnShape(code, "safe_scan", 2, /^(scanned:|ERROR:|total files:)/);
+  if (shape && shape !== "noReturn" && shape !== "prints") return shape;
+  const f = pyFn(code, "safe_scan")!;
+  const walker = walkerIssue(f);
+  if (walker) return walker;
+  const inner = recursiveInner(f)!;
+  const { outer } = splitInner(f);
+  if (!/^\s*raise\b/m.test(inner.body)) return "noRaise";
+  if (!/^\s*raise\s+\w+\s*\(/m.test(inner.body)) return "genericRaise";
+  if (!/^\s*except\b/m.test(inner.body)) return /^\s*except\b/m.test(outer) ? "outerExcept" : "noExcept";
+  const lines = inner.body.split("\n");
+  const raiseAt = lines.findIndex((l) => /^\s*raise\b/.test(l));
+  const tryAt = lines.findIndex((l) => /^\s*try\s*:/.test(l));
+  if (tryAt === -1 || !insideBlock(lines, tryAt, raiseAt)) return "raiseOutside";
+  const handler = lines.find((l) => /^\s*except\b/.test(l))!;
+  if (!/\bas\s+\w+/.test(handler)) return "noAs";
+  if (!/\.\s*append\s*\(/.test(clause(inner.body, /^\s*except\b/) ?? "")) return "noRecord";
+  if (!/\bprint\s*\(/.test(clause(inner.body, /^\s*finally\s*:/) ?? "")) return "noFinally";
+  if (!new RegExp(`\\b${inner.name}\\s*\\(`).test(outer)) return "noCall";
+  const ret = outer.match(/^\s*return\b([^\n]*)/m);
+  if (!ret) return "noReturn";
+  if (!/,/.test(ret[1])) return "oneValue";
+  return null;
+}
+
+const RECOVER_MESSAGES: Record<RecoverIssue, string> = {
+  ...styleMessages("safe_scan", "safe_scan(archive, root)"),
+  ...shapeMessages(
+    "safe_scan",
+    "safe_scan(archive, root)",
+    "it takes the same two things as before: `def safe_scan(archive, root):`.",
+    "the function never hands anything back. last line: `return count, errors`.",
+  ),
+  ...WALKER_MESSAGES,
+  noRaise:
+    "the trap has to go off loudly. at the top of the walk: `if archive[d] is None: raise RuntimeError(\"corrupted directory\")`.",
+  genericRaise: "raise an error object with the message: `raise RuntimeError(\"corrupted directory\")`.",
+  outerExcept:
+    "your `except` wraps the whole scan, so the first trap ends everything — root never finishes its other directories. catch inside `scan`, so each directory guards itself.",
+  noExcept:
+    "nothing catches the error, so the program dies at the vault. inside `scan`: `except Exception as e:` and record it.",
+  raiseOutside:
+    "the `raise` sits outside the `try`, so this directory's own `except` never sees it — the parent catches it instead and stops walking. move the `None` check inside the `try`.",
+  noAs: "you need the error's message for the log. name it: `except Exception as e:`.",
+  noRecord:
+    "the error's caught but not recorded. in the `except`: `errors.append(f\"{d}: {e}\")`.",
+  noFinally: "keep the log from last step — `finally: print(\"scanned:\", d)` — so even the trapped directory reports in.",
+  noCall: "the walker never starts. after it: `scan(root)`, then `return count, errors`.",
+  oneValue: "the terminal unpacks two things: `count, errors = safe_scan(...)`. return both: `return count, errors`.",
+};
+
+const CH07_RECOVER_DONE =
+  "the vault went off in our hands and the scan kept walking. nine files, one error logged, no alarm.\n\nwhoever set that trap wanted us to stop at the first bad door.\n\n||COMPLETE||";
+
+const ch07Recover: StepBank = {
+  intro:
+    "ghost booby-trapped part of the archive. if the scan dies on it, the alarm trips. write `safe_scan(archive, root)` returning `count, errors`: a directory whose entries are `None` is corrupted, so `raise RuntimeError(\"corrupted directory\")`. each `scan` call catches its own with `except Exception as e:`, appends `f\"{d}: {e}\"` to `errors`, and the walk keeps going. keep the `finally` log.",
+
+  conceptFAQ: [
+    {
+      keywords: ["raise", "throw", "panic", "error"],
+      response: "`raise RuntimeError(\"corrupted directory\")` stops the function on the spot and travels back up the calls until an `except` catches it. nothing catches it, the program dies.",
+    },
+    {
+      keywords: ["except", "catch", "recover"],
+      response: "`except Exception as e:` catches it, and `e` is the error — `str(e)` or `f\"{e}\"` is its message.",
+    },
+    {
+      keywords: ["where", "boundary", "per directory", "inside scan", "keep going", "keep scanning"],
+      response: "inside `scan`, around the walk. each call guards itself — vault's call catches vault's error and returns normally, so root's loop moves on.",
+    },
+    {
+      keywords: ["none", "is none", "nil", "null", "corrupted"],
+      response: "`if archive[d] is None:` — `is None` is how python checks for nothing. pep 8 prefers it over `== None`.",
+    },
+    {
+      keywords: ["finally", "order", "scanned: vault"],
+      response: "`finally` runs even when the `try` raised. so vault still logs `scanned: vault` — and the except has already recorded the error by then.",
+    },
+    {
+      keywords: ["nonlocal", "errors list", "append"],
+      response: "`count += 1` needs `nonlocal`. `errors.append(...)` doesn't — it changes the list, it never gives the name a new value.",
+    },
+    {
+      keywords: ["tuple", "two values", "return both"],
+      response: "`return count, errors` hands back both. the terminal unpacks them: `count, errors = safe_scan(...)`.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "copy the scan, add `errors = []`. inside `scan`: `try:` the `None` check and the loop, `except Exception as e: errors.append(f\"{d}: {e}\")`, `finally:` the log.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /NoneType/.test(out),
+      response: "that's python tripping over the `None` by itself. check first and raise your own: `if archive[d] is None: raise RuntimeError(\"corrupted directory\")`.",
+    },
+    {
+      match: (out) => /^scanned: servers$/m.test(out) && !/^scanned: vault$/m.test(out),
+      response: "vault never logged. the `raise` is outside vault's own `try`, so its `finally` never ran and the parent caught the error instead. put the `None` check inside the `try`.",
+    },
+    {
+      match: (out) => /^ERROR: (root|a): /m.test(out) || (/scanned:/.test(out) && !/^scanned: b$/m.test(out)),
+      response: "the error ended the whole scan — `b` never got scanned. catch inside `scan`, per directory, so one trap only costs one directory.",
+    },
+    {
+      match: (out) => /^ERROR: corrupted directory$/m.test(out),
+      response: "the error needs the directory's name in front: `errors.append(f\"{d}: {e}\")`.",
+    },
+    {
+      match: (out) => /^ERROR: vault: (?!corrupted directory$)/m.test(out),
+      response: "the message has to be exactly `corrupted directory` — `raise RuntimeError(\"corrupted directory\")`.",
+    },
+    {
+      match: (out) => /total files:/.test(out) && !/^ERROR:/m.test(out),
+      response: "the scan survived but `errors` came back empty. the `except` has to record it: `errors.append(f\"{d}: {e}\")`.",
+    },
+  ],
+
+  codePatterns: checkPatterns(recoverCheck, RECOVER_MESSAGES, CH07_RECOVER_DONE),
+  correctResponse: CH07_RECOVER_DONE,
+
+  genericWrong: [
+    "not matching. every directory still logs — vault too — then `total files: 9` and one `ERROR: vault: corrupted directory`.",
+    "check that the scan keeps going after the trap, and that the error names its directory.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\ndef safe_scan(archive, root):\n    count = 0\n    errors = []\n\n    def scan(d):\n        nonlocal count\n        try:\n            if archive[d] is None:\n                raise RuntimeError(\"corrupted directory\")\n            for entry in archive[d]:\n                if entry.endswith(\"/\"):\n                    scan(entry[:-1])\n                else:\n                    count += 1\n        except Exception as e:\n            errors.append(f\"{d}: {e}\")\n        finally:\n            print(\"scanned:\", d)\n\n    scan(root)\n    return count, errors\n```",
+    "raise in the `try`, record in the `except`, log in the `finally`. every call, every directory.",
+  ],
+
+  deflections: [
+    "focus. the trap first.",
+    "not now — one bad directory and the alarm goes.",
+  ],
+};
+
+// ══════════════════════════════════════════════════════════════
+//  Chapter 08
+// ══════════════════════════════════════════════════════════════
+
+const CH08_SCAFFOLD_DONE =
+  "breaker console's live. four circuits feed the alarm grid — north, south, east, west.\n\nnow throw one.\n\n||COMPLETE||";
+
+const ch08Scaffold: StepBank = {
+  intro:
+    "the alarm grid runs on four circuits and this console holds the breakers. bring it online: print `Hello World`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["print", "output"],
+      response: "`print(\"Hello World\")` — one line wakes it.",
+    },
+    {
+      keywords: ["import", "asyncio", "package", "setup", "scaffold"],
+      response: "not yet. `asyncio` joins the imports next step, when you first use it. import a thing when you need it.",
+    },
+    {
+      keywords: ["async", "await", "concurrent", "parallel", "breaker", "circuit"],
+      response: "the breakers come next. right now just wake the console.",
+    },
+    {
+      keywords: ["main", "entry", "start"],
+      response: "python starts at the top of the file and runs down. no main needed.",
+    },
+  ],
+
+  codePatterns: scaffoldPatterns(CH08_SCAFFOLD_DONE),
+  correctResponse: CH08_SCAFFOLD_DONE,
+  genericWrong: SCAFFOLD_GENERIC,
+  rushDialogue: [],
+  stuckResponses: [
+    "same as every time: `print(\"Hello World\")`.",
+    "lowercase `print`, round brackets, the text in quotes. one line.",
+  ],
+  deflections: ["console first. then the grid."],
+};
+
+// ── chapter-08:goroutine ──
+
+type CutIssue =
+  | StyleIssue
+  | "noCut" | "cutSync" | "cutSilent" | "noCutAsync" | "asyncCutAsync" | "runLoop" | "bareCoroutine" | "noTask" | "noImport";
+
+function cutCheck(code: string): CutIssue | null {
+  const style = defStyle(code, "cutAsync");
+  if (style) return style;
+  const cut = pyFn(code, "cut");
+  if (!cut) return "noCut";
+  if (!cut.isAsync) return "cutSync";
+  if (!/\bprint\s*\(/.test(cut.body)) return "cutSilent";
+  const launcher = pyFn(code, "cut_async");
+  if (!launcher) return "noCutAsync";
+  if (launcher.isAsync) return "asyncCutAsync";
+  if (/\basyncio\s*\.\s*run\s*\(/.test(launcher.body)) return "runLoop";
+  if (!/\b(create_task|ensure_future)\s*\(/.test(launcher.body)) {
+    return /\bcut\s*\(/.test(launcher.body) ? "bareCoroutine" : "noTask";
+  }
+  if (!hasAsyncioImport(code)) return "noImport";
+  return null;
+}
+
+const CUT_MESSAGES: Record<CutIssue, string> = {
+  ...styleMessages("cut_async", "cut_async(name)"),
+  noCut: "first the breaker itself: `async def cut(name):` that prints `f\"{name} circuit: DOWN\"`.",
+  cutSync:
+    "the terminal does `await cut(\"North\")`, and you can only await an async function. make it `async def cut(name):`.",
+  cutSilent: "`cut` has to report: `print(f\"{name} circuit: DOWN\")`.",
+  noCutAsync:
+    "now the launcher: `def cut_async(name):` that starts `cut` running and comes straight back.",
+  asyncCutAsync:
+    "`cut_async` can't be `async def` — calling an async function doesn't run it, it just makes a coroutine, and the terminal never awaits it. keep it a plain `def` that returns `asyncio.create_task(cut(name))`.",
+  runLoop:
+    "`asyncio.run` starts a whole new event loop and waits for it to finish — the opposite of not waiting, and the terminal's already inside a loop. `asyncio.create_task(cut(name))` schedules it on the running one.",
+  bareCoroutine:
+    "calling `cut(name)` doesn't run it — it hands you a coroutine, a plan for the work, and nothing ever carries it out. `asyncio.create_task(cut(name))` is what puts it on the schedule.",
+  noTask: "`cut_async` has to start `cut` as a task: `return asyncio.create_task(cut(name))`.",
+  noImport: "`asyncio` isn't built into every file — `import asyncio` at the top.",
+};
+
+const CH08_GOROUTINE_DONE =
+  "orders sent before south even dropped. the program didn't stand there watching — that's the only way i get four breakers down.\n\n||COMPLETE||";
+
+const ch08Goroutine: StepBank = {
+  intro:
+    "i can only throw one breaker at a time by hand. the program has to throw them for me, without stopping to watch each one. `import asyncio`. write `async def cut(name)` that prints `<name> circuit: DOWN`, and a plain `def cut_async(name)` that returns `asyncio.create_task(cut(name))` — started, not waited on.",
+
+  conceptFAQ: [
+    {
+      keywords: ["async def", "async", "coroutine", "what does async"],
+      response: "`async def` changes what calling it means. `cut(\"North\")` doesn't print anything — it hands back a coroutine, a plan for the work. someone has to `await` it, or schedule it.",
+    },
+    {
+      keywords: ["await"],
+      response: "`await cut(\"North\")` runs it and waits for it to finish. you can only write `await` inside an `async def` — or at the top of the terminal, which is why the harness can.",
+    },
+    {
+      keywords: ["create_task", "task", "schedule", "background"],
+      response: "`asyncio.create_task(cut(name))` puts the coroutine on the schedule and hands back a task straight away. the caller carries on; the task runs the next time anyone pauses.",
+    },
+    {
+      keywords: ["order", "orders sent", "why first", "south later"],
+      response: "a task only gets its turn when the code that's running pauses. the terminal prints `orders sent`, then pauses at `await asyncio.sleep(0.1)` — that's when south drops.",
+    },
+    {
+      keywords: ["never runs", "nothing happens", "missing south", "never awaited"],
+      response: "a coroutine nobody schedules never runs, and python warns `coroutine was never awaited`. a task nobody waits for doesn't get finished either — the program ends first.",
+    },
+    {
+      keywords: ["thread", "parallel", "same time", "concurrent"],
+      response: "one thread, taking turns. while one task waits, another runs. that's how asyncio does many things at once without anything running at the exact same instant.",
+    },
+    {
+      keywords: ["import", "asyncio"],
+      response: "`import asyncio` at the top. then everything is `asyncio.something` — `create_task`, `sleep`, `gather`.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`async def cut(name):` with the print, then `def cut_async(name): return asyncio.create_task(cut(name))`. and `import asyncio` on top.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /orders sent/.test(out) && !/South circuit/.test(out),
+      response: "south never dropped. the coroutine got made but nobody ran it — `cut(name)` alone is just a plan. `asyncio.create_task(cut(name))` puts it on the schedule.",
+    },
+    {
+      match: (out) => out.indexOf("South circuit") !== -1 && out.indexOf("South circuit") < out.indexOf("orders sent"),
+      response: "south dropped before `orders sent` — the caller waited for it. `cut_async` should only schedule the work and come straight back.",
+    },
+    {
+      match: (out) => /circuit: down/i.test(out) && !/circuit: DOWN/.test(out),
+      response: "capitals — the grid reads `circuit: DOWN`.",
+    },
+  ],
+
+  codePatterns: checkPatterns(cutCheck, CUT_MESSAGES, CH08_GOROUTINE_DONE),
+  correctResponse: CH08_GOROUTINE_DONE,
+
+  genericWrong: [
+    "not matching. north drops, `orders sent`, then south once the terminal pauses.",
+    "`cut_async` should start the task and return at once. `asyncio.create_task(cut(name))`.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nimport asyncio\n\n\nasync def cut(name):\n    print(f\"{name} circuit: DOWN\")\n\n\ndef cut_async(name):\n    return asyncio.create_task(cut(name))\n```",
+    "the breaker is an `async def`. the launcher is a plain `def` that wraps it in `asyncio.create_task`.",
+  ],
+
+  deflections: [
+    "focus. one breaker, then four.",
+    "not now — the grid's checking itself every few minutes.",
+  ],
+};
+
+// ── chapter-08:fanout ──
+
+type FanoutIssue =
+  | StyleIssue | "noDef" | "sync" | "arity" | "loop" | "noGather" | "noStar" | "noAwait" | "printsLines" | "noReturn";
+
+/** The function each gather call runs — `trip` in `gather(*(trip(n) for ...))`. */
+function gatheredFn(body: string): string | null {
+  return body.match(/\bgather\s*\(\s*\*\s*[([]\s*(\w+)\s*\(/)?.[1] ??
+    body.match(/^\s*\w+\s*=\s*[[(]\s*(\w+)\s*\(/m)?.[1] ?? null;
+}
+
+function fanoutCheck(code: string): FanoutIssue | null {
+  const style = defStyle(code, "cutAll");
+  if (style) return style;
+  const f = pyFn(code, "cut_all");
+  if (!f) return "noDef";
+  if (!f.isAsync) return "sync";
+  if (f.params.length !== 1) return "arity";
+  if (awaitsInLoop(f.body)) return "loop";
+  if (!/\bgather\s*\(/.test(f.body)) return "noGather";
+  if (!/\bgather\s*\(\s*\*/.test(f.body) && !/\bgather\s*\(\s*\w+\s*\(/.test(f.body)) return "noStar";
+  if (!/\bawait\b/.test(f.body)) return "noAwait";
+  const worker = gatheredFn(f.body);
+  if (worker) {
+    const w = pyFn(code, worker);
+    if (w && /\bprint\s*\(/.test(w.body) && !/\breturn\b/.test(w.body)) return "printsLines";
+  }
+  if (!/\breturn\b/.test(f.body)) return "noReturn";
+  return null;
+}
+
+const FANOUT_MESSAGES: Record<FanoutIssue, string> = {
+  ...styleMessages("cut_all", "cut_all(circuits)"),
+  noDef: "i need `async def cut_all(circuits):` — the terminal awaits it with the list of circuits.",
+  sync: "the terminal does `await cut_all(...)`, so it has to be `async def cut_all(circuits):`.",
+  arity: "it takes one thing — the list: `async def cut_all(circuits):`.",
+  loop:
+    "awaiting each breaker inside a loop throws them one after another — the caller waits for each before starting the next. `asyncio.gather` starts them all, then waits once.",
+  noGather: "run them together with `asyncio.gather` — it waits for all of them and hands back their results in order.",
+  noStar:
+    "`gather` takes the coroutines as separate arguments, not one list. unpack with a star: `asyncio.gather(*(trip(n) for n in circuits))`.",
+  noAwait: "`asyncio.gather(...)` on its own just makes the waiting — `await` it to get the results: `return await asyncio.gather(...)`.",
+  printsLines:
+    "the coroutine you gather prints and returns nothing, so the results come back as `None`. have it return the line: `return f\"{name} circuit: DOWN\"`.",
+  noReturn: "`cut_all` has to hand the confirmations back: `return await asyncio.gather(...)`.",
+};
+
+const CH08_FANOUT_DONE =
+  "all four confirmed, and in circuit order — north, south, east, west. the grid can't tell which one went first.\n\nbut they don't all take the same time to trip.\n\n||COMPLETE||";
+
+const ch08Fanout: StepBank = {
+  intro:
+    "all four breakers have to drop together, and i can't call the grid blind until every one confirms. write `async def cut_all(circuits)`: one coroutine per circuit that returns `<name> circuit: DOWN`, all run with `asyncio.gather`, and return what it gives back.",
+
+  conceptFAQ: [
+    {
+      keywords: ["gather", "what does gather", "wait for all", "all of them"],
+      response: "`await asyncio.gather(a, b, c)` starts them all, waits until every one is done, and hands back a list of their results.",
+    },
+    {
+      keywords: ["order", "which order", "results"],
+      response: "the results come back in the order you passed them in — not the order they finished. so the confirmations line up with the circuits.",
+    },
+    {
+      keywords: ["star", "*", "unpack", "list to gather", "whole list"],
+      response: "gather wants separate arguments. a star spreads a sequence out: `asyncio.gather(*(trip(n) for n in circuits))`. same star as `*codes` back in chapter three, used the other way round.",
+    },
+    {
+      keywords: ["loop", "for loop", "one at a time", "await each"],
+      response: "`for n in circuits: await trip(n)` waits on each before starting the next. gather starts them all first.",
+    },
+    {
+      keywords: ["helper", "trip", "coroutine per", "return the line"],
+      response: "a small `async def trip(name): return f\"{name} circuit: DOWN\"` — one coroutine per breaker. gather collects what each returns.",
+    },
+    {
+      keywords: ["waitgroup", "wait group", "counter"],
+      response: "python doesn't need a counter of who's still running. gather is the waiting and the results list in one call.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`async def trip(name): return f\"{name} circuit: DOWN\"`, then `async def cut_all(circuits): return await asyncio.gather(*(trip(n) for n in circuits))`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /<coroutine object/.test(out),
+      response: "those are coroutines nobody ran — plans, not results. hand them to `asyncio.gather` and await it.",
+    },
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` — the coroutines print instead of returning. gather collects return values: `return f\"{name} circuit: DOWN\"`.",
+    },
+    {
+      match: (out) => /_GatheringFuture|<Task|<Future/.test(out),
+      response: "that's the waiting itself, not the answers. `await` the gather: `return await asyncio.gather(...)`.",
+    },
+    {
+      match: (out) => /^[NSEW]\s*$/m.test(out),
+      response: "single letters — you looped over a string instead of the list of circuits somewhere. `cut_all` gets the whole list; one coroutine per item.",
+    },
+  ],
+
+  codePatterns: checkPatterns(fanoutCheck, FANOUT_MESSAGES, CH08_FANOUT_DONE),
+  correctResponse: CH08_FANOUT_DONE,
+
+  genericWrong: [
+    "not matching. four confirmations in circuit order, then `ALL CIRCUITS DOWN`, then the aux circuit on its own.",
+    "`cut_all` returns the list `gather` gives back — one line per circuit.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nasync def trip(name):\n    return f\"{name} circuit: DOWN\"\n\n\nasync def cut_all(circuits):\n    return await asyncio.gather(*(trip(n) for n in circuits))\n```",
+    "one coroutine per circuit, all handed to `asyncio.gather` with a star, and the gather awaited and returned.",
+  ],
+
+  deflections: [
+    "focus. all four, together.",
+    "not now — confirm the breakers.",
+  ],
+};
+
+// ── chapter-08:window ──
+
+type WindowIssue =
+  | StyleIssue | "noDef" | "sync" | "arity" | "timeSleep" | "noSleep" | "floorSeconds" | "seconds" | "loop" | "noGather" | "noAwait" | "noMs" | "noReturn";
+
+function windowCheck(code: string): WindowIssue | null {
+  const style = defStyle(code, "cutTimed");
+  if (style) return style;
+  const f = pyFn(code, "cut_timed");
+  if (!f) return "noDef";
+  if (!f.isAsync) return "sync";
+  if (f.params.length !== 2) return "arity";
+  if (usesTimeSleep(code)) return "timeSleep";
+  const sleeps = sleepArgs(code);
+  if (sleeps.length === 0) return "noSleep";
+  if (sleeps.some(floorsSeconds)) return "floorSeconds";
+  if (!sleeps.every(inSeconds)) return "seconds";
+  if (awaitsInLoop(f.body)) return "loop";
+  if (!/\bgather\s*\(/.test(f.body)) return "noGather";
+  if (!/\bawait\b/.test(f.body)) return "noAwait";
+  if (!literals(noComments(code)).some((s) => /ms\)/.test(s))) return "noMs";
+  if (!/\breturn\b/.test(f.body)) return "noReturn";
+  return null;
+}
+
+const WINDOW_MESSAGES: Record<WindowIssue, string> = {
+  ...styleMessages("cut_timed", "cut_timed(circuits, delays)"),
+  noDef: "i need `async def cut_timed(circuits, delays):` — the names and their delays, side by side.",
+  sync: "the terminal awaits it, so it has to be `async def cut_timed(circuits, delays):`.",
+  arity: "two lists go in: `async def cut_timed(circuits, delays):`.",
+  timeSleep:
+    "`time.sleep` freezes the whole program — no other breaker gets a turn while one waits. inside async code it's always `await asyncio.sleep(seconds)`.",
+  noSleep: "each breaker has to wait its delay before it reports: `await asyncio.sleep(d / 1000)`.",
+  floorSeconds:
+    "`//` rounds down — `300 // 1000` is 0, so nothing waits at all. plain `/` keeps the fraction: `d / 1000`.",
+  seconds: "`asyncio.sleep` counts seconds and the delays are milliseconds. `d / 1000`, or every breaker waits a thousand times too long.",
+  loop:
+    "awaiting each sleep inside a loop puts the breakers one after another — the window becomes the sum of the delays, 1100ms. two power cycles. alarm. give each breaker its own coroutine and `gather` them.",
+  noGather: "same fan-out as last step: one coroutine per breaker, all run with `asyncio.gather`.",
+  noAwait: "`await` the gather: `return await asyncio.gather(...)`.",
+  noMs: "each line ends with its delay: `f\"{n} circuit: DOWN ({d}ms)\"`.",
+  noReturn: "`cut_timed` has to hand the lines back: `return await asyncio.gather(...)`.",
+};
+
+const CH08_WINDOW_DONE =
+  "450 milliseconds. the slowest breaker, not the sum. one power cycle, and the alarm grid never saw it happen.\n\n||COMPLETE||";
+
+const ch08Window: StepBank = {
+  intro:
+    "each breaker takes its own time to trip, and i need all four down inside one power cycle or the grid seals the facility. write `async def cut_timed(circuits, delays)`: the same fan-out, but each breaker first does `await asyncio.sleep(d / 1000)`, then returns `<name> circuit: DOWN (<d>ms)`. pair names and delays with `zip`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["asyncio.sleep", "sleep", "wait without", "freeze", "time.sleep"],
+      response: "`await asyncio.sleep(s)` pauses this coroutine and lets the others run. `time.sleep` stops the whole program — nobody else gets a turn.",
+    },
+    {
+      keywords: ["seconds", "milliseconds", "ms", "1000", "units"],
+      response: "asyncio counts in seconds. the delays are milliseconds, so `d / 1000` — and a plain `/`, because `//` would round 300 down to 0.",
+    },
+    {
+      keywords: ["zip", "pair", "together", "both lists", "name and delay"],
+      response: "`zip(circuits, delays)` walks both lists side by side: `for n, d in zip(circuits, delays)` hands you `\"North\", 300`, then `\"South\", 150`.",
+    },
+    {
+      keywords: ["window", "sum", "slowest", "how long", "1100", "450"],
+      response: "one at a time, you wait for every delay in a row: 300 + 150 + 450 + 200. all at once, they wait together, so it's only as long as the slowest: 450.",
+    },
+    {
+      keywords: ["helper", "inner", "trip"],
+      response: "a helper that takes both: `async def trip_timed(n, d):` — sleep, then return the line. it can live inside `cut_timed` or next to it.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`async def trip_timed(n, d): await asyncio.sleep(d / 1000); return f\"{n} circuit: DOWN ({d}ms)\"`, then gather one per pair from `zip(circuits, delays)`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /MULTI CYCLE/.test(out),
+      response:
+        "two power cycles — the breakers took 1100ms or more. either they ran one after another (an `await` inside a loop — gather them instead) or the sleep got milliseconds when it wanted seconds (`d / 1000`).",
+    },
+    {
+      match: (out) => /\(0\.\d+ms\)/.test(out),
+      response: "the line shows seconds with `ms` on the end. print the original delay — `({d}ms)` — and only divide inside the sleep.",
+    },
+    {
+      match: (out) => /circuit: DOWN$/m.test(out),
+      response: "the lines need their delay on the end: `f\"{n} circuit: DOWN ({d}ms)\"`.",
+    },
+    {
+      match: (out) => /<coroutine object|^None$/m.test(out),
+      response: "the gather isn't getting the lines back. each coroutine returns its line, and `cut_timed` returns `await asyncio.gather(...)`.",
+    },
+  ],
+
+  codePatterns: checkPatterns(windowCheck, WINDOW_MESSAGES, CH08_WINDOW_DONE),
+  correctResponse: CH08_WINDOW_DONE,
+
+  genericWrong: [
+    "not matching. four lines with their delays, then `window: SINGLE CYCLE - alarm blind`.",
+    "all four breakers wait at the same time — the window is the slowest, not the sum.",
+  ],
+
+  rushDialogue: [
+    "the grid's self-check is coming. all four, one cycle.",
+    "hurry — sleep inside each breaker, gather them, done.",
+  ],
+
+  stuckResponses: [
+    "```\nasync def cut_timed(circuits, delays):\n    async def trip_timed(n, d):\n        await asyncio.sleep(d / 1000)\n        return f\"{n} circuit: DOWN ({d}ms)\"\n\n    return await asyncio.gather(*(trip_timed(n, d) for n, d in zip(circuits, delays)))\n```",
+    "the sleep goes inside each breaker's coroutine, not in the loop that starts them.",
+  ],
+
+  deflections: [
+    "focus. one power cycle.",
+    "not now — the grid seals in seconds if we miss this.",
+  ],
+};
+
+// ══════════════════════════════════════════════════════════════
+//  Chapter 09
+// ══════════════════════════════════════════════════════════════
+
+const CH09_SCAFFOLD_DONE =
+  "comms array's up. three extraction teams on three frequencies — alpha, bravo, charlie.\n\nnow call one.\n\n||COMPLETE||";
+
+const ch09Scaffold: StepBank = {
+  intro:
+    "this comms array is how i call for a way out. power it up: print `Hello World`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["print", "output"],
+      response: "`print(\"Hello World\")` — one line.",
+    },
+    {
+      keywords: ["import", "asyncio", "package", "setup", "scaffold"],
+      response: "`asyncio` comes back next step. nothing to import for the greeting.",
+    },
+    {
+      keywords: ["team", "hail", "frequency", "extraction", "call"],
+      response: "the teams come next. power the array first.",
+    },
+    {
+      keywords: ["main", "entry", "start"],
+      response: "python starts at the top of the file and runs down. no main needed.",
+    },
+  ],
+
+  codePatterns: scaffoldPatterns(CH09_SCAFFOLD_DONE),
+  correctResponse: CH09_SCAFFOLD_DONE,
+  genericWrong: SCAFFOLD_GENERIC,
+  rushDialogue: [],
+  stuckResponses: [
+    "same as every time: `print(\"Hello World\")`.",
+    "lowercase `print`, round brackets, the text in quotes. one line.",
+  ],
+  deflections: ["power the array first."],
+};
+
+// ── chapter-09:hail ──
+
+type HailIssue =
+  | StyleIssue | "noDef" | "arity" | "asyncHail" | "noInner" | "innerSync" | "timeSleep" | "noSleep" | "floorSeconds" | "seconds"
+  | "innerPrints" | "bareCoroutine" | "noTask" | "noImport";
+
+function hailCheck(code: string): HailIssue | null {
+  const style = defStyle(code, "hailTeam");
+  if (style) return style;
+  const f = pyFn(code, "hail");
+  if (!f) return "noDef";
+  if (f.params.length !== 2) return "arity";
+  if (f.isAsync) return "asyncHail";
+  const { inner, outer } = splitInner(f);
+  const respond = inner[0];
+  if (!respond) return "noInner";
+  if (!respond.isAsync) return "innerSync";
+  if (usesTimeSleep(code)) return "timeSleep";
+  const sleeps = sleepArgs(respond.body);
+  if (sleeps.length === 0) return "noSleep";
+  if (sleeps.some(floorsSeconds)) return "floorSeconds";
+  if (!sleeps.every(inSeconds)) return "seconds";
+  if (/\bprint\s*\(/.test(respond.body) && !/\breturn\b/.test(respond.body)) return "innerPrints";
+  if (!/\b(create_task|ensure_future)\s*\(/.test(outer)) {
+    return new RegExp(`\\breturn\\s+${respond.name}\\s*\\(`).test(outer) ? "bareCoroutine" : "noTask";
+  }
+  if (!hasAsyncioImport(code)) return "noImport";
+  return null;
+}
+
+const HAIL_MESSAGES: Record<HailIssue, string> = {
+  ...styleMessages("hail", "hail(team, delay_ms)"),
+  noDef: "i need `def hail(team, delay_ms):` — a call that comes straight back with something to wait on.",
+  arity: "it takes the team and the delay: `def hail(team, delay_ms):`.",
+  asyncHail:
+    "`hail` stays a plain `def`. an `async def` doesn't run when you call it — `hail` has to hand back a task that's already on its way: `return asyncio.create_task(respond())`.",
+  noInner: "inside `hail`, write the team's side: `async def respond():` that sleeps the delay and returns `f\"{team} responding\"`.",
+  innerSync: "`respond` waits, so it has to be `async def respond():`.",
+  timeSleep:
+    "`time.sleep` freezes everything — the whole comms array stops while one team thinks. `await asyncio.sleep(delay_ms / 1000)`.",
+  noSleep: "the team takes `delay_ms` to answer: `await asyncio.sleep(delay_ms / 1000)` before the return.",
+  floorSeconds: "`//` rounds down — `100 // 1000` is 0, and every team answers at once. `delay_ms / 1000`.",
+  seconds: "`asyncio.sleep` counts seconds. `delay_ms / 1000`.",
+  innerPrints: "`respond` prints instead of answering. whoever awaits the task gets the return value: `return f\"{team} responding\"`.",
+  bareCoroutine:
+    "`respond()` alone is a coroutine that hasn't started — nobody hailed anyone yet. `return asyncio.create_task(respond())` starts the call and hands you something to wait on.",
+  noTask: "`hail` hands back a task: `return asyncio.create_task(respond())`.",
+  noImport: "`import asyncio` at the top.",
+};
+
+const CH09_HAIL_DONE =
+  "bravo answered, and the terminal never froze while i waited. one hail, one answer, held until i asked for it.\n\nnow all three at once.\n\n||COMPLETE||";
+
+const ch09Hail: StepBank = {
+  intro:
+    "i have to call an extraction team and hear back — without freezing the terminal while i wait. `import asyncio`. write a plain `def hail(team, delay_ms)`. inside it, `async def respond()` sleeps `delay_ms` milliseconds and returns `<team> responding`. `hail` returns `asyncio.create_task(respond())` straight away.",
+
+  conceptFAQ: [
+    {
+      keywords: ["why task", "return a task", "instead of the answer", "why not return"],
+      response: "so the call comes back at once and the team answers in the background. you can hail all three before waiting on any of them.",
+    },
+    {
+      keywords: ["await t", "await the task", "get the answer", "result"],
+      response: "`await t` gives you whatever `respond` returned, once it's ready. if it already finished, you get it straight away — the task holds its one answer until somebody asks.",
+    },
+    {
+      keywords: ["inner", "inside", "nested", "closure", "team inside"],
+      response: "`respond` is defined inside `hail`, so it can see `team` and `delay_ms` — the same closure idea as the archive scan.",
+    },
+    {
+      keywords: ["plain def", "not async", "why def", "async hail"],
+      response: "`hail` never waits for anything, so it doesn't need to be async. it schedules the work and returns. only `respond`, which sleeps, is `async def`.",
+    },
+    {
+      keywords: ["channel", "mailbox", "buffer", "queue"],
+      response: "a task is like a mailbox with room for one: the team drops its answer in when it's ready, and it sits there until you collect it.",
+    },
+    {
+      keywords: ["seconds", "milliseconds", "1000"],
+      response: "`asyncio.sleep(delay_ms / 1000)` — asyncio counts in seconds.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`def hail(team, delay_ms):`, inside it `async def respond():` with the sleep and the return, then `return asyncio.create_task(respond())`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /^None$/m.test(out),
+      response: "`None` — `respond` doesn't return the answer. `return f\"{team} responding\"`.",
+    },
+    {
+      match: (out) => /responding/.test(out) && out.indexOf("responding") < out.indexOf("hailing"),
+      response: "the team answered before we finished hailing — `hail` waited. it should schedule the task and return at once.",
+    },
+  ],
+
+  codePatterns: checkPatterns(hailCheck, HAIL_MESSAGES, CH09_HAIL_DONE),
+  correctResponse: CH09_HAIL_DONE,
+
+  genericWrong: [
+    "not matching. `hailing Bravo...`, then `Bravo responding` once the terminal awaits the task, then `channel confirmed`.",
+    "`hail` returns a task at once. the answer comes out when someone awaits it.",
+  ],
+
+  rushDialogue: [],
+
+  stuckResponses: [
+    "```\nimport asyncio\n\n\ndef hail(team, delay_ms):\n    async def respond():\n        await asyncio.sleep(delay_ms / 1000)\n        return f\"{team} responding\"\n\n    return asyncio.create_task(respond())\n```",
+    "a plain `def` on the outside, an `async def` on the inside, and `create_task` joining them.",
+  ],
+
+  deflections: [
+    "focus. one team, one answer.",
+    "not now — i need someone on the other end of this.",
+  ],
+};
+
+// ── chapter-09:first ──
+
+type FirstIssue =
+  | StyleIssue | "hail" | "noDef" | "sync" | "arity" | "awaitsOne" | "gathers" | "noWait" | "notList" | "noFirst" | "noUnpack" | "returnsTask";
+
+/** Names bound by `done, pending = await asyncio.wait(...)`, or null. */
+function waitNames(body: string): [string, string] | null {
+  const m = body.match(/\b(\w+)\s*,\s*(\w+)\s*=\s*(?:\(\s*)?await\s+asyncio\s*\.\s*wait\s*\(/);
+  return m ? [m[1], m[2]] : null;
+}
+
+/** Shared by first and timeout: asyncio.wait over all three, first answer back. */
+function raceIssue(f: PyFn): "awaitsOne" | "gathers" | "noWait" | "notList" | "noFirst" | "noUnpack" | "returnsTask" | null {
+  const [a, b, c] = f.params;
+  if (/\bgather\s*\(/.test(f.body)) return "gathers";
+  if (!/\basyncio\s*\.\s*wait\s*\(/.test(f.body)) {
+    return new RegExp(`\\bawait\\s+(${a}|${b}|${c})\\b`).test(f.body) ? "awaitsOne" : "noWait";
+  }
+  if (/\basyncio\s*\.\s*wait\s*\(\s*\w+\s*,\s*\w+\s*[,)]/.test(f.body)) return "notList";
+  if (!/\bFIRST_COMPLETED\b/.test(f.body)) return "noFirst";
+  const names = waitNames(f.body);
+  if (!names) return "noUnpack";
+  const done = names[0];
+  const returns = [...f.body.matchAll(new RegExp(`^\\s*return\\b([^\\n]*\\b${done}\\b[^\\n]*)`, "gm"))].map((m) => m[1]);
+  if (returns.some((r) => !/\.\s*result\s*\(\s*\)|\bawait\b/.test(r))) return "returnsTask";
+  return null;
+}
+
+function firstCheck(code: string): FirstIssue | null {
+  const style = defStyle(code, "firstResponder");
+  if (style) return style;
+  if (hailCheck(code) !== null) return "hail";
+  const f = pyFn(code, "first_responder");
+  if (!f) return "noDef";
+  if (!f.isAsync) return "sync";
+  if (f.params.length !== 3) return "arity";
+  return raceIssue(f);
+}
+
+const RACE_MESSAGES = {
+  awaitsOne:
+    "`await alpha` waits for alpha — even though bravo answered sooner. listen to all three at once: `asyncio.wait([alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED)`.",
+  gathers: "`gather` waits for every team. we only need the first one — `asyncio.wait` with `return_when=asyncio.FIRST_COMPLETED`.",
+  noWait: "wait on all three at once: `done, pending = await asyncio.wait([alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED)`.",
+  notList: "`asyncio.wait` takes one list of tasks, in square brackets: `asyncio.wait([alpha, bravo, charlie], ...)`.",
+  noFirst:
+    "on its own, `asyncio.wait` waits for all of them. tell it when to come back: `return_when=asyncio.FIRST_COMPLETED`.",
+  noUnpack: "`asyncio.wait` gives back two sets — finished and still running. unpack them: `done, pending = await asyncio.wait(...)`.",
+  returnsTask: "that's the task, not what it said. `done.pop().result()` — take the finished task, read its answer.",
+} as const;
+
+const FIRST_MESSAGES: Record<FirstIssue, string> = {
+  ...styleMessages("first_responder", "first_responder(alpha, bravo, charlie)"),
+  hail: "keep `hail` from the last step working — the terminal still uses it to call the three teams.",
+  noDef: "i need `async def first_responder(alpha, bravo, charlie):` — three tasks in, the first answer out.",
+  sync: "it waits, so it has to be `async def first_responder(alpha, bravo, charlie):`.",
+  arity: "three tasks come in: `async def first_responder(alpha, bravo, charlie):`.",
+  ...RACE_MESSAGES,
+};
+
+const CH09_FIRST_DONE =
+  "bravo, first. we go with bravo, and nobody waits on the slow ones.\n\nbut if every frequency's jammed, i'm standing in a stairwell forever.\n\n||COMPLETE||";
+
+const ch09First: StepBank = {
+  intro:
+    "three teams hailed at once — i go with whoever answers first and don't wait on the slow ones. write `async def first_responder(alpha, bravo, charlie)`: `done, pending = await asyncio.wait([...], return_when=asyncio.FIRST_COMPLETED)`, and return `done.pop().result()`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["asyncio.wait", "wait", "done", "pending", "two sets"],
+      response: "`asyncio.wait` gives back two sets: `done` (finished) and `pending` (still running). with `FIRST_COMPLETED` it comes back as soon as one is done.",
+    },
+    {
+      keywords: ["first_completed", "first", "whoever", "race", "select"],
+      response: "`return_when=asyncio.FIRST_COMPLETED` — come back the moment any one finishes. without it, `wait` waits for all of them.",
+    },
+    {
+      keywords: ["pop", "result", "get the answer", "out of done"],
+      response: "`done.pop()` takes the finished task out of the set. `.result()` reads what it returned. together: `done.pop().result()`.",
+    },
+    {
+      keywords: ["await alpha", "why not", "just await"],
+      response: "`await alpha` waits on alpha no matter who's quicker. wait listens to all three at once.",
+    },
+    {
+      keywords: ["cancel", "losers", "slow ones", "pending", "still running"],
+      response: "the losers keep running unless you stop them. `for t in pending: t.cancel()` — a task you've stopped caring about shouldn't keep working.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "`done, pending = await asyncio.wait([alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED)`, cancel what's pending, `return done.pop().result()`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /first contact: Alpha responding/.test(out),
+      response: "alpha — but bravo answered first. you waited on alpha before anyone else. `asyncio.wait` with `FIRST_COMPLETED` listens to all three.",
+    },
+    {
+      match: (out) => /first contact: Charlie responding/.test(out),
+      response: "charlie's the slowest. something waited for everyone and took the last answer — `FIRST_COMPLETED` comes back on the first.",
+    },
+  ],
+
+  codePatterns: checkPatterns(firstCheck, FIRST_MESSAGES, CH09_FIRST_DONE),
+  correctResponse: CH09_FIRST_DONE,
+
+  genericWrong: [
+    "not matching. bravo answers in 100ms, alpha in 200, charlie in 300 — the terminal wants `first contact: Bravo responding`.",
+    "wait on all three at once and take whoever lands first.",
+  ],
+
+  rushDialogue: [
+    "the frequencies are degrading. take the first voice.",
+    "hurry — `asyncio.wait`, `FIRST_COMPLETED`, done.",
+  ],
+
+  stuckResponses: [
+    "```\nasync def first_responder(alpha, bravo, charlie):\n    done, pending = await asyncio.wait([alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED)\n    for t in pending:\n        t.cancel()\n    return done.pop().result()\n```",
+    "one `asyncio.wait` over the list, come back on the first, read its result.",
+  ],
+
+  deflections: [
+    "focus. first voice wins.",
+    "not now — whoever answers, we go.",
+  ],
+};
+
+// ── chapter-09:timeout ──
+
+type TimeoutIssue =
+  | StyleIssue | "hail" | "noDef" | "sync" | "arity"
+  | "awaitsOne" | "gathers" | "noWait" | "notList" | "noFirst" | "noUnpack" | "returnsTask"
+  | "noTimeout" | "fixedTimeout" | "timeoutSeconds" | "noContact"
+  | "noSweep" | "asyncSweep" | "sweepArity" | "sweepWaits" | "noDoneCheck" | "noSilent" | "noResult";
+
+function timeoutCheck(code: string): TimeoutIssue | null {
+  const style = defStyle(code, "awaitContact");
+  if (style) return style;
+  if (hailCheck(code) !== null) return "hail";
+  const f = pyFn(code, "await_contact");
+  if (!f) return "noDef";
+  if (!f.isAsync) return "sync";
+  if (f.params.length !== 4) return "arity";
+  const race = raceIssue(f);
+  if (race) return race;
+  const t = f.body.match(/\btimeout\s*=\s*([^,)\n]+)/);
+  if (!t) return "noTimeout";
+  if (!new RegExp(`\\b${f.params[3]}\\b`).test(t[1])) return "fixedTimeout";
+  if (!inSeconds(t[1])) return "timeoutSeconds";
+  if (!literals(f.raw).includes("NO CONTACT")) return "noContact";
+  const sweep = pyFn(code, "sweep");
+  if (!sweep) return "noSweep";
+  if (sweep.isAsync) return "asyncSweep";
+  if (sweep.params.length !== 1) return "sweepArity";
+  if (/\bawait\b|\basyncio\s*\.\s*(wait|sleep)\s*\(/.test(sweep.body)) return "sweepWaits";
+  if (!/\.\s*done\s*\(\s*\)/.test(sweep.body)) return "noDoneCheck";
+  if (!literals(sweep.raw).includes("channel silent")) return "noSilent";
+  if (!/\.\s*result\s*\(\s*\)/.test(sweep.body)) return "noResult";
+  return null;
+}
+
+const TIMEOUT_MESSAGES: Record<TimeoutIssue, string> = {
+  ...styleMessages("await_contact", "await_contact(alpha, bravo, charlie, timeout_ms)"),
+  hail: "keep `hail` from step one working — the terminal still hails the teams with it.",
+  noDef: "i need `async def await_contact(alpha, bravo, charlie, timeout_ms):` — the race from last step, with a deadline.",
+  sync: "it waits, so it's `async def await_contact(alpha, bravo, charlie, timeout_ms):`.",
+  arity: "four things come in — three tasks and the deadline: `async def await_contact(alpha, bravo, charlie, timeout_ms):`.",
+  ...RACE_MESSAGES,
+  noTimeout:
+    "with every frequency jammed, `asyncio.wait` waits forever — the terminal calls that a deadlock. give it a deadline: `timeout=timeout_ms / 1000`.",
+  fixedTimeout:
+    "the deadline is a number you picked. the terminal passes a different one each call — `timeout=timeout_ms / 1000`.",
+  timeoutSeconds: "`timeout=` counts seconds. `timeout_ms / 1000`.",
+  noContact: "if the deadline passes with nobody answering, `done` comes back empty. check it: `if not done: return \"NO CONTACT\"`.",
+  noSweep: "now `def sweep(task):` — a quick look at one channel that never waits.",
+  asyncSweep:
+    "`sweep` can't be `async def`. an async function exists so it can pause, and sweep must never pause — and the terminal calls it without `await`. plain `def sweep(task):`.",
+  sweepArity: "`sweep` looks at one task: `def sweep(task):`.",
+  sweepWaits: "`sweep` mustn't wait at all. it only looks: `task.done()` is true or it isn't.",
+  noDoneCheck: "`task.done()` tells you, without waiting, whether the answer's already in.",
+  noSilent: "nothing there yet means `return \"channel silent\"`, straight away.",
+  noResult: "when `task.done()` is true, hand back what it said: `return task.result()`.",
+};
+
+const CH09_TIMEOUT_DONE =
+  "bravo holding at dock 4. and when the air was dead, the program gave up in time instead of leaving me standing there.\n\nextraction's locked. and kira just sent me something.\n\n||COMPLETE||";
+
+const ch09Timeout: StepBank = {
+  intro:
+    "if every frequency is jammed i can't stand in a stairwell forever. two functions. `async def await_contact(alpha, bravo, charlie, timeout_ms)` — last step's wait, plus `timeout=timeout_ms / 1000`; an empty `done` means `NO CONTACT`. and `def sweep(task)`, not async: if `task.done()`, return its result, otherwise `channel silent` right away.",
+
+  conceptFAQ: [
+    {
+      keywords: ["timeout", "deadline", "how does the timeout", "give up"],
+      response: "`asyncio.wait(tasks, timeout=0.2, ...)` stops waiting after 0.2 seconds. if nobody finished by then, `done` comes back empty.",
+    },
+    {
+      keywords: ["empty", "not done", "nothing finished", "no contact"],
+      response: "an empty set is falsy, so `if not done: return \"NO CONTACT\"` reads exactly like it sounds.",
+    },
+    {
+      keywords: ["sweep", "plain def", "why not async", "non-blocking", "without waiting"],
+      response: "`sweep` must never wait. an `async def` exists so it can pause — sweep only looks. `task.done()` is true or it isn't, and either way you return at once.",
+    },
+    {
+      keywords: [".done", "done()", "is it finished", "ready"],
+      response: "`task.done()` is true once the task has its answer. then `task.result()` reads it. ask for `.result()` too early and python raises an error.",
+    },
+    {
+      keywords: ["deadlock", "forever", "hang", "stuck waiting"],
+      response: "a wait with no deadline on a task that never finishes waits forever. the terminal sees nothing can ever wake it and calls it a deadlock.",
+    },
+    {
+      keywords: ["seconds", "milliseconds", "1000"],
+      response: "`timeout=` is in seconds. `timeout_ms / 1000`.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start"],
+      response: "copy `first_responder` into `await_contact`, add `timeout=timeout_ms / 1000` to the wait, `if not done: return \"NO CONTACT\"`. then `def sweep(task):` with a `task.done()` check.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (out) => /waited \d+s for a 200ms deadline/.test(out),
+      response:
+        "you gave up eventually — after 200 seconds. asyncio counts in seconds, and `timeout_ms` is milliseconds. `timeout=timeout_ms / 1000`.",
+    },
+    {
+      match: (out) => /^contact: NO CONTACT\ncontact: NO CONTACT$/m.test(out),
+      response:
+        "the last call should reach alpha in 300ms — the deadline's 500. your timeout doesn't come from `timeout_ms`. `timeout=timeout_ms / 1000`.",
+    },
+    {
+      match: (out) => /^contact: Alpha responding\ncontact:/m.test(out) && !/^contact: Bravo/m.test(out),
+      response: "alpha first — but bravo answered sooner. wait on all three with `FIRST_COMPLETED`.",
+    },
+    {
+      match: (out) => /^sweep: channel silent\nsweep: channel silent$/m.test(out),
+      response: "the first channel was already answered, and sweep still said silent. if `task.done()`, return `task.result()`.",
+    },
+  ],
+
+  codePatterns: checkPatterns(timeoutCheck, TIMEOUT_MESSAGES, CH09_TIMEOUT_DONE),
+  correctResponse: CH09_TIMEOUT_DONE,
+
+  genericWrong: [
+    "not matching. bravo, then `NO CONTACT` for the jammed call, then alpha — and the sweep finds bravo at dock 4, then silence.",
+    "check the deadline comes from `timeout_ms`, and that `sweep` never waits.",
+  ],
+
+  rushDialogue: [
+    "the extraction window's closing. finish the deadline.",
+    "hurry — timeout on the wait, `task.done()` in the sweep.",
+  ],
+
+  stuckResponses: [
+    "```\nasync def await_contact(alpha, bravo, charlie, timeout_ms):\n    done, pending = await asyncio.wait(\n        [alpha, bravo, charlie], timeout=timeout_ms / 1000, return_when=asyncio.FIRST_COMPLETED\n    )\n    for t in pending:\n        t.cancel()\n    if not done:\n        return \"NO CONTACT\"\n    return done.pop().result()\n\n\ndef sweep(task):\n    if task.done():\n        return task.result()\n    return \"channel silent\"\n```",
+    "the wait gets a deadline and the sweep gets no wait at all. know which one the moment needs.",
+  ],
+
+  deflections: [
+    "focus. a deadline, then a glance.",
+    "not now — bravo won't hold the dock forever.",
+  ],
+};
+
 // ── Registry ──
 
 export const PYTHON_BANKS: Record<string, StepBank> = {
@@ -2418,4 +3709,15 @@ export const PYTHON_BANKS: Record<string, StepBank> = {
   "chapter-04.2:reverseword": ch04_2Reverseword,
   "chapter-04.2:encode": ch04_2Encode,
   "chapter-04.2:relayheader": ch04_2Relayheader,
+  "chapter-07:scaffold": ch07Scaffold,
+  "chapter-07:scan": ch07Scan,
+  "chapter-07:recover": ch07Recover,
+  "chapter-08:scaffold": ch08Scaffold,
+  "chapter-08:goroutine": ch08Goroutine,
+  "chapter-08:fanout": ch08Fanout,
+  "chapter-08:window": ch08Window,
+  "chapter-09:scaffold": ch09Scaffold,
+  "chapter-09:hail": ch09Hail,
+  "chapter-09:first": ch09First,
+  "chapter-09:timeout": ch09Timeout,
 };

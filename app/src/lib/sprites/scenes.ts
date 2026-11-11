@@ -1586,3 +1586,840 @@ export const CHAPTER_04_2_COMPLETE_SCENES: SceneDefinition[] = [
     ],
   },
 ];
+
+// ════════════════════════════════════════════════════════════════════
+// ACT III · DEEPER IN — film fallbacks (WebGL off only; the playable
+// beats in src/lib/adventure/levels.ts are the real intros/aftermaths).
+// Intro: wide (title) → close → tracking → insert → threat → insert.
+// Outro: confirm → reveal → consequence → walk-off (chapter card).
+// Floor bands: corridor y ≥ 315, server y ≥ 327.
+// ════════════════════════════════════════════════════════════════════
+
+// ── CHAPTER 7 INTRO · SERVER ROOM · ARCHIVE ─────────────────────
+
+export const CHAPTER_07_INTRO_SCENES: SceneDefinition[] = [
+  // Shot 1: establishing wide on the rack hall. Title card.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 300, y: 470, animation: "idle" }],
+    camera: [
+      { x: 480, y: 330, zoom: 0.98, time: 0 },
+      { x: 500, y: 324, zoom: 1.1, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "SERVER ROOM · ARCHIVE",
+    caption: "my thesis is somewhere in these racks.",
+    titleCard: { text: "CHAPTER 7", sub: "FILE TREE", atMs: 700, durationMs: 2800 },
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.08, fadeMs: 1800 },
+      { atMs: 200, action: "loop-start", sound: "dark-drone-1", volume: 0.05, fadeMs: 2000 },
+      { atMs: 900, action: "sfx", sound: "terminal-beep", volume: 0.18 },
+    ],
+  },
+  // Shot 2: close — an unregistered channel pings her.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 300, y: 470, animation: "idle" }],
+    camera: [
+      { x: 320, y: 380, zoom: 1.35, time: 0 },
+      { x: 330, y: 372, zoom: 1.48, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "SERVER ROOM · ARCHIVE",
+    caption: "an unregistered channel. \"last rack. read it first.\"",
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.38 },
+      { atMs: 2200, action: "sfx", sound: "dread-sting", volume: 0.22 },
+    ],
+  },
+  // Shot 3: tracking — she crosses to the archive terminal and starts typing.
+  {
+    background: "server",
+    actors: [
+      {
+        type: "maya",
+        x: 260,
+        y: 470,
+        animation: "walk-right",
+        path: [{ x: 560, y: 460, duration: 2400 }],
+        endAnimation: "hack",
+      },
+    ],
+    camera: [
+      { x: 420, y: 340, zoom: 1.15, time: 0 },
+      { x: 540, y: 336, zoom: 1.28, time: 2600 },
+    ],
+    durationMs: 3800,
+    advance: "on-action",
+    location: "SERVER ROOM · ARCHIVE",
+    caption: "a page clipped to the rack. sharper handwriting.",
+    audio: [{ atMs: 100, action: "footsteps", count: 5, intervalMs: 460, volume: 0.24 }],
+  },
+  // Shot 4: insert — the tree goes deep; a corrupted branch flickers red.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 360, zoom: 1.4, time: 0 },
+      { x: 570, y: 352, zoom: 1.54, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "SERVER ROOM · ARCHIVE TERMINAL",
+    caption: "folders inside folders. some of them corrupted.",
+    flashes: [{ atMs: 2400, durationMs: 380, color: C.dangerBright, intensity: 0.22 }],
+    glitches: [{ atMs: 2400, durationMs: 180 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "maya-typing", volume: 0.22 },
+      { atMs: 2400, action: "sfx", sound: "warning-beep", volume: 0.32 },
+    ],
+  },
+  // Shot 5: threat — the rack patrol walks at the lens.
+  {
+    background: "corridor",
+    transition: "glitch",
+    actors: [
+      {
+        type: "guard",
+        x: 526,
+        y: 330,
+        animation: "walk-down",
+        path: [{ x: 508, y: 560, duration: 3800 }],
+      },
+    ],
+    camera: [
+      { x: 520, y: 382, zoom: 1.05, time: 0 },
+      { x: 514, y: 402, zoom: 1.16, time: 3800 },
+    ],
+    dutch: 0.024,
+    durationMs: 3800,
+    location: "SERVER ROOM · RACK HALL",
+    caption: "the rack patrol is coming back around.",
+    shakes: [
+      { atMs: 2800, durationMs: 220, intensity: 1.6 },
+      { atMs: 3300, durationMs: 240, intensity: 2.2 },
+    ],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 200, action: "sfx", sound: "dread-sting", volume: 0.36 },
+      { atMs: 300, action: "footsteps", count: 7, intervalMs: 460, volume: 0.4, variant: "boots" },
+    ],
+  },
+  // Shot 6: back on the terminal — the scan is hers to write.
+  {
+    background: "server",
+    transition: "flash",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 356, zoom: 1.46, time: 0 },
+      { x: 572, y: 348, zoom: 1.6, time: 3400 },
+    ],
+    durationMs: 3400,
+    location: "SERVER ROOM · ARCHIVE TERMINAL",
+    caption: "count every file. find the thesis.",
+    flashes: [{ atMs: 300, durationMs: 480, color: C.termBright, intensity: 0.28 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.07, fadeMs: 1500 },
+      { atMs: 300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 7 COMPLETE ──────────────────────────────────────────
+
+export const CHAPTER_07_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: match on gamma.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 360, zoom: 1.36, time: 0 },
+      { x: 570, y: 352, zoom: 1.48, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "SERVER ROOM · ARCHIVE TERMINAL",
+    caption: "thesis_v2. on the gamma server.",
+    titleCard: { text: "THESIS LOCATED", sub: "SERVERS · GAMMA", atMs: 900, durationMs: 2400 },
+    flashes: [{ atMs: 700, durationMs: 560, color: C.signalBright, intensity: 0.38 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.08, fadeMs: 1000 },
+      { atMs: 700, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+    ],
+  },
+  // Win 2: Kira — the vault is being erased.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "idle" }],
+    camera: [
+      { x: 520, y: 350, zoom: 1.2, time: 0 },
+      { x: 540, y: 344, zoom: 1.3, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "SERVER ROOM · ARCHIVE",
+    caption: "kira: GHOST isn't hiding evidence. he's erasing it.",
+    glitches: [{ atMs: 1800, durationMs: 200 }],
+    audio: [
+      { atMs: 200, action: "sfx", sound: "message-receive", volume: 0.36 },
+      { atMs: 1800, action: "sfx", sound: "dread-sting", volume: 0.3 },
+    ],
+  },
+  // Win 3: "we copy it out tonight."
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "idle" }],
+    camera: [
+      { x: 560, y: 340, zoom: 1.42, time: 0 },
+      { x: 566, y: 334, zoom: 1.52, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "SERVER ROOM · ARCHIVE",
+    caption: "\"we copy it out tonight.\" she said we.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.08, fadeMs: 1500 },
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.3 },
+    ],
+  },
+  // Win 4: out toward the power plant. Chapter card.
+  {
+    background: "corridor",
+    transition: "dissolve",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 460,
+        animation: "walk-right",
+        path: [{ x: 520, y: 460, duration: 2600 }],
+      },
+    ],
+    camera: [
+      { x: 400, y: 300, zoom: 1.0, time: 0 },
+      { x: 560, y: 296, zoom: 1.12, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "SERVICE CORRIDOR · TO THE POWER PLANT",
+    caption: "the archive runs on the alarm grid.",
+    titleCard: { text: "CHAPTER 7 COMPLETE", sub: "NEXT · CIRCUIT CUT", atMs: 1200, durationMs: 2600 },
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 1200 },
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 430, volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 8 INTRO · POWER PLANT · CIRCUIT ARRAY ───────────────
+
+export const CHAPTER_08_INTRO_SCENES: SceneDefinition[] = [
+  // Shot 1: wide on the humming plant. Title card.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 240, y: 480, animation: "idle" }],
+    camera: [
+      { x: 480, y: 330, zoom: 0.98, time: 0 },
+      { x: 500, y: 322, zoom: 1.1, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "POWER PLANT · CIRCUIT ARRAY",
+    caption: "four breakers feed the alarm grid.",
+    titleCard: { text: "CHAPTER 8", sub: "CIRCUIT CUT", atMs: 700, durationMs: 2800 },
+    shakes: [{ atMs: 2600, durationMs: 260, intensity: 1.4 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.12, fadeMs: 1500 },
+      { atMs: 200, action: "loop-start", sound: "dark-drone-2", volume: 0.05, fadeMs: 2000 },
+      { atMs: 2600, action: "sfx", sound: "machinery", volume: 0.3 },
+    ],
+  },
+  // Shot 2: close — one at a time and the grid seals the building.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 240, y: 480, animation: "idle" }],
+    camera: [
+      { x: 280, y: 390, zoom: 1.36, time: 0 },
+      { x: 290, y: 382, zoom: 1.5, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "POWER PLANT · CIRCUIT ARRAY",
+    caption: "one at a time, the grid seals everything.",
+    audio: [
+      { atMs: 1200, action: "sfx", sound: "warning-beep", volume: 0.24 },
+    ],
+  },
+  // Shot 3: tracking — to the breaker console.
+  {
+    background: "server",
+    actors: [
+      {
+        type: "maya",
+        x: 220,
+        y: 480,
+        animation: "walk-right",
+        path: [{ x: 540, y: 462, duration: 2400 }],
+        endAnimation: "hack",
+      },
+    ],
+    camera: [
+      { x: 400, y: 340, zoom: 1.15, time: 0 },
+      { x: 520, y: 336, zoom: 1.28, time: 2600 },
+    ],
+    durationMs: 3800,
+    advance: "on-action",
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "her page, taped behind breaker four.",
+    audio: [{ atMs: 100, action: "footsteps", count: 5, intervalMs: 460, volume: 0.24 }],
+  },
+  // Shot 4: insert — four lamps on the console.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 540, y: 462, animation: "hack" }],
+    camera: [
+      { x: 540, y: 360, zoom: 1.42, time: 0 },
+      { x: 552, y: 352, zoom: 1.56, time: 3400 },
+    ],
+    durationMs: 3400,
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "four breakers. one power cycle.",
+    flashes: [{ atMs: 1600, durationMs: 400, color: C.lightWarm, intensity: 0.22 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "maya-typing", volume: 0.2 },
+      { atMs: 1600, action: "sfx", sound: "terminal-beep", volume: 0.26 },
+    ],
+  },
+  // Shot 5: threat — the plant engineer on his rounds.
+  {
+    background: "corridor",
+    transition: "glitch",
+    actors: [
+      {
+        type: "guard",
+        x: 530,
+        y: 328,
+        animation: "walk-down",
+        path: [{ x: 510, y: 562, duration: 3800 }],
+      },
+    ],
+    camera: [
+      { x: 520, y: 382, zoom: 1.05, time: 0 },
+      { x: 514, y: 404, zoom: 1.16, time: 3800 },
+    ],
+    dutch: 0.022,
+    durationMs: 3800,
+    location: "POWER PLANT · ENGINEER'S WALK",
+    caption: "an engineer on his rounds.",
+    shakes: [
+      { atMs: 2800, durationMs: 220, intensity: 1.6 },
+      { atMs: 3300, durationMs: 240, intensity: 2.2 },
+    ],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 200, action: "sfx", sound: "dread-sting", volume: 0.36 },
+      { atMs: 300, action: "footsteps", count: 7, intervalMs: 460, volume: 0.4, variant: "boots" },
+    ],
+  },
+  // Shot 6: back on the console — all four have to drop together.
+  {
+    background: "server",
+    transition: "flash",
+    actors: [{ type: "maya", x: 540, y: 462, animation: "hack" }],
+    camera: [
+      { x: 540, y: 356, zoom: 1.46, time: 0 },
+      { x: 552, y: 348, zoom: 1.6, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "all four have to drop together.",
+    flashes: [{ atMs: 300, durationMs: 480, color: C.termBright, intensity: 0.28 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.1, fadeMs: 1500 },
+      { atMs: 300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 8 COMPLETE ──────────────────────────────────────────
+
+export const CHAPTER_08_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: all four down — the grid goes blind.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 540, y: 462, animation: "hack" }],
+    camera: [
+      { x: 540, y: 360, zoom: 1.36, time: 0 },
+      { x: 552, y: 352, zoom: 1.48, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "all four down. the grid is blind.",
+    titleCard: { text: "GRID BLIND", sub: "ALL CIRCUITS DOWN", atMs: 900, durationMs: 2400 },
+    flashes: [{ atMs: 600, durationMs: 600, color: C.signalBright, intensity: 0.4 }],
+    shakes: [{ atMs: 600, durationMs: 320, intensity: 3 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-2", volume: 0.08, fadeMs: 1200 },
+      { atMs: 600, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+      { atMs: 900, action: "sfx", sound: "machinery", volume: 0.25 },
+    ],
+  },
+  // Win 2: Kira's file lands — a key and a zero-day.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 540, y: 462, animation: "hack" }],
+    camera: [
+      { x: 540, y: 350, zoom: 1.44, time: 0 },
+      { x: 548, y: 344, zoom: 1.56, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "her file: the key. and a zero-day.",
+    flashes: [{ atMs: 2200, durationMs: 400, color: C.dangerBright, intensity: 0.26 }],
+    glitches: [{ atMs: 2200, durationMs: 200 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.38 },
+      { atMs: 2200, action: "sfx", sound: "warning-beep", volume: 0.36 },
+      { atMs: 2500, action: "sfx", sound: "dread-sting", volume: 0.28 },
+    ],
+  },
+  // Win 3: quarantined. Key extracted.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 540, y: 462, animation: "idle" }],
+    camera: [
+      { x: 520, y: 344, zoom: 1.24, time: 0 },
+      { x: 530, y: 338, zoom: 1.34, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "POWER PLANT · BREAKER CONSOLE",
+    caption: "file quarantined. key extracted. remember this.",
+    audio: [
+      { atMs: 400, action: "sfx", sound: "terminal-beep", volume: 0.26 },
+      { atMs: 1400, action: "sfx", sound: "keypress-1", volume: 0.2 },
+    ],
+  },
+  // Win 4: up to the comms array. Chapter card.
+  {
+    background: "corridor",
+    transition: "dissolve",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 460,
+        animation: "walk-right",
+        path: [{ x: 520, y: 460, duration: 2600 }],
+      },
+    ],
+    camera: [
+      { x: 400, y: 300, zoom: 1.0, time: 0 },
+      { x: 560, y: 296, zoom: 1.12, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "STAIRWELL · TO THE COMMS ARRAY",
+    caption: "the comms array. before the grid heals.",
+    titleCard: { text: "CHAPTER 8 COMPLETE", sub: "NEXT · CHANNEL OF ESCAPE", atMs: 1200, durationMs: 2600 },
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-2", fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 430, volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 9 INTRO · SERVER ROOM · COMMS ARRAY ─────────────────
+
+export const CHAPTER_09_INTRO_SCENES: SceneDefinition[] = [
+  // Shot 1: wide on the array room. Title card.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 260, y: 476, animation: "idle" }],
+    camera: [
+      { x: 480, y: 330, zoom: 0.98, time: 0 },
+      { x: 500, y: 324, zoom: 1.1, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "SERVER ROOM · COMMS ARRAY",
+    caption: "the grid is blind. now, a way out.",
+    titleCard: { text: "CHAPTER 9", sub: "CHANNEL OF ESCAPE", atMs: 700, durationMs: 2800 },
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.08, fadeMs: 1800 },
+      { atMs: 200, action: "loop-start", sound: "tension-drone", volume: 0.04, fadeMs: 2000 },
+      { atMs: 1000, action: "sfx", sound: "terminal-beep", volume: 0.18 },
+    ],
+  },
+  // Shot 2: close — three frequencies, all from Kira.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 260, y: 476, animation: "idle" }],
+    camera: [
+      { x: 300, y: 386, zoom: 1.36, time: 0 },
+      { x: 310, y: 378, zoom: 1.5, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "SERVER ROOM · COMMS ARRAY",
+    caption: "three teams. three frequencies. all hers.",
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.36 },
+      { atMs: 2000, action: "sfx", sound: "terminal-beep", volume: 0.18 },
+    ],
+  },
+  // Shot 3: tracking — to the comms terminal under the antenna housing.
+  {
+    background: "server",
+    actors: [
+      {
+        type: "maya",
+        x: 240,
+        y: 476,
+        animation: "walk-right",
+        path: [{ x: 560, y: 460, duration: 2400 }],
+        endAnimation: "hack",
+      },
+    ],
+    camera: [
+      { x: 420, y: 340, zoom: 1.15, time: 0 },
+      { x: 540, y: 336, zoom: 1.28, time: 2600 },
+    ],
+    durationMs: 3800,
+    advance: "on-action",
+    location: "SERVER ROOM · ANTENNA HOUSING",
+    caption: "paper under the antenna housing. hers again.",
+    audio: [{ atMs: 100, action: "footsteps", count: 5, intervalMs: 460, volume: 0.24 }],
+  },
+  // Shot 4: insert — Reeves wants them burned unread.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 360, zoom: 1.4, time: 0 },
+      { x: 570, y: 352, zoom: 1.54, time: 3400 },
+    ],
+    durationMs: 3400,
+    location: "SERVER ROOM · COMMS TERMINAL",
+    caption: "reeves: burn them unread. i can't afford to.",
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.3 },
+      { atMs: 1400, action: "sfx", sound: "maya-typing", volume: 0.2 },
+    ],
+  },
+  // Shot 5: threat — a sweep in the hall.
+  {
+    background: "corridor",
+    transition: "glitch",
+    actors: [
+      {
+        type: "guard",
+        x: 524,
+        y: 330,
+        animation: "walk-down",
+        path: [{ x: 506, y: 560, duration: 3800 }],
+      },
+    ],
+    camera: [
+      { x: 520, y: 382, zoom: 1.05, time: 0 },
+      { x: 514, y: 402, zoom: 1.16, time: 3800 },
+    ],
+    dutch: 0.024,
+    durationMs: 3800,
+    location: "SERVER ROOM · HALL",
+    caption: "the grid is blind. the guards aren't.",
+    shakes: [
+      { atMs: 2800, durationMs: 220, intensity: 1.6 },
+      { atMs: 3300, durationMs: 240, intensity: 2.2 },
+    ],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 1000 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 200, action: "sfx", sound: "dread-sting", volume: 0.36 },
+      { atMs: 300, action: "footsteps", count: 7, intervalMs: 460, volume: 0.4, variant: "boots" },
+    ],
+  },
+  // Shot 6: back on the terminal — take whoever answers first.
+  {
+    background: "server",
+    transition: "flash",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 356, zoom: 1.46, time: 0 },
+      { x: 572, y: 348, zoom: 1.6, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "SERVER ROOM · COMMS TERMINAL",
+    caption: "call them all. take the first answer.",
+    flashes: [{ atMs: 300, durationMs: 480, color: C.termBright, intensity: 0.28 }],
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "corridor-ambient", fadeMs: 800 },
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.07, fadeMs: 1500 },
+      { atMs: 300, action: "sfx", sound: "terminal-beep", volume: 0.3 },
+    ],
+  },
+];
+
+// ── CHAPTER 9 COMPLETE ──────────────────────────────────────────
+
+export const CHAPTER_09_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: Bravo answers.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 360, zoom: 1.36, time: 0 },
+      { x: 570, y: 352, zoom: 1.48, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "SERVER ROOM · COMMS TERMINAL",
+    caption: "bravo. dock 4, forty minutes, one passenger.",
+    titleCard: { text: "BRAVO CONFIRMS", sub: "DOCK 4 · FORTY MINUTES", atMs: 900, durationMs: 2400 },
+    flashes: [{ atMs: 600, durationMs: 560, color: C.termBright, intensity: 0.38 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "facility-hum", volume: 0.08, fadeMs: 1000 },
+      { atMs: 600, action: "sfx", sound: "handshake-confirm", volume: 0.5 },
+    ],
+  },
+  // Win 2: Kira invoices — use my encoder.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 540, y: 350, zoom: 1.42, time: 0 },
+      { x: 548, y: 344, zoom: 1.54, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "SERVER ROOM · COMMS TERMINAL",
+    caption: "kira: open air. use my encoder.",
+    glitches: [{ atMs: 2000, durationMs: 200 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.38 },
+      { atMs: 2000, action: "sfx", sound: "dread-sting", volume: 0.32 },
+    ],
+  },
+  // Win 3: six lines. reads clean.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "idle" }],
+    camera: [
+      { x: 560, y: 340, zoom: 1.44, time: 0 },
+      { x: 566, y: 334, zoom: 1.54, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "SERVER ROOM · COMMS ARRAY",
+    caption: "six lines. almost too clean.",
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "heartbeat-slow", volume: 0.16, fadeMs: 1200 },
+      { atMs: 400, action: "sfx", sound: "terminal-beep", volume: 0.22 },
+    ],
+  },
+  // Win 4: to the dock relay. Chapter card.
+  {
+    background: "corridor",
+    transition: "dissolve",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 460,
+        animation: "walk-right",
+        path: [{ x: 520, y: 460, duration: 2600 }],
+      },
+    ],
+    camera: [
+      { x: 400, y: 300, zoom: 1.0, time: 0 },
+      { x: 560, y: 296, zoom: 1.12, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "SERVICE CORRIDOR · TO THE DOCK RELAY",
+    caption: "six lines. i can read six lines.",
+    titleCard: { text: "CHAPTER 9 COMPLETE", sub: "NEXT · KIRA · ALLEGIANCE", atMs: 1200, durationMs: 2600 },
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "facility-hum", fadeMs: 1200 },
+      { atMs: 0, action: "loop-stop", sound: "heartbeat-slow", fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 430, volume: 0.3 },
+    ],
+  },
+];
+
+// ── BOSS 3 INTRO · DOCK RELAY · KIRA'S CHANNEL ──────────────────
+// The only silent boss: no guard, no threat shot — the threat is being wrong.
+
+export const BOSS_03_INTRO_SCENES: SceneDefinition[] = [
+  // Shot 1: wide, near-dark relay room. Title card.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 260, y: 476, animation: "idle" }],
+    camera: [
+      { x: 480, y: 330, zoom: 0.98, time: 0 },
+      { x: 496, y: 324, zoom: 1.08, time: 4600 },
+    ],
+    durationMs: 4600,
+    location: "DOCK RELAY · KIRA'S CHANNEL",
+    caption: "dock 4 below. bravo is holding.",
+    titleCard: { text: "BOSS", sub: "KIRA · ALLEGIANCE", atMs: 700, durationMs: 3000 },
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.1, fadeMs: 2000 },
+      { atMs: 1400, action: "sfx", sound: "door-slide", volume: 0.1 },
+    ],
+  },
+  // Shot 2: close — Reeves' loopback came back wrong.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 260, y: 476, animation: "idle" }],
+    camera: [
+      { x: 300, y: 386, zoom: 1.36, time: 0 },
+      { x: 310, y: 378, zoom: 1.5, time: 4400 },
+    ],
+    durationMs: 4400,
+    location: "DOCK RELAY",
+    caption: "reeves: the receiver log came back wrong.",
+    audio: [
+      { atMs: 300, action: "sfx", sound: "message-receive", volume: 0.32 },
+      { atMs: 2400, action: "sfx", sound: "dread-sting", volume: 0.24 },
+    ],
+  },
+  // Shot 3: tracking — to the relay console.
+  {
+    background: "server",
+    actors: [
+      {
+        type: "maya",
+        x: 240,
+        y: 476,
+        animation: "walk-right",
+        path: [{ x: 560, y: 460, duration: 2600 }],
+        endAnimation: "hack",
+      },
+    ],
+    camera: [
+      { x: 420, y: 340, zoom: 1.15, time: 0 },
+      { x: 540, y: 336, zoom: 1.28, time: 2800 },
+    ],
+    durationMs: 4000,
+    advance: "on-action",
+    location: "DOCK RELAY · CONSOLE",
+    caption: "her pages, from reeves' coat. read before you run.",
+    audio: [{ atMs: 100, action: "footsteps", count: 5, intervalMs: 480, volume: 0.2 }],
+  },
+  // Shot 4: insert — Kira on the line.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 360, zoom: 1.42, time: 0 },
+      { x: 570, y: 352, zoom: 1.56, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "DOCK RELAY · KIRA'S CHANNEL",
+    caption: "kira: take your time. bravo won't.",
+    flashes: [{ atMs: 400, durationMs: 420, color: C.alertBright, intensity: 0.2 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "heartbeat-slow", volume: 0.16, fadeMs: 1500 },
+      { atMs: 400, action: "sfx", sound: "message-receive", volume: 0.34 },
+    ],
+  },
+  // Shot 5: the six lines — a single amber lamp, an interrogation table.
+  {
+    background: "server",
+    transition: "glitch",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 572, y: 350, zoom: 1.6, time: 0 },
+      { x: 580, y: 342, zoom: 1.76, time: 4200 },
+    ],
+    dutch: 0.02,
+    durationMs: 4200,
+    location: "DOCK RELAY · KIRA'S CHANNEL",
+    caption: "six lines. one verdict.",
+    glitches: [{ atMs: 2600, durationMs: 180 }],
+    audio: [
+      { atMs: 300, action: "sfx", sound: "terminal-beep", volume: 0.24 },
+      { atMs: 2600, action: "sfx", sound: "dread-sting", volume: 0.3 },
+    ],
+  },
+];
+
+// ── BOSS 3 COMPLETE ─────────────────────────────────────────────
+// Verdict-neutral: plays the same after TRUST and REJECT.
+
+export const BOSS_03_COMPLETE_SCENES: SceneDefinition[] = [
+  // Win 1: the verdict is sent.
+  {
+    background: "server",
+    transition: "dissolve",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "hack" }],
+    camera: [
+      { x: 560, y: 356, zoom: 1.4, time: 0 },
+      { x: 570, y: 348, zoom: 1.5, time: 3800 },
+    ],
+    durationMs: 3800,
+    location: "DOCK RELAY · KIRA'S CHANNEL",
+    caption: "the verdict is sent.",
+    titleCard: { text: "VERDICT GIVEN", sub: "KIRA · ALLEGIANCE", atMs: 900, durationMs: 2400 },
+    flashes: [{ atMs: 500, durationMs: 500, color: C.alertBright, intensity: 0.3 }],
+    shakes: [{ atMs: 500, durationMs: 320, intensity: 3 }],
+    audio: [
+      { atMs: 0, action: "loop-start", sound: "dark-drone-1", volume: 0.08, fadeMs: 1200 },
+      { atMs: 500, action: "sfx", sound: "captured-impact", volume: 0.3 },
+    ],
+  },
+  // Win 2: it's done.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "idle" }],
+    camera: [
+      { x: 520, y: 350, zoom: 1.2, time: 0 },
+      { x: 534, y: 344, zoom: 1.3, time: 3600 },
+    ],
+    durationMs: 3600,
+    location: "DOCK RELAY",
+    caption: "it's done. whatever she is, we know now.",
+    audio: [{ atMs: 600, action: "sfx", sound: "terminal-beep", volume: 0.18 }],
+  },
+  // Win 3: Reeves — bravo won't hold forever.
+  {
+    background: "server",
+    actors: [{ type: "maya", x: 560, y: 460, animation: "idle" }],
+    camera: [
+      { x: 560, y: 340, zoom: 1.42, time: 0 },
+      { x: 566, y: 334, zoom: 1.52, time: 3200 },
+    ],
+    durationMs: 3200,
+    location: "DOCK RELAY",
+    caption: "reeves: the exit corridor. bravo won't hold.",
+    audio: [{ atMs: 300, action: "sfx", sound: "message-receive", volume: 0.3 }],
+  },
+  // Win 4: down toward the exit corridor. Act card.
+  {
+    background: "corridor",
+    transition: "dissolve",
+    actors: [
+      {
+        type: "maya",
+        x: 120,
+        y: 460,
+        animation: "walk-right",
+        path: [{ x: 520, y: 460, duration: 2600 }],
+      },
+    ],
+    camera: [
+      { x: 400, y: 300, zoom: 1.0, time: 0 },
+      { x: 560, y: 296, zoom: 1.12, time: 4000 },
+    ],
+    durationMs: 4000,
+    location: "EXIT CORRIDOR · UNDER DOCK 4",
+    caption: "eyes open. whatever comes next.",
+    titleCard: { text: "ACT III COMPLETE", sub: "NEXT · SENSOR SWEEP", atMs: 1200, durationMs: 2600 },
+    audio: [
+      { atMs: 0, action: "loop-stop", sound: "dark-drone-1", fadeMs: 1500 },
+      { atMs: 0, action: "loop-start", sound: "corridor-ambient", volume: 0.1, fadeMs: 800 },
+      { atMs: 100, action: "footsteps", count: 6, intervalMs: 430, volume: 0.3 },
+    ],
+  },
+];

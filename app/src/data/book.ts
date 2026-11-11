@@ -136,6 +136,58 @@ export const BOOK_CHAPTERS: BookChapter[] = [
       javascript: { title: "Strings & Characters", found: "chapter six. the last one she hid. strings, characters, the cipher." },
     },
   },
+  // ── Act III: Kira's pages ──
+  // Reeves' manual ends at chapter six. From here the pages are Kira's — loose
+  // sheets in a sharper hand, left exactly where Maya is about to need them.
+  // The player learns from the person they will have to judge (boss 3).
+  {
+    challengeId: "chapter-07",
+    number: 7,
+    numeral: "VII",
+    title: "Closures & Recursion",
+    hiddenIn: "clipped inside the archive rack · server room",
+    marginNote: "a function that remembers what it saw. useful. so am i. — k.",
+    found: "chapter seven. not reeves' handwriting. sharper. someone knew i'd come to this rack. kira.",
+  },
+  {
+    challengeId: "chapter-08",
+    number: 8,
+    numeral: "VIII",
+    title: "Goroutines & WaitGroups",
+    hiddenIn: "taped behind breaker four · circuit array",
+    marginNote: "four hands, one moment. the grid never sees you coming. — k.",
+    found: "chapter eight. her handwriting again. she knew i'd be at the breakers before i did.",
+    byLanguage: {
+      python: { title: "Tasks & Gather" },
+      javascript: { title: "Promises & the Event Loop" },
+    },
+  },
+  {
+    challengeId: "chapter-09",
+    number: 9,
+    numeral: "IX",
+    title: "Channels & Select",
+    hiddenIn: "under the antenna housing · comms array",
+    marginNote: "take the first voice that answers. never wait on a dead line. — k.",
+    found: "chapter nine. she's teaching me to listen on her frequencies. that should worry me more than it does.",
+    byLanguage: {
+      python: { title: "Racing Tasks" },
+      javascript: { title: "Racing Promises" },
+    },
+  },
+  {
+    challengeId: "boss-03",
+    number: 10,
+    numeral: "X",
+    title: "Reading Code",
+    hiddenIn: "folded into reeves' coat · dock relay",
+    marginNote: "a slice is a window, not a copy. ask who else is looking through it. — e.r.",
+    found: "reeves' hand again. she wrote this one for tonight. read before you run.",
+    byLanguage: {
+      python: { marginNote: "a view is a window, not a copy. ask who else is looking through it. — e.r." },
+      javascript: { marginNote: "a subarray is a window, not a copy. ask who else is looking through it. — e.r." },
+    },
+  },
 ];
 
 export function bookChapterFor(challengeId: string, language: LanguageId = "go"): BookChapter | null {

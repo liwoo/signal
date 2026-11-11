@@ -13,6 +13,8 @@
 
 Zero new graded concepts. The send-only parameter type `chan<- []byte` appears in Kira's code as read-only exposure — Maya explains it in one line during phase 1; it is never something the player must produce.
 
+> **As built (Act III, Nov 2026):** stage `app/src/components/boss/allegiance/AllegianceBoss.tsx`, rules `app/src/lib/game/allegiance.ts`, content `app/src/data/challenges/boss-03.ts`, preview `/dev/kira?lang=go|python|javascript`, QA `test-visual/capture-kira.mjs`. The explanation grader is a deterministic heuristic (works offline and in tests): each marker needs context, not a lone keyword, the mutation marker must tie the change to *after sending* in the same sentence, and a pass also needs a causal connective. Python's Kira uses `memoryview` (a `bytearray` slice copies); JavaScript's uses `Uint8Array.subarray` (`slice` copies). The verdict is saved to `PlayerProgress.kiraVerdict` / `storyBranch`.
+
 ## Story Context
 
 Bravo holds at dock 4. Forty minutes. Kira's encoder — `transmit.go`, six lines — is supposed to mask the thesis before it crosses Bravo's open frequency. Reeves ran it through a loopback on the dock relay and the receiver log came back wrong in a way only three people in this building could even see. Now everything reduces to one question Maya has dodged since Floor 3: what is Kira? This boss is not a fight and there is no countdown. It's a code review where the code's author is watching, the verdict sets Act IV's path, and being wrong means streaming Maya's life's work through a saboteur's hands.

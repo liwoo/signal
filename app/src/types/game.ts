@@ -153,6 +153,11 @@ export interface TimedEvent {
   triggerAtSeconds: number;
   type: "story" | "rush" | "powercut" | "system";
   message: string;
+  /**
+   * Who says a story beat. Default MAYA (lowercase voice). Act III brings in
+   * other voices on the channel — KIRA, REEVES, GHOST — each in its own colour.
+   */
+  speaker?: "MAYA" | "KIRA" | "REEVES" | "GHOST";
   effect?: JeopardyEvent;
 }
 

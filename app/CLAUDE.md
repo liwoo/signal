@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A narrative coding game teaching Go (and, for Act I and the built Act II chapters, Python and JavaScript) through an escape thriller. Next.js 16 + React 19 + Tailwind 4 + TypeScript 5.
+A narrative coding game teaching Go (and, for every built chapter — Act I, Ch 4/4.2, Act III — Python and JavaScript) through an escape thriller. Next.js 16 + React 19 + Tailwind 4 + TypeScript 5.
 
 ## Non-Negotiable Rules
 
@@ -38,7 +38,9 @@ A narrative coding game teaching Go (and, for Act I and the built Act II chapter
 - **The step is the spine; the code is the realization.** A `ChallengeStep`'s story fields (stake, XP, events, rush, timer) are shared. Code-shaped fields are realized per language in `src/data/challenges/<lang>/` and merged by `realizeChallenge(challenge, lang)`. Go is authored inline in the chapter files. A chapter appears in a language only if it has a realization for every step.
 - **Every non-Go step grades by `expectedOutput`** (scaffolds too — `Hello World`). Use per-language `expectedOutput` when idiomatic output differs (Python's `True`); don't contort code to force identical bytes.
 - **`requiredCode` must not be satisfiable by the hardcoded answer string** — JS/Python check it against code with import lines stripped. Pick names that don't appear in the expected output (JS `cell`/`sublevel`).
-- **Per-language content keys off the shared ids:** banks `src/lib/ai/banks/<lang>.ts`, zen `src/lib/game/zen-<lang>.ts` (ids `js_*`/`py_*`) + `src/data/zen-examples.<lang>.ts`, notes `src/data/beginner-notes.<lang>.ts` (no Go diagram blocks). Add a reference solution to the act's fixtures (`src/lib/lang/act1.fixtures.ts`, `act2.fixtures.ts`) for every new step and list a newly realized chapter in `src/lib/lang/fixtures.ts`; `golden.test.ts` and `content.test.ts` enforce the rest.
+- **Per-language content keys off the shared ids:** banks `src/lib/ai/banks/<lang>.ts`, zen `src/lib/game/zen-<lang>.ts` (ids `js_*`/`py_*`) + `src/data/zen-examples.<lang>.ts`, notes `src/data/beginner-notes.<lang>.ts` (no Go diagram blocks). Add a reference solution to the act's fixtures (`src/lib/lang/act1.fixtures.ts`, `act2.fixtures.ts`, `act3.fixtures.ts`; Go reference solutions in `act3.go.fixtures.ts`, run by `act3-go.test.ts` when a local `go` toolchain exists) for every new step and list a newly realized chapter in `src/lib/lang/fixtures.ts`; `golden.test.ts` and `content.test.ts` enforce the rest.
+- **Async code runs on a virtual clock** in every sandbox (Go Playground's fake time; Python's `_SignalLoop`; JS's sandbox timers). Harnesses may use top-level `await` and measure time (`loop.time()`, `performance.now()`); sleeps are instant. See `../spec/infrastructure/languages.md`.
+- **Other voices on the channel.** `TimedEvent.speaker` (`KIRA` / `REEVES` / `GHOST`) renders a story beat in that voice's colour (`--color-kira`, paper for Reeves, danger for GHOST). Maya stays lowercase; Kira and Reeves speak in sentence case.
 - **JS template literals in Maya's text:** inline code can't nest backticks — wrap it in a double-backtick span: ``console.log(`x ${y}`)``.
 - **Progress is per language** (`ProgressStore.byLanguage`); XP/hearts/library are shared. Never read `progress.completedChapters` directly — use `progressFor(store, lang)`.
 - **Save the moment a step clears, with a checkpoint.** `useGame` emits `SavePayload.checkpoint` (next step + code) or `completedChapter` right when a step passes — never defer saves behind Maya's "continue" taps. `PlayerProgress.resume` (reduced by the pure `applyProgressSave` in `src/lib/game/progress.ts`) lets a reload land back on that step and skip the already-played intro beat. Saves are stamped (`PersistedState.meta`); the cloud backend reconciles cloud vs local mirror with `reconcileSaves()` on load.
@@ -78,6 +80,10 @@ src/
 - **Pace is separate from guided mode.** `settings.pace` (`study` = no countdown, no rush, no time rewards; unset = `thriller`) is passed to `useGame`. Guided mode is instruction, pace is pressure.
 - **First session is one choice per screen** (hook → what you know → pace), driven by `onboarding` state in `GameRouter`. Don't add choices to the intro panel.
 - **Every realized chapter needs a takeaway** in `src/data/takeaways.ts` (headline, pattern, per-language snippet rule + fallback, why, where it's used, one transfer question). `takeaway.test.ts` enforces it. Preview all of this at `/dev/ux`.
+
+### Judgment boss (Act III — Kira)
+
+- Boss 3 is not a fight: `ChapterConfig.allegiance` routes to `AllegianceBoss` (study → prose verdict → optional redemption). No hearts, no game over. Rules are pure in `src/lib/game/allegiance.ts` (marks, the offline explanation grader, outcome matrix, XP). The verdict saves to `PlayerProgress.kiraVerdict`/`storyBranch` (A trusted, B rejected) for Act IV. Preview `/dev/kira?lang=…`.
 
 ### Adventure Levels (playable story beats)
 

@@ -1,5 +1,5 @@
 // ── JavaScript Zen ──
-// Idiom coaching for Acts I and II in JavaScript, under the shared step ids. Same
+// Idiom coaching for Acts I–III in JavaScript, under the shared step ids. Same
 // contract as the Go rules in zen.ts: `check` is a robust heuristic over the
 // code's shape (comments and string contents scrubbed first), `isRelevant`
 // keeps a rule quiet when the player's code has nothing for it to judge.
@@ -882,6 +882,461 @@ const jsHeaderTemplate: ZenRule = {
 };
 
 // ══════════════════════════════════════════════════════
+//  Act III helpers
+// ══════════════════════════════════════════════════════
+
+/** Every `{ … }` block that follows `keyword` (scrubbed source), e.g. each `finally { … }`. */
+function blocksAfter(src: string, keyword: string): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`\\b${keyword}\\b[^{]*\\{`, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const close = matchBracket(src, open);
+    if (close !== -1) out.push(src.slice(open + 1, close));
+  }
+  return out;
+}
+
+/** Every loop body (`for`/`while`) in scrubbed source. */
+function loopBodies(src: string): string[] {
+  const out: string[] = [];
+  const re = /\b(for|while)\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const close = matchBracket(src, open);
+    if (close === -1) continue;
+    const rest = src.slice(close + 1);
+    const lead = rest.match(/^\s*/)![0].length;
+    if (rest[lead] === "{") {
+      const end = matchBracket(src, close + 1 + lead);
+      out.push(src.slice(close + 1 + lead + 1, end === -1 ? src.length : end));
+    } else {
+      const end = rest.search(/;|\n/);
+      out.push(rest.slice(0, end === -1 ? rest.length : end));
+    }
+  }
+  return out;
+}
+
+/** The parameter names of a named function. */
+function paramNames(code: string, name: string): string[] {
+  const fn = findFunction(code, name);
+  if (!fn) return [];
+  return fn.params
+    .split(",")
+    .map((p) => p.replace(/=.*$/, "").replace(/\.\.\./, "").trim())
+    .filter(Boolean);
+}
+
+/** The argument list of every `callee(` call in scrubbed source. */
+function callArgs(src: string, callee: RegExp): string[] {
+  const out: string[] = [];
+  const re = new RegExp(callee.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const close = matchBracket(src, open);
+    if (close !== -1) out.push(src.slice(open + 1, close));
+  }
+  return out;
+}
+
+/** Split an argument list on its top-level commas. */
+function topLevelArgs(args: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < args.length; i++) {
+    const c = args[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) {
+      out.push(args.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  const last = args.slice(start).trim();
+  if (last) out.push(last);
+  return out;
+}
+
+/** The source with comments removed and string contents kept (templates hold `${e.message}`). */
+function uncommented(code: string): string {
+  let out = "";
+  let pos = 0;
+  for (const t of tokenize(code)) {
+    out += code.slice(pos, t.start);
+    if (t.type !== "comment") out += t.value;
+    pos = t.end;
+  }
+  return out + code.slice(pos);
+}
+
+const SET_TIMEOUT = /\bsetTimeout\s*\(/;
+const CONSOLE_LOG = /\bconsole\s*\.\s*log\s*\(/;
+
+// ══════════════════════════════════════════════════════
+//  Ch07 · Scaffold
+// ══════════════════════════════════════════════════════
+
+const jsLogForOutput: ZenRule = {
+  id: "js_log_for_output",
+  principle: "console.log for output, console.error for errors",
+  isRelevant: (code) => /\bconsole\s*\.\s*\w+\s*\(/.test(scrub(code)),
+  check: (code) => {
+    const src = scrub(code);
+    return CONSOLE_LOG.test(src) && !/\bconsole\s*\.\s*(error|warn|info|debug)\s*\(/.test(src);
+  },
+  bonusXP: 5,
+  jolt: "`console.log` for the line the terminal reads. `console.error` exists too — it writes to a separate stream, the one meant for things going wrong. this chapter things will go wrong, and you'll want that stream to mean something.",
+  suggestion: "print ordinary output with `console.log`. `console.error` and `console.warn` write to the error stream — save them for real errors, or a reader can't tell the two apart.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch07 · Scan
+// ══════════════════════════════════════════════════════
+
+const jsFinallyLog: ZenRule = {
+  id: "js_finally_log",
+  principle: "finally for the on-the-way-out work",
+  isRelevant: (code) => findFunction(code, "scanArchive") !== null,
+  check: (code) => blocksAfter(findFunction(code, "scanArchive")!.body, "finally").some((b) => CONSOLE_LOG.test(b)),
+  bonusXP: 15,
+  jolt: "...the archive hum. something's coming back.\n\nthe log sits in a `finally`. it runs when the walk is done — however the walk ends. a plain line after the loop runs only if nothing went wrong. a `finally` runs anyway, and the next step is all about things going wrong.",
+  suggestion: "put the `scanned:` log in a `finally` around the walk: `try { …walk… } finally { console.log(\"scanned:\", dir); }`. a line after the loop is skipped the moment something throws — `finally` never is.",
+};
+
+const jsClosureCounter: ZenRule = {
+  id: "js_closure_counter",
+  principle: "the counter lives inside the function that owns it",
+  isRelevant: (code) => findFunction(code, "scanArchive") !== null,
+  check: (code) => {
+    const body = findFunction(code, "scanArchive")!.body;
+    return /\b(?:let|var)\s+[\w$]+\s*=\s*0\b/.test(body) || /\breturn\b[^;\n]*\bscan\s*\(/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "`let count = 0;` inside scanArchive, and an inner `scan` that reaches out and bumps it. that's a closure — the inner function remembers where it was made. every call to scanArchive gets a fresh counter, so the second tree starts from zero.",
+  suggestion: "declare the counter inside scanArchive — `let count = 0;` — and let the inner scan bump it. a counter at the top of the file survives between calls and quietly adds the next scan onto the last.",
+};
+
+const jsEndsWith: ZenRule = {
+  id: "js_ends_with",
+  principle: "say what you mean: endsWith",
+  isRelevant: (code) => {
+    const body = findFunction(code, "scanArchive")?.body;
+    return body !== undefined && /\.\s*(endsWith|includes|slice|at|charAt|indexOf)\s*\(|\.length\s*-\s*1\s*\]/.test(body);
+  },
+  check: (code) => {
+    const body = findFunction(code, "scanArchive")!.body;
+    return /\.\s*endsWith\s*\(/.test(body) && !/\.\s*includes\s*\(|\.\s*at\s*\(\s*-1|\.length\s*-\s*1\s*\]|\.\s*charAt\s*\(/.test(body);
+  },
+  bonusXP: 5,
+  jolt: "`entry.endsWith(\"/\")` — the question you meant, in the words you meant. no index arithmetic, no `includes` that would also say yes to a slash in the middle of a name.",
+  suggestion: "ask `entry.endsWith(\"/\")`. `includes(\"/\")` also says yes to a slash in the middle, and `entry[entry.length - 1]` makes the reader do arithmetic to see what you're asking.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch07 · Recover
+// ══════════════════════════════════════════════════════
+
+const jsThrowError: ZenRule = {
+  id: "js_throw_error",
+  principle: "throw Error objects, not strings",
+  isRelevant: (code) => /\bthrow\b/.test(scrub(code)),
+  check: (code) => {
+    const src = scrub(code);
+    const throws = src.match(/\bthrow\s+[^;\n]*/g) ?? [];
+    return throws.every((t) => /^throw\s+new\s+(?:[A-Z]\w*)?Error\s*\(/.test(t));
+  },
+  bonusXP: 10,
+  jolt: "`throw new Error(...)`. an Error carries its message and a stack trace — the trail of calls it fell through. throw a bare string and whoever catches it gets text with no `.message` and no trail.",
+  suggestion: "throw an Error, not a string: `throw new Error(\"corrupted directory\");`. a string has no `.message` and no stack trace for whoever catches it.",
+};
+
+const jsErrorMessage: ZenRule = {
+  id: "js_error_message",
+  principle: "record e.message, not the whole error",
+  isRelevant: (code) => /\bcatch\s*\(\s*[\w$]+\s*\)/.test(scrub(code)),
+  check: (code) => {
+    const src = uncommented(code);
+    const name = src.match(/\bcatch\s*\(\s*([\w$]+)\s*\)/)![1];
+    return blocksAfter(src, "catch").every((b) => new RegExp(`\\b${name}\\s*\\.\\s*message\\b`).test(b));
+  },
+  bonusXP: 10,
+  jolt: "`e.message` — just the words. `e` on its own prints as `Error: corrupted directory`, the type stuck on the front. you logged what happened, not what kind of object told you.",
+  suggestion: "record the error's text with `e.message`. the error object itself prints with its type in front — `Error: corrupted directory` — and that's noise in a log.",
+};
+
+const jsShorthandProps: ZenRule = {
+  id: "js_shorthand_props",
+  principle: "shorthand when the name is the key",
+  isRelevant: (code) => {
+    const body = findFunction(code, "safeScan")?.body;
+    return body !== undefined && /\breturn\s*\{/.test(body);
+  },
+  check: (code) => !/\b([\w$]+)\s*:\s*\1\b\s*[,}]/.test(findFunction(code, "safeScan")!.body),
+  bonusXP: 5,
+  jolt: "`return { count, errors };` — when the variable already has the key's name, say it once. the object reads like a list of what you're handing back.",
+  suggestion: "`{ count: count, errors: errors }` says every name twice. when the variable and the key match, write it once: `return { count, errors };`.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch08 · Scaffold
+// ══════════════════════════════════════════════════════
+
+const jsSyncInOrder: ZenRule = {
+  id: "js_sync_in_order",
+  principle: "plain code runs in order — no async until something waits",
+  isRelevant: (code) => CONSOLE_LOG.test(scrub(code)),
+  check: (code) => !/\b(async|await|setTimeout|setInterval|Promise)\b|\.\s*then\s*\(/.test(scrub(code)),
+  bonusXP: 5,
+  jolt: "one line, top to bottom, done. no timers, no promises — nothing here waits for anything, so nothing needs to. remember this shape. this chapter you'll break that order on purpose.",
+  suggestion: "nothing in `Hello World` waits for anything — drop the `async`, the timer or the promise. plain code runs top to bottom in order. save the async tools for work that's actually late.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch08 · Schedule a breaker
+// ══════════════════════════════════════════════════════
+
+const jsReuseCut: ZenRule = {
+  id: "js_reuse_cut",
+  principle: "schedule the function you already wrote",
+  isRelevant: (code) => findFunction(code, "cutAsync") !== null,
+  check: (code) => {
+    const body = findFunction(code, "cutAsync")!.body;
+    return /\bcut\b/.test(body) && !CONSOLE_LOG.test(body);
+  },
+  bonusXP: 10,
+  jolt: "cutAsync hands `cut` to the timer instead of logging all over again. one function knows how to throw a breaker. the other only decides when.",
+  suggestion: "don't log inside cutAsync again — schedule the function you already wrote: `setTimeout(() => cut(name), 0);`. one place knows how to cut, the other decides when.",
+};
+
+const jsExplicitDelay: ZenRule = {
+  id: "js_explicit_delay",
+  principle: "say the 0 out loud",
+  isRelevant: (code) => {
+    const body = findFunction(code, "cutAsync")?.body;
+    return body !== undefined && SET_TIMEOUT.test(body);
+  },
+  check: (code) => callArgs(findFunction(code, "cutAsync")!.body, SET_TIMEOUT).every((a) => topLevelArgs(a).length >= 2),
+  bonusXP: 5,
+  jolt: "`setTimeout(() => cut(name), 0)` — the 0 written out. it changes nothing for the machine and everything for the reader: zero means later, as soon as possible. never right now.",
+  suggestion: "write the delay even when it's zero: `setTimeout(() => cut(name), 0);`. leaving it off means the same thing, but the 0 tells the reader you meant later on purpose.",
+};
+
+const jsNoNeedlessAsync: ZenRule = {
+  id: "js_no_needless_async",
+  principle: "async only where something awaits",
+  isRelevant: (code) => findFunction(code, "cutAsync") !== null,
+  check: (code) => {
+    const src = scrub(code);
+    const fn = findFunction(code, "cutAsync")!;
+    return !/\basync\s+function\s+cutAsync\b|\bcutAsync\s*=\s*async\b/.test(src) && !/\bawait\b/.test(fn.body);
+  },
+  bonusXP: 10,
+  jolt: "cutAsync isn't `async`, and it doesn't need to be. it books the cut and gets out of the way — no promise to hand back, nothing to wait on. the name says async. the code doesn't pretend.",
+  suggestion: "cutAsync never awaits anything, so it doesn't need the `async` keyword — that only wraps its result in a promise nobody uses. a plain function that calls `setTimeout` already returns straight away.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch08 · Fan-out
+// ══════════════════════════════════════════════════════
+
+const jsPromiseAllConcurrent: ZenRule = {
+  id: "js_promise_all_concurrent",
+  principle: "start them all, then wait once",
+  isRelevant: (code) => findFunction(code, "cutAll") !== null,
+  check: (code) => {
+    const body = findFunction(code, "cutAll")!.body;
+    return /\bPromise\s*\.\s*all\s*\(/.test(body) && !loopBodies(body).some((b) => /\bawait\b/.test(b));
+  },
+  bonusXP: 15,
+  jolt: "...the breaker hall. i remember the hum.\n\nevery job started before any of them is waited on, and one `Promise.all` waits for the lot. an `await` inside a loop would start one, wait, start the next. here that costs nothing. next step it costs the whole window.",
+  suggestion: "an `await` inside the loop starts one job, waits, then starts the next. start them all first — `circuits.map(async ...)` — then wait once with `Promise.all`.",
+};
+
+const jsMapNotPush: ZenRule = {
+  id: "js_map_not_push",
+  principle: "map to promises, don't push them",
+  isRelevant: (code) => {
+    const body = findFunction(code, "cutAll")?.body;
+    return body !== undefined && /\.\s*(map|push|forEach)\s*\(|\b(for|while)\b/.test(body);
+  },
+  check: (code) => {
+    const body = findFunction(code, "cutAll")!.body;
+    return /\.\s*map\s*\(/.test(body) && !/\.\s*(push|forEach)\s*\(/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "`circuits.map(async ...)` — one promise per circuit, in circuit order, in one call. no empty array to set up, no push to forget, and `Promise.all` hands the answers back in the same order.",
+  suggestion: "build the promises with `map` instead of pushing them in a loop: `Promise.all(circuits.map(async (name) => ...))`. one call, and the order is guaranteed.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch08 · One cycle
+// ══════════════════════════════════════════════════════
+
+const jsPromisifiedSleep: ZenRule = {
+  id: "js_promisified_sleep",
+  principle: "wrap the timer once, await it everywhere",
+  isRelevant: (code) => findFunction(code, "cutTimed") !== null && SET_TIMEOUT.test(scrub(code)),
+  check: (code) => {
+    const body = findFunction(code, "cutTimed")!.body;
+    return !SET_TIMEOUT.test(body) && !/\bnew\s+Promise\b/.test(body);
+  },
+  bonusXP: 15,
+  jolt: "`const sleep = (ms) => new Promise(...)` — you turned a timer into something you can `await`. built once, outside, used in one clean line inside each job. that's your first hand-made promise, and every async thing from here is built on the same move.",
+  suggestion: "pull the timer out into a helper: `const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));`. then each job is just `await sleep(delays[i]);` — no promise built by hand in the middle of the fan-out.",
+};
+
+const jsMapIndex: ZenRule = {
+  id: "js_map_index",
+  principle: "map hands you the index",
+  isRelevant: (code) => {
+    const body = findFunction(code, "cutTimed")?.body;
+    return body !== undefined && /\.\s*map\s*\(/.test(body) && /\bdelays\s*\[/.test(body);
+  },
+  check: (code) => {
+    const body = findFunction(code, "cutTimed")!.body;
+    return /\.\s*map\s*\(\s*(?:async\s*)?\(\s*[\w$]+\s*,\s*[\w$]+\s*\)/.test(body) && !/\.\s*indexOf\s*\(|\+\+|\+=\s*1\b/.test(body);
+  },
+  bonusXP: 10,
+  jolt: "`(name, i)` — map passes the index for free. no counter to bump, no `indexOf` to search for a name that might appear twice. each job knows its own position from the start.",
+  suggestion: "map already passes each item's index: `circuits.map(async (name, i) => ...)`. a counter you bump by hand can drift, and `indexOf` breaks the moment two circuits share a name.",
+};
+
+const jsNoVar: ZenRule = {
+  id: "js_no_var",
+  principle: "let and const, never var",
+  isRelevant: (code) => /\b(var|let)\b/.test(scrub(code)) || cStyleForInits(code).length > 0,
+  check: (code) => !/\bvar\b/.test(scrub(code)),
+  bonusXP: 10,
+  jolt: "no `var` anywhere. a `var` in a `for` loop is one variable shared by every pass — every callback reads its last value, and four breakers all report the fifth circuit. `let` gives each pass its own. you never gave the trap a chance.",
+  suggestion: "swap `var` for `let` or `const`. a `var` in a loop is one variable shared by every pass, so a callback that runs later sees the final value — `let` gives each pass its own copy.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch09 · Scaffold
+// ══════════════════════════════════════════════════════
+
+const jsMinimalProgram: ZenRule = {
+  id: "js_minimal_program",
+  principle: "nothing but what the job needs",
+  isRelevant: (code) => CONSOLE_LOG.test(scrub(code)),
+  check: (code) => {
+    const src = scrub(code);
+    return !/\b(function|const|let|var|class)\b|=>/.test(src);
+  },
+  bonusXP: 5,
+  jolt: "one call. no variable holding the text first, no function wrapped around it. kira's note in the margin says she charges by the line. you'd be cheap.",
+  suggestion: "the whole job is one call: `console.log(\"Hello World\");`. a variable or a function around it is a line to read that does nothing.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch09 · Hail
+// ══════════════════════════════════════════════════════
+
+const jsDelayParam: ZenRule = {
+  id: "js_delay_param",
+  principle: "the timer reads the parameter",
+  isRelevant: (code) => {
+    const body = findFunction(code, "hail")?.body;
+    return body !== undefined && SET_TIMEOUT.test(body);
+  },
+  check: (code) => {
+    const delay = paramNames(code, "hail")[1];
+    if (!delay) return false;
+    const body = findFunction(code, "hail")!.body;
+    return callArgs(body, SET_TIMEOUT).every((a) => new RegExp(`\\b${delay}\\b`).test(topLevelArgs(a)[1] ?? ""));
+  },
+  bonusXP: 10,
+  jolt: "the timer waits `delayMs` — whatever the caller asked for. the terminal only tried 100. the teams won't be that polite, and your hail is ready for any of them.",
+  suggestion: "the timer's delay should be the parameter, `delayMs`, not a number you picked. the terminal only tries 100 — the next team answers on its own time.",
+};
+
+const jsSyncExecutor: ZenRule = {
+  id: "js_sync_executor",
+  principle: "the promise executor is never async",
+  isRelevant: (code) => /\bnew\s+Promise\s*\(/.test(scrub(code)),
+  check: (code) => !/\bnew\s+Promise\s*\(\s*async\b/.test(scrub(code)),
+  bonusXP: 10,
+  jolt: "a plain function inside `new Promise(...)`. it starts the timer and returns — the timer calls `resolve` later. an `async` one there would swallow its own errors, and the promise would hang without a word.",
+  suggestion: "the function you hand `new Promise` shouldn't be `async`. if it throws, the error vanishes and the promise never settles. start the timer and let it call `resolve`.",
+};
+
+const jsNoRedundantAsync: ZenRule = {
+  id: "js_no_redundant_async",
+  principle: "a function that returns a promise doesn't need async",
+  isRelevant: (code) => findFunction(code, "hail") !== null,
+  check: (code) => !/\basync\s+function\s+hail\b|\bhail\s*=\s*async\b/.test(scrub(code)),
+  bonusXP: 5,
+  jolt: "hail isn't `async` — it builds its promise and hands it straight back. `async` is for functions that `await` inside. this one never waits for anything. it just makes a promise and leaves.",
+  suggestion: "hail already returns a promise, so `async` adds nothing — it just wraps your promise in another one. drop it: `function hail(team, delayMs) { return new Promise(...); }`.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch09 · First contact
+// ══════════════════════════════════════════════════════
+
+const jsRaceEveryTeam: ZenRule = {
+  id: "js_race_every_team",
+  principle: "race every runner you were handed",
+  isRelevant: (code) => {
+    const body = findFunction(code, "firstResponder")?.body;
+    return body !== undefined && /\bPromise\s*\.\s*race\s*\(/.test(body);
+  },
+  check: (code) => {
+    const body = findFunction(code, "firstResponder")!.body;
+    return paramNames(code, "firstResponder").every((p) => new RegExp(`\\b${p}\\b`).test(body));
+  },
+  bonusXP: 10,
+  jolt: "all three teams in the race. today bravo was fastest. tomorrow it's whoever it is — and your code doesn't care, because it never guessed.",
+  suggestion: "put every team in the race: `Promise.race([alpha, bravo, charlie])`. racing only the one you expect to win is a guess, and it's wrong the day another team is faster.",
+};
+
+const jsNoThenChain: ZenRule = {
+  id: "js_no_then_chain",
+  principle: "return the promise — no .then that changes nothing",
+  isRelevant: (code) => findFunction(code, "firstResponder") !== null,
+  check: (code) => !/\.\s*then\s*\(/.test(findFunction(code, "firstResponder")!.body),
+  bonusXP: 5,
+  jolt: "`return Promise.race([...])` and nothing tacked on. the caller awaits it and gets the answer. no `.then((v) => v)` passing the value back to itself.",
+  suggestion: "hand the race straight back: `return Promise.race([alpha, bravo, charlie]);`. a `.then` that only passes the value along is an extra hop the reader has to follow.",
+};
+
+// ══════════════════════════════════════════════════════
+//  Ch09 · Timeout
+// ══════════════════════════════════════════════════════
+
+const jsDeadlineParam: ZenRule = {
+  id: "js_deadline_param",
+  principle: "the deadline comes from the caller",
+  isRelevant: (code) => {
+    const body = findFunction(code, "awaitContact")?.body;
+    return body !== undefined && (SET_TIMEOUT.test(body) || /\bsleep\s*\(/.test(body));
+  },
+  check: (code) => {
+    const timeout = paramNames(code, "awaitContact")[3];
+    if (!timeout) return false;
+    return new RegExp(`\\b${timeout}\\b`).test(findFunction(code, "awaitContact")!.body);
+  },
+  bonusXP: 10,
+  jolt: "the deadline is `timeoutMs` — the caller's number, not yours. 600 when there's time, 200 when there isn't. one function, every stairwell.",
+  suggestion: "build the deadline from `timeoutMs`, not a number you typed. the terminal happens to pass values your number survives — the next caller won't.",
+};
+
+const jsSweepNoWait: ZenRule = {
+  id: "js_sweep_no_wait",
+  principle: "a sweep never waits",
+  isRelevant: (code) => findFunction(code, "sweep") !== null,
+  check: (code) => !/\bawait\b|\bsetTimeout\s*\(|\bsleep\s*\(|\.\s*then\s*\(/.test(findFunction(code, "sweep")!.body),
+  bonusXP: 10,
+  jolt: "sweep looks and leaves. no `await`, no timer, no sleep — a settled promise beats the ready string, a pending one loses on the spot. a glance, not a wait.",
+  suggestion: "sweep shouldn't await, sleep or start a timer — it should only look: `return Promise.race([p, \"channel silent\"]);`. a settled `p` wins, a pending one loses straight away.",
+};
+
+// ══════════════════════════════════════════════════════
 //  Registry
 // ══════════════════════════════════════════════════════
 
@@ -902,4 +1357,15 @@ export const JAVASCRIPT_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-04.2:reverseword": [jsSpreadChars, jsBuiltinReverse],
   "chapter-04.2:encode": [jsMapTransform, jsReuseReverse],
   "chapter-04.2:relayheader": [jsNumberIsNaN, jsNumberOverParseInt, jsHeaderTemplate],
+  "chapter-07:scaffold": [jsLogForOutput],
+  "chapter-07:scan": [jsFinallyLog, jsClosureCounter, jsEndsWith],
+  "chapter-07:recover": [jsThrowError, jsErrorMessage, jsShorthandProps],
+  "chapter-08:scaffold": [jsSyncInOrder],
+  "chapter-08:goroutine": [jsReuseCut, jsExplicitDelay, jsNoNeedlessAsync],
+  "chapter-08:fanout": [jsPromiseAllConcurrent, jsMapNotPush],
+  "chapter-08:window": [jsPromisifiedSleep, jsMapIndex, jsNoVar],
+  "chapter-09:scaffold": [jsMinimalProgram],
+  "chapter-09:hail": [jsDelayParam, jsSyncExecutor, jsNoRedundantAsync],
+  "chapter-09:first": [jsRaceEveryTeam, jsNoThenChain],
+  "chapter-09:timeout": [jsDeadlineParam, jsSweepNoWait],
 };

@@ -12,6 +12,8 @@
 - `default` case — non-blocking channel poll
 - `time.Sleep` / `time.Duration` for simulated response latency (callback to ch08)
 
+> **As built (Act III, Nov 2026):** step 3's harness adds `awaitContact(hail("Alpha", 300), jammed, jammed, 500)` → `contact: Alpha responding`, which catches a hardcoded timeout. Python realizes channels as Tasks (`asyncio.wait`, `FIRST_COMPLETED`, `timeout=`, `task.done()`); JavaScript as Promises (`Promise.race`, a deadline promise, race against a ready value). See `docs/act-3-plan.md`.
+
 ## Story Context
 
 The grid is blind, the thesis is copied, and Kira's quarantined "gift" gave up its decryption key — now Maya needs a way out of the district before the alarm heals. Kira supplies three extraction-team frequencies: Alpha, Bravo, Charlie. Different teams, different response times, and any of them could be compromised — the frequencies came from *her*. Reeves wants them burned unread. Maya can't afford to: she'll open a channel to each team, take whoever answers first, and make sure a dead frequency can never hang the program — because a receive that blocks forever is a Maya who stands in a stairwell until the sweep finds her. GHOST's deadline is eight hours out.
@@ -24,7 +26,7 @@ Open one channel per extraction team, hail all three concurrently, pick the firs
 
 #### Step 0: Scaffold
 
-Same as always — `package main`, `import`, `func main()`, print "extraction console ready".
+Print `Hello World` into an empty editor (every chapter's scaffold — see app/CLAUDE.md).
 
 Imports for this chapter: `"fmt"` now; `"time"` arrives in step 1. (Go refuses to compile unused imports — add them only when a step needs them.)
 

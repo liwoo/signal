@@ -4,6 +4,10 @@ import { chapter03 } from "./challenges/chapter-03";
 import { boss01 } from "./challenges/boss-01";
 import { chapter04 } from "./challenges/chapter-04";
 import { chapter04_2 } from "./challenges/chapter-04.2";
+import { chapter07 } from "./challenges/chapter-07";
+import { chapter08 } from "./challenges/chapter-08";
+import { chapter09 } from "./challenges/chapter-09";
+import { boss03 } from "./challenges/boss-03";
 import { isChallengeAvailable } from "./challenges/realizations";
 import type { Challenge, LanguageId } from "@/types/game";
 
@@ -31,6 +35,10 @@ export const CLASSROOM_CHAPTERS: ClassroomChapter[] = [
   entry(boss01, true),
   entry(chapter04),
   entry(chapter04_2),
+  entry(chapter07),
+  entry(chapter08),
+  entry(chapter09),
+  entry(boss03, true),
 ];
 
 /** The chapters a student can play in `language` (unrealized chapters are Go-only). */

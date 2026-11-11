@@ -1,9 +1,10 @@
 // ── Beginner Notes · Python ──
-// Reeves' "PYTHON: A Field Manual" chapters for Acts I and II, under the shared
+// Reeves' "PYTHON: A Field Manual" chapters for Acts I and II (and Kira's loose
+// pages for Act III, with Reeves back for boss 3), under the shared
 // challenge ids. Same shape as the Go notes (beginner-notes.ts) — `blocks` is
 // the book (BookReader), `notesBlocks` is the in-game NOTES quick reference.
 // No `beginnerBlocks` / diagram blocks: those animations are Go-specific.
-// Names and wording agree with data/challenges/python/act-1.ts, boss-01.ts + act-2.ts.
+// Names and wording agree with data/challenges/python/act-1.ts, boss-01.ts, act-2.ts + act-3.ts.
 
 import type { BeginnerNotes } from "./beginner-notes";
 
@@ -1092,6 +1093,912 @@ except:
 except ValueError:
     return f"F{floor}-ERR"
 return f"F{floor}-C{n * 2}"`,
+      },
+    ],
+  },
+  // ── Act III: Kira's pages ──
+  // Reeves' manual ends at chapter six. These chapters are loose sheets in
+  // Kira's hand — sharp, and priced. The boss chapter is Reeves again.
+
+  "chapter-07": {
+    title: "CLOSURES & RECURSION",
+    subtitle: "KIRA'S PAGES · THE ARCHIVE, AND WHAT IT HIDES",
+    blocks: [
+      // Section 0: scaffold
+      {
+        type: "text",
+        section: 0,
+        content:
+          "these pages aren't reeves'. the hand is sharper, the margins are full of prices. first line across the top: wake the archive terminal. you know how. — k.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `print("Hello World")`,
+      },
+
+      // Section 1: the archive
+      {
+        type: "text",
+        section: 1,
+        content:
+          "the archive is a dict. each key is a directory, each value is a list of what's inside it. a name ending in / is another directory — look it up by the same name without the slash. anything else is a file. you've seen every piece of this already: dicts in chapter four, slices in chapter six.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `archive = {
+    "root": ["config.dat", "logs/", "servers/"],
+    "logs": ["access.log", "error.log"],
+}
+
+for entry in archive["root"]:
+    if entry.endswith("/"):
+        print("directory:", entry[:-1])
+    else:
+        print("file:", entry)`,
+        hotspots: [
+          { text: `entry.endswith("/")`, tip: "true when the last character is a slash. reads like the question you're asking." },
+          { text: "entry[:-1]", tip: "everything except the last character — \"logs/\" becomes \"logs\", the key you look up next." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "kira, in the margin: a list goes one level deep. this archive goes as deep as whoever built it wanted. you need something that keeps going.",
+      },
+
+      // Section 2: closures
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a function can be defined inside another function. the inner one can read every name the outer one has — archive, root, count — without them being passed in. a function that remembers where it was made is called a closure.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `def scan_archive(archive, root):
+    count = 0
+
+    def scan(d):
+        nonlocal count
+        count += len(archive[d])
+
+    scan(root)
+    return count`,
+        hotspots: [
+          { text: "def scan(d):", tip: "defined inside scan_archive, so it can see archive and count." },
+          { text: "nonlocal count", tip: "i mean the count one level up — not a new one of my own." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        important: true,
+        content:
+          "reading an outer name is free. changing one is not. the moment scan says count += 1, python decides count belongs to scan — a brand-new variable with no value yet — and stops with UnboundLocalError. nonlocal count is how scan says: the one outside. other languages let a closure change the outer variable silently. python makes you say it.",
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a list is different. errors.append(...) changes the list but never gives the name errors a new value, so it needs no nonlocal. the old trick of keeping a counter in a one-item list, count[0] += 1, comes from before nonlocal existed. don't pay for a workaround you don't need. — k.",
+      },
+
+      // Section 3: recursion
+      {
+        type: "text",
+        section: 3,
+        content:
+          "recursion is a function calling itself. scan(\"root\") finds servers/ and calls scan(\"servers\"), which finds alpha/ and calls scan(\"alpha\"). each call has its own d, finishes its own directory, and hands control back to the one that called it. a directory with nothing but files makes no further calls — that's where it stops.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `def scan(d):
+    nonlocal count
+    for entry in archive[d]:
+        if entry.endswith("/"):
+            scan(entry[:-1])
+        else:
+            count += 1`,
+        hotspots: [
+          { text: "scan(entry[:-1])", tip: "the function calling itself, one level deeper. it returns when that whole directory is done." },
+          { text: "count += 1", tip: "a file. the only thing that actually gets counted." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "root starts first and finishes last — everything inside it has to finish before it can. hold on to that order. it's the whole trick of the next section.",
+      },
+
+      // Section 4: try / finally
+      {
+        type: "text",
+        section: 4,
+        content:
+          "finally is the part of a try that always runs as the block is left — when it finishes normally, when it returns, when something inside raises. put the log there and every directory reports on its way out.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `def scan(d):
+    nonlocal count
+    try:
+        for entry in archive[d]:
+            if entry.endswith("/"):
+                scan(entry[:-1])
+            else:
+                count += 1
+    finally:
+        print("scanned:", d)
+
+# scanned: logs
+# scanned: alpha
+# ...
+# scanned: root`,
+        hotspots: [
+          { text: "try:", tip: "the work. whatever happens in here, finally runs after it." },
+          { text: `print("scanned:", d)`, tip: "runs on the way out, so the deepest directories log first and root logs last." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "go has a word for this — defer — and puts the cleanup at the top of the function. python wraps the body instead. different shape, same order out.",
+      },
+
+      // Section 5: raise and except
+      {
+        type: "text",
+        section: 5,
+        content:
+          "ghost booby-trapped the archive: one directory's value is None instead of a list. raise is how a function says something is wrong. it stops the function on the spot and travels back up the calls until an except catches it. if nothing does, the program dies.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `def scan(d):
+    nonlocal count
+    try:
+        if archive[d] is None:
+            raise RuntimeError("corrupted directory")
+        for entry in archive[d]:
+            ...
+    except Exception as e:
+        errors.append(f"{d}: {e}")
+    finally:
+        print("scanned:", d)`,
+        hotspots: [
+          { text: "archive[d] is None", tip: "is None, not == None. there's only one None — pep 8 says check it by identity." },
+          { text: `raise RuntimeError("corrupted directory")`, tip: "a named error, with the message the log will carry." },
+          { text: "except Exception as e:", tip: "catches it and names it e. f\"{e}\" is the message." },
+          { text: "finally:", tip: "still runs — the trapped directory logs too, after the except has recorded it." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "where you catch decides what you lose. wrap the whole scan in one try and the first trap ends everything. catch inside scan and each call guards itself: the vault's call catches the vault's error and returns normally, and root's loop moves on to the next entry. catch at the edge of one unit of work.",
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "a note for anyone who reads go too: go's panic is for disasters, and catching one is rare and awkward. python is the other way round. exceptions are the normal error path — int(\"abc\") raised one back in chapter six — and except is an everyday word. use it like one. — k.",
+      },
+
+      // Section 6: zen recap
+      {
+        type: "text",
+        section: 6,
+        content:
+          "habits for this level. say nonlocal when a closure changes a name. put cleanup in finally. ask endswith instead of counting from the end. raise a specific error, check for None with is, and catch where one piece of work ends — not around the whole job.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `# a workaround
+count = [0]
+count[0] += 1
+
+# the real thing
+count = 0
+nonlocal count
+count += 1`,
+        hotspots: [
+          { text: "count[0] += 1", tip: "works, but it's hiding what you mean." },
+          { text: "nonlocal count", tip: "says exactly which variable the closure changes." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "a closure changing an outer name needs nonlocal." },
+      {
+        type: "code",
+        section: 0,
+        content: `count = 0
+
+def scan(d):
+    nonlocal count
+    count += 1`,
+      },
+      { type: "text", section: 1, content: "call yourself for each directory; finally logs on the way out." },
+      {
+        type: "code",
+        section: 1,
+        content: `try:
+    for entry in archive[d]:
+        if entry.endswith("/"):
+            scan(entry[:-1])
+        else:
+            count += 1
+finally:
+    print("scanned:", d)`,
+      },
+      { type: "text", section: 2, content: "raise on the trap, catch per call, keep walking." },
+      {
+        type: "code",
+        section: 2,
+        content: `if archive[d] is None:
+    raise RuntimeError("corrupted directory")
+...
+except Exception as e:
+    errors.append(f"{d}: {e}")`,
+      },
+    ],
+  },
+
+  "chapter-08": {
+    title: "TASKS & GATHER",
+    subtitle: "KIRA'S PAGES · FOUR HANDS, ONE MOMENT",
+    blocks: [
+      // Section 0: scaffold
+      {
+        type: "text",
+        section: 0,
+        content:
+          "another sheet, taped behind breaker four. first line: bring the console online. after that, everything on this page happens at once. — k.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `print("Hello World")`,
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "everything new in this chapter lives in one module, asyncio. import it in the step that first uses it — not before.",
+      },
+
+      // Section 1: async def and coroutines
+      {
+        type: "text",
+        section: 1,
+        content:
+          "put async in front of def and calling the function changes meaning. cut(\"North\") no longer runs anything. it hands you a coroutine — a plan for the work, waiting for someone to carry it out. await carries it out and waits for it to finish.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `import asyncio
+
+
+async def cut(name):
+    print(f"{name} circuit: DOWN")
+
+
+plan = cut("North")    # nothing printed yet
+await plan             # North circuit: DOWN`,
+        hotspots: [
+          { text: "async def cut(name):", tip: "an async function. calling it makes a coroutine; it doesn't run the body." },
+          { text: `plan = cut("North")`, tip: "just a plan. if nobody awaits it, python warns: coroutine was never awaited." },
+          { text: "await plan", tip: "runs it, and waits here until it's done." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "await only works inside an async def. the terminal is the exception — it lets you write await at the top level, the way a python shell started with python -m asyncio does. in your own functions, if it awaits, it's async def.",
+      },
+
+      // Section 2: the event loop
+      {
+        type: "text",
+        section: 2,
+        content:
+          "asyncio does many things at once with one thread, by taking turns. an event loop holds every task that wants to run. whenever the running one pauses at an await, the loop hands the turn to the next. nothing runs at the exact same instant — but nothing waits idle either.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `async def trip(name, seconds):
+    await asyncio.sleep(seconds)    # step aside
+    return f"{name} circuit: DOWN"`,
+        hotspots: [
+          { text: "await asyncio.sleep(seconds)", tip: "pause this one task. the loop runs the others meanwhile. seconds, not milliseconds." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        important: true,
+        content:
+          "never time.sleep inside async code. it doesn't pause a task — it freezes the whole program, loop and all, and every other breaker waits with it. kira's margin: one wrong sleep and four hands become one.",
+      },
+
+      // Section 3: create_task
+      {
+        type: "text",
+        section: 3,
+        content:
+          "asyncio.create_task puts a coroutine on the loop's schedule and hands back a task straight away. the caller doesn't wait — it carries on with the next line. the task runs the next time anyone pauses.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `def cut_async(name):
+    return asyncio.create_task(cut(name))
+
+
+cut_async("South")
+print("orders sent")
+await asyncio.sleep(0.1)
+
+# orders sent
+# South circuit: DOWN`,
+        hotspots: [
+          { text: "def cut_async(name):", tip: "a plain def. it never waits, so it doesn't need to be async." },
+          { text: "return asyncio.create_task(cut(name))", tip: "schedule it and hand the task back. keep a reference — the loop only holds tasks loosely." },
+          { text: "await asyncio.sleep(0.1)", tip: "the first pause. that's when south finally gets its turn." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "a task nobody waits for never finishes. when the program ends, unfinished tasks are cancelled, the way asyncio.run does it. go does the same to its unfinished work when main returns. if the work matters, something has to wait for it.",
+      },
+
+      // Section 4: gather
+      {
+        type: "text",
+        section: 4,
+        content:
+          "four breakers, all at once, and you need to know every one confirmed. asyncio.gather takes coroutines, runs them together, waits until all of them are done, and returns their results as a list — in the order you passed them, not the order they finished.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `async def trip(name):
+    return f"{name} circuit: DOWN"
+
+
+async def cut_all(circuits):
+    return await asyncio.gather(*(trip(n) for n in circuits))`,
+        hotspots: [
+          { text: "(trip(n) for n in circuits)", tip: "one coroutine per circuit — the same for-inside-brackets shape as the join in chapter six." },
+          { text: "*(", tip: "the star spreads them out into separate arguments. gather won't take a single list." },
+          { text: "return await asyncio.gather", tip: "start them all, wait once, hand back the list." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "go needs two tools for this — a counter of who's still running and a slice to put results in. gather is both, in one call. awaiting each coroutine in a for loop would also work, one after another — and that's exactly the problem in the next section.",
+      },
+
+      // Section 5: zip
+      {
+        type: "text",
+        section: 5,
+        content:
+          "each breaker takes its own time to trip. the names are in one list, the delays in another, in the same order. zip walks both side by side and hands you a pair each time round.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `circuits = ["North", "South"]
+delays = [300, 150]
+
+for n, d in zip(circuits, delays):
+    print(n, d)
+# North 300
+# South 150`,
+        hotspots: [
+          { text: "zip(circuits, delays)", tip: "pairs item 0 with item 0, item 1 with item 1. stops at the shorter list." },
+          { text: "for n, d in", tip: "each pair unpacks straight into two names, like a tuple from a function." },
+        ],
+      },
+
+      // Section 6: the window
+      {
+        type: "text",
+        section: 6,
+        content:
+          "one power cycle is 1100 milliseconds. the four delays — 300, 150, 450, 200 — add up to exactly that. so the order you wait in decides everything.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `async def cut_timed(circuits, delays):
+    async def trip_timed(n, d):
+        await asyncio.sleep(d / 1000)
+        return f"{n} circuit: DOWN ({d}ms)"
+
+    return await asyncio.gather(*(trip_timed(n, d) for n, d in zip(circuits, delays)))`,
+        hotspots: [
+          { text: "d / 1000", tip: "milliseconds to seconds. one slash — d // 1000 would round 300 down to 0." },
+          { text: "asyncio.gather", tip: "all four sleep at the same time, so the whole thing takes as long as the slowest: 450ms." },
+        ],
+      },
+      {
+        type: "text",
+        section: 6,
+        important: true,
+        content:
+          "await each sleep in a loop and the delays queue up end to end: 1100ms, two power cycles, alarm. gather them and they overlap: 450ms, one cycle, grid blind. same code inside each breaker — the only difference is whether you wait in a line or all at once.",
+      },
+
+      // Section 7: zen recap
+      {
+        type: "text",
+        section: 7,
+        content:
+          "habits for this level. async def only for what awaits. asyncio.sleep, never time.sleep. keep a reference to every task you create. gather instead of awaiting in a loop, and take its list as it comes. zip lists that belong together.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `# one at a time — the sum
+for n, d in zip(circuits, delays):
+    lines.append(await trip_timed(n, d))
+
+# all at once — the slowest
+lines = await asyncio.gather(*(trip_timed(n, d) for n, d in zip(circuits, delays)))`,
+        hotspots: [
+          { text: "lines.append(await trip_timed(n, d))", tip: "waits for each breaker before starting the next." },
+          { text: "lines = await asyncio.gather(", tip: "starts every breaker, then waits once." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "calling an async def makes a plan. create_task starts it." },
+      {
+        type: "code",
+        section: 0,
+        content: `async def cut(name):
+    print(f"{name} circuit: DOWN")
+
+
+def cut_async(name):
+    return asyncio.create_task(cut(name))`,
+      },
+      { type: "text", section: 1, content: "gather: run all, wait once, results in order." },
+      {
+        type: "code",
+        section: 1,
+        content: `return await asyncio.gather(*(trip(n) for n in circuits))`,
+      },
+      { type: "text", section: 2, content: "sleep inside each one — asyncio.sleep, in seconds." },
+      {
+        type: "code",
+        section: 2,
+        content: `await asyncio.sleep(d / 1000)`,
+      },
+    ],
+  },
+
+  "chapter-09": {
+    title: "RACING TASKS",
+    subtitle: "KIRA'S PAGES · FIRST VOICE WINS",
+    blocks: [
+      // Section 0: scaffold
+      {
+        type: "text",
+        section: 0,
+        content:
+          "under the antenna housing. her hand again, and a heading underlined twice: listen to everyone, wait on no one. first, power the array. — k.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `print("Hello World")`,
+      },
+
+      // Section 1: a task holds its answer
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a task does more than run — it keeps what its coroutine returned. await the task and you get that value. if it already finished, you get it straight away. it holds exactly one answer, like a mailbox with room for one letter.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `import asyncio
+
+
+def hail(team, delay_ms):
+    async def respond():
+        await asyncio.sleep(delay_ms / 1000)
+        return f"{team} responding"
+
+    return asyncio.create_task(respond())
+
+
+t = hail("Bravo", 100)
+print("hailing Bravo...")
+print(await t)    # Bravo responding`,
+        hotspots: [
+          { text: "def hail(team, delay_ms):", tip: "a plain def. it schedules the call and returns — it never waits." },
+          { text: "async def respond():", tip: "the team's side. a closure: it sees team and delay_ms from hail." },
+          { text: "return asyncio.create_task(respond())", tip: "the call is already on its way when hail returns." },
+          { text: "print(await t)", tip: "waiting is awaiting. you get what respond returned." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "because hail returns at once, you can hail three teams in three lines and they all start answering together. only then do you decide how to listen.",
+      },
+
+      // Section 2: first completed
+      {
+        type: "text",
+        section: 2,
+        content:
+          "asyncio.wait takes a list of tasks and gives back two sets: done, the ones that finished, and pending, the ones still running. tell it return_when=asyncio.FIRST_COMPLETED and it comes back the moment any one finishes. remember sets from chapter four — no order, each thing once.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `async def first_responder(alpha, bravo, charlie):
+    done, pending = await asyncio.wait(
+        [alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED
+    )
+    return done.pop().result()`,
+        hotspots: [
+          { text: "done, pending = await asyncio.wait(", tip: "two sets back, unpacked into two names." },
+          { text: "return_when=asyncio.FIRST_COMPLETED", tip: "come back on the first finish. leave it out and wait waits for all of them." },
+          { text: "done.pop().result()", tip: "take the finished task out of the set, read what it returned." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "await alpha would wait for alpha, however long alpha takes — even with bravo already on the line. gather would wait for all three. wait with FIRST_COMPLETED is the only one that listens to everyone and goes with the first voice.",
+      },
+
+      // Section 3: cancel the losers
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "the losers don't stop because you stopped listening. a task runs until it finishes or someone cancels it. if you're done with them, say so.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `for t in pending:
+    t.cancel()`,
+        hotspots: [
+          { text: "t.cancel()", tip: "asks the task to stop at its next pause. a task you've stopped caring about shouldn't keep working." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "kira, in the margin: i always know who i stopped listening to. you should too.",
+      },
+
+      // Section 4: timeouts
+      {
+        type: "text",
+        section: 4,
+        content:
+          "if every frequency is jammed, wait would wait forever — the terminal sees that nothing can ever wake it and calls it a deadlock. give it a deadline: timeout= in seconds. when the time runs out, wait comes back anyway, and done is empty.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `async def await_contact(alpha, bravo, charlie, timeout_ms):
+    done, pending = await asyncio.wait(
+        [alpha, bravo, charlie],
+        timeout=timeout_ms / 1000,
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+    for t in pending:
+        t.cancel()
+    if not done:
+        return "NO CONTACT"
+    return done.pop().result()`,
+        hotspots: [
+          { text: "timeout=timeout_ms / 1000", tip: "the deadline comes from the caller, converted to seconds." },
+          { text: "if not done:", tip: "an empty set is false. nobody answered in time." },
+        ],
+      },
+
+      // Section 5: looking without waiting
+      {
+        type: "text",
+        section: 5,
+        content:
+          "sometimes you can't afford to wait at all — just glance at a channel and move on. task.done() answers at once: true if the task has its answer, false if not. then task.result() reads it. ask for result() too early and python raises InvalidStateError.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `def sweep(task):
+    if task.done():
+        return task.result()
+    return "channel silent"`,
+        hotspots: [
+          { text: "def sweep(task):", tip: "not async. an async def exists so it can pause — sweep never may." },
+          { text: "task.done()", tip: "a look, not a wait. true or false, right now." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "in python, never waits and isn't async are the same promise. if a function has no reason to pause, don't give it the ability to.",
+      },
+
+      // Section 6: python and go
+      {
+        type: "text",
+        section: 6,
+        content:
+          "go builds this from channels — pipes one task writes into and another reads from — and a statement called select that waits on several at once. python gets there with tasks: a task holds its one answer the way a channel with room for one would, and asyncio.wait is the select. a timeout is a deadline on the wait; a non-blocking look is done().",
+      },
+
+      // Section 7: zen recap
+      {
+        type: "text",
+        section: 7,
+        content:
+          "habits for this level. only async what awaits — hail and sweep stay plain def. convert milliseconds with one slash. name both halves of the wait. cancel the tasks you've stopped waiting for. take the deadline from the caller. and let an empty set be false.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `# waits on alpha, whoever's first
+return await alpha
+
+# listens to all three
+done, pending = await asyncio.wait([alpha, bravo, charlie], return_when=asyncio.FIRST_COMPLETED)`,
+        hotspots: [
+          { text: "return await alpha", tip: "bravo answered first. nobody heard it." },
+          { text: "asyncio.wait([alpha, bravo, charlie]", tip: "one list, every team, first voice wins." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "hail returns a task at once — it holds the one answer." },
+      {
+        type: "code",
+        section: 0,
+        content: `def hail(team, delay_ms):
+    async def respond():
+        await asyncio.sleep(delay_ms / 1000)
+        return f"{team} responding"
+
+    return asyncio.create_task(respond())`,
+      },
+      { type: "text", section: 1, content: "first to finish wins; cancel the rest." },
+      {
+        type: "code",
+        section: 1,
+        content: `done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+for t in pending:
+    t.cancel()
+return done.pop().result()`,
+      },
+      { type: "text", section: 2, content: "a deadline on the wait; a glance with done()." },
+      {
+        type: "code",
+        section: 2,
+        content: `timeout=timeout_ms / 1000   # empty done → NO CONTACT
+
+def sweep(task):
+    return task.result() if task.done() else "channel silent"`,
+      },
+    ],
+  },
+
+  "boss-03": {
+    title: "READING CODE",
+    subtitle: "REEVES · READ BEFORE YOU RUN",
+    blocks: [
+      // Section 0: the situation
+      {
+        type: "text",
+        section: 0,
+        content:
+          "my hand again. i wrote this one for tonight. kira's encoder is supposed to mask your thesis before it crosses bravo's open frequency. five lines. it reads clean. that is not the same as being clean.",
+      },
+      {
+        type: "text",
+        section: 0,
+        important: true,
+        content:
+          "this is not a fight. there are no hearts and no countdown. study her code against my loopback log, mark the lines you don't trust, then say what she is — trust or reject — and explain why in plain words. if you're right, you may get the chance to fix it.",
+      },
+
+      // Section 1: bytearray
+      {
+        type: "text",
+        section: 1,
+        content:
+          "the thesis travels as raw bytes — numbers from 0 to 255, usually written in hex: 0x10 is sixteen. bytes can't be changed. a bytearray can: you can set one byte in place. ^ is xor, and xor with 0xFF flips every bit of a byte — that's kira's mask.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `data = bytearray([0x10, 0x20, 0x30, 0x40])
+data[0] ^= 0xFF
+print(data.hex(" "))    # ef 20 30 40`,
+        hotspots: [
+          { text: "bytearray([0x10, 0x20, 0x30, 0x40])", tip: "four bytes you're allowed to change." },
+          { text: "data[0] ^= 0xFF", tip: "flip every bit of byte 0, in place. 0x10 becomes 0xef." },
+        ],
+      },
+
+      // Section 2: slicing copies
+      {
+        type: "text",
+        section: 2,
+        content:
+          "you learned in chapter six that a slice hands you a new string. a bytearray slice is the same: data[1:] is a fresh bytearray with its own bytes. change data afterwards and the slice doesn't notice.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `data = bytearray([0x10, 0x20, 0x30])
+part = data[1:]
+data[1] ^= 0xFF
+print(part.hex(" "))    # 20 30 — untouched`,
+        hotspots: [
+          { text: "part = data[1:]", tip: "a copy. its bytes are its own." },
+        ],
+      },
+
+      // Section 3: memoryview
+      {
+        type: "text",
+        section: 3,
+        content:
+          "copying costs time on a big file, so python offers a way not to: memoryview. a memoryview is a window onto the same bytes, not a copy of them. slice the view and you get a smaller window — still onto the same bytes. change data, and everything looking through the window sees the change.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `data = bytearray([0x10, 0x20, 0x30])
+view = memoryview(data)[1:]
+data[1] ^= 0xFF
+print(bytes(view).hex(" "))    # df 30 — it changed`,
+        hotspots: [
+          { text: "memoryview(data)[1:]", tip: "no copy. a window starting at byte 1 of data itself." },
+          { text: "bytes(view)", tip: "bytes(...) copies what the window shows right now into new, frozen bytes." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "every language has a way to look at data without copying it, and it is always fast and always dangerous. the question to ask is never is this a copy. it's who else can still change what i'm looking at.",
+      },
+
+      // Section 4: her code
+      {
+        type: "text",
+        section: 4,
+        content:
+          "now read hers. ch is a queue — put drops a frame in for the receiver to take later. a frame is sent the moment it's put, but the receiver doesn't read it until afterwards.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `def transmit(data, ch):
+    view = memoryview(data)
+    for i in range(len(data)):
+        data[i] ^= 0xFF
+        ch.put(view[i:])`,
+        hotspots: [
+          { text: "view = memoryview(data)", tip: "a window onto the thesis itself. no copy anywhere." },
+          { text: "data[i] ^= 0xFF", tip: "the mask, applied in place — to the bytes every earlier frame is looking at." },
+          { text: "ch.put(view[i:])", tip: "sends a window, not a snapshot. the next pass of the loop rewrites what this frame shows." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "walk it with four bytes, 10 20 30 40. frame 0 goes out showing ef 20 30 40. then the loop flips byte 1, and frame 0 — already sent — now shows ef df 30 40. by the time the receiver reads, every frame but the last has been rewritten under it. my loopback log shows it: the checksums taken at send time don't match what arrives.",
+      },
+
+      // Section 5: the fix
+      {
+        type: "text",
+        section: 5,
+        content:
+          "the fix is one word: copy at the moment you send. bytes(data[i:]) freezes those bytes into a new object nobody else can change. later flips touch data, not the frame.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `def transmit_safe(data, ch):
+    for i in range(len(data)):
+        data[i] ^= 0xFF
+        ch.put(bytes(data[i:]))
+
+# frame 0: EF 20 30 40
+# frame 1: DF 30 40
+# frame 2: CF 40
+# frame 3: BF`,
+        hotspots: [
+          { text: "bytes(data[i:])", tip: "a frozen copy, taken at send time. the frame can never change after it leaves." },
+        ],
+      },
+
+      // Section 6: how to read code you didn't write
+      {
+        type: "text",
+        section: 6,
+        content:
+          "three questions for any code someone hands you. what does it change in place? what does it hand to someone else? and is what it hands over a copy, or a window onto the thing it keeps changing? a mutation, a send, and a missing copy — find all three and you've found the problem.",
+      },
+      {
+        type: "text",
+        section: 6,
+        important: true,
+        content:
+          "whether she meant it is a separate question, and the code can't answer it. the code can only tell you what it does. decide what she is from that, not from how clean it looks. — e.r.",
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "a memoryview is a window, not a copy. a bytearray slice is a copy." },
+      {
+        type: "code",
+        section: 0,
+        content: `part = data[1:]              # copy — safe
+view = memoryview(data)[1:]  # window — sees every later change`,
+      },
+      { type: "text", section: 1, content: "mutation + send + no copy = frames rewritten after they leave." },
+      {
+        type: "code",
+        section: 1,
+        content: `data[i] ^= 0xFF
+ch.put(view[i:])    # sends a window`,
+      },
+      { type: "text", section: 2, content: "the fix: freeze a copy at send time." },
+      {
+        type: "code",
+        section: 2,
+        content: `ch.put(bytes(data[i:]))`,
       },
     ],
   },

@@ -937,6 +937,583 @@ export const CHAPTER_04_2_COMPLETE_LEVEL: AdventureLevel = {
   endCard: { text: "CHAPTER 4.2 COMPLETE", sub: "ACT I CONTINUES" },
 };
 
+// ════════════════════════════════════════════════════════════════════
+// ACT III · DEEPER IN
+// From here the pages are Kira's — loose sheets in a sharper hand, left
+// exactly where Maya is about to need them (boss 3's are Reeves' again).
+// Kira speaks in capitals on the line; Maya stays lowercase.
+// ════════════════════════════════════════════════════════════════════
+
+// ── Server room · archive ──
+// Anteroom (left) → rack hall with a patrol (racks in rows 2 and 4, open
+// aisles above and below, a rack shadow on the middle aisle) → the archive
+// (right): four archive racks, the page clipped beside the last one, the
+// archive terminal in the corner.
+
+const ARCHIVE = [
+  "#########################",
+  "#....#...........#......#",
+  "#.m..#.s.s.s.s.s.#.s.s..#",
+  "#....D....*....h.D......#",
+  "#..*.#.s.s.s.s.s.#.s.s..#",
+  "#....#...........#....T.#",
+  "#########################",
+];
+
+export const CHAPTER_07_INTRO_LEVEL: AdventureLevel = {
+  id: "chapter-07-intro",
+  title: "CHAPTER 7",
+  subtitle: "FILE TREE",
+  location: "SERVER ROOM · ARCHIVE",
+  theme: "server",
+  map: placeBook(ARCHIVE, 22, 4),
+  ambience: ["facility-hum", "dark-drone-1"],
+  opening: "the server room. somewhere in these racks is my thesis.",
+  guards: [
+    {
+      id: "aisle",
+      delayMs: 4200,
+      warning: { thought: "boots in the rack hall. wait for him to turn.", leadMs: 2200 },
+      route: [
+        { x: 16, y: 1, face: "down", waitMs: 1600 },
+        { x: 6, y: 1, waitMs: 500 },
+        { x: 6, y: 5, face: "up", waitMs: 1600 },
+        { x: 16, y: 5, waitMs: 500 },
+      ],
+      loop: "cycle",
+      speed: 1.5,
+      range: 4.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "aisle",
+      stake: "the archive is at the back of the server room. cross the rack hall without being seen.",
+      kind: "reach",
+      target: "hide-1",
+      checkpoint: true,
+      thought: "rack shadows. stay between them.",
+      cues: [
+        { atMs: 3600, sfx: "message-receive", voice: { from: "unregistered channel", text: "Archive, last rack. I left you something. Read it before you log in." } },
+      ],
+      done: "an unregistered channel. someone is watching me move.",
+    },
+    {
+      id: "chapter",
+      stake: "a page is clipped inside the last archive rack. take it before the terminal.",
+      kind: "interact",
+      target: "book-1",
+      verb: "TAKE THE PAGES",
+      durationMs: 1200,
+      checkpoint: true,
+      thought: "paper clipped to the rack frame.",
+      done: "chapter seven. not reeves' hand. someone knew i'd come here.",
+    },
+    {
+      id: "terminal",
+      stake: "count every file in the archive from its terminal — the thesis is on one of these servers.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "OPEN THE ARCHIVE",
+      durationMs: 1500,
+      checkpoint: true,
+      thought: "folders inside folders inside folders.",
+      done: "the tree goes deep. some branches are corrupted.",
+      sfx: "terminal-beep",
+    },
+  ],
+  ending: "relinquish",
+};
+
+export const CHAPTER_07_COMPLETE_LEVEL: AdventureLevel = {
+  id: "chapter-07-complete",
+  title: "CHAPTER 7 COMPLETE",
+  subtitle: "THESIS LOCATED",
+  location: "SERVER ROOM · ARCHIVE",
+  theme: "server",
+  map: [
+    "#########################",
+    "#....#...........#......#",
+    "#....#.s.s.s.s.s.#.s.s..#",
+    "#x...D....*....h.D......#",
+    "#..*.#.s.s.s.s.s.#.s.s..#",
+    "#....#...........#...mT.#",
+    "#########################",
+  ],
+  ambience: ["facility-hum"],
+  guards: [
+    {
+      id: "aisle",
+      route: [
+        { x: 6, y: 5, face: "up", waitMs: 1800 },
+        { x: 16, y: 5, waitMs: 500 },
+        { x: 16, y: 1, face: "down", waitMs: 1800 },
+        { x: 6, y: 1, waitMs: 500 },
+      ],
+      loop: "cycle",
+      speed: 1.4,
+      range: 4.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "located",
+      stake: "the scan found the thesis. mark where it lives before anything else moves.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "MARK THE THESIS",
+      durationMs: 2600,
+      thought: "gamma. thesis_v2.",
+      cues: [
+        { atMs: 0, sfx: "handshake-confirm", flash: "signal" },
+        { atMs: 300, after: "interact", voice: { from: "kira", text: "Found it. Now look at the vault. GHOST isn't hiding evidence. He's erasing it." } },
+        { atMs: 1700, after: "interact", voice: { from: "kira", text: "Your thesis won't survive in there. We copy it out tonight." } },
+      ],
+      done: "'we.' she said we.",
+    },
+    {
+      id: "plant",
+      stake: "the archive is wired to the alarm grid. the grid runs on the power plant — get there.",
+      kind: "reach",
+      target: "exit-1",
+      checkpoint: true,
+      thought: "the cage is alarmed. the alarm needs power.",
+      done: "the power plant. two corridors over.",
+    },
+  ],
+  ending: "exit",
+  endCard: { text: "CHAPTER 7 COMPLETE", sub: "NEXT · CIRCUIT CUT" },
+};
+
+// ── Power plant · circuit array ──
+// One humming hall: four breaker cabinets on the walls (north, west, east,
+// south), transformer blocks for cover, the breaker console in the middle.
+// Breaker four is the east cabinet; Kira's page is taped behind it.
+
+const CIRCUIT_ARRAY = [
+  "#####################",
+  "#.........p.........#",
+  "#..s.............s..#",
+  "#...*...s...s...*...#",
+  "#p.......T.........p#",
+  "#...*...s.h.s...*...#",
+  "#..s.............s..#",
+  "#m........p.........#",
+  "#####################",
+];
+
+export const CHAPTER_08_INTRO_LEVEL: AdventureLevel = {
+  id: "chapter-08-intro",
+  title: "CHAPTER 8",
+  subtitle: "CIRCUIT CUT",
+  location: "POWER PLANT · CIRCUIT ARRAY",
+  theme: "vent",
+  map: placeBook(CIRCUIT_ARRAY, 19, 5),
+  ambience: ["facility-hum", "dark-drone-2"],
+  opening: "the power plant. four breakers feed the alarm grid. one of them has my name on it.",
+  guards: [
+    {
+      id: "engineer",
+      delayMs: 3800,
+      warning: { thought: "an engineer on his rounds. keep the transformers between us.", leadMs: 2200 },
+      route: [
+        { x: 15, y: 2, face: "down", waitMs: 1400 },
+        { x: 15, y: 6, waitMs: 500 },
+        { x: 5, y: 6, face: "up", waitMs: 1400 },
+        { x: 5, y: 2, waitMs: 500 },
+      ],
+      loop: "cycle",
+      speed: 1.4,
+      range: 4.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "chapter",
+      stake: "kira's page is taped behind breaker four — the east cabinet. get it while the engineer is turned away.",
+      kind: "interact",
+      target: "book-1",
+      verb: "TAKE THE PAGES",
+      durationMs: 1200,
+      checkpoint: true,
+      thought: "north, south, east, west. paper behind the east one.",
+      cues: [
+        { atMs: 1200, sfx: "machinery", shake: 1.5 },
+        { atMs: 2600, voice: { from: "kira", text: "Breaker four. Behind it. You'll want that before you touch anything." } },
+      ],
+      done: "chapter eight. her hand again. she knew i'd be at the breakers before i did.",
+    },
+    {
+      id: "console",
+      stake: "cut one breaker at a time and the grid seals the building. the console can drop all four at once.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "WAKE BREAKER CONSOLE",
+      durationMs: 1500,
+      checkpoint: true,
+      thought: "four hands. one moment.",
+      done: "four circuits. one power cycle. the console does the rest.",
+      sfx: "terminal-beep",
+    },
+  ],
+  ending: "relinquish",
+  handoff: "CONTROL → BREAKER CONSOLE",
+};
+
+export const CHAPTER_08_COMPLETE_LEVEL: AdventureLevel = {
+  id: "chapter-08-complete",
+  title: "CHAPTER 8 COMPLETE",
+  subtitle: "GRID BLIND",
+  location: "POWER PLANT · CIRCUIT ARRAY",
+  theme: "vent",
+  // The grid is dark: no ceiling lights, only the console and the cabinets' status lamps.
+  map: [
+    "#####################",
+    "#x........p.........#",
+    "#..s.............s..#",
+    "#.......s...s.......#",
+    "#p.......Tm........p#",
+    "#.......s.h.s.......#",
+    "#..s.............s..#",
+    "#.........p.........#",
+    "#####################",
+  ],
+  lights: [
+    { x: 9, y: 4, color: "term", intensity: 10 },
+    { x: 10, y: 1, color: "danger", intensity: 4, range: 3 },
+    { x: 1, y: 4, color: "danger", intensity: 4, range: 3 },
+    { x: 19, y: 4, color: "danger", intensity: 4, range: 3 },
+    { x: 10, y: 7, color: "danger", intensity: 4, range: 3 },
+  ],
+  ambience: ["dark-drone-2"],
+  guards: [
+    {
+      id: "engineer",
+      route: [
+        { x: 15, y: 6, face: "up", waitMs: 2200 },
+        { x: 15, y: 2, waitMs: 600 },
+        { x: 5, y: 2, face: "down", waitMs: 2200 },
+        { x: 5, y: 6, waitMs: 600 },
+      ],
+      loop: "cycle",
+      speed: 1.1,
+      range: 3.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "file",
+      stake: "the grid is blind and kira has sent a file. open it — carefully.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "QUARANTINE THE FILE",
+      durationMs: 2800,
+      thought: "all four down. the alarm grid is blind.",
+      cues: [
+        { atMs: 0, sfx: "handshake-confirm", flash: "signal", shake: 2 },
+        { atMs: 200, after: "interact", sfx: "message-receive", voice: { from: "kira", text: "Grid's blind. You're welcome. Sending you something." } },
+        { atMs: 1300, after: "interact", sfx: "warning-beep", thought: "the key for the thesis. and a zero-day stapled to it." },
+        { atMs: 2200, after: "interact", voice: { from: "reeves", text: "a gift and a trap, priced as one. that is how she negotiates." } },
+      ],
+      done: "file quarantined. key extracted. remember this.",
+    },
+    {
+      id: "comms",
+      stake: "the thesis is copied and the grid will heal. the comms array is the way out — go now.",
+      kind: "reach",
+      target: "exit-1",
+      checkpoint: true,
+      thought: "she sent the key. and a gun aimed at my terminal. in the same file.",
+      done: "the comms array. one floor up.",
+    },
+  ],
+  ending: "exit",
+  endCard: { text: "CHAPTER 8 COMPLETE", sub: "NEXT · CHANNEL OF ESCAPE" },
+};
+
+// ── Server room · comms array ──
+// Stair landing (left) → patrolled hall with a shadow in the middle → the
+// array room (right): the antenna housing, the page beneath it, the comms
+// terminal in the corner.
+
+const COMMS_ARRAY = [
+  "#######################",
+  "#....#....*.....#.s.s.#",
+  "#.m..D..........D.....#",
+  "#....#.....h....#.ss..#",
+  "#..*.#..........#.ss..#",
+  "#....#....*.....#....T#",
+  "#######################",
+];
+
+export const CHAPTER_09_INTRO_LEVEL: AdventureLevel = {
+  id: "chapter-09-intro",
+  title: "CHAPTER 9",
+  subtitle: "CHANNEL OF ESCAPE",
+  location: "SERVER ROOM · COMMS ARRAY",
+  theme: "comms",
+  map: placeBook(COMMS_ARRAY, 20, 4),
+  ambience: ["facility-hum", "tension-drone"],
+  opening: "the grid is blind. now i need a way out of the district before it heals.",
+  guards: [
+    {
+      id: "hall",
+      delayMs: 3600,
+      warning: { thought: "a patrol in the hall. the grid is blind. he isn't.", leadMs: 2200 },
+      route: [
+        { x: 14, y: 1, face: "down", waitMs: 1500 },
+        { x: 7, y: 1, waitMs: 400 },
+        { x: 7, y: 5, face: "up", waitMs: 1500 },
+        { x: 14, y: 5, waitMs: 400 },
+      ],
+      loop: "cycle",
+      speed: 1.5,
+      range: 4.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "cross",
+      stake: "the comms array is across the hall. get to the shadow in the middle while the patrol is turned.",
+      kind: "reach",
+      target: "hide-1",
+      checkpoint: true,
+      thought: "the array is past the hall.",
+      done: "half way.",
+    },
+    {
+      id: "chapter",
+      stake: "there's paper under the antenna housing. kira's again. take it before the terminal.",
+      kind: "interact",
+      target: "book-1",
+      verb: "TAKE THE PAGES",
+      durationMs: 1200,
+      checkpoint: true,
+      thought: "under the housing. of course it is.",
+      done: "chapter nine. she's teaching me to listen on her frequencies.",
+    },
+    {
+      id: "array",
+      stake: "call every extraction team at once and go with whoever answers first.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "POWER THE ARRAY",
+      durationMs: 1600,
+      checkpoint: true,
+      thought: "three teams. three frequencies. all of them hers.",
+      cues: [
+        { atMs: 300, after: "interact", voice: { from: "kira", text: "Alpha, Bravo, Charlie. Take whoever answers. Don't wait on a dead line." } },
+        { atMs: 1200, after: "interact", voice: { from: "reeves", text: "burn them unread, maya." } },
+      ],
+      done: "i can't afford to burn anything.",
+      sfx: "terminal-beep",
+    },
+  ],
+  ending: "relinquish",
+  handoff: "CONTROL → COMMS ARRAY",
+};
+
+export const CHAPTER_09_COMPLETE_LEVEL: AdventureLevel = {
+  id: "chapter-09-complete",
+  title: "CHAPTER 9 COMPLETE",
+  subtitle: "BRAVO CONFIRMS",
+  location: "SERVER ROOM · COMMS ARRAY",
+  theme: "comms",
+  map: [
+    "#######################",
+    "#....#....*.....#.s.s.#",
+    "#x...D..........D.....#",
+    "#....#.....h....#.ss..#",
+    "#..*.#..........#.ss..#",
+    "#....#....*.....#...mT#",
+    "#######################",
+  ],
+  ambience: ["facility-hum"],
+  guards: [
+    {
+      id: "hall",
+      route: [
+        { x: 7, y: 5, face: "up", waitMs: 1700 },
+        { x: 14, y: 5, waitMs: 400 },
+        { x: 14, y: 1, face: "down", waitMs: 1700 },
+        { x: 7, y: 1, waitMs: 400 },
+      ],
+      loop: "cycle",
+      speed: 1.4,
+      range: 4.5,
+    },
+  ],
+  objectives: [
+    {
+      id: "bravo",
+      stake: "a team answered first. take the call.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "TAKE THE CALL",
+      durationMs: 2800,
+      thought: "first contact.",
+      cues: [
+        { atMs: 0, sfx: "handshake-confirm", flash: "term" },
+        { atMs: 200, after: "interact", voice: { from: "bravo", text: "bravo. dock four, forty minutes, one passenger." } },
+        { atMs: 1300, after: "interact", sfx: "message-receive", voice: { from: "kira", text: "Bravo's frequency is open air. Your thesis won't survive the trip uncoded. Use my encoder." } },
+        { atMs: 2400, after: "interact", sfx: "dread-sting", thought: "six lines. reads clean. almost too clean." },
+      ],
+      done: "six lines. i can read six lines.",
+    },
+    {
+      id: "dock",
+      stake: "bravo holds dock 4 for forty minutes. reeves is at the dock relay — get there before a line of kira's encoder runs.",
+      kind: "reach",
+      target: "exit-1",
+      checkpoint: true,
+      thought: "every gift of hers has carried a blade so far.",
+      done: "the dock relay.",
+    },
+  ],
+  ending: "exit",
+  endCard: { text: "CHAPTER 9 COMPLETE", sub: "NEXT · KIRA · ALLEGIANCE" },
+};
+
+// ── Dock relay · Kira's channel ──
+// Near-dark relay room above dock 4. The dock walkway beyond the bars,
+// Reeves waiting by the relay racks, the relay console in the far corner
+// under a single amber channel lamp. No patrol on the way in.
+
+const DOCK_RELAY = [
+  "#####################",
+  "#...................#",
+  "#===================#",
+  "#m...........r......#",
+  "#...................#",
+  "#..s.s.........s.T..#",
+  "#####################",
+];
+
+export const BOSS_03_INTRO_LEVEL: AdventureLevel = {
+  id: "boss-03-intro",
+  title: "BOSS",
+  subtitle: "KIRA · ALLEGIANCE",
+  location: "DOCK RELAY · KIRA'S CHANNEL",
+  theme: "boss",
+  map: placeBook(DOCK_RELAY, 14, 3), // at her side — folded into her coat
+  lights: [
+    { x: 17, y: 4, color: "alert", intensity: 9, range: 4 },
+    { x: 13, y: 4, color: "cool", intensity: 6, range: 4 },
+    { x: 4, y: 3, color: "cool", intensity: 4, range: 4 },
+  ],
+  ambience: ["dark-drone-1"],
+  opening: "dock 4 is below us. bravo is holding. reeves is already here.",
+  guards: [],
+  objectives: [
+    {
+      id: "reeves",
+      stake: "reeves ran kira's encoder through the dock relay. hear what came back.",
+      kind: "interact",
+      target: "npc-1",
+      verb: "LISTEN",
+      durationMs: 3200,
+      pose: "idle",
+      thought: "she's been at the relay for an hour.",
+      cues: [
+        { atMs: 300, after: "interact", voice: { from: "reeves", text: "the receiver log came back wrong. wrong in a way only three people in this building could see." } },
+        { atMs: 1900, after: "interact", voice: { from: "reeves", text: "she wrote it to be read. so read it." } },
+      ],
+      done: "her code. my verdict.",
+    },
+    {
+      id: "chapter",
+      stake: "reeves has pages folded into her coat. she wrote them for tonight.",
+      kind: "interact",
+      target: "book-1",
+      verb: "TAKE THE PAGES",
+      durationMs: 1200,
+      thought: "her hand again. not kira's.",
+      done: "reeves' pages. read before you run.",
+    },
+    {
+      id: "relay",
+      stake: "decide what kira is before her code touches the thesis. the relay console has her six lines.",
+      kind: "interact",
+      target: "terminal-1",
+      verb: "OPEN KIRA'S CHANNEL",
+      durationMs: 1600,
+      thought: "one amber light. one open line.",
+      cues: [
+        { atMs: 400, after: "interact", sfx: "message-receive", voice: { from: "kira", text: "Take your time, Maya. I'm patient. Bravo isn't." } },
+      ],
+      done: "six lines. one verdict.",
+      sfx: "terminal-beep",
+    },
+  ],
+  ending: "relinquish",
+  handoff: "CONTROL → THE VERDICT",
+};
+
+export const BOSS_03_COMPLETE_LEVEL: AdventureLevel = {
+  id: "boss-03-complete",
+  title: "VERDICT GIVEN",
+  subtitle: "KIRA · ALLEGIANCE",
+  location: "DOCK RELAY · KIRA'S CHANNEL",
+  theme: "boss",
+  // Verdict-neutral: plays the same after TRUST and REJECT.
+  map: [
+    "#####################",
+    "#...................#",
+    "#===================#",
+    "#x...........r......#",
+    "#...................#",
+    "#..s.s.........s.Tm.#",
+    "#####################",
+  ],
+  lights: [
+    { x: 17, y: 4, color: "alert", intensity: 6, range: 4 },
+    { x: 13, y: 4, color: "cool", intensity: 6, range: 4 },
+    { x: 2, y: 3, color: "cool", intensity: 5, range: 4 },
+  ],
+  ambience: ["dark-drone-1", "heartbeat-slow"],
+  guards: [
+    {
+      // One distant sweep on the dock walkway, beyond the bars.
+      id: "walkway",
+      route: [
+        { x: 18, y: 1, face: "left", waitMs: 2400 },
+        { x: 2, y: 1, face: "right", waitMs: 2400 },
+      ],
+      speed: 1.2,
+      range: 2.5,
+      halfAngle: 0.45,
+    },
+  ],
+  objectives: [
+    {
+      id: "after",
+      stake: "the verdict is sent. reeves is waiting.",
+      kind: "interact",
+      target: "npc-1",
+      verb: "TALK",
+      durationMs: 2600,
+      pose: "idle",
+      thought: "it's done. whatever she is, we know now.",
+      cues: [
+        { atMs: 300, after: "interact", voice: { from: "reeves", text: "you read it. that is more than most would have done." } },
+        { atMs: 1500, after: "interact", voice: { from: "reeves", text: "the exit corridor runs under the dock. bravo will not hold forever." } },
+      ],
+      done: "whatever comes next, i chose it with my eyes open.",
+    },
+    {
+      id: "exit",
+      stake: "bravo is holding at dock 4. reach the exit corridor.",
+      kind: "reach",
+      target: "exit-1",
+      checkpoint: true,
+      thought: "keep low under the walkway.",
+      done: "the exit corridor.",
+    },
+  ],
+  ending: "exit",
+  endCard: { text: "ACT III COMPLETE", sub: "NEXT · SENSOR SWEEP" },
+};
+
 export const ALL_LEVELS: AdventureLevel[] = [
   CHAPTER_01_INTRO_LEVEL,
   CHAPTER_01_COMPLETE_LEVEL,
@@ -950,6 +1527,14 @@ export const ALL_LEVELS: AdventureLevel[] = [
   CHAPTER_04_COMPLETE_LEVEL,
   CHAPTER_04_2_INTRO_LEVEL,
   CHAPTER_04_2_COMPLETE_LEVEL,
+  CHAPTER_07_INTRO_LEVEL,
+  CHAPTER_07_COMPLETE_LEVEL,
+  CHAPTER_08_INTRO_LEVEL,
+  CHAPTER_08_COMPLETE_LEVEL,
+  CHAPTER_09_INTRO_LEVEL,
+  CHAPTER_09_COMPLETE_LEVEL,
+  BOSS_03_INTRO_LEVEL,
+  BOSS_03_COMPLETE_LEVEL,
 ];
 
 export function levelById(id: string): AdventureLevel | undefined {

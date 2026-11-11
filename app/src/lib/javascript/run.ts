@@ -10,7 +10,7 @@ export const TIMEOUT_ERROR = "main.js:0:0: RangeError: your program ran for too 
 
 export function runJavaScript(input: JsRunInput): Promise<JsRunOutput> {
   if (typeof window === "undefined" || typeof Worker === "undefined") {
-    return Promise.resolve(executeJs(input));
+    return executeJs(input);
   }
   return new Promise((resolve) => {
     let settled = false;
@@ -27,7 +27,7 @@ export function runJavaScript(input: JsRunInput): Promise<JsRunOutput> {
     worker.onerror = (e) => {
       e.preventDefault();
       // If the worker itself can't start, run in-process rather than strand the player.
-      if (!settled) finish(executeJs(input));
+      if (!settled) void executeJs(input).then(finish);
     };
     worker.postMessage(input);
   });

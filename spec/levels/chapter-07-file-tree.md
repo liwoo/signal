@@ -9,6 +9,8 @@
 - Defer
 - Panic / Recover
 
+> **As built (Act III, Nov 2026):** the code lives in functions the harness calls — `scanArchive(archive, root) int` and `safeScan(archive, root) (int, []string)` — so a second small tree catches hardcoded output. Expected output in `app/src/data/challenges/chapter-07.ts` is the source of truth. Python/JS realizations: `nonlocal` + `try/finally` + `raise/except`; `let` closure + `try/finally` + `throw/catch` (see `docs/act-3-plan.md`).
+
 ## Story Context
 
 Maya needs to find which server has her thesis by counting files in the building's archive directory tree. The tree is nested — recursion is the only way through. But some directories are corrupted (GHOST's doing). If Maya's code hits a corrupted directory without protection, the entire scan crashes and triggers an alarm. She needs `defer` + `recover` to gracefully handle panics from bad data.
@@ -21,7 +23,7 @@ Write a recursive function with a closure counter to traverse a directory tree a
 
 #### Step 0: Scaffold
 
-`package main`, `import "fmt"`, `func main()`, print "scanner ready".
+Print `Hello World` into an empty editor (every chapter's scaffold — see app/CLAUDE.md).
 
 #### Step 1: Recursive File Counter
 
@@ -66,7 +68,7 @@ scanned: beta
 scanned: gamma
 scanned: servers
 scanned: root
-total files: 8
+total files: 9
 ```
 
 #### Step 2: Panic and Recover
@@ -128,7 +130,7 @@ scanned: gamma
 scanned: servers
 scanned: vault
 scanned: root
-total files: 8
+total files: 9
 ERROR: vault: corrupted directory
 ```
 
@@ -139,7 +141,7 @@ The key insight: the scan continues after vault panics. Without recover, the ent
 - Recursive function traverses the nested map
 - Closure used to accumulate file count
 - `defer` used to log directory scan completion
-- Correct total: 8 files
+- Correct total: 9 files (root 1 + logs 2 + alpha 2 + beta 1 + gamma 3)
 - All directories appear in "scanned" output
 - `panic` triggered on corrupted directory
 - `defer` + `recover` catches the panic gracefully
@@ -197,7 +199,7 @@ The `count` variable isn't passed to the scan function — it's captured from th
 
 ### defer runs LIFO
 
-Multiple defers in a function run in last-in-first-out order. In step 2, the recover defer runs before the print defer. This matters — if recover didn't run first, the print would execute during the panic unwind and the recover would never fire.
+Multiple defers in a function run in last-in-first-out order. In step 2 the print defer is registered last, so it runs first — `scanned: vault` still prints while the panic unwinds — and then the recover defer catches the panic. Either order produces the same output here; the lesson is that deferred calls run even during a panic, which is exactly what makes recover possible.
 
 ### panic/recover is NOT try/catch
 

@@ -6,10 +6,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { chapter01 } from "@/data/challenges/chapter-01";
 import { chapter02 } from "@/data/challenges/chapter-02";
 import { chapter03 } from "@/data/challenges/chapter-03";
+import { chapter07 } from "@/data/challenges/chapter-07";
+import { chapter08 } from "@/data/challenges/chapter-08";
+import { chapter09 } from "@/data/challenges/chapter-09";
 import { realizeChallenge } from "@/data/challenges/realizations";
 import { callMayaEngine, callMayaEngineAsync, type StepTestConfig } from "@/lib/ai/engine";
 import { usePyodideInNode } from "@/lib/python/node-backend";
 import { SOLUTIONS } from "@/lib/lang/fixtures";
+import { ACT3_HARDCODED } from "@/lib/lang/act3.fixtures";
 import { PYTHON_BANKS } from "./python";
 
 const PY = SOLUTIONS.python;
@@ -21,7 +25,7 @@ function offline(stepId: string, code: string) {
 const STEPS = Object.keys(PYTHON_BANKS);
 
 describe("python banks · offline reference solutions", () => {
-  it("covers all nine act i steps", () => {
+  it("covers every realized step", () => {
     expect(STEPS.sort()).toEqual(Object.keys(PY).sort());
   });
 
@@ -131,6 +135,79 @@ const MISTAKES: Record<string, [string, RegExp][]> = {
     ],
     [PY["chapter-03:sumfunc"], /validate_code/],
   ],
+  // ── Act III ──
+  "chapter-07:scaffold": [['print("Hello World"', /line 1/], ['print("hello world")', /capital H/]],
+  "chapter-07:scan": [
+    [PY["chapter-07:scan"].replace("        nonlocal count\n", ""), /nonlocal count/],
+    [PY["chapter-07:scan"].replace("nonlocal count", "global count"), /`global`/],
+    [PY["chapter-07:scan"].replace("scan(entry[:-1])", "scan(entry)"), /slash/],
+    [PY["chapter-07:scan"].replace("                    scan(entry[:-1])\n", "                    pass\n"), /deeper/],
+    [
+      "def scan_archive(archive, root):\n    count = 0\n\n    def scan(d):\n        nonlocal count\n        for entry in archive[d]:\n            if entry.endswith(\"/\"):\n                scan(entry[:-1])\n            else:\n                count += 1\n        print(\"scanned:\", d)\n\n    scan(root)\n    return count",
+      /finally/,
+    ],
+    [PY["chapter-07:scan"].replace("    scan(root)\n    return count", "    return count"), /never set it off/],
+    [PY["chapter-07:scan"].replace("def scan_archive(", "def scanArchive("), /snake_case/],
+  ],
+  "chapter-07:recover": [
+    [PY["chapter-07:scan"], /safe_scan/],
+    [PY["chapter-07:recover"].replace('                raise RuntimeError("corrupted directory")\n', "                pass\n"), /raise RuntimeError/],
+    [
+      PY["chapter-07:recover"]
+        .replace('        try:\n            if archive[d] is None:\n                raise RuntimeError("corrupted directory")\n', '        if archive[d] is None:\n            raise RuntimeError("corrupted directory")\n        try:\n'),
+      /outside the `try`/,
+    ],
+    [PY["chapter-07:recover"].replace("except Exception as e:", "except Exception:"), /as e/],
+    [PY["chapter-07:recover"].replace('            errors.append(f"{d}: {e}")', "            pass"), /errors.append/],
+    [PY["chapter-07:recover"].replace("return count, errors", "return errors"), /return both/],
+  ],
+  "chapter-08:scaffold": [['print("Hello World"', /line 1/]],
+  "chapter-08:goroutine": [
+    [PY["chapter-08:goroutine"].replace("return asyncio.create_task(cut(name))", "return cut(name)"), /coroutine/],
+    [PY["chapter-08:goroutine"].replace("def cut_async", "async def cut_async"), /plain `def`/],
+    [PY["chapter-08:goroutine"].replace("async def cut(name)", "def cut(name)"), /async def cut/],
+    [PY["chapter-08:goroutine"].replace("return asyncio.create_task(cut(name))", "asyncio.run(cut(name))"), /asyncio.run/],
+    [PY["chapter-08:goroutine"].replace("import asyncio\n", ""), /import asyncio/],
+  ],
+  "chapter-08:fanout": [
+    [
+      "import asyncio\n\n\nasync def trip(name):\n    return f\"{name} circuit: DOWN\"\n\n\nasync def cut_all(circuits):\n    lines = []\n    for n in circuits:\n        lines.append(await trip(n))\n    return lines",
+      /one after another/,
+    ],
+    [PY["chapter-08:fanout"].replace("gather(*(trip(n) for n in circuits))", "gather([trip(n) for n in circuits])"), /star/],
+    [PY["chapter-08:fanout"].replace("return await asyncio.gather", "return asyncio.gather"), /`await`/],
+    [PY["chapter-08:fanout"].replace("async def cut_all", "def cut_all"), /async def cut_all/],
+    [PY["chapter-08:fanout"].replace("gather(*(trip(n)", "gather(*(cut(n)"), /`None`/],
+  ],
+  "chapter-08:window": [
+    [ACT3_HARDCODED.python["chapter-08:window"]!, /one after another/],
+    [PY["chapter-08:window"].replace("await asyncio.sleep(d / 1000)", "time.sleep(d / 1000)"), /time.sleep/],
+    [PY["chapter-08:window"].replace("d / 1000", "d"), /seconds/],
+    [PY["chapter-08:window"].replace("d / 1000", "d // 1000"), /rounds down/],
+    [PY["chapter-08:window"].replace(" ({d}ms)", ""), /\(\{d\}ms\)/],
+  ],
+  "chapter-09:scaffold": [['print("Hello World"', /line 1/]],
+  "chapter-09:hail": [
+    [PY["chapter-09:hail"].replace("def hail(", "async def hail("), /plain `def`/],
+    [PY["chapter-09:hail"].replace("return asyncio.create_task(respond())", "return respond()"), /hasn't started/],
+    [PY["chapter-09:hail"].replace("await asyncio.sleep(delay_ms / 1000)", "time.sleep(delay_ms / 1000)"), /time.sleep/],
+    [PY["chapter-09:hail"].replace("delay_ms / 1000", "delay_ms // 1000"), /rounds down/],
+    [PY["chapter-09:hail"].replace('return f"{team} responding"', 'print(f"{team} responding")'), /prints instead/],
+  ],
+  "chapter-09:first": [
+    [ACT3_HARDCODED.python["chapter-09:first"]!, /waits for alpha/],
+    [PY["chapter-09:first"].replace("return done.pop().result()", "return done.pop()"), /\.result\(\)/],
+    [PY["chapter-09:first"].replace(", return_when=asyncio.FIRST_COMPLETED", ""), /FIRST_COMPLETED/],
+    [PY["chapter-09:first"].replace("[alpha, bravo, charlie]", "alpha, bravo, charlie"), /one list/],
+    [PY["chapter-09:hail"], /first_responder/],
+  ],
+  "chapter-09:timeout": [
+    [PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000", "timeout=0.2"), /a number you picked/],
+    [PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000", "timeout=timeout_ms"), /counts seconds/],
+    [PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000, ", ""), /deadlock/],
+    [PY["chapter-09:timeout"].replace("def sweep(task)", "async def sweep(task)"), /can't be `async def`/],
+    [PY["chapter-09:timeout"].replace("    if task.done():\n        return task.result()\n", ""), /task.done\(\)/],
+  ],
 };
 
 describe("python banks · offline classic mistakes", () => {
@@ -189,7 +266,7 @@ describe("python banks · online wrong-output feedback", () => {
     usePyodideInNode();
   });
 
-  const steps = [chapter01, chapter02, chapter03].flatMap((c) => realizeChallenge(c, "python").steps);
+  const steps = [chapter01, chapter02, chapter03, chapter07, chapter08, chapter09].flatMap((c) => realizeChallenge(c, "python").steps);
   const test = (stepId: string): StepTestConfig => {
     const s = steps.find((x) => x.id === stepId)!;
     return { testHarness: s.testHarness, expectedOutput: s.expectedOutput, requiredCode: s.requiredCode, compileModule: s.compileModule };
@@ -216,6 +293,22 @@ describe("python banks · online wrong-output feedback", () => {
       PY["chapter-03:validate"].replace("return total, total > 100", 'return total, "true" if total > 100 else "false"'),
       /lowercase/,
     ],
+    // ── Act III ──
+    [
+      "chapter-07:scan",
+      PY["chapter-07:scan"].replace(
+        'if entry.endswith("/"):\n                    scan(entry[:-1])\n                else:\n                    count += 1',
+        'count += 1\n                if entry.endswith("/"):\n                    scan(entry[:-1])',
+      ),
+      /directories too/,
+    ],
+    ["chapter-07:scan", PY["chapter-07:scan"].replace('            for entry', '            print("scanned:", d)\n            for entry').replace('            print("scanned:", d)\n\n', "            pass\n\n"), /on the way in/],
+    ["chapter-07:recover", PY["chapter-07:recover"].replace('            if archive[d] is None:\n                raise RuntimeError("corrupted directory")\n', ""), /raise your own/],
+    ["chapter-08:goroutine", ACT3_HARDCODED.python["chapter-08:goroutine"]!, /never dropped/],
+    ["chapter-08:fanout", PY["chapter-08:fanout"].replace("return await asyncio.gather(*(trip(n) for n in circuits))", "return [trip(n) for n in circuits]"), /nobody ran/],
+    ["chapter-08:window", ACT3_HARDCODED.python["chapter-08:window"]!, /two power cycles/],
+    ["chapter-09:first", ACT3_HARDCODED.python["chapter-09:first"]!, /waited on alpha/],
+    ["chapter-09:timeout", PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000", "timeout=0.2"), /timeout_ms/],
   ];
   for (const [stepId, code, reply] of cases) {
     it(`${stepId}: ${code.split("\n").join(" ⏎ ").slice(0, 60)}`, async () => {
