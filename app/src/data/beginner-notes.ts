@@ -1137,6 +1137,866 @@ func relayHeader(floor int, code string) string {
     ],
   },
 
+  // ══════════════════════════════════════════════════════════════
+  //  Act III — Kira's pages (boss-03 is Reeves again)
+  // ══════════════════════════════════════════════════════════════
+
+  "chapter-07": {
+    title: "FILE TREE",
+    subtitle: "CLOSURES, RECURSION, DEFER, PANIC & RECOVER",
+    blocks: [
+      // Section 0: functions are values
+      {
+        type: "text",
+        section: 0,
+        content:
+          "same skeleton as every terminal: package main, import \"fmt\", func main(). this chapter is about functions themselves. in go a function is a value — you can store one in a variable, pass it around, and call it later. a function written without a name is a function literal.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import "fmt"
+
+func main() {
+    greet := func(name string) string {
+        return "hello, " + name
+    }
+    fmt.Println(greet("maya")) // hello, maya
+}`,
+        hotspots: [
+          { text: "greet := func(name string) string", tip: "a function literal — no name after func — stored in the variable greet. greet now holds a function, the way n can hold an int." },
+          { text: `greet("maya")`, tip: "calling the variable calls the function inside it. same parentheses as any call." },
+        ],
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "kira, in the margin: \"You already know functions. What you don't know yet is that they can remember things. That part I charge for.\"",
+      },
+
+      // Section 1: closures
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a function literal can use the variables around it. it doesn't get a copy — it captures the variable itself. change it inside the literal and the change is visible outside. a function plus the variables it captured is called a closure.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `count := 0
+tick := func() {
+    count++
+}
+tick()
+tick()
+fmt.Println(count) // 2`,
+        hotspots: [
+          { text: "count := 0", tip: "declared outside the literal. this is the one and only count." },
+          { text: "count++", tip: "not a copy. the literal reaches out to the same count declared above and adds one to it." },
+          { text: "fmt.Println(count)", tip: "two calls to tick, so count is 2 out here. the closure and main share the variable." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "declare the shared variable OUTSIDE the literal. if you write count := 0 inside it, every call starts its own fresh zero and throws it away when it returns.",
+      },
+
+      // Section 2: recursion
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a recursive function calls itself on a smaller piece of the problem. a directory tree is the textbook case: every directory is a smaller tree. each call needs a way to stop — the base case — or it calls itself forever.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `var countdown func(n int)
+countdown = func(n int) {
+    if n == 0 {
+        return
+    }
+    fmt.Println(n)
+    countdown(n - 1)
+}
+countdown(3) // 3, 2, 1`,
+        hotspots: [
+          { text: "var countdown func(n int)", tip: "declare the variable first, with its function type. now the name exists before the body is written." },
+          { text: "countdown = func(n int) {", tip: "then assign the literal with = (not :=). inside this body, countdown already means something." },
+          { text: "if n == 0 {", tip: "the base case. without a way to stop, the calls never end." },
+          { text: "countdown(n - 1)", tip: "the recursive call, on a smaller problem. 3 calls 2, 2 calls 1, 1 calls 0, and 0 stops." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        important: true,
+        content:
+          "a literal can't call itself if you declare it with :=. go hasn't finished creating the name while it reads the body, so countdown := func... with countdown(n - 1) inside fails with \"undefined: countdown\". var first, then =.",
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "in the archive, an entry ending in / is a directory. a string is bytes, so entry[len(entry)-1] is its last byte — compare it with the byte literal '/' (single quotes mean one character). entry[:len(entry)-1] is the same string without that last byte: \"logs/\" becomes \"logs\".",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `entry := "logs/"
+if entry[len(entry)-1] == '/' {
+    dir := entry[:len(entry)-1]
+    fmt.Println(dir) // logs
+}`,
+        hotspots: [
+          { text: "entry[len(entry)-1] == '/'", tip: "the last byte of the string, compared with the character /. true means this entry is a directory." },
+          { text: "entry[:len(entry)-1]", tip: "a slice of the string from the start up to (not including) the last byte. the slash is gone." },
+        ],
+      },
+
+      // Section 3: defer
+      {
+        type: "text",
+        section: 3,
+        content:
+          "defer schedules a function call to run when the surrounding function returns — however it returns. write it at the top, and it runs at the very end. the arguments are evaluated immediately, when the defer line runs, so the call remembers the values from that moment.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `func visit(dir string) {
+    defer fmt.Println("leaving", dir)
+    fmt.Println("entering", dir)
+}
+
+visit("logs")
+// entering logs
+// leaving logs`,
+        hotspots: [
+          { text: `defer fmt.Println("leaving", dir)`, tip: "runs when visit returns, not here. dir is evaluated right now, so it prints this call's directory." },
+          { text: `fmt.Println("entering", dir)`, tip: "runs first, even though it's written second." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "several defers in one function run last-in, first-out — like a stack of plates. and in a recursive walk, a deferred print fires on the way OUT of each call: the deepest directory finishes first, the root finishes last.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `defer fmt.Println("first in")
+defer fmt.Println("second in")
+// when the function returns:
+// second in
+// first in`,
+        hotspots: [
+          { text: `defer fmt.Println("second in")`, tip: "deferred last, so it runs first. defers unwind in reverse order." },
+        ],
+      },
+
+      // Section 4: panic and recover
+      {
+        type: "text",
+        section: 4,
+        content:
+          "panic stops the current function on the spot and unwinds back up through its callers, running every deferred call on the way. if nothing stops it, the program crashes. recover stops it — but only when called inside a deferred function. anywhere else, recover returns nil and does nothing.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `errs := []string{}
+check := func(dir string, entries []string) {
+    defer func() {
+        if r := recover(); r != nil {
+            errs = append(errs, fmt.Sprintf("%s: %v", dir, r))
+        }
+    }()
+    if entries == nil {
+        panic("corrupted directory")
+    }
+    fmt.Println(dir, "ok")
+}
+check("logs", []string{"access.log"})
+check("vault", nil)
+fmt.Println(errs) // [vault: corrupted directory]`,
+        hotspots: [
+          { text: "defer func() {", tip: "a deferred function literal. it runs as check returns — including when check is panicking." },
+          { text: "if r := recover(); r != nil {", tip: "an if with a short statement: run r := recover() first, then test r != nil. r is whatever was passed to panic, or nil if nothing panicked." },
+          { text: `fmt.Sprintf("%s: %v", dir, r)`, tip: "%v prints any value — here the panic's message. the result reads \"vault: corrupted directory\"." },
+          { text: "}()", tip: "the () calls the literal. defer needs a call, not just a function — leave these off and go won't compile it." },
+          { text: `panic("corrupted directory")`, tip: "stops check right here. the deferred func runs, recover catches it, and check returns normally to its caller." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        important: true,
+        content:
+          "put the deferred recover in the function whose failure you want to contain. in a recursive scan that means inside the scan itself: each call guards its own directory, so one bad directory costs one directory and the parent's loop carries on. defers you want to run during a panic must be registered BEFORE the line that panics.",
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "panic is not go's normal error path — errors are values, like the one strconv.Atoi returned. panic is for a function that cannot go on. recover is how you build a boundary it can't cross.",
+      },
+
+      // Section 5: zen recap
+      {
+        type: "text",
+        section: 5,
+        content:
+          "zen tips for this level: defer the line that ends a call at the top of the call. let a closure capture the counter instead of threading pointers through. declare a recursive literal with var first, then assign. call recover only inside a deferred function, and recover in each recursive call so one failure stays one failure.",
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "kira, in the margin: \"Every directory signs out on its way past. So does everyone in this building. I read those logs too.\"",
+      },
+    ],
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "closure — a function literal that shares the variables around it." },
+      {
+        type: "code",
+        section: 0,
+        content: `count := 0
+tick := func() { count++ }
+tick() // count is now 1`,
+      },
+      { type: "text", section: 1, content: "recursion with a literal — declare, then assign." },
+      {
+        type: "code",
+        section: 1,
+        content: `var scan func(dir string)
+scan = func(dir string) {
+    scan(sub) // allowed: scan already exists
+}`,
+      },
+      { type: "text", section: 2, content: "defer — runs when the function returns, last-in first-out." },
+      {
+        type: "code",
+        section: 2,
+        content: `defer fmt.Println("scanned:", dir) // args evaluated now`,
+      },
+      { type: "text", section: 3, content: "panic and recover — recover only inside a deferred func." },
+      {
+        type: "code",
+        section: 3,
+        content: `defer func() {
+    if r := recover(); r != nil {
+        // handle r
+    }
+}()
+panic("corrupted directory")`,
+      },
+    ],
+  },
+
+  "chapter-08": {
+    title: "CIRCUIT CUT",
+    subtitle: "GOROUTINES & WAITGROUPS",
+    blocks: [
+      // Section 0: skeleton + imports
+      {
+        type: "text",
+        section: 0,
+        content:
+          "same skeleton, two new packages. time measures and waits. sync coordinates work that runs at the same time. go refuses to compile an import you don't use, so each one joins the block only when a step needs it.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import (
+    "fmt"
+    "sync"
+    "time"
+)`,
+        hotspots: [
+          { text: `"sync"`, tip: "home of sync.WaitGroup — a counter you can wait on. used from step 2." },
+          { text: `"time"`, tip: "time.Sleep, time.Millisecond, time.Now, time.Since. used from step 1." },
+        ],
+      },
+
+      // Section 1: goroutines
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a goroutine is a function running alongside the rest of your program. put go in front of any function call and it starts — the caller doesn't wait for it, it just carries on to the next line. the function's arguments are evaluated right away, in the caller.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `func cut(name string) {
+    fmt.Println(name + " circuit: DOWN")
+}
+
+func main() {
+    cut("North")    // runs now, main waits
+    go cut("South") // starts now, main doesn't wait
+    time.Sleep(100 * time.Millisecond)
+    fmt.Println("power cycle complete")
+}`,
+        hotspots: [
+          { text: `go cut("South")`, tip: "the go statement. cut starts running on its own and main moves straight on." },
+          { text: "time.Sleep(100 * time.Millisecond)", tip: "holds main open for 100ms. without it, main could return first — and South would never print." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "when main returns, the program ends — every goroutine still running is stopped mid-flight, no warning. sleeping and hoping is not a plan. section 3 shows the real tool.",
+      },
+      {
+        type: "text",
+        section: 1,
+        content:
+          "goroutines are cheap. each starts with a tiny stack, and go's scheduler runs thousands of them on a handful of operating-system threads. one per breaker is nothing.",
+      },
+
+      // Section 2: durations
+      {
+        type: "text",
+        section: 2,
+        content:
+          "time.Sleep takes a time.Duration. a constant like 100 can be multiplied by time.Millisecond directly. a variable of type int can't — go never mixes types silently. convert it first with time.Duration(d), then scale it by the unit.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `time.Sleep(100 * time.Millisecond) // fine: 100 is a constant
+
+d := 300
+time.Sleep(time.Duration(d) * time.Millisecond) // 300ms
+// time.Sleep(d * time.Millisecond) won't compile: int * Duration`,
+        hotspots: [
+          { text: "time.Duration(d) * time.Millisecond", tip: "convert the int to a Duration, then multiply by the unit. this is the pattern every time the number lives in a variable." },
+        ],
+      },
+
+      // Section 3: WaitGroup
+      {
+        type: "text",
+        section: 3,
+        content:
+          "a sync.WaitGroup counts goroutines that are still working. Add(1) before each launch. Done() when one finishes. Wait() blocks until the count is back to zero. three calls, always in the same places.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `var wg sync.WaitGroup
+for _, name := range []string{"North", "South"} {
+    wg.Add(1)
+    go func(n string) {
+        defer wg.Done()
+        cut(n)
+    }(name)
+}
+wg.Wait()
+fmt.Println("both down")`,
+        hotspots: [
+          { text: "var wg sync.WaitGroup", tip: "a WaitGroup ready to use, count zero. no make needed." },
+          { text: "wg.Add(1)", tip: "count the goroutine BEFORE it starts. if it counted itself, Wait could look first, see zero, and return early." },
+          { text: "go func(n string) {", tip: "a goroutine running a function literal. the () at the end of the block calls it, passing name in as n." },
+          { text: "defer wg.Done()", tip: "first line inside. however the goroutine ends, the count goes down by one." },
+          { text: "wg.Wait()", tip: "blocks main until every goroutine has called Done. once, after the loop — never inside it." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "never copy a WaitGroup. pass one to another function by value and that function calls Done on a copy — the real count never reaches zero and Wait hangs forever. keep it in one function, or pass a pointer, &wg.",
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "kira, in the margin: \"Newer Go has wg.Go(f), which does the Add and the Done for you. Learn the ritual first. Shortcuts are for people who know what they skip.\"",
+      },
+
+      // Section 4: goroutines in a loop
+      {
+        type: "text",
+        section: 4,
+        content:
+          "goroutines finish in whatever order they finish. if each one prints, the lines come out scrambled. instead, make a slice with one slot per goroutine, have each write only its own slot, and read the slice after Wait. pass the loop values in as arguments, so each goroutine visibly owns its copy.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `results := make([]string, len(circuits))
+var wg sync.WaitGroup
+for i, name := range circuits {
+    wg.Add(1)
+    go func(idx int, n string) {
+        defer wg.Done()
+        results[idx] = n + " circuit: DOWN"
+    }(i, name)
+}
+wg.Wait()
+return results`,
+        hotspots: [
+          { text: "make([]string, len(circuits))", tip: "one empty slot per circuit, made before anything starts. nobody needs to grow the slice." },
+          { text: "results[idx] = n", tip: "each goroutine writes only its own index. no two touch the same slot, so nothing collides." },
+          { text: "}(i, name)", tip: "the arguments, handed in at launch. each goroutine gets its own idx and n." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        important: true,
+        content:
+          "never append to a shared slice from several goroutines at once. that's a data race — two writes land together and one is lost. pre-size, write by index. (since go 1.22 every loop iteration gets fresh i and name variables, so a literal that reads them directly also works. passing them in still says exactly what the goroutine depends on.)",
+      },
+
+      // Section 5: max vs sum
+      {
+        type: "text",
+        section: 5,
+        content:
+          "run four waits one after another and the total is their sum. run them as four goroutines and they wait side by side — the total is only the slowest one. that's the whole point of concurrency here: the sleep has to happen INSIDE each goroutine.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `// one after another: 300 + 150 + 450 + 200 = 1100ms
+for i := range delays {
+    time.Sleep(time.Duration(delays[i]) * time.Millisecond)
+}
+
+// side by side: max(300, 150, 450, 200) = 450ms
+for i := range delays {
+    wg.Add(1)
+    go func(d int) {
+        defer wg.Done()
+        time.Sleep(time.Duration(d) * time.Millisecond)
+    }(delays[i])
+}
+wg.Wait()`,
+        hotspots: [
+          { text: "go func(d int) {", tip: "each delay sleeps in its own goroutine, so all four clocks run at once." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "the terminal measures with t := time.Now() before your call and time.Since(t) after it. under 1100ms means all four tripped inside one power cycle.",
+      },
+
+      // Section 6: zen recap
+      {
+        type: "text",
+        section: 6,
+        content:
+          "zen tips for this level: go f(x) launches a call — the launcher returns at once and someone else waits. wg.Add(1) before go, defer wg.Done() as the first line inside, wg.Wait() once after the loop. pass loop values in as arguments. write results by index, never print or append from inside goroutines. sleep inside the goroutine. convert ints with time.Duration(d) before scaling.",
+      },
+      {
+        type: "text",
+        section: 6,
+        content:
+          "kira, in the margin: \"Four hands, one moment. You're welcome. I'll remember that you were.\"",
+      },
+    ],
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "goroutine — go in front of a call. the caller doesn't wait." },
+      { type: "code", section: 0, content: `go cut(name)` },
+      { type: "text", section: 1, content: "the WaitGroup ritual." },
+      {
+        type: "code",
+        section: 1,
+        content: `var wg sync.WaitGroup
+wg.Add(1)            // before go
+go func(i int) {
+    defer wg.Done()  // first line
+}(i)
+wg.Wait()            // once, after the loop`,
+      },
+      { type: "text", section: 2, content: "results by index — one slot per goroutine." },
+      { type: "code", section: 2, content: `results := make([]string, len(circuits))
+results[idx] = n + " circuit: DOWN"` },
+      { type: "text", section: 3, content: "sleep a variable number of milliseconds." },
+      { type: "code", section: 3, content: `time.Sleep(time.Duration(d) * time.Millisecond)` },
+    ],
+  },
+
+  "chapter-09": {
+    title: "CHANNEL OF ESCAPE",
+    subtitle: "CHANNELS, SELECT & TIMEOUTS",
+    blocks: [
+      // Section 0: skeleton
+      {
+        type: "text",
+        section: 0,
+        content:
+          "same skeleton. time joins the imports in step 1. goroutines you know — they run alongside you. this chapter is how they talk back. a WaitGroup tells you a goroutine finished. a channel hands you what it found.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `package main
+
+import (
+    "fmt"
+    "time"
+)`,
+      },
+
+      // Section 1: channels
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a channel is a typed pipe between goroutines. make one with make(chan string). ch <- v sends a value in. v := <-ch takes one out — and waits until there is one. the arrow always points the way the data moves.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `ch := make(chan string)
+go func() {
+    ch <- "Bravo responding"
+}()
+msg := <-ch
+fmt.Println(msg) // Bravo responding`,
+        hotspots: [
+          { text: "make(chan string)", tip: "a channel that carries strings. unbuffered: no room inside, so a send waits until someone receives." },
+          { text: `ch <- "Bravo responding"`, tip: "send. the value goes into the channel. arrow pointing in." },
+          { text: "msg := <-ch", tip: "receive. main waits right here until the goroutine sends. receiving IS waiting — no WaitGroup needed." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "on an unbuffered channel, a send blocks until a receiver takes the value, and a receive blocks until a sender provides one. if every goroutine ends up blocked like that, go stops the program: \"all goroutines are asleep - deadlock\".",
+      },
+
+      // Section 2: buffered channels, returning a channel
+      {
+        type: "text",
+        section: 2,
+        content:
+          "make(chan string, 1) gives the channel room for one value. a send only waits when the buffer is full, so a goroutine can drop its one reply and finish — even if nobody ever reads it. a function can make a channel, start a goroutine that answers into it, and return the channel straight away.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `func hail(team string, delayMs int) chan string {
+    ch := make(chan string, 1)
+    go func() {
+        time.Sleep(time.Duration(delayMs) * time.Millisecond)
+        ch <- team + " responding"
+    }()
+    return ch
+}
+
+ch := hail("Bravo", 100) // returns at once
+fmt.Println(<-ch)        // waits ~100ms`,
+        hotspots: [
+          { text: "chan string {", tip: "the return type is the channel itself. the caller gets the pipe now and the answer later." },
+          { text: "make(chan string, 1)", tip: "room for one message. the reply can sit in the channel until someone reads it — or forever, harmlessly." },
+          { text: "return ch", tip: "returns before the goroutine has slept. hail never makes the caller wait." },
+          { text: "fmt.Println(<-ch)", tip: "the caller decides when to wait. the receive blocks until the team answers." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "kira, in the margin: \"A reply with nowhere to go is a goroutine stuck forever. Give every sender you might ignore a buffer of one. It costs nothing. Ignoring people usually doesn't.\"",
+      },
+
+      // Section 3: select
+      {
+        type: "text",
+        section: 3,
+        content:
+          "receiving from alpha, then bravo, waits for alpha first even if bravo answered sooner. select listens to several channels at once. it waits until one of its cases is ready, runs that case, and ignores the rest. it's a switch for channels.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `select {
+case msg := <-alpha:
+    return msg
+case msg := <-bravo:
+    return msg
+case msg := <-charlie:
+    return msg
+}`,
+        hotspots: [
+          { text: "select {", tip: "blocks until any one case can go. order on the page doesn't matter — readiness does." },
+          { text: "case msg := <-bravo:", tip: "a receive case. if bravo's channel has a value first, this case runs and msg holds it." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "if two cases are ready at the same moment, select picks one at random — no channel gets favored, so none can starve the others. and the teams that lost still deliver into their one-message buffers. nobody is left stuck.",
+      },
+
+      // Section 4: timeouts
+      {
+        type: "text",
+        section: 4,
+        content:
+          "time.After(d) returns a channel that delivers one value once d has passed. add it as one more case and the other channels race the clock: whichever is ready first wins. build d from a parameter, so the caller chooses how long to wait.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `select {
+case msg := <-bravo:
+    return msg
+case <-time.After(time.Duration(timeoutMs) * time.Millisecond):
+    return "NO CONTACT"
+}`,
+        hotspots: [
+          { text: "case <-time.After(time.Duration(timeoutMs) * time.Millisecond):", tip: "a receive with no variable — we only care that the clock fired. if it fires before any team answers, we give up." },
+          { text: "timeoutMs", tip: "the deadline comes from the caller. the same function can wait 200ms on a jammed line or 600ms on a live one." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "why not time.Sleep and then check? a sleep always waits the full time, even if the answer arrived in the first millisecond. time.After races — the answer wins the moment it lands.",
+      },
+
+      // Section 5: default
+      {
+        type: "text",
+        section: 5,
+        content:
+          "a select with a default case never waits. if no other case is ready at that instant, default runs immediately. that's a glance at a channel, not a wait on it.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `func sweep(ch chan string) string {
+    select {
+    case msg := <-ch:
+        return msg
+    default:
+        return "channel silent"
+    }
+}`,
+        hotspots: [
+          { text: "default:", tip: "runs only when no case is ready right now. with a default, select never blocks." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "timeout means wait, but not past a deadline. default means don't wait at all. put default only where you mean \"just look\" — inside a select that is supposed to wait for an answer, it gives up before anyone can reply.",
+      },
+
+      // Section 6: zen recap
+      {
+        type: "text",
+        section: 6,
+        content:
+          "zen tips for this level: give an abandonable sender a buffer of one. return the channel at once and let the caller wait. wait on many channels with one select, not one receive after another. take a timeout from the caller with time.After. keep default for the select that should never wait.",
+      },
+      {
+        type: "text",
+        section: 6,
+        content:
+          "kira, in the margin: \"Every frequency on this page is one I gave you. Listen on them anyway. Just never wait forever on anyone — me included.\"",
+      },
+    ],
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "channel — send in, receive out. receiving waits." },
+      { type: "code", section: 0, content: `ch := make(chan string, 1) // room for one
+ch <- "msg"                 // send
+msg := <-ch                 // receive (waits)` },
+      { type: "text", section: 1, content: "select — take the first ready case." },
+      { type: "code", section: 1, content: `select {
+case msg := <-a:
+    return msg
+case msg := <-b:
+    return msg
+}` },
+      { type: "text", section: 2, content: "timeout and non-blocking." },
+      { type: "code", section: 2, content: `case <-time.After(time.Duration(ms) * time.Millisecond):
+    return "NO CONTACT"   // waited, gave up
+default:
+    return "channel silent" // never waited` },
+    ],
+  },
+
+  "boss-03": {
+    title: "READ BEFORE YOU RUN",
+    subtitle: "SLICES SHARE MEMORY",
+    blocks: [
+      // Section 0: why this page exists
+      {
+        type: "text",
+        section: 0,
+        content:
+          "reeves again. the last pages were hers, and they were good — which is exactly why this one is mine. tonight you don't write code. you read someone else's, and decide what it does before it touches anything you care about. this page is the one idea you need to read it: a slice is a window onto memory, not the memory itself.",
+      },
+      {
+        type: "text",
+        section: 0,
+        important: true,
+        content:
+          "the rule i taught every student: read before you run. for every line, ask what it changes, and who else is holding the thing it changes.",
+      },
+
+      // Section 1: the slice header
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a slice value is a small header with three fields: a pointer to an underlying array, a length, and a capacity. the bytes live in the array. slicing a slice — b := a[1:] — makes a new header pointing into the SAME array. nothing is copied.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `a := []byte{0x10, 0x20, 0x30, 0x40}
+b := a[1:]       // b sees 20 30 40
+
+a[1] = 0x99
+fmt.Printf("% X\\n", b) // 99 30 40`,
+        hotspots: [
+          { text: "b := a[1:]", tip: "a new header: pointer to a's second element, length 3. same backing array as a — not a copy." },
+          { text: "a[1] = 0x99", tip: "a write through a. b points at the same byte, so b changes too." },
+          { text: `fmt.Printf("% X\\n", b)`, tip: "% X prints each byte as two hex digits with spaces between. b now reads 99 30 40." },
+        ],
+      },
+
+      // Section 2: sending a slice sends the header
+      {
+        type: "text",
+        section: 2,
+        content:
+          "passing a slice to a function, storing it, or sending it on a channel copies the header — three small fields — never the bytes. whoever receives it is looking through a window at memory the sender can still write to. if the sender keeps writing after it sends, the receiver's \"message\" changes under its feet.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `frames := make(chan []byte, 2)
+buf := []byte{0x01, 0x02}
+
+frames <- buf[0:] // sent: 01 02
+buf[0] = 0xAA     // written AFTER sending
+
+f := <-frames
+fmt.Printf("% X\\n", f) // AA 02`,
+        hotspots: [
+          { text: "frames <- buf[0:]", tip: "sends a slice header pointing into buf's array. the receiver gets the window, not the bytes." },
+          { text: "buf[0] = 0xAA", tip: "the sender writes after sending. the receiver's frame points at this same byte." },
+          { text: "f := <-frames", tip: "what arrives is what's in the array NOW — AA 02 — not what was there at send time." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a type like chan<- []byte is a send-only channel — the function may send on it but not receive. it's a restriction on the parameter, nothing more. and if a separate goroutine reads frames while the sender is still writing, it's a data race: go run -race will flag it. even with no race at all, the bytes are still shared.",
+      },
+
+      // Section 3: make + copy
+      {
+        type: "text",
+        section: 3,
+        content:
+          "to freeze a frame, give it its own array. make a new slice of the right length, copy the bytes in, send the copy. later writes to the original can't reach it. copy(dst, src) copies min(len(dst), len(src)) elements and returns how many it copied.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `frame := make([]byte, len(buf))
+copy(frame, buf)
+frames <- frame   // its own array
+
+buf[0] = 0xAA     // frame is untouched`,
+        hotspots: [
+          { text: "make([]byte, len(buf))", tip: "a brand-new backing array, the right size. nobody else has a pointer into it." },
+          { text: "copy(frame, buf)", tip: "copies the bytes across. from here on frame and buf share nothing." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "the one-line form appends onto an empty slice, which forces a fresh array: frame := append([]byte(nil), buf...). same effect. what matters is that the copy happens BEFORE the send.",
+      },
+
+      // Section 4: XOR
+      {
+        type: "text",
+        section: 4,
+        content:
+          "the encoder you'll read masks bytes with XOR. b ^= 0xFF flips every bit of b in place: 0x10 becomes 0xEF, 0x20 becomes 0xDF. in place means the original array is rewritten — which brings you straight back to who else is looking at it.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `data := []byte{0x10, 0x20}
+data[0] ^= 0xFF
+fmt.Printf("% X\\n", data) // EF 20`,
+        hotspots: [
+          { text: "data[0] ^= 0xFF", tip: "XOR with all ones flips every bit. it writes the result back into data's own array." },
+        ],
+      },
+
+      // Section 5: how to read
+      {
+        type: "text",
+        section: 5,
+        content:
+          "how i read code i didn't write: find every line that writes. for each write, find every slice that shares that array — anything made by slicing, anything already sent or stored. if a shared slice left the function before the write, the write reaches it. then look for the copy that should have broken the link. if there isn't one, you have your answer.",
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "a receiver log is evidence. a frame that changed after it was sent is memory that was still shared. a frame that didn't change tells you just as much — ask why that one was safe.",
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "she's clever, maya. clever people write code that reads clean. read it anyway. — e.r.",
+      },
+    ],
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "a slice is a header: pointer, length, capacity. slicing shares the array." },
+      { type: "code", section: 0, content: `b := a[1:]  // same array as a
+a[1] = 0x99 // b[0] is now 0x99` },
+      { type: "text", section: 1, content: "sending a slice sends the header, not the bytes." },
+      { type: "code", section: 1, content: `ch <- buf[i:] // receiver shares buf's array` },
+      { type: "text", section: 2, content: "make + copy freezes a frame." },
+      { type: "code", section: 2, content: `frame := make([]byte, len(src))
+copy(frame, src)
+ch <- frame` },
+    ],
+  },
+
   "boss-01": {
     title: "WEAPON SYSTEMS",
     subtitle: "GO SURVIVAL GUIDE FOR THE LOCKMASTER",

@@ -115,6 +115,62 @@ const CASES: [string, string, string][] = [
     PY["chapter-04.2:relayheader"],
     'def relay_header(floor, code):\n    try:\n        n = int(code)\n    except ValueError:\n        return "F" + str(floor) + "-ERR"\n    return "F" + str(floor) + "-C" + str(n * 2)',
   ],
+  // ── Act III ──
+  ["py_spaces_not_tabs", 'print("Hello World")', 'def f():\n\tprint("Hello World")'],
+  ["py_nonlocal_counter", PY["chapter-07:scan"], PY["chapter-07:scan"].replace("    count = 0", "    count = [0]").replace("nonlocal count", "pass").replace("count += 1", "count[0] += 1")],
+  [
+    "py_finally_log",
+    PY["chapter-07:scan"],
+    'def scan_archive(archive, root):\n    count = 0\n\n    def scan(d):\n        nonlocal count\n        for entry in archive[d]:\n            if entry.endswith("/"):\n                scan(entry[:-1])\n            else:\n                count += 1\n        print("scanned:", d)\n\n    scan(root)\n    return count',
+  ],
+  ["py_endswith", PY["chapter-07:scan"], PY["chapter-07:scan"].replace('entry.endswith("/")', 'entry[-1] == "/"')],
+  [
+    "py_except_per_call",
+    PY["chapter-07:recover"],
+    'def safe_scan(archive, root):\n    count = 0\n    errors = []\n\n    def scan(d):\n        nonlocal count\n        if archive[d] is None:\n            raise RuntimeError("corrupted directory")\n        for entry in archive[d]:\n            count += 1\n\n    try:\n        scan(root)\n    except Exception as e:\n        errors.append(f"{root}: {e}")\n    return count, errors',
+  ],
+  ["py_specific_raise", PY["chapter-07:recover"], PY["chapter-07:recover"].replace("raise RuntimeError(", "raise Exception(")],
+  ["py_is_none", PY["chapter-07:recover"], PY["chapter-07:recover"].replace("archive[d] is None", "archive[d] == None")],
+  ["py_unused_import", 'import asyncio\n\nasyncio.run(main())', 'import asyncio\n\nprint("Hello World")'],
+  ["py_no_space_inside_brackets", 'print("Hello World")', 'print( "Hello World" )'],
+  [
+    "py_task_reference",
+    PY["chapter-08:goroutine"],
+    PY["chapter-08:goroutine"].replace("    return asyncio.create_task(cut(name))", "    asyncio.create_task(cut(name))"),
+  ],
+  [
+    "py_asyncio_namespace",
+    PY["chapter-08:goroutine"],
+    PY["chapter-08:goroutine"].replace("import asyncio", "from asyncio import create_task").replace("asyncio.create_task", "create_task"),
+  ],
+  [
+    "py_gather_not_loop",
+    PY["chapter-08:fanout"],
+    PY["chapter-08:fanout"].replace("    return await asyncio.gather(*(trip(n) for n in circuits))", "    lines = []\n    for n in circuits:\n        lines.append(await trip(n))\n    return lines"),
+  ],
+  [
+    "py_gather_results",
+    PY["chapter-08:fanout"],
+    PY["chapter-08:fanout"].replace("    return await asyncio.gather(*(trip(n) for n in circuits))", "    lines = []\n    for line in await asyncio.gather(*(trip(n) for n in circuits)):\n        lines.append(line)\n    return lines"),
+  ],
+  ["py_async_sleep", PY["chapter-08:window"], "import time\n" + PY["chapter-08:window"].replace("await asyncio.sleep(d / 1000)", "time.sleep(d / 1000)")],
+  [
+    "py_zip_pairs",
+    PY["chapter-08:window"],
+    PY["chapter-08:window"].replace("for n, d in zip(circuits, delays)", "for n, d in [(circuits[i], delays[i]) for i in range(len(circuits))]"),
+  ],
+  ["py_no_extra_parens", 'print("Hello World")\nif ready:\n    print(("a", "b"))', 'print(("Hello World"))'],
+  ["py_hail_plain_def", PY["chapter-09:hail"], 'import asyncio\n\n\nasync def hail(team, delay_ms):\n    await asyncio.sleep(delay_ms / 1000)\n    return f"{team} responding"'],
+  ["py_ms_to_seconds", PY["chapter-09:hail"], PY["chapter-09:hail"].replace("delay_ms / 1000", "delay_ms // 1000")],
+  ["py_cancel_losers", PY["chapter-09:first"], PY["chapter-09:first"].replace("    for t in pending:\n        t.cancel()\n", "")],
+  [
+    "py_unpack_wait",
+    PY["chapter-09:first"],
+    PY["chapter-09:first"].replace("done, pending = await", "result = await").replace("for t in pending:", "for t in result[1]:").replace("done.pop()", "result[0].pop()"),
+  ],
+  ["py_sweep_plain_def", PY["chapter-09:timeout"], PY["chapter-09:timeout"].replace("def sweep(task)", "async def sweep(task)")],
+  ["py_timeout_from_param", PY["chapter-09:timeout"], PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000", "timeout=0.2")],
+  ["py_empty_falsy", PY["chapter-09:timeout"], PY["chapter-09:timeout"].replace("if not done:", "if len(done) == 0:")],
 ];
 
 describe("python zen rules", () => {
@@ -172,6 +228,27 @@ describe("python zen · relevance", () => {
   });
 });
 
+describe("python zen · act iii relevance", () => {
+  it("leaves the import rule alone until something is imported", () => {
+    expect(irrelevant("py_unused_import", 'print("Hello World")')).toBe(true);
+  });
+  it("skips the async rules until their functions exist", () => {
+    for (const id of ["py_task_reference", "py_gather_not_loop", "py_hail_plain_def", "py_sweep_plain_def", "py_cancel_losers"]) {
+      expect(irrelevant(id, 'print("Hello World")'), id).toBe(true);
+    }
+  });
+  it("only checks the counter in a closure", () => {
+    expect(irrelevant("py_nonlocal_counter", "def scan_archive(archive, root):\n    return 0")).toBe(true);
+  });
+  it("lets a tuple keep its brackets", () => {
+    expect(follows("py_no_extra_parens", "return (count, errors)")).toBe(true);
+    expect(misses("py_no_extra_parens", "if (ready):\n    pass")).toBe(true);
+  });
+  it("doesn't flag a sleep in plain synchronous code", () => {
+    expect(irrelevant("py_async_sleep", "import time\ntime.sleep(1)")).toBe(true);
+  });
+});
+
 describe("python zen · reference solutions", () => {
   // Rules each reference solution plainly follows must jolt, not suggest.
   const FOLLOWED: Record<string, string[]> = {
@@ -191,6 +268,17 @@ describe("python zen · reference solutions", () => {
     "chapter-04.2:reverseword": ["py_slice_reverse"],
     "chapter-04.2:encode": ["py_join_words", "py_split_whitespace", "py_comprehension_join"],
     "chapter-04.2:relayheader": ["py_narrow_except", "py_small_try", "py_fstring_header"],
+    "chapter-07:scaffold": ["py_spaces_not_tabs"],
+    "chapter-07:scan": ["py_nonlocal_counter", "py_finally_log", "py_endswith"],
+    "chapter-07:recover": ["py_except_per_call", "py_specific_raise", "py_is_none"],
+    "chapter-08:scaffold": ["py_no_space_inside_brackets"],
+    "chapter-08:goroutine": ["py_task_reference", "py_asyncio_namespace"],
+    "chapter-08:fanout": ["py_gather_not_loop", "py_gather_results"],
+    "chapter-08:window": ["py_async_sleep", "py_zip_pairs"],
+    "chapter-09:scaffold": ["py_no_extra_parens"],
+    "chapter-09:hail": ["py_hail_plain_def", "py_ms_to_seconds"],
+    "chapter-09:first": ["py_cancel_losers", "py_unpack_wait"],
+    "chapter-09:timeout": ["py_sweep_plain_def", "py_timeout_from_param", "py_empty_falsy"],
   };
   for (const [stepId, ids] of Object.entries(FOLLOWED)) {
     it(`${stepId} earns its jolts`, () => {

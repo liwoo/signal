@@ -2,9 +2,10 @@ import type { ChallengeRealization } from "@/types/game";
 import type { BossPhaseRealization } from "../realizations";
 import { PY_BOSS_01, PY_CHAPTER_01, PY_CHAPTER_02, PY_CHAPTER_03 } from "./act-1";
 import { PY_CHAPTER_04, PY_CHAPTER_04_2 } from "./act-2";
+import { PY_BOSS_03, PY_CHAPTER_07, PY_CHAPTER_08, PY_CHAPTER_09 } from "./act-3";
 import { PY_LOCKMASTER_PHASES } from "./boss-01";
 
-/** Acts I–II in Python, keyed by challenge id. */
+/** Acts I–III in Python, keyed by challenge id. */
 export const PYTHON_REALIZATIONS: Record<string, ChallengeRealization> = {
   "chapter-01": PY_CHAPTER_01,
   "chapter-02": PY_CHAPTER_02,
@@ -12,6 +13,10 @@ export const PYTHON_REALIZATIONS: Record<string, ChallengeRealization> = {
   "boss-01": PY_BOSS_01,
   "chapter-04": PY_CHAPTER_04,
   "chapter-04.2": PY_CHAPTER_04_2,
+  "chapter-07": PY_CHAPTER_07,
+  "chapter-08": PY_CHAPTER_08,
+  "chapter-09": PY_CHAPTER_09,
+  "boss-03": PY_BOSS_03,
 };
 
 /** Boss-arena coding phases, keyed by arena level id then phase id. */

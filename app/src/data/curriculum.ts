@@ -3,6 +3,9 @@ import { chapter02 } from "./challenges/chapter-02";
 import { chapter03 } from "./challenges/chapter-03";
 import { chapter04 } from "./challenges/chapter-04";
 import { chapter04_2 } from "./challenges/chapter-04.2";
+import { chapter07 } from "./challenges/chapter-07";
+import { chapter08 } from "./challenges/chapter-08";
+import { chapter09 } from "./challenges/chapter-09";
 import { boss01 } from "./challenges/boss-01";
 import { isChallengeAvailable, realizeChallenge } from "./challenges/realizations";
 import type { Challenge, LanguageId } from "@/types/game";
@@ -59,10 +62,10 @@ const RAW_ACTS: CurriculumAct[] = [
     act: "III",
     name: "DEEPER IN",
     chapters: [
-      { key: "ch7", title: "FILE TREE", concepts: ["Closures", "Recursion", "Defer"] },
-      { key: "ch8", title: "CIRCUIT CUT", concepts: ["Goroutines", "WaitGroups"] },
-      { key: "ch9", title: "CHANNEL OF ESCAPE", concepts: ["Channels", "Select", "Timeouts"] },
-      { key: "boss3", title: "KIRA · ALLEGIANCE", concepts: [], isBoss: true },
+      { key: "ch7", title: chapter07.title, concepts: chapter07.concepts, chapterId: chapter07.id },
+      { key: "ch8", title: chapter08.title, concepts: chapter08.concepts, chapterId: chapter08.id },
+      { key: "ch9", title: chapter09.title, concepts: chapter09.concepts, chapterId: chapter09.id },
+      { key: "boss3", title: "KIRA · ALLEGIANCE", concepts: [], chapterId: "boss-03", isBoss: true },
     ],
   },
   {
@@ -145,7 +148,7 @@ function dedupe(rawActs: CurriculumAct[]): CurriculumAct[] {
 export const CURRICULUM_ACTS: CurriculumAct[] = dedupe(RAW_ACTS);
 
 const BUILT: Record<string, Challenge> = Object.fromEntries(
-  [chapter01, chapter02, chapter03, boss01, chapter04, chapter04_2].map((c) => [c.id, c]),
+  [chapter01, chapter02, chapter03, boss01, chapter04, chapter04_2, chapter07, chapter08, chapter09].map((c) => [c.id, c]),
 );
 
 /**

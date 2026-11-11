@@ -18,6 +18,13 @@ const CHAPTERS = [
 const fresh: PlayerProgress = DEFAULT_PLAYER_PROGRESS;
 
 describe("applyProgressSave", () => {
+  it("records Kira's verdict and the Act IV branch with the boss clear", () => {
+    const rejected = applyProgressSave(fresh, { completedChapter: 16, kiraVerdict: "rejected" });
+    expect(rejected).toMatchObject({ kiraVerdict: "rejected", storyBranch: "b", completedChapters: [16] });
+    const trusted = applyProgressSave(fresh, { completedChapter: 16, kiraVerdict: "trusted" });
+    expect(trusted).toMatchObject({ kiraVerdict: "trusted", storyBranch: "a" });
+  });
+
   it("checkpoints a cleared mid-chapter step (the Nov 2026 Hello World case)", () => {
     const next = applyProgressSave(fresh, {
       chapterId: "chapter-01",

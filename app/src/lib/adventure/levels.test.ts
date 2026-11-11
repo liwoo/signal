@@ -19,11 +19,11 @@ function doorsOpenBefore(level: AdventureLevel, index: number): Set<string> {
 
 describe("adventure levels", () => {
   it("has twelve levels with unique ids, one intro and one aftermath per chapter", () => {
-    expect(ALL_LEVELS).toHaveLength(12);
+    expect(ALL_LEVELS).toHaveLength(20);
     const ids = ALL_LEVELS.map((l) => l.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.filter((id) => id.endsWith("-intro"))).toHaveLength(6);
-    expect(ids.filter((id) => id.endsWith("-complete"))).toHaveLength(6);
+    expect(ids.filter((id) => id.endsWith("-intro"))).toHaveLength(10);
+    expect(ids.filter((id) => id.endsWith("-complete"))).toHaveLength(10);
     expect(levelById("chapter-01-intro")?.ending).toBe("relinquish");
   });
 

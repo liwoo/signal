@@ -5,7 +5,7 @@ import { createHintState, revealNextHint } from "@/lib/game/hints";
 import type { HintState } from "@/lib/game/hints";
 import { buildReward } from "@/lib/game/reward";
 import type { Reward } from "@/lib/game/reward";
-import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, LanguageId, Pace } from "@/types/game";
+import type { Challenge, ChallengeStep, TimedEvent, JeopardyEvent, KiraVerdict, LanguageId, Pace } from "@/types/game";
 import type { ChatMsg } from "@/components/game/ChatPanel";
 import { callMayaEngine, callMayaEngineAsync, getStepBank } from "@/lib/ai/engine";
 import { chooseHelpReply, isJevStep } from "@/lib/ai/jev";
@@ -85,6 +85,14 @@ function stepTestFor(step: ChallengeStep): StepTestConfig | undefined {
  * every correct answer is a breath of room for the next one. Scaled by the
  * chapter's timingScale alongside the rest of the clock.
  */
+/** The chat style each story voice speaks in (Kira's own colour from Act III). */
+const SPEAKER_MSG_TYPE: Record<NonNullable<TimedEvent["speaker"]>, ChatMsg["type"]> = {
+  MAYA: "maya",
+  KIRA: "kira",
+  REEVES: "reeves",
+  GHOST: "ghost",
+};
+
 const STEP_TIME_REWARD_SECONDS = 30;
 /** Extra seconds back when the step is cleared on the first attempt. */
 const FIRST_TRY_TIME_REWARD_SECONDS = 15;
@@ -108,6 +116,10 @@ export interface SavePayload {
   completedChapter?: number;
   /** A step was cleared: resume at `stepIndex` (the next step) with this code. */
   checkpoint?: { stepIndex: number; code: string };
+  /** Boss 3: the player's verdict on Kira — sets Act IV's branch. */
+  kiraVerdict?: KiraVerdict;
+  /** AI tokens earned (added to the player's stats). */
+  aiTokensEarned?: number;
 }
 
 interface Particle {
@@ -465,8 +477,9 @@ export function useGame(
         // A story beat is Maya talking: hold the clock while it plays, and
         // queue anything else that comes due until the player continues.
         holdClock();
-        setInterrupt({ who: "MAYA", text: event.message });
-        addMsg("MAYA", event.message, "maya", true);
+        const who = event.speaker ?? "MAYA";
+        setInterrupt({ who, text: event.message });
+        addMsg(who, event.message, SPEAKER_MSG_TYPE[who], true);
       } else if (event.type === "system") {
         setInterrupt({ who: "SYSTEM", text: event.message });
         addMsg("SYS", event.message, "sys", true);

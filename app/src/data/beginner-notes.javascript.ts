@@ -1213,4 +1213,1014 @@ console.log("DMG", damage, "RATE", fireRate, "RANGE", reach);`,
       },
     ],
   },
+
+  // ── Act III: Kira's pages ──
+  // Reeves' manual stops at chapter six. These pages are Kira's — same shape,
+  // sharper hand, margin notes that read like invoices. boss-03 is Reeves again.
+
+  "chapter-07": {
+    title: "CLOSURES & RECURSION",
+    subtitle: "FUNCTIONS THAT REMEMBER",
+    blocks: [
+      // Section 0: one line, new terminal
+      {
+        type: "text",
+        section: 0,
+        content:
+          "not reeves' handwriting. these pages are mine. you'll find them where you need them — that's the service. the archive terminal wakes the usual way.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `console.log("Hello World");`,
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "the archive is folders inside folders, as deep as it likes. to count it you need two things you haven't used yet: a function that remembers, and a function that calls itself. then a way to survive the folders ghost has rigged. — k.",
+      },
+
+      // Section 1: functions inside functions — closures
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a function can be written inside another function. the inner one can see the outer one's variables — and keeps seeing them, even when it's called later. that's a closure: a function plus the variables it was born next to.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `function makeCounter() {
+  let count = 0;
+  function bump() {
+    count++;
+  }
+  bump();
+  bump();
+  return count;
+}
+
+console.log(makeCounter()); // 2
+console.log(makeCounter()); // 2 — a fresh count every call`,
+        hotspots: [
+          { text: "let count = 0;", tip: "lives inside makeCounter. every call to makeCounter makes a brand-new one." },
+          { text: "count++;", tip: "bump has no count of its own — it reaches out to makeCounter's. that reach is the closure." },
+          { text: "// 2 — a fresh count every call", tip: "the second call doesn't remember the first. the counter belongs to the call, not the file." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "keep the counter inside the function that owns it. put let count = 0 at the top of the file and it survives between calls — the second scan starts where the first one stopped. and don't pass count into the inner function as an argument: a number arrives as a copy, and the copy is all that changes.",
+      },
+
+      // Section 2: recursion
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a function can call itself. each call gets its own parameters and its own place in line. when an inner call finishes, the one that called it carries on exactly where it paused. that's recursion — and it's how you walk a tree you can't see the bottom of.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `const tree = {
+  a: ["x.txt", "b/"],
+  b: ["y.txt"],
+};
+
+function walk(dir) {
+  for (const entry of tree[dir]) {
+    if (entry.endsWith("/")) walk(entry.slice(0, -1));
+    else console.log(dir, "has", entry);
+  }
+}
+
+walk("a");
+// a has x.txt
+// b has y.txt`,
+        hotspots: [
+          { text: `entry.endsWith("/")`, tip: "a name ending in a slash is a folder. everything else is a file." },
+          { text: "walk(entry.slice(0, -1))", tip: "the function calling itself. slice(0, -1) drops the last character — \"b/\" becomes \"b\", which is the key in the tree." },
+          { text: `else console.log(dir, "has", entry);`, tip: "a file. no more calls down this branch — this is where the recursion stops on its own." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "recursion needs a floor. here it's free: a folder that holds only files never calls walk again. a tree that points back at itself would never stop — the archive doesn't, so you won't need to worry. today.",
+      },
+
+      // Section 3: try / finally
+      {
+        type: "text",
+        section: 3,
+        content:
+          "try wraps a block. finally runs after it — when the block finishes, however it finishes. put a log in finally and every call reports on its way out.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `function visit(name, inside) {
+  try {
+    if (inside) visit(inside, null);
+  } finally {
+    console.log("done:", name);
+  }
+}
+
+visit("outer", "inner");
+// done: inner
+// done: outer`,
+        hotspots: [
+          { text: "try {", tip: "the work. whatever happens in here, the finally below gets its turn." },
+          { text: "} finally {", tip: "runs when the try is over — finished normally, returned early, or thrown out of." },
+          { text: "// done: inner", tip: "outer starts first but can't finish until inner has. so inner reports first. the outermost call is always last out." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        important: true,
+        content:
+          "go has a word for this — defer, written at the top and run at the end. javascript wraps the body in try instead and puts the end-of-call work in finally. different shape, same order: deepest folder first, root last.",
+      },
+
+      // Section 4: the scan
+      {
+        type: "text",
+        section: 4,
+        content:
+          "put it together. a counter, an inner function that walks one folder and calls itself on the folders inside, and a finally that logs. scanArchive owns the counter; scan does the walking.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `function scanArchive(archive, root) {
+  let count = 0;
+  function scan(dir) {
+    try {
+      for (const entry of archive[dir]) {
+        if (entry.endsWith("/")) scan(entry.slice(0, -1));
+        else count++;
+      }
+    } finally {
+      console.log("scanned:", dir);
+    }
+  }
+  scan(root);
+  return count;
+}`,
+        hotspots: [
+          { text: "let count = 0;", tip: "one counter per scan. every nested scan call bumps this same variable." },
+          { text: "function scan(dir)", tip: "the inner function. it closes over count and archive — no need to pass them down." },
+          { text: `console.log("scanned:", dir);`, tip: "in the finally, so each folder reports as its call ends. root ends last." },
+          { text: "return count;", tip: "by the time scan(root) returns, every folder in the tree has been walked." },
+        ],
+      },
+
+      // Section 5: throw and catch
+      {
+        type: "text",
+        section: 5,
+        content:
+          "ghost rigs folders. a corrupted one has no entries — null. walk it and the program falls over. so you check, and when it's bad you throw: stop this function on the spot and send an error up the calls until something catches it.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `try {
+  throw new Error("corrupted directory");
+} catch (e) {
+  console.log(e.message); // corrupted directory
+  console.log(String(e)); // Error: corrupted directory
+}`,
+        hotspots: [
+          { text: `throw new Error("corrupted directory");`, tip: "an Error object carries a message and a stack trace — the trail of calls it fell through." },
+          { text: "catch (e)", tip: "the error lands here, in e. the program carries on after the catch block." },
+          { text: "e.message", tip: "just the words you threw. this is the part you put in a log." },
+          { text: "String(e)", tip: "the whole error as text — its type stuck on the front. noise in a log." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content:
+          "throw Error objects, never bare strings. throw \"oops\" works, but whoever catches it gets no .message — e.message comes back undefined. that's a bad trade. — k.",
+      },
+
+      // Section 6: catch per call, keep scanning
+      {
+        type: "text",
+        section: 6,
+        content:
+          "where the catch sits decides how much you lose. catch around the whole scan and the first trap ends the walk. catch inside scan and only the rigged folder's own call fails — its parent's loop simply moves on to the next entry.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `function safeScan(archive, root) {
+  let count = 0;
+  const errors = [];
+  function scan(dir) {
+    try {
+      if (archive[dir] === null) throw new Error("corrupted directory");
+      for (const entry of archive[dir]) {
+        if (entry.endsWith("/")) scan(entry.slice(0, -1));
+        else count++;
+      }
+    } catch (e) {
+      errors.push(\`\${dir}: \${e.message}\`);
+    } finally {
+      console.log("scanned:", dir);
+    }
+  }
+  scan(root);
+  return { count, errors };
+}`,
+        hotspots: [
+          { text: `if (archive[dir] === null) throw new Error("corrupted directory");`, tip: "inside the try, so the finally still runs for the rigged folder too." },
+          { text: "} catch (e) {", tip: "this call's own catch. the error stops here — the parent never knows anything went wrong." },
+          { text: "${dir}: ${e.message}", tip: "which folder, and what happened. the terminal adds ERROR: in front." },
+          { text: "return { count, errors };", tip: "two things back in one object. { count } is short for { count: count }." },
+        ],
+      },
+
+      // Section 7: where javascript differs from go
+      {
+        type: "text",
+        section: 7,
+        content:
+          "if you've read reeves' go pages: go has panic and recover, and a panic is not an everyday error — go hands ordinary errors back as values. javascript has one road. throw is the error path, and try/catch is how you take it. bad numbers are the exception: Number(\"abc\") never throws, it hands you NaN.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `try {
+  JSON.parse("{ not json");
+} catch (e) {
+  console.log("caught:", e.message);
+} finally {
+  console.log("finally runs either way");
+}`,
+        hotspots: [
+          { text: `JSON.parse("{ not json");`, tip: "JSON.parse throws when it can't read the text — so it's caught, and the program carries on." },
+          { text: `console.log("finally runs either way");`, tip: "try, catch, finally — in that order. the finally always gets the last word." },
+        ],
+      },
+
+      // Section 8: zen recap
+      {
+        type: "text",
+        section: 8,
+        content:
+          "habits for this level. the counter lives inside the function that owns it. end-of-call work goes in finally. ask endsWith when you mean ends with. throw new Error, never a string. log e.message, not e. and when the variable already has the key's name, say it once: { count, errors }. — k.",
+      },
+      {
+        type: "code",
+        section: 8,
+        content: `// the log survives a throw
+try {
+  walk();
+} finally {
+  console.log("scanned:", dir);
+}
+
+// skipped the moment walk() throws
+walk();
+console.log("scanned:", dir);`,
+        hotspots: [
+          { text: "} finally {", tip: "runs however walk ends." },
+          { text: "// skipped the moment walk() throws", tip: "a line after the work is only reached if nothing went wrong." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, content: "a closure — the inner function bumps the outer counter." },
+      {
+        type: "code",
+        section: 0,
+        content: `function scanArchive(archive, root) {
+  let count = 0;
+  function scan(dir) { /* count++ */ }
+  scan(root);
+  return count;
+}`,
+      },
+      { type: "text", section: 1, content: "recurse on folders. strip the slash first." },
+      {
+        type: "code",
+        section: 1,
+        content: `if (entry.endsWith("/")) scan(entry.slice(0, -1));
+else count++;`,
+      },
+      { type: "text", section: 2, important: true, content: "finally runs on the way out — deepest folder first, root last." },
+      {
+        type: "code",
+        section: 2,
+        content: `try { /* walk */ } finally { console.log("scanned:", dir); }`,
+      },
+      { type: "text", section: 3, content: "throw an Error, catch it inside scan, keep the message." },
+      {
+        type: "code",
+        section: 3,
+        content: `if (archive[dir] === null) throw new Error("corrupted directory");
+// …
+} catch (e) {
+  errors.push(\`\${dir}: \${e.message}\`);
+}`,
+      },
+    ],
+  },
+
+  "chapter-08": {
+    title: "PROMISES & THE EVENT LOOP",
+    subtitle: "WHEN, NOT WHAT",
+    blocks: [
+      // Section 0: one line
+      {
+        type: "text",
+        section: 0,
+        content:
+          "breaker console. same one-liner. it runs top to bottom, in order, like every line you've written so far. enjoy that. it's the last time.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `console.log("Hello World");`,
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "four breakers feed the alarm grid. cut them one at a time and the grid notices. this chapter is about when code runs — later, all at once, and how long the whole thing takes. — k.",
+      },
+
+      // Section 1: the event loop and setTimeout
+      {
+        type: "text",
+        section: 1,
+        content:
+          "javascript does one thing at a time. setTimeout doesn't pause anything — it hands a function to the event loop to run later and returns straight away. the event loop only picks up waiting jobs when the current code is finished or paused.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `console.log("one");
+setTimeout(() => console.log("three"), 0);
+console.log("two");
+// one
+// two
+// three`,
+        hotspots: [
+          { text: `setTimeout(() => console.log("three"), 0);`, tip: "books the arrow for later and moves on. nothing waits here." },
+          { text: "() =>", tip: "a function that will log when it's called. setTimeout needs a function — something to call later — not the result of calling it now." },
+          { text: ", 0)", tip: "zero milliseconds: as soon as possible. still later. the current code always finishes first." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "setTimeout(cut(name), 0) is the classic slip. the brackets call cut right now and hand setTimeout the result — undefined. wrap it: setTimeout(() => cut(name), 0).",
+      },
+
+      // Section 2: cutAsync — and where javascript differs from go
+      {
+        type: "text",
+        section: 2,
+        content:
+          "a breaker you throw now, and one you book for later. the terminal launches south, says so, then pauses — and only then does south go down.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `function cut(name) {
+  console.log(\`\${name} circuit: DOWN\`);
+}
+
+function cutAsync(name) {
+  setTimeout(() => cut(name), 0);
+}
+
+cut("North");
+cutAsync("South");
+console.log("orders sent");
+// North circuit: DOWN
+// orders sent
+// South circuit: DOWN`,
+        hotspots: [
+          { text: "setTimeout(() => cut(name), 0);", tip: "cutAsync books the cut and returns. it doesn't do the cutting — cut does." },
+          { text: `console.log("orders sent");`, tip: "runs before south, because the scheduled job waits for the current code to finish." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        content:
+          "go's pages would tell you that work started in the background dies when the program ends, unfinished. javascript doesn't do that — it keeps running until the event loop has nothing left. so the lesson here isn't survival. it's order.",
+      },
+
+      // Section 3: promises, async and await
+      {
+        type: "text",
+        section: 3,
+        content:
+          "a promise is a value that isn't ready yet. it settles later with an answer. await pauses until it does and hands you the answer — and while it's paused, the event loop runs other jobs. a function marked async can use await, and always hands back a promise.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `async function trip(name) {
+  return \`\${name} circuit: DOWN\`;
+}
+
+const p = trip("East");
+console.log(p);       // Promise { <pending> }
+console.log(await p); // East circuit: DOWN`,
+        hotspots: [
+          { text: "async function trip(name)", tip: "async: whatever this returns comes wrapped in a promise." },
+          { text: "console.log(p);", tip: "the promise itself — the box, not what's in it." },
+          { text: "await p", tip: "open the box. if it isn't ready, wait here until it is." },
+        ],
+      },
+
+      // Section 4: Promise.all — fan out
+      {
+        type: "text",
+        section: 4,
+        content:
+          "Promise.all takes an array of promises, waits for every one, and settles with an array of their answers — in the order you passed them, not the order they finished. map makes the array: one promise per circuit, all started at once.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `async function cutAll(circuits) {
+  return Promise.all(circuits.map(async (name) => \`\${name} circuit: DOWN\`));
+}
+
+for (const line of await cutAll(["North", "South", "East", "West"])) {
+  console.log(line);
+}`,
+        hotspots: [
+          { text: "circuits.map(async (name) =>", tip: "the async arrow runs once per circuit. map hands back four promises, all already started." },
+          { text: "Promise.all(", tip: "the waiting and the results array in one call. north first, west last — however they finish." },
+          { text: "return Promise.all", tip: "hand the promise back. the caller awaits it. forget the return and the caller gets undefined." },
+        ],
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "go needs two tools for this — a counter that waits for everyone, and a slice you fill by index. Promise.all is both. one less thing to forget. — k.",
+      },
+
+      // Section 5: making your own promise — sleep
+      {
+        type: "text",
+        section: 5,
+        content:
+          "javascript has no sleep. you build one. new Promise hands you a function called resolve; call it and the promise settles. give resolve to a timer and the promise settles when the timer fires.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+console.log("tripping…");
+await sleep(300);
+console.log("300ms later");`,
+        hotspots: [
+          { text: "new Promise((resolve) =>", tip: "you make the promise. the function you pass runs straight away and gets resolve." },
+          { text: "setTimeout(resolve, ms)", tip: "resolve itself, no brackets — the timer calls it when ms is up. resolve() with brackets would settle it right now." },
+          { text: "await sleep(300);", tip: "pauses this code for 300ms. everything else keeps running." },
+        ],
+      },
+
+      // Section 6: all at once vs one at a time
+      {
+        type: "text",
+        section: 6,
+        content:
+          "this is the whole chapter. each breaker takes its own time. one after another, you wait for the sum. all at once, you wait for the slowest. the grid gives you one cycle — under 1100ms.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `// all at once: 450ms — the slowest
+async function cutTimed(circuits, delays) {
+  return Promise.all(
+    circuits.map(async (name, i) => {
+      await sleep(delays[i]);
+      return \`\${name} circuit: DOWN (\${delays[i]}ms)\`;
+    }),
+  );
+}
+
+// one at a time: 300 + 150 + 450 + 200 = 1100ms — alarm
+for (let i = 0; i < circuits.length; i++) {
+  await sleep(delays[i]);
+}`,
+        hotspots: [
+          { text: "async (name, i)", tip: "map passes the index too. delays[i] is this circuit's own delay." },
+          { text: "await sleep(delays[i]);", tip: "inside each job — so only that job waits. the other three are sleeping at the same time." },
+          { text: "// one at a time: 300 + 150 + 450 + 200 = 1100ms — alarm", tip: "an await in a loop finishes one breaker before starting the next. that's the sum." },
+        ],
+      },
+      {
+        type: "text",
+        section: 6,
+        important: true,
+        content: "start everything first, then wait once. an await inside a loop is a queue, not a crowd.",
+      },
+
+      // Section 7: the var trap
+      {
+        type: "text",
+        section: 7,
+        content:
+          "every language has a famous version of this mistake. here's javascript's. var makes one variable for the whole loop. callbacks that run later all read it after the loop is over — and by then it's past the end. let makes a fresh variable for every pass.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log("var", i), 0);
+}
+// var 3, var 3, var 3
+
+for (let j = 0; j < 3; j++) {
+  setTimeout(() => console.log("let", j), 0);
+}
+// let 0, let 1, let 2`,
+        hotspots: [
+          { text: "var i = 0", tip: "one i, shared by every pass. by the time the timers fire, the loop has pushed it to 3." },
+          { text: "let j = 0", tip: "each pass gets its own j. each callback remembers its own." },
+        ],
+      },
+      {
+        type: "text",
+        section: 7,
+        important: true,
+        content: "don't write var. let and const do everything it did, without the trap. — k.",
+      },
+
+      // Section 8: zen recap
+      {
+        type: "text",
+        section: 8,
+        content:
+          "habits for this level. plain code stays plain — no async until something actually waits. schedule the function you already wrote, and write the 0. Promise.all over a map, never awaits in a loop. build sleep once and await it. take the index from map. let, never var.",
+      },
+      {
+        type: "code",
+        section: 8,
+        content: `// one at a time
+const lines = [];
+for (const name of circuits) {
+  lines.push(await trip(name));
+}
+
+// all at once
+const all = await Promise.all(circuits.map(trip));`,
+        hotspots: [
+          { text: "lines.push(await trip(name));", tip: "each trip finishes before the next one starts." },
+          { text: "Promise.all(circuits.map(trip))", tip: "every trip starts now. one wait for the lot." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, content: "schedule for later — the current code finishes first." },
+      {
+        type: "code",
+        section: 0,
+        content: `setTimeout(() => cut(name), 0);`,
+      },
+      { type: "text", section: 1, content: "fan out with map, wait once with Promise.all. results stay in order." },
+      {
+        type: "code",
+        section: 1,
+        content: `return Promise.all(circuits.map(async (name) => \`\${name} circuit: DOWN\`));`,
+      },
+      { type: "text", section: 2, content: "a hand-made sleep." },
+      {
+        type: "code",
+        section: 2,
+        content: `const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));`,
+      },
+      { type: "text", section: 3, important: true, content: "await inside each job = the slowest. await in a loop = the sum." },
+      {
+        type: "code",
+        section: 3,
+        content: `circuits.map(async (name, i) => {
+  await sleep(delays[i]);
+  return \`\${name} circuit: DOWN (\${delays[i]}ms)\`;
+});`,
+      },
+    ],
+  },
+
+  "chapter-09": {
+    title: "RACING PROMISES",
+    subtitle: "THE FIRST VOICE THAT ANSWERS",
+    blocks: [
+      // Section 0: one line
+      {
+        type: "text",
+        section: 0,
+        content: "comms array. the usual line wakes it. three frequencies come with it — mine. use them or don't.",
+      },
+      {
+        type: "code",
+        section: 0,
+        content: `console.log("Hello World");`,
+      },
+      {
+        type: "text",
+        section: 0,
+        content:
+          "this chapter: call a team without freezing, take whoever answers first, and never wait forever on a dead line. all of it is promises. — k.",
+      },
+
+      // Section 1: a promise settles once — hail
+      {
+        type: "text",
+        section: 1,
+        content:
+          "hail returns a promise straight away. a timer resolves it later with the team's reply. the call comes back at once; the answer arrives when it arrives.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `function hail(team, delayMs) {
+  return new Promise((resolve) => setTimeout(() => resolve(\`\${team} responding\`), delayMs));
+}
+
+const p = hail("Bravo", 100);
+console.log("hailing Bravo...");
+console.log(await p); // Bravo responding`,
+        hotspots: [
+          { text: "return new Promise(", tip: "return it. forget the return and the caller awaits undefined." },
+          { text: "() => resolve(", tip: "an arrow the timer calls later. setTimeout(resolve(...), delayMs) would settle it right now." },
+          { text: "delayMs));", tip: "the caller's delay — every team answers on its own time." },
+          { text: `console.log("hailing Bravo...");`, tip: "runs before bravo answers. hail didn't make anyone wait." },
+        ],
+      },
+      {
+        type: "text",
+        section: 1,
+        important: true,
+        content:
+          "a promise settles once and holds its answer. call resolve a second time and nothing happens. await it a second time and you get the same answer again, straight away.",
+      },
+
+      // Section 2: a mailbox with room for one
+      {
+        type: "text",
+        section: 2,
+        content:
+          "think of a promise as a mailbox with room for one letter. the team drops its reply in and leaves. nobody has to be standing there. whoever looks later finds it waiting.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `const reply = hail("Alpha", 50);
+await sleep(500);          // look away for a while
+console.log(await reply); // Alpha responding — still there`,
+        hotspots: [
+          { text: "await sleep(500);", tip: "alpha answers at 50ms. nobody's listening. that's fine." },
+          { text: "await reply", tip: "already settled — you get the answer on the spot." },
+        ],
+      },
+
+      // Section 3: Promise.race — first contact
+      {
+        type: "text",
+        section: 3,
+        content:
+          "Promise.race takes an array of promises and settles with whichever settles first. the rest are ignored. they still answer later — into their own mailboxes — and nobody's stuck.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `function firstResponder(alpha, bravo, charlie) {
+  return Promise.race([alpha, bravo, charlie]);
+}
+
+const a = hail("Alpha", 200);
+const b = hail("Bravo", 100);
+const c = hail("Charlie", 300);
+console.log(await firstResponder(a, b, c)); // Bravo responding`,
+        hotspots: [
+          { text: "Promise.race([alpha, bravo, charlie])", tip: "one array, every team. the first to settle wins." },
+          { text: `hail("Bravo", 100)`, tip: "fastest today. your code doesn't need to know that — the race finds out." },
+        ],
+      },
+      {
+        type: "text",
+        section: 3,
+        content:
+          "await alpha would wait on alpha even though bravo already answered. race listens to all of them at once. javascript can't cancel the losers — it just stops caring about them.",
+      },
+
+      // Section 4: timeouts
+      {
+        type: "text",
+        section: 4,
+        content:
+          "a deadline is just one more runner: a promise a timer settles with \"NO CONTACT\". put it in the race. if no team beats the timer, the timer wins.",
+      },
+      {
+        type: "code",
+        section: 4,
+        content: `function awaitContact(alpha, bravo, charlie, timeoutMs) {
+  const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), timeoutMs));
+  return Promise.race([alpha, bravo, charlie, deadline]);
+}
+
+const jammed = new Promise(() => {}); // never settles
+console.log(await awaitContact(jammed, jammed, jammed, 200)); // NO CONTACT`,
+        hotspots: [
+          { text: "timeoutMs));", tip: "the caller's deadline, not a number you picked." },
+          { text: `resolve("NO CONTACT")`, tip: "resolve, not reject. running out of time is an answer here, not a crash." },
+          { text: "new Promise(() => {})", tip: "a promise nobody will ever resolve. without the deadline, awaiting this would hang forever." },
+        ],
+      },
+
+      // Section 5: sweep — look without waiting
+      {
+        type: "text",
+        section: 5,
+        content:
+          "sometimes you can't wait at all — you just want to glance. race the promise against a plain value. race treats a plain value as already settled. if the promise has already settled too, the one earlier in the array wins — so the promise goes first.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `function sweep(p) {
+  return Promise.race([p, "channel silent"]);
+}
+
+console.log(await sweep(Promise.resolve("Bravo holding at dock 4"))); // Bravo holding at dock 4
+console.log(await sweep(jammed));                                     // channel silent`,
+        hotspots: [
+          { text: `Promise.race([p, "channel silent"])`, tip: "p first. a settled p beats the ready string; a pending p loses on the spot." },
+          { text: "sweep(jammed)", tip: "nothing there, and sweep doesn't wait to find out." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        important: true,
+        content: "flip the array — [\"channel silent\", p] — and the string wins every time, even when a message is waiting. order is the whole trick.",
+      },
+
+      // Section 6: where javascript differs from go
+      {
+        type: "text",
+        section: 6,
+        content:
+          "go does this with channels and select. a channel with room for one is a promise — it holds a single answer. select is Promise.race. go's time.After is your deadline promise. and go's default case — take what's there, or move on — is the race against a ready value. same ideas, fewer moving parts.",
+      },
+      {
+        type: "code",
+        section: 6,
+        content: `// waits, but never past the deadline
+await awaitContact(a, b, c, 600);
+
+// never waits at all
+await sweep(b);`,
+        hotspots: [
+          { text: "awaitContact(a, b, c, 600)", tip: "a timeout: bounded waiting." },
+          { text: "sweep(b)", tip: "a poll: no waiting." },
+        ],
+      },
+
+      // Section 7: zen recap
+      {
+        type: "text",
+        section: 7,
+        content:
+          "habits for this level. the timer reads the parameter. the function inside new Promise is never async. a function that returns a promise doesn't need async. race every runner you were handed, and hand the race straight back. build the deadline from the caller's number. a sweep looks and leaves. — k.",
+      },
+      {
+        type: "code",
+        section: 7,
+        content: `// an async executor swallows its own errors
+new Promise(async (resolve) => { /* … */ });
+
+// a plain one starts the timer and returns
+new Promise((resolve) => setTimeout(resolve, 100));`,
+        hotspots: [
+          { text: "new Promise(async (resolve) =>", tip: "if this throws, the error vanishes and the promise never settles." },
+          { text: "setTimeout(resolve, 100)", tip: "the timer calls resolve later. that's all the executor has to do." },
+        ],
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, content: "return a promise now, resolve it later." },
+      {
+        type: "code",
+        section: 0,
+        content: `return new Promise((resolve) => setTimeout(() => resolve(\`\${team} responding\`), delayMs));`,
+      },
+      { type: "text", section: 1, content: "first to settle wins." },
+      {
+        type: "code",
+        section: 1,
+        content: `return Promise.race([alpha, bravo, charlie]);`,
+      },
+      { type: "text", section: 2, content: "a deadline is one more runner in the race." },
+      {
+        type: "code",
+        section: 2,
+        content: `const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), timeoutMs));`,
+      },
+      { type: "text", section: 3, important: true, content: "never wait: race against a ready value, promise first." },
+      {
+        type: "code",
+        section: 3,
+        content: `return Promise.race([p, "channel silent"]);`,
+      },
+    ],
+  },
+
+  "boss-03": {
+    title: "READING CODE",
+    subtitle: "BEFORE YOU RUN IT",
+    blocks: [
+      // Section 0: this fight
+      {
+        type: "text",
+        section: 0,
+        content:
+          "reeves again. i wrote this one for tonight. kira has handed you an encoder for your thesis — six lines. no hearts this time, no clock chasing you. you read her code, mark the lines you don't trust, and tell me why in plain words. then you decide.",
+      },
+      {
+        type: "text",
+        section: 0,
+        important: true,
+        content: "read before you run. code that looks clean is not the same as code that is safe.",
+      },
+
+      // Section 1: bytes
+      {
+        type: "text",
+        section: 1,
+        content:
+          "a Uint8Array is an array of raw bytes — numbers from 0 to 255. ^= 0xff flips every bit of one byte. flip it twice and it's back. that's the whole cipher.",
+      },
+      {
+        type: "code",
+        section: 1,
+        content: `const data = new Uint8Array([0x10, 0x20, 0x30, 0x40]);
+data[0] ^= 0xff;
+console.log(data[0].toString(16)); // ef`,
+        hotspots: [
+          { text: "new Uint8Array(", tip: "a fixed run of bytes. it looks like an array, and mostly acts like one." },
+          { text: "data[0] ^= 0xff;", tip: "flip every bit of the first byte. 0x10 becomes 0xef. it changes data in place." },
+        ],
+      },
+
+      // Section 2: subarray is a window, slice is a copy
+      {
+        type: "text",
+        section: 2,
+        content:
+          "two methods that look like twins. slice copies bytes into a new array — change the original afterwards and the copy doesn't notice. subarray copies nothing. it's a window onto the same bytes. change the original and everything looking through the window sees it.",
+      },
+      {
+        type: "code",
+        section: 2,
+        content: `const data = new Uint8Array([1, 2, 3]);
+const view = data.subarray(1); // a window
+const copy = data.slice(1);    // a copy
+
+data[1] = 99;
+console.log(view[0]); // 99 — it moved
+console.log(copy[0]); // 2  — it didn't`,
+        hotspots: [
+          { text: "data.subarray(1)", tip: "no new bytes. view and data share memory." },
+          { text: "data.slice(1)", tip: "new bytes, copied now. frozen at this moment." },
+          { text: "// 99 — it moved", tip: "nobody touched view. it changed anyway, because it was never separate." },
+        ],
+      },
+      {
+        type: "text",
+        section: 2,
+        important: true,
+        content: "a subarray is a window, not a copy. ask who else is looking through it.",
+      },
+
+      // Section 3: kira's encoder
+      {
+        type: "text",
+        section: 3,
+        content:
+          "here is what she sent. ch is the outgoing stream — every frame pushed onto it is meant to be sent exactly as it was at that moment. read it slowly. then read it again, asking what each frame is made of.",
+      },
+      {
+        type: "code",
+        section: 3,
+        content: `function transmit(data, ch) {
+  for (let i = 0; i < data.length; i++) {
+    data[i] ^= 0xff;
+    ch.push(data.subarray(i));
+  }
+}`,
+        hotspots: [
+          { text: "data[i] ^= 0xff;", tip: "this changes data — the same bytes every earlier frame is a window onto." },
+          { text: "ch.push(data.subarray(i));", tip: "ships a window, not a copy. the next pass through the loop reaches in and changes it." },
+        ],
+      },
+
+      // Section 4: what the receiver sees
+      {
+        type: "text",
+        section: 4,
+        content:
+          "i ran it on a loopback at dock 4. frame 0 left as EF 20 30 40. by the time the receiver read it, it said EF DF CF BF — every later pass of the loop had flipped bytes inside a frame that was already gone. the checksums don't match. the receiver can't tell what was really sent.",
+      },
+      {
+        type: "text",
+        section: 4,
+        content:
+          "three things together make the fault. the frames share memory with data. data is changed after a frame is sent. and nothing ever copies. take away any one and the stream is safe.",
+      },
+
+      // Section 5: the fix
+      {
+        type: "text",
+        section: 5,
+        content:
+          "one word. slice instead of subarray. each frame becomes its own bytes, frozen at the moment it was sent.",
+      },
+      {
+        type: "code",
+        section: 5,
+        content: `function transmitSafe(data, ch) {
+  for (let i = 0; i < data.length; i++) {
+    data[i] ^= 0xff;
+    ch.push(data.slice(i));
+  }
+}`,
+        hotspots: [
+          { text: "ch.push(data.slice(i));", tip: "a copy. later passes change data, never this frame." },
+        ],
+      },
+      {
+        type: "text",
+        section: 5,
+        content:
+          "go's slices and python's memoryview have the same trap — a cheap view that shares memory. every language has a fast way to not copy. it's fast because it's dangerous.",
+      },
+
+      // Section 6: the verdict
+      {
+        type: "text",
+        section: 6,
+        content:
+          "when you give your verdict, don't write code — write what happens. which bytes are shared, what changes them, and when. maybe she made a mistake. maybe she didn't. the code can't tell you which. it can only tell you what it does.",
+      },
+      {
+        type: "text",
+        section: 6,
+        important: true,
+        content: "a mistake and a trap can be the same six lines. decide what you believe, then say why. — e.r.",
+      },
+    ],
+
+    notesBlocks: [
+      { type: "text", section: 0, important: true, content: "read first. mark the lines. explain why in words." },
+      { type: "text", section: 1, content: "subarray shares the bytes. slice copies them." },
+      {
+        type: "code",
+        section: 1,
+        content: `data.subarray(i); // a window — changes with data
+data.slice(i);    // a copy — frozen now`,
+      },
+      { type: "text", section: 2, content: "the fault: shared memory + change after send + no copy." },
+      {
+        type: "code",
+        section: 2,
+        content: `data[i] ^= 0xff;
+ch.push(data.subarray(i));`,
+      },
+      { type: "text", section: 3, content: "the fix: send a copy." },
+      {
+        type: "code",
+        section: 3,
+        content: `ch.push(data.slice(i));`,
+      },
+    ],
+  },
 };

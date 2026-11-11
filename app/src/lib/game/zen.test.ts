@@ -1,5 +1,7 @@
 import { describe, test, expect } from "vitest";
-import { analyzeImports, analyzeZen, buildZenMessage, calculateMissedXP, ZEN_RULES } from "./zen";
+import { analyzeImports, analyzeZen, buildZenMessage, calculateMissedXP, evaluateZenRules, ZEN_RULES } from "./zen";
+import { ZEN_EXAMPLES } from "@/data/zen-examples";
+import { GO_ACT3_SOLUTIONS, GO_ACT3_WRONG } from "@/lib/lang/act3.go.fixtures";
 
 // ── Registry Tests ──
 
@@ -2214,5 +2216,232 @@ func main() {
     const r2 = analyzeZen("chapter-01:scaffold", code, new Set());
     expect(r1.bonusXP).toBe(r2.bonusXP);
     expect(r1.jolts.length).toBe(r2.jolts.length);
+  });
+});
+
+// ── Act III: closures, defer/recover, goroutines, channels ──
+
+describe("Act III — zen detection", () => {
+  const S = GO_ACT3_SOLUTIONS;
+  const outcome = (stepId: string, code: string, ruleId: string) =>
+    evaluateZenRules(stepId, code).find((o) => o.rule.id === ruleId)!;
+  const follows = (stepId: string, code: string, ruleId: string) => {
+    const o = outcome(stepId, code, ruleId);
+    return o.relevant && o.passed;
+  };
+  const misses = (stepId: string, code: string, ruleId: string) => {
+    const o = outcome(stepId, code, ruleId);
+    return o.relevant && !o.passed;
+  };
+
+  test("every Act III step has rules, and each non-scaffold rule has a before/after example", () => {
+    for (const id of Object.keys(S)) {
+      expect(ZEN_RULES[id]?.length ?? 0, id).toBeGreaterThan(0);
+      if (id.endsWith(":scaffold")) continue;
+      for (const rule of ZEN_RULES[id]) {
+        expect(ZEN_EXAMPLES[rule.id], `example for ${rule.id}`).toBeDefined();
+        expect(rule.isRelevant, `${rule.id} needs an isRelevant guard`).toBeDefined();
+      }
+    }
+  });
+
+  test("the reference solutions follow every rule of their step", () => {
+    for (const [id, code] of Object.entries(S)) {
+      for (const o of evaluateZenRules(id, code)) {
+        expect(o.relevant && o.passed, `${id}/${o.rule.id}`).toBe(true);
+      }
+    }
+  });
+
+  test("max possible XP per Act III step", () => {
+    const maxXP: Record<string, number> = {
+      "chapter-07:scan": 20,
+      "chapter-07:recover": 20,
+      "chapter-08:goroutine": 15,
+      "chapter-08:fanout": 35,
+      "chapter-08:window": 25,
+      "chapter-09:hail": 15,
+      "chapter-09:first": 20,
+      "chapter-09:timeout": 20,
+    };
+    for (const [stepId, expected] of Object.entries(maxXP)) {
+      expect(ZEN_RULES[stepId].reduce((sum, r) => sum + r.bonusXP, 0), stepId).toBe(expected);
+    }
+  });
+
+  describe("chapter-07:scan", () => {
+    const id = "chapter-07:scan";
+    test("defer_scan_log fires when the log prints at the end instead of being deferred", () => {
+      const bad = S[id].replace('defer fmt.Println("scanned:", dir)\n', "").replace("\t\t}\n\t}\n\tscan(root)", '\t\t}\n\t\tfmt.Println("scanned:", dir)\n\t}\n\tscan(root)');
+      expect(misses(id, bad, "defer_scan_log")).toBe(true);
+      expect(follows(id, S[id], "defer_scan_log")).toBe(true);
+    });
+    test("defer_scan_log is irrelevant before the player logs anything", () => {
+      expect(outcome(id, `func scanArchive(a map[string][]string, r string) int { return 0 }`, "defer_scan_log").relevant).toBe(false);
+    });
+    test("closure_counter fires when the count is threaded through a pointer", () => {
+      const bad = `func scan(archive map[string][]string, dir string, count *int) {
+	for _, e := range archive[dir] {
+		*count++
+	}
+}
+
+func scanArchive(archive map[string][]string, root string) int {
+	n := 0
+	scan(archive, root, &n)
+	return n
+}`;
+      expect(misses(id, bad, "closure_counter")).toBe(true);
+      expect(follows(id, S[id], "closure_counter")).toBe(true);
+    });
+  });
+
+  describe("chapter-07:recover", () => {
+    const id = "chapter-07:recover";
+    test("recover_in_defer fires when recover is called outside a deferred func", () => {
+      const bad = S[id].replace("defer func() {\n\t\t\tif r := recover()", "func() {\n\t\t\tif r := recover()");
+      expect(misses(id, bad, "recover_in_defer")).toBe(true);
+      expect(follows(id, S[id], "recover_in_defer")).toBe(true);
+    });
+    test("recover_in_defer accepts a named deferred handler", () => {
+      const code = `func guard(errs *[]string) {
+	if r := recover(); r != nil {
+		*errs = append(*errs, fmt.Sprint(r))
+	}
+}
+
+func safeScan(archive map[string][]string, root string) (int, []string) {
+	errs := []string{}
+	defer guard(&errs)
+	return 0, errs
+}`;
+      expect(follows(id, code, "recover_in_defer")).toBe(true);
+    });
+    test("recover_per_call fires when the only recover guards safeScan", () => {
+      const bad = `func safeScan(archive map[string][]string, root string) (count int, errs []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			errs = append(errs, fmt.Sprint(r))
+		}
+	}()
+	var scan func(dir string)
+	scan = func(dir string) {
+		if archive[dir] == nil {
+			panic("corrupted directory")
+		}
+		for _, e := range archive[dir] {
+			if e[len(e)-1] == '/' {
+				scan(e[:len(e)-1])
+			} else {
+				count++
+			}
+		}
+	}
+	scan(root)
+	return
+}`;
+      expect(misses(id, bad, "recover_per_call")).toBe(true);
+      expect(follows(id, S[id], "recover_per_call")).toBe(true);
+    });
+  });
+
+  describe("chapter-08:goroutine", () => {
+    const id = "chapter-08:goroutine";
+    test("go_statement_launch fires on a synchronous cutAsync", () => {
+      expect(misses(id, S[id].replace("go cut(name)", "cut(name)"), "go_statement_launch")).toBe(true);
+      expect(follows(id, S[id], "go_statement_launch")).toBe(true);
+    });
+    test("launcher_returns_now fires when cutAsync sleeps after launching", () => {
+      const bad = S[id].replace("go cut(name)", "go cut(name)\n\ttime.Sleep(100 * time.Millisecond)");
+      expect(misses(id, bad, "launcher_returns_now")).toBe(true);
+      expect(follows(id, S[id], "launcher_returns_now")).toBe(true);
+    });
+  });
+
+  describe("chapter-08:fanout", () => {
+    const id = "chapter-08:fanout";
+    test("wg_add_before_go fires when Add is inside the goroutine", () => {
+      const bad = S[id].replace("wg.Add(1)\n\t\tgo func(idx int, n string) {", "go func(idx int, n string) {\n\t\t\twg.Add(1)");
+      expect(misses(id, bad, "wg_add_before_go")).toBe(true);
+      expect(follows(id, S[id], "wg_add_before_go")).toBe(true);
+    });
+    test("defer_wg_done fires when Done is called last, not deferred first", () => {
+      const bad = S[id].replace("defer wg.Done()\n\t\t\tresults[idx] = n + \" circuit: DOWN\"", "results[idx] = n + \" circuit: DOWN\"\n\t\t\twg.Done()");
+      expect(misses(id, bad, "defer_wg_done")).toBe(true);
+      expect(follows(id, S[id], "defer_wg_done")).toBe(true);
+    });
+    test("goroutine_args fires when the goroutine reaches out for loop variables", () => {
+      const bad = S[id].replace("go func(idx int, n string) {", "go func() {").replace("results[idx] = n", "results[i] = name").replace("}(i, name)", "}()");
+      expect(misses(id, bad, "goroutine_args")).toBe(true);
+      expect(follows(id, S[id], "goroutine_args")).toBe(true);
+    });
+    test("results_by_index fires on printing or appending inside goroutines", () => {
+      const printing = S[id].replace("results[idx] = n + \" circuit: DOWN\"", "fmt.Println(n + \" circuit: DOWN\")");
+      const appending = S[id].replace("results[idx] = n + \" circuit: DOWN\"", "results = append(results, n+\" circuit: DOWN\")");
+      expect(misses(id, printing, "results_by_index")).toBe(true);
+      expect(misses(id, appending, "results_by_index")).toBe(true);
+      expect(follows(id, S[id], "results_by_index")).toBe(true);
+    });
+  });
+
+  describe("chapter-08:window", () => {
+    const id = "chapter-08:window";
+    test("sleep_inside_goroutine fires on the sequential shortcut", () => {
+      expect(misses(id, GO_ACT3_WRONG[id], "sleep_inside_goroutine")).toBe(true);
+      expect(follows(id, S[id], "sleep_inside_goroutine")).toBe(true);
+    });
+    test("duration_conversion fires on int * Duration", () => {
+      const bad = S[id].replace("time.Duration(d) * time.Millisecond", "d * time.Millisecond");
+      expect(misses(id, bad, "duration_conversion")).toBe(true);
+      expect(follows(id, S[id], "duration_conversion")).toBe(true);
+    });
+  });
+
+  describe("chapter-09:hail", () => {
+    const id = "chapter-09:hail";
+    test("buffered_reply_channel fires on an unbuffered channel", () => {
+      expect(misses(id, S[id].replace("make(chan string, 1)", "make(chan string)"), "buffered_reply_channel")).toBe(true);
+      expect(follows(id, S[id], "buffered_reply_channel")).toBe(true);
+    });
+    test("return_channel_now fires when hail sleeps before returning", () => {
+      const bad = S[id].replace(
+        "go func() {\n\t\ttime.Sleep(time.Duration(delayMs) * time.Millisecond)",
+        "time.Sleep(time.Duration(delayMs) * time.Millisecond)\n\tgo func() {",
+      );
+      expect(misses(id, bad, "return_channel_now")).toBe(true);
+      expect(follows(id, S[id], "return_channel_now")).toBe(true);
+    });
+  });
+
+  describe("chapter-09:first", () => {
+    const id = "chapter-09:first";
+    test("select_first_ready fires on receiving in turn", () => {
+      expect(misses(id, GO_ACT3_WRONG[id], "select_first_ready")).toBe(true);
+      expect(follows(id, S[id], "select_first_ready")).toBe(true);
+    });
+    test("blocking_select fires on a default case", () => {
+      const bad = S[id].replace("case msg := <-charlie:\n\t\treturn msg\n\t}", "case msg := <-charlie:\n\t\treturn msg\n\tdefault:\n\t\treturn \"\"\n\t}");
+      expect(misses(id, bad, "blocking_select")).toBe(true);
+      expect(follows(id, S[id], "blocking_select")).toBe(true);
+    });
+  });
+
+  describe("chapter-09:timeout", () => {
+    const id = "chapter-09:timeout";
+    test("timeout_from_param fires on a hardcoded deadline", () => {
+      const bad = S[id].replace("time.After(time.Duration(timeoutMs) * time.Millisecond)", "time.After(500 * time.Millisecond)");
+      expect(misses(id, bad, "timeout_from_param")).toBe(true);
+      expect(follows(id, S[id], "timeout_from_param")).toBe(true);
+    });
+    test("default_only_in_sweep fires on a sleeping sweep or a default in awaitContact", () => {
+      const sleepy = S[id].replace(
+        "select {\n\tcase msg := <-ch:\n\t\treturn msg\n\tdefault:\n\t\treturn \"channel silent\"\n\t}",
+        "time.Sleep(10 * time.Millisecond)\n\treturn <-ch",
+      );
+      const impatient = S[id].replace("case <-time.After(", "default:\n\t\treturn \"NO CONTACT\"\n\tcase <-time.After(");
+      expect(misses(id, sleepy, "default_only_in_sweep")).toBe(true);
+      expect(misses(id, impatient, "default_only_in_sweep")).toBe(true);
+      expect(follows(id, S[id], "default_only_in_sweep")).toBe(true);
+    });
   });
 });

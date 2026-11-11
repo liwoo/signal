@@ -6,6 +6,13 @@
 // ES modules are rewritten into plain functions — `import { a } from "./m.js"`
 // becomes `const { a } = __import("./m.js")` — keeping every statement on its
 // original line, so error line numbers match what the player sees.
+//
+// Time is virtual, like the Go playground's. main.js runs inside an async
+// function (top-level `await` works), and the sandbox's setTimeout/setInterval,
+// Date.now and performance.now run on a virtual clock: when nothing else can
+// happen, the clock jumps straight to the next timer. `await sleep(450)` is
+// instant and reads as exactly 450ms, so concurrency is measurable and every
+// run prints the same thing.
 
 import { parse, type Node } from "acorn";
 
@@ -37,7 +44,12 @@ export interface JsRunOutput {
 export const MAIN_FILE = "main.js";
 const HARNESS_LINE_MARK = "__signal_harness__";
 const MAX_OUTPUT_LINES = 5000;
-const WRAPPER_OPEN = `(function (__import, __exports, console, __mute) {"use strict";`;
+const SANDBOX_PARAMS = "__import, __exports, console, __setHarness, setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, clearImmediate, Date, performance";
+const WRAPPER_OPEN = `(async function (${SANDBOX_PARAMS}) {"use strict";`;
+const MODULE_WRAPPER_OPEN = `(function (${SANDBOX_PARAMS}) {"use strict";`;
+/** Virtual-time ceiling: a program still waiting after an hour is stuck. */
+const MAX_VIRTUAL_MS = 60 * 60 * 1000;
+const MAX_TIMER_FIRINGS = 100_000;
 
 // ── Console formatting (Node-style, so output reads like a real terminal) ──
 
@@ -66,6 +78,9 @@ function inspect(value: unknown, depth: number, seen: Set<unknown>): string {
       return `Set(${value.size}) {${parts.length ? ` ${parts.join(", ")} ` : ""}}`;
     }
     if (value instanceof Error) return value.stack ?? `${value.name}: ${value.message}`;
+    // A promise can't be inspected synchronously; say what it is, like Node
+    // does for one still pending (the usual case: a missing `await`).
+    if (value instanceof Promise) return "Promise { <pending> }";
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length === 0) return "{}";
     const body = entries
@@ -257,13 +272,15 @@ class OutputLimitError extends Error {
 
 /** Pull "file:line:col" for the innermost frame inside one of our files. */
 function locateInStack(stack: string, files: string[]): { file: string; line: number; col: number } | null {
+  // (main.js opens with the async wrapper, shipped modules with the plain one.)
   const names = files.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   const re = new RegExp(`(${names}):(\\d+):(\\d+)`);
   const m = stack.match(re);
   if (!m) return null;
   const line = Number(m[2]);
   // Line 1 shares its row with the wrapper's opening, so shift the column back.
-  const col = line === 1 ? Math.max(1, Number(m[3]) - WRAPPER_OPEN.length) : Number(m[3]);
+  const open = m[1] === MAIN_FILE ? WRAPPER_OPEN : MODULE_WRAPPER_OPEN;
+  const col = line === 1 ? Math.max(1, Number(m[3]) - open.length) : Number(m[3]);
   return { file: m[1], line, col };
 }
 
@@ -271,8 +288,102 @@ function errorText(file: string, line: number, col: number, name: string, messag
   return `${file}:${line}:${col}: ${name}: ${message}`;
 }
 
+// ── Virtual clock ──
+
+interface VirtualTimer {
+  id: number;
+  at: number;
+  seq: number;
+  fn: (...args: unknown[]) => unknown;
+  args: unknown[];
+  every?: number;
+  /** Scheduled while output was muted (the player's own top-level code under a harness). */
+  muted: boolean;
+}
+
+/** The sandbox's timers, Date and performance, all on one virtual clock. */
+function createVirtualClock(isMuted: () => boolean) {
+  let now = 0;
+  let nextId = 1;
+  let seq = 0;
+  const timers = new Map<number, VirtualTimer>();
+  const epoch = Date.now();
+  const RealDate = Date;
+
+  const schedule = (fn: unknown, ms: unknown, args: unknown[], repeat: boolean): number => {
+    if (typeof fn !== "function") throw new TypeError("The \"callback\" argument must be of type function");
+    const delay = Math.max(0, Number(ms) || 0);
+    const id = nextId++;
+    timers.set(id, { id, at: now + delay, seq: seq++, fn: fn as VirtualTimer["fn"], args, muted: isMuted(), ...(repeat ? { every: Math.max(1, delay) } : {}) });
+    return id;
+  };
+  const clear = (id: unknown) => { timers.delete(Number(id)); };
+
+  class VirtualDate extends RealDate {
+    constructor(...args: unknown[]) {
+      if (args.length === 0) super(epoch + now);
+      else super(...(args as [string]));
+    }
+    static now() {
+      return epoch + now;
+    }
+  }
+
+  return {
+    sandbox: {
+      setTimeout: (fn: unknown, ms?: unknown, ...args: unknown[]) => schedule(fn, ms, args, false),
+      clearTimeout: clear,
+      setInterval: (fn: unknown, ms?: unknown, ...args: unknown[]) => schedule(fn, ms, args, true),
+      clearInterval: clear,
+      setImmediate: (fn: unknown, ...args: unknown[]) => schedule(fn, 0, args, false),
+      clearImmediate: clear,
+      Date: VirtualDate,
+      performance: { now: () => now },
+    },
+    /** Take the earliest timer off the queue and move the clock to it. */
+    next(): VirtualTimer | null {
+      let best: VirtualTimer | null = null;
+      for (const t of timers.values()) {
+        if (!best || t.at < best.at || (t.at === best.at && t.seq < best.seq)) best = t;
+      }
+      if (!best) return null;
+      now = best.at;
+      if (best.every) timers.set(best.id, { ...best, at: now + best.every, seq: seq++ });
+      else timers.delete(best.id);
+      return best;
+    },
+    get now() {
+      return now;
+    },
+  };
+}
+
+/** Yield one macrotask so every pending promise job runs first. */
+function createYield(): { tick: () => Promise<void>; close: () => void } {
+  if (typeof MessageChannel !== "undefined") {
+    const channel = new MessageChannel();
+    let wake: (() => void) | null = null;
+    channel.port1.onmessage = () => {
+      const w = wake;
+      wake = null;
+      w?.();
+    };
+    return {
+      tick: () => new Promise<void>((resolve) => {
+        wake = resolve;
+        channel.port2.postMessage(0);
+      }),
+      close: () => {
+        channel.port1.close();
+        channel.port2.close();
+      },
+    };
+  }
+  return { tick: () => new Promise<void>((resolve) => setTimeout(resolve, 0)), close: () => {} };
+}
+
 /** Run a program and capture its output. Never throws — failures come back in `error`. */
-export function executeJs(input: JsRunInput): JsRunOutput {
+export async function executeJs(input: JsRunInput): Promise<JsRunOutput> {
   const stdout: string[] = [];
   const stderr: string[] = [];
   let muted = false;
@@ -319,7 +430,13 @@ export function executeJs(input: JsRunInput): JsRunOutput {
     error,
   });
 
-  const compile = (path: string, src: string, extra = ""): ((...args: unknown[]) => void) => {
+  const clock = createVirtualClock(() => muted);
+  const sandboxArgs = (exportsObj: Record<string, unknown>, setHarness: (fn: () => Promise<unknown>) => void): unknown[] => {
+    const v = clock.sandbox;
+    return [importModule, exportsObj, sandboxConsole, setHarness, v.setTimeout, v.clearTimeout, v.setInterval, v.clearInterval, v.setImmediate, v.clearImmediate, v.Date, v.performance];
+  };
+
+  const compile = (path: string, src: string, extra = "", open = MODULE_WRAPPER_OPEN): ((...args: unknown[]) => unknown) => {
     let body: string;
     try {
       body = rewriteModule(src).body;
@@ -331,9 +448,9 @@ export function executeJs(input: JsRunInput): JsRunOutput {
       });
     }
     // Wrapper opens on line 1 so the player's line N stays line N.
-    const wrapped = `${WRAPPER_OPEN}${body}${extra}\n})\n//# sourceURL=${path}`;
+    const wrapped = `${open}${body}${extra}\n})\n//# sourceURL=${path}`;
     try {
-      return (0, eval)(wrapped) as (...args: unknown[]) => void;
+      return (0, eval)(wrapped) as (...args: unknown[]) => unknown;
     } catch (e) {
       const err = e as Error;
       throw Object.assign(new Error(err.message), {
@@ -354,23 +471,12 @@ export function executeJs(input: JsRunInput): JsRunOutput {
     }
     const exportsObj: Record<string, unknown> = {};
     cache.set(key, exportsObj);
-    compile(file.path, file.content)(importModule, exportsObj, sandboxConsole, () => {});
+    compile(file.path, file.content)(...sandboxArgs(exportsObj, () => {}));
     return exportsObj;
   };
 
-  try {
-    let harnessBlock = "";
-    if (input.harness) {
-      // Parse the harness on its own so an authoring slip can't masquerade as the player's bug.
-      parse(input.harness, { ecmaVersion: "latest", sourceType: "script" });
-      harnessBlock = `\n;__mute(false); /* ${HARNESS_LINE_MARK} */\n{\n${input.harness}\n}`;
-    }
-    const main = compile(MAIN_FILE, input.main, harnessBlock);
-    muted = Boolean(input.harness);
-    main(importModule, {}, sandboxConsole, (on: boolean) => { muted = on; });
-    return result("");
-  } catch (e) {
-    const err = e as Error & { __signal?: string };
+  const describe = (e: unknown): JsRunOutput => {
+    const err = (e instanceof Error ? e : Object.assign(new Error(String(e)), { name: "Error" })) as Error & { __signal?: string };
     if (err.__signal) return result(err.__signal);
     const mainLines = input.main.split("\n").length;
     const where = locateInStack(err.stack ?? "", fileNames);
@@ -381,7 +487,86 @@ export function executeJs(input: JsRunInput): JsRunOutput {
       return result(errorText("harness", 0, 0, name, message));
     }
     return result(errorText(where?.file ?? MAIN_FILE, where?.line ?? 0, where?.col ?? 0, name, message));
+  };
+
+  // Two phases. First the player's own program runs, muted, until its
+  // top-level code (and any top-level await) settles. Then the harness — a
+  // closure main.js defines at its very end, so it sees the player's names —
+  // runs unmuted until nothing is left to happen. Timers keep the mute state
+  // they were scheduled under, so leftover work from main stays quiet.
+  let harness: (() => Promise<unknown>) | null = null;
+  let mainRun: Promise<unknown>;
+  try {
+    let harnessBlock = "";
+    if (input.harness) {
+      // Parse the harness on its own so an authoring slip can't masquerade as the player's bug.
+      parse(input.harness, { ecmaVersion: "latest", sourceType: "script", allowAwaitOutsideFunction: true });
+      harnessBlock = `\n;__setHarness(async () => { /* ${HARNESS_LINE_MARK} */\n${input.harness}\n});`;
+    }
+    const main = compile(MAIN_FILE, input.main, harnessBlock, WRAPPER_OPEN);
+    muted = Boolean(input.harness);
+    mainRun = Promise.resolve(main(...sandboxArgs({}, (fn: () => Promise<unknown>) => { harness = fn; })));
+  } catch (e) {
+    return describe(e);
   }
+
+  const yielder = createYield();
+  let fired = 0;
+  /** The event loop: settle promise jobs, jump the clock to the next timer, fire it. */
+  const drive = async (work: Promise<unknown>, stopWhenSettled: boolean) => {
+    let settled = false;
+    let failure: { error: unknown } | null = null;
+    work.then(
+      () => { settled = true; },
+      (error: unknown) => { settled = true; failure ??= { error }; },
+    );
+    for (;;) {
+      await yielder.tick();
+      if (failure || (stopWhenSettled && settled)) break;
+      const timer = clock.next();
+      if (!timer) break;
+      if (clock.now > MAX_VIRTUAL_MS || ++fired > MAX_TIMER_FIRINGS) {
+        failure = { error: Object.assign(new Error("your program kept waiting for over an hour — is a timer rescheduling itself forever?"), { name: "RangeError" }) };
+        break;
+      }
+      const before = muted;
+      muted = before || timer.muted;
+      try {
+        timer.fn(...timer.args);
+      } catch (error) {
+        failure = { error };
+      }
+      // The promise jobs a muted timer sets off are muted too.
+      if (muted !== before) await yielder.tick();
+      muted = before;
+      if (failure) break;
+    }
+    return { settled, failure: failure as { error: unknown } | null };
+  };
+
+  const unsettled = () =>
+    result(errorText(MAIN_FILE, 0, 0, "Error", "unsettled top-level await — the program is waiting on a promise that never resolves"));
+  try {
+    const main = await drive(mainRun, Boolean(input.harness));
+    if (main.failure) return describe(main.failure.error);
+    if (!main.settled) return unsettled();
+    const run = harness as (() => Promise<unknown>) | null;
+    if (run) {
+      muted = false;
+      let started: Promise<unknown>;
+      try {
+        started = Promise.resolve(run());
+      } catch (e) {
+        return describe(e);
+      }
+      const h = await drive(started, false);
+      if (h.failure) return describe(h.failure.error);
+      if (!h.settled) return unsettled();
+    }
+  } finally {
+    yielder.close();
+  }
+  return result("");
 }
 
 export interface ParsedJsError {

@@ -1093,6 +1093,324 @@ const stringConcatHeader: ZenRule = {
   suggestion: "try building the header with string concatenation: `\"F\" + f + \"-C\" + strconv.Itoa(c*2)` — simple and readable for short strings.",
 };
 
+// ══════════════════════════════════════════════════════════════
+//  Act III — closures, defer/recover, goroutines, channels
+// ══════════════════════════════════════════════════════════════
+// These idioms are about WHERE a line sits — inside the goroutine or outside,
+// inside the deferred func or not — so the checks read bodies, not the file.
+
+function stripComments(code: string): string {
+  return code.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+/** Body of the first `{ ... }` block at or after `from`. */
+function blockAfter(src: string, from: number): string | null {
+  const open = src.indexOf("{", from);
+  if (open === -1) return null;
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return src.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** Body of a named func, comments stripped. */
+function bodyOf(code: string, name: string): string | null {
+  return extractFuncBody(stripComments(code), name);
+}
+
+/** Bodies of every `go func(...) { ... }` literal. */
+function goroutineBodiesOf(code: string): string[] {
+  const src = stripComments(code);
+  const out: string[] = [];
+  const re = /\bgo\s+func\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const body = blockAfter(src, m.index);
+    if (body !== null) out.push(body);
+  }
+  return out;
+}
+
+/** `body` with its goroutine literals removed. */
+function withoutGoroutines(body: string): string {
+  let rest = stripComments(body);
+  for (const g of goroutineBodiesOf(rest)) rest = rest.replace(g, "");
+  return rest;
+}
+
+/** Bodies of functions (named, or literals assigned to a name) that call themselves. */
+function recursiveFuncBodies(code: string): string[] {
+  const src = stripComments(code);
+  const out: string[] = [];
+  const re = /(?:\bfunc\s+(\w+)\s*\(|\b(\w+)\s*:?=\s*func\s*\()/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const name = m[1] ?? m[2];
+    const body = blockAfter(src, m.index);
+    if (body !== null && new RegExp(`\\b${name}\\s*\\(`).test(body)) out.push(body);
+  }
+  return out;
+}
+
+/** Every `recover()` sits in a deferred call: a `defer func() {...}()` literal or a named func that is deferred. */
+function recoverIsDeferred(code: string): boolean {
+  const src = stripComments(code);
+  const count = (s: string) => (s.match(/\brecover\(\)/g) ?? []).length;
+  const total = count(src);
+  if (total === 0) return false;
+  let inside = 0;
+  let m: RegExpExecArray | null;
+  const lit = /\bdefer\s+func\s*\(\s*\)/g;
+  while ((m = lit.exec(src))) inside += count(blockAfter(src, m.index) ?? "");
+  const named = /\bdefer\s+(\w+)\s*\(/g;
+  while ((m = named.exec(src))) {
+    if (m[1] !== "func") inside += count(extractFuncBody(src, m[1]) ?? "");
+  }
+  return inside >= total;
+}
+
+/** Receive cases in a select body (`case msg := <-ch:` / `case <-ch:`). */
+function receiveCases(body: string): number {
+  return (body.match(/\bcase\b[^\n]*<-/g) ?? []).length;
+}
+
+// Ch07: Scan
+const deferScanLog: ZenRule = {
+  id: "defer_scan_log",
+  principle: "defer the work that ends a call",
+  isRelevant: (code) => code.includes("scanned:"),
+  check: (code) => /\bdefer\s+fmt\.Print/.test(stripComments(code)),
+  bonusXP: 10,
+  jolt: "...wait. `defer`.\n\nyou wrote the log at the top of scan and let go run it on the way out. the arguments are evaluated right then — `dir` is pinned when you defer, not when it prints. my advisor's rule: whatever ends a call goes on the line where the call begins. you never forget a cleanup you wrote first.",
+  suggestion: "use `defer fmt.Println(\"scanned:\", dir)` as the first line of scan instead of printing at the end — it runs however the call returns.",
+};
+
+const closureCounter: ZenRule = {
+  id: "closure_counter",
+  principle: "a closure shares its outer variables",
+  isRelevant: (code) => /func\s+scanArchive\s*\(/.test(code),
+  check: (code) => {
+    const body = bodyOf(code, "scanArchive");
+    if (!body) return false;
+    const m = /=\s*func\s*\(/.exec(body);
+    if (!m) return false;
+    const lit = blockAfter(body, m.index);
+    if (lit === null) return false;
+    const outer = body.replace(lit, "");
+    const names = [...outer.matchAll(/\b(\w+)\s*:=\s*0\b|\bvar\s+(\w+)\s+int\b/g)].map((x) => x[1] ?? x[2]);
+    return names.some((n) => new RegExp(`\\b${n}\\s*(\\+\\+|\\+=)`).test(lit));
+  },
+  bonusXP: 10,
+  jolt: "...the fog is lifting.\n\n`count` lives in scanArchive, and scan just reaches out and changes it. no pointer, no global, no extra return value. that's a closure — a function plus the variables it captured. my thesis walker carried its state exactly like this.",
+  suggestion: "try declaring `count := 0` in scanArchive and incrementing it inside a `scan = func(dir string) { ... }` literal — the closure shares it, no pointers or globals.",
+};
+
+// Ch07: Recover
+const recoverInDefer: ZenRule = {
+  id: "recover_in_defer",
+  principle: "recover only inside a deferred call",
+  isRelevant: (code) => /\brecover\(\)/.test(stripComments(code)),
+  check: recoverIsDeferred,
+  bonusXP: 10,
+  jolt: "...wait. i remember this one.\n\nyour `recover()` sits inside a deferred func. that's the only place it works — during a panic go runs the deferred calls, and only a deferred call can stop the unwinding. anywhere else recover just returns nil. my professor: \"panic is for the impossible. recover is for the boundary.\"",
+  suggestion: "use the deferred form: `defer func() { if r := recover(); r != nil { ... } }()` — recover only catches a panic from inside a deferred call.",
+};
+
+const recoverPerCall: ZenRule = {
+  id: "recover_per_call",
+  principle: "contain a panic where it happens",
+  isRelevant: (code) => /\brecover\(\)/.test(stripComments(code)) && /func\s+safeScan\s*\(/.test(code),
+  check: (code) => recursiveFuncBodies(code).some((b) => /\brecover\(\)/.test(b)),
+  bonusXP: 10,
+  jolt: "...the boundary is in the right place.\n\nyou recover inside scan, so every directory guards itself. vault falls, vault's call catches it, and the parent never notices. one bad sector costs one sector, not the whole walk. go says don't panic — but when something does, contain it where it happened.",
+  suggestion: "move the `defer func() { ... recover() ... }()` into scan itself instead of safeScan — each call catches its own panic and the walk keeps going.",
+};
+
+// Ch08: Goroutine
+const goStatementLaunch: ZenRule = {
+  id: "go_statement_launch",
+  principle: "go f(x) — a call, made concurrent",
+  isRelevant: (code) => /func\s+cutAsync\s*\(/.test(code),
+  check: (code) => /\bgo\s+cut\s*\(/.test(bodyOf(code, "cutAsync") ?? ""),
+  bonusXP: 10,
+  jolt: "...`go cut(name)`.\n\none word turned a call into a goroutine. the arguments are evaluated right there in the caller, then cut runs on its own. no wrapper, no ceremony. goroutines are cheap — start one whenever the work can run by itself.",
+  suggestion: "use the go statement directly: `go cut(name)` instead of calling `cut(name)` and waiting, or wrapping it in `go func() { cut(name) }()`.",
+};
+
+const launcherReturnsNow: ZenRule = {
+  id: "launcher_returns_now",
+  principle: "the launcher doesn't wait",
+  isRelevant: (code) => /func\s+cutAsync\s*\(/.test(code),
+  check: (code) => {
+    const body = bodyOf(code, "cutAsync");
+    return body !== null && /\bgo\s/.test(body) && !/time\.Sleep|\.Wait\(\)/.test(body);
+  },
+  bonusXP: 5,
+  jolt: "cutAsync launches and leaves. no sleep, no wait. the function that starts a goroutine shouldn't be the one babysitting it — whoever needs the result does the waiting.",
+  suggestion: "remove the waiting from cutAsync — its whole body is `go cut(name)`. the terminal's main does the holding.",
+};
+
+// Ch08: Fan-out
+const wgAddBeforeGo: ZenRule = {
+  id: "wg_add_before_go",
+  principle: "Add before you launch",
+  isRelevant: (code) => /\.Add\(/.test(stripComments(code)),
+  check: (code) =>
+    /\.Add\(/.test(withoutGoroutines(code)) && !goroutineBodiesOf(code).some((b) => /\.Add\(/.test(b)),
+  bonusXP: 10,
+  jolt: "...wait. `wg.Add(1)` before `go`.\n\nyou counted each goroutine before it existed. if it counted itself, `Wait` could look first, see zero, and leave. the rule for a WaitGroup: add in the launcher, done in the goroutine, wait in the owner.",
+  suggestion: "try moving `wg.Add(1)` out of the goroutine to the line before `go` — otherwise `Wait` can see zero and return before anything is counted.",
+};
+
+const deferWgDone: ZenRule = {
+  id: "defer_wg_done",
+  principle: "defer wg.Done() first",
+  isRelevant: (code) => /\.Done\(\)/.test(stripComments(code)),
+  check: (code) => {
+    const bodies = goroutineBodiesOf(code).filter((b) => /\.Done\(\)/.test(b));
+    return bodies.length > 0 && bodies.every((b) => /^\s*defer\s+\w+\.Done\(\)/.test(b));
+  },
+  bonusXP: 10,
+  jolt: "`defer wg.Done()`, first line.\n\nhowever the goroutine ends — normally, an early return, even a panic — the count still goes down. put the cleanup next to the start and you can't forget it. same habit as the archive's deferred log.",
+  suggestion: "use `defer wg.Done()` as the first line inside the goroutine instead of calling Done at the end — the count drops however it exits.",
+};
+
+const goroutineArgs: ZenRule = {
+  id: "goroutine_args",
+  principle: "hand goroutines their inputs",
+  isRelevant: (code) => /\bgo\s+func\s*\(/.test(code) && /\brange\b/.test(code),
+  check: (code) => /\bgo\s+func\s*\(\s*\w/.test(code) && !/\bgo\s+func\s*\(\s*\)/.test(stripComments(code)),
+  bonusXP: 5,
+  jolt: "you passed `i` and `name` in as arguments. each goroutine owns its own copy, and its signature says exactly what it depends on. go 1.22 gave every loop iteration fresh variables, but the habit is older than the fix — and it still reads better.",
+  suggestion: "try passing the loop values in: `go func(idx int, n string) { ... }(i, name)` instead of reaching out to `i` and `name` from inside the goroutine.",
+};
+
+const resultsByIndex: ZenRule = {
+  id: "results_by_index",
+  principle: "each goroutine writes its own slot",
+  isRelevant: (code) => /\bgo\s+func\s*\(/.test(code),
+  check: (code) => {
+    const bodies = goroutineBodiesOf(code);
+    return (
+      bodies.length > 0 &&
+      bodies.every((b) => /\w+\[\w+\]\s*=/.test(b) && !/\bfmt\.Print|\bappend\(/.test(b))
+    );
+  },
+  bonusXP: 10,
+  jolt: "...the fog is lifting.\n\neach goroutine writes only its own slot, `results[idx]`. no two touch the same memory, so there's nothing to lock and the order comes out right for free. the proverb says share memory by communicating — and when you can't, give every writer its own cell.",
+  suggestion: "use a pre-sized slice, `results := make([]string, len(circuits))`, and write `results[idx]` instead of printing or appending inside the goroutines.",
+};
+
+// Ch08: One cycle
+const sleepInsideGoroutine: ZenRule = {
+  id: "sleep_inside_goroutine",
+  principle: "wait in parallel",
+  isRelevant: (code) => /time\.Sleep/.test(code) && /func\s+cutTimed\s*\(/.test(code),
+  check: (code) => {
+    const body = bodyOf(code, "cutTimed");
+    if (!body) return false;
+    return goroutineBodiesOf(body).some((b) => /time\.Sleep/.test(b)) && !/time\.Sleep/.test(withoutGoroutines(body));
+  },
+  bonusXP: 10,
+  jolt: "...wait. the sleep is inside the goroutine.\n\nso all four wait at the same time, and the whole thing costs the slowest breaker — 450ms, not 1100. concurrency isn't faster work. it's waiting side by side. there's a rob pike line in my lab notes: concurrency is about dealing with lots of things at once.",
+  suggestion: "try moving `time.Sleep` inside the goroutine — then the breakers wait side by side and the window is the slowest one, not the sum.",
+};
+
+const durationConversion: ZenRule = {
+  id: "duration_conversion",
+  principle: "a number becomes a time when you name its unit",
+  isRelevant: (code) => /time\.Sleep/.test(code),
+  check: (code) => /time\.Duration\(\s*[\w.]+(\[\w+\])?\s*\)\s*\*\s*time\.(Millisecond|Second|Microsecond)/.test(code),
+  bonusXP: 5,
+  jolt: "`time.Duration(d) * time.Millisecond`. the int becomes a duration, then gets its unit. go won't let you mix the two by accident — a bare number isn't a time until you say what it counts.",
+  suggestion: "use `time.Duration(d) * time.Millisecond` — convert the int to a Duration, then scale it by the unit.",
+};
+
+// Ch09: Hail
+const bufferedReplyChannel: ZenRule = {
+  id: "buffered_reply_channel",
+  principle: "a buffer of one for a reply nobody may read",
+  isRelevant: (code) => /make\(\s*chan\b/.test(code),
+  check: (code) => /make\(\s*chan\s+[\w[\]]+\s*,\s*[1-9]/.test(stripComments(code)),
+  bonusXP: 10,
+  jolt: "...the fog is lifting.\n\n`make(chan string, 1)`. room for exactly one reply. the team can answer and walk away even if nobody's listening anymore — no goroutine left stuck mid-send, forever. my advisor called it the abandon-proof mailbox.",
+  suggestion: "try `make(chan string, 1)` instead of an unbuffered channel — a team whose reply nobody reads can still send and leave.",
+};
+
+const returnChannelNow: ZenRule = {
+  id: "return_channel_now",
+  principle: "return the channel, let the caller wait",
+  isRelevant: (code) => /func\s+hail\s*\(/.test(code),
+  check: (code) => {
+    const body = bodyOf(code, "hail");
+    if (!body || !/\bgo\s/.test(body)) return false;
+    const rest = withoutGoroutines(body);
+    return !/time\.Sleep/.test(rest) && !/(=|\(|return)\s*<-\s*\w+/.test(rest);
+  },
+  bonusXP: 5,
+  jolt: "hail returns the channel before anyone has answered. the caller decides when to wait, and for how long. a function that returns a channel is a promise: the answer will be in here.",
+  suggestion: "keep the sleep and the send inside `go func() { ... }()` and `return ch` at once — the caller does the waiting with `<-ch`.",
+};
+
+// Ch09: First contact
+const selectFirstReady: ZenRule = {
+  id: "select_first_ready",
+  principle: "select — wait on many, take the first",
+  isRelevant: (code) => /func\s+firstResponder\s*\(/.test(code),
+  check: (code) => {
+    const body = bodyOf(code, "firstResponder");
+    return !!body && /\bselect\s*\{/.test(body) && receiveCases(body) >= 3;
+  },
+  bonusXP: 15,
+  jolt: "...wait. i remember this.\n\none `select`, three cases, and whoever is ready first wins. no polling, no guessing which team to wait on. if two answer at the same instant, go picks one at random so no channel can starve the rest. my thesis protocol listened to its relays exactly like this.",
+  suggestion: "use one `select` with a `case msg := <-ch:` per team instead of receiving from each in turn — it waits on all three at once.",
+};
+
+const blockingSelect: ZenRule = {
+  id: "blocking_select",
+  principle: "a select that's meant to wait has no default",
+  isRelevant: (code) => /\bselect\s*\{/.test(bodyOf(code, "firstResponder") ?? ""),
+  check: (code) => !/\bdefault\s*:/.test(bodyOf(code, "firstResponder") ?? ""),
+  bonusXP: 5,
+  jolt: "no default in firstResponder. this select is supposed to wait — the first voice is the whole point. a default would turn listening into glancing.",
+  suggestion: "remove the `default:` case from firstResponder — without it, select waits for the first team instead of giving up at once.",
+};
+
+// Ch09: Timeout
+const timeoutFromParam: ZenRule = {
+  id: "timeout_from_param",
+  principle: "the caller sets the deadline",
+  isRelevant: (code) => /time\.After\(/.test(bodyOf(code, "awaitContact") ?? ""),
+  check: (code) => {
+    const sig = /func\s+awaitContact\s*\(([^)]*)\)/.exec(stripComments(code));
+    const param = sig ? /(\w+)\s+int\s*$/.exec(sig[1].trim())?.[1] : undefined;
+    const after = /time\.After\(([^\n]*)\)/.exec(bodyOf(code, "awaitContact") ?? "");
+    return !!param && !!after && new RegExp(`\\b${param}\\b`).test(after[1]);
+  },
+  bonusXP: 10,
+  jolt: "`time.After(time.Duration(timeoutMs) * time.Millisecond)`. the deadline comes from the caller, not from you. the same function can wait 200ms on a jammed line or 600ms on a real one. no decision baked into code that someone else should make.",
+  suggestion: "use the parameter for the deadline: `time.After(time.Duration(timeoutMs) * time.Millisecond)` instead of a fixed duration.",
+};
+
+const defaultOnlyInSweep: ZenRule = {
+  id: "default_only_in_sweep",
+  principle: "default means don't wait — use it only where you mean it",
+  isRelevant: (code) => /func\s+sweep\s*\(/.test(code),
+  check: (code) => {
+    const sweep = bodyOf(code, "sweep") ?? "";
+    const wait = bodyOf(code, "awaitContact") ?? "";
+    return /\bdefault\s*:/.test(sweep) && !/time\.(Sleep|After)/.test(sweep) && !/\bdefault\s*:/.test(wait);
+  },
+  bonusXP: 10,
+  jolt: "default in sweep, and only in sweep. awaitContact waits until a deadline. sweep never waits at all. two different promises, and the code says which is which at a glance.",
+  suggestion: "use `default:` only in sweep — `select { case msg := <-ch: return msg; default: return \"channel silent\" }` — and keep it out of awaitContact so that one actually waits.",
+};
+
 // ── Registry ──
 
 const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
@@ -1113,6 +1431,17 @@ const STEP_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-04.2:relayheader": [errorCheckAtoi, strconvBoth, stringConcatHeader],
   "boss-01:scaffold": [importForm, packageImportSep, importFuncSep],
   "boss-01:predict": [sliceIndexing, deltaComputation, earlyReturn, namedVariables],
+  "chapter-07:scaffold": [importForm, packageImportSep, importFuncSep],
+  "chapter-07:scan": [deferScanLog, closureCounter],
+  "chapter-07:recover": [recoverInDefer, recoverPerCall],
+  "chapter-08:scaffold": [importForm, packageImportSep, importFuncSep],
+  "chapter-08:goroutine": [goStatementLaunch, launcherReturnsNow],
+  "chapter-08:fanout": [wgAddBeforeGo, deferWgDone, goroutineArgs, resultsByIndex],
+  "chapter-08:window": [sleepInsideGoroutine, durationConversion, deferWgDone],
+  "chapter-09:scaffold": [importForm, packageImportSep, importFuncSep],
+  "chapter-09:hail": [bufferedReplyChannel, returnChannelNow],
+  "chapter-09:first": [selectFirstReady, blockingSelect],
+  "chapter-09:timeout": [timeoutFromParam, defaultOnlyInSweep],
 };
 
 // Each language coaches its own idioms under the shared step ids.

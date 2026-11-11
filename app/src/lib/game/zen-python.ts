@@ -1,5 +1,5 @@
 // ── Python Zen ──
-// Heuristic idiom coaching for the Python realizations of Acts I and II. Same shape as
+// Heuristic idiom coaching for the Python realizations of Acts I–III. Same shape as
 // Go's rules in ./zen.ts: `check` passing earns the bonus and Maya's memory
 // jolt, failing earns a gentle suggestion. Based on `import this` (the zen of
 // python) and pep 8. Pure functions only.
@@ -699,6 +699,424 @@ const fStringHeader: ZenRule = {
   suggestion: "gluing with `+` and `str()` works, but an f-string reads like the header itself: `f\"F{floor}-C{n * 2}\"`.",
 };
 
+// ══════════════════════════════════════════════════════
+//  Act III helpers
+// ══════════════════════════════════════════════════════
+
+const PY_DEF = /^(\s*)(async\s+)?def\s+(\w+)\s*\(([^)]*)\)/;
+
+interface ZenFn {
+  isAsync: boolean;
+  params: string[];
+  /** Masked body, nested functions included. */
+  body: string;
+}
+
+function zenFnAt(lines: string[], at: number): ZenFn {
+  const m = lines[at].match(PY_DEF)!;
+  const params = m[4].split(",").map((p) => p.replace(/[:=].*$/, "").replace(/^\*+/, "").trim()).filter(Boolean);
+  return { isAsync: !!m[2], params, body: blockAt(lines, at) };
+}
+
+/** `def name` or `async def name`, anywhere in the program. */
+function zenFn(code: string, name: string): ZenFn | null {
+  const lines = maskPy(code).split("\n");
+  const at = lines.findIndex((l) => l.match(PY_DEF)?.[3] === name);
+  return at === -1 ? null : zenFnAt(lines, at);
+}
+
+/** Functions defined inside `f`, and `f`'s own lines with them cut out. */
+function zenInner(f: ZenFn): { inner: ZenFn[]; outer: string } {
+  const lines = f.body.split("\n");
+  const inner: ZenFn[] = [];
+  const outer: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!PY_DEF.test(lines[i])) {
+      outer.push(lines[i]);
+      continue;
+    }
+    inner.push(zenFnAt(lines, i));
+    const base = indentOf(lines[i]);
+    let j = i + 1;
+    while (j < lines.length && (!lines[j].trim() || indentOf(lines[j]) > base)) j++;
+    i = j - 1;
+  }
+  return { inner, outer: outer.join("\n") };
+}
+
+/** The lines of the first block opened by `opener` in `body`, or "". */
+function zenClause(body: string, opener: RegExp): string {
+  const lines = body.split("\n");
+  const at = lines.findIndex((l) => opener.test(l));
+  return at === -1 ? "" : blockAt(lines, at);
+}
+
+/** Index of the bracket matching the one at `open`, or -1. */
+function matchingParen(s: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < s.length; i++) {
+    if ("([{".includes(s[i])) depth++;
+    else if (")]}".includes(s[i]) && --depth === 0) return i;
+  }
+  return -1;
+}
+
+function topLevelComma(inner: string): boolean {
+  let depth = 0;
+  for (const ch of inner) {
+    if ("([{".includes(ch)) depth++;
+    else if (")]}".includes(ch)) depth--;
+    else if (ch === "," && depth === 0) return true;
+  }
+  return false;
+}
+
+/** `if (x):`, `return (x)`, `print(("x"))` — a bracket pair that only wraps. */
+function redundantParens(code: string): boolean {
+  return maskPy(code).split("\n").some((line) => {
+    const kw = line.match(/^\s*(if|elif|while|return)\s*(?=\()/);
+    if (kw) {
+      const open = kw[0].length;
+      const close = matchingParen(line, open);
+      const rest = line.slice(close + 1).trim();
+      return close !== -1 && (rest === ":" || rest === "") && !topLevelComma(line.slice(open + 1, close));
+    }
+    const call = line.match(/\bprint\s*\(\s*(?=\()/);
+    if (!call) return false;
+    const inner = call.index! + call[0].length;
+    const close = matchingParen(line, inner);
+    return close !== -1 && /^\s*\)/.test(line.slice(close + 1)) && !topLevelComma(line.slice(inner + 1, close));
+  });
+}
+
+/** Names an import line brings in (`import a as b` → b, `from x import y` → y). */
+function importedNames(code: string): string[] {
+  const names: string[] = [];
+  for (const line of maskPy(code).split("\n")) {
+    const plain = line.match(/^\s*import\s+(.+)$/);
+    const from = line.match(/^\s*from\s+[\w.]+\s+import\s+\(?([^)]+)\)?\s*$/);
+    const list = plain?.[1] ?? from?.[1];
+    if (!list) continue;
+    for (const part of list.split(",")) {
+      const p = part.trim();
+      if (!p || p === "*") continue;
+      const alias = p.match(/\bas\s+(\w+)$/);
+      names.push(alias ? alias[1] : p.split(".")[0]);
+    }
+  }
+  return names;
+}
+
+const ASYNC_SLEEP = /\basyncio\s*\.\s*sleep\s*\(/;
+const BLOCKING_SLEEP = /\btime\s*\.\s*sleep\s*\(|^\s*from\s+time\s+import\b[^\n]*\bsleep\b/m;
+
+/** A `for` loop whose block awaits — one at a time. */
+function zenAwaitsInLoop(body: string): boolean {
+  const lines = body.split("\n");
+  return lines.some((l, i) => /^\s*(async\s+)?for\b/.test(l) && /\bawait\b/.test(blockAt(lines, i)));
+}
+
+// ── chapter-07:scaffold ──
+
+const spacesNotTabs: ZenRule = {
+  id: "py_spaces_not_tabs",
+  principle: "spaces, never tabs",
+  isRelevant: (code) => code.trim().length > 0,
+  check: (code) => !code.split("\n").some((l) => /^[ ]*\t/.test(l)),
+  bonusXP: 3,
+  jolt: "spaces, not tabs. pep 8 picks four spaces and python refuses to guess when the two get mixed. this chapter nests functions inside functions — the indentation is about to carry real weight.",
+  suggestion: "a line starts with a tab. pep 8 indents with spaces — four per level — and python stops with a TabError if tabs and spaces get mixed. swap the tab for spaces.",
+};
+
+// ── chapter-07:scan ──
+
+const nonlocalCounter: ZenRule = {
+  id: "py_nonlocal_counter",
+  principle: "say nonlocal when a closure changes a name",
+  isRelevant: (code) => {
+    const f = zenFn(code, "scan_archive");
+    return !!f && zenInner(f).inner.length > 0;
+  },
+  check: (code) => {
+    const { inner } = zenInner(zenFn(code, "scan_archive")!);
+    return inner.some((g) => /^\s*nonlocal\b/m.test(g.body)) &&
+      !inner.some((g) => /^\s*global\b/m.test(g.body) || /\[\s*0\s*\]\s*\+=/.test(g.body));
+  },
+  bonusXP: 15,
+  jolt: "...`nonlocal count`. the inner function says out loud which name it means to change — the one a level up. no one-item list, no global. \"explicit is better than implicit.\" kira writes it the same way. i hate that i noticed.",
+  suggestion: "the counter works, but a one-item list or a `global` is the workaround. keep `count = 0` in `scan_archive` and write `nonlocal count` inside `scan` — it says exactly which variable the closure changes.",
+};
+
+const finallyLog: ZenRule = {
+  id: "py_finally_log",
+  principle: "cleanup goes in finally",
+  isRelevant: (code) => {
+    const f = zenFn(code, "scan_archive");
+    return !!f && zenInner(f).inner.some((g) => /\bprint\s*\(/.test(g.body));
+  },
+  check: (code) => zenInner(zenFn(code, "scan_archive")!).inner.some((g) => /\bprint\s*\(/.test(zenClause(g.body, /^\s*finally\s*:/))),
+  bonusXP: 10,
+  jolt: "the log sits in `finally`. whatever happens inside the walk — a return, an error — that line still runs on the way out. you wrote the cleanup once, and python guarantees it.",
+  suggestion: "printing after the loop works until something inside it fails — then the log never runs. put it in `finally:` and python runs it on the way out, every time.",
+};
+
+const endswithCheck: ZenRule = {
+  id: "py_endswith",
+  principle: "ask the string what it ends with",
+  isRelevant: (code) => /\bfor\b/.test(zenFn(code, "scan_archive")?.body ?? ""),
+  check: (code) => {
+    const body = zenFn(code, "scan_archive")!.body;
+    return /\.\s*endswith\s*\(/.test(body) && !/\[\s*-\s*1\s*\]\s*==/.test(body) && !/\[\s*len\s*\(/.test(body);
+  },
+  bonusXP: 5,
+  jolt: "`entry.endswith(\"/\")` — reads like the question you're asking. no counting back from the end, no index to get wrong.",
+  suggestion: "`entry[-1] == \"/\"` works, but `entry.endswith(\"/\")` says it in words — and doesn't break on an empty name.",
+};
+
+// ── chapter-07:recover ──
+
+const exceptPerCall: ZenRule = {
+  id: "py_except_per_call",
+  principle: "catch at the boundary of the work",
+  isRelevant: (code) => /^\s*except\b/m.test(zenFn(code, "safe_scan")?.body ?? ""),
+  check: (code) => {
+    const { inner, outer } = zenInner(zenFn(code, "safe_scan")!);
+    return inner.some((g) => /^\s*except\b/m.test(g.body)) && !/^\s*except\b/m.test(outer);
+  },
+  bonusXP: 15,
+  jolt: "...each directory catches its own trouble. the vault fails, the vault gets logged, and root never even notices. catch where one unit of work ends — not around the whole job, where one failure costs everything.",
+  suggestion: "one `try` around the whole scan means the first bad directory ends it. put the `except` inside `scan`, so each directory is its own boundary and the walk keeps going.",
+};
+
+const specificRaise: ZenRule = {
+  id: "py_specific_raise",
+  principle: "raise a specific exception",
+  isRelevant: (code) => /^\s*raise\b/m.test(zenFn(code, "safe_scan")?.body ?? ""),
+  check: (code) => !/^\s*raise\s+(Exception|BaseException)\b/m.test(zenFn(code, "safe_scan")!.body),
+  bonusXP: 5,
+  jolt: "`RuntimeError`, not plain `Exception`. a named error tells whoever catches it what kind of trouble this is — and lets them catch only that.",
+  suggestion: "`raise Exception(...)` is the vaguest error there is. pick a specific one — `RuntimeError(\"corrupted directory\")` — so a catcher can tell it apart.",
+};
+
+const isNone: ZenRule = {
+  id: "py_is_none",
+  principle: "`is None`, never `== None`",
+  isRelevant: (code) => /\bNone\b/.test(zenFn(code, "safe_scan")?.body ?? ""),
+  check: (code) => !/[=!]=\s*None\b|\bNone\s*[=!]=/.test(zenFn(code, "safe_scan")!.body),
+  bonusXP: 5,
+  jolt: "`is None`. there's exactly one `None`, so you asked whether it's that one. pep 8 asks for exactly this.",
+  suggestion: "compare with `is None`, not `== None`. there's only one `None` — pep 8 says check for it by identity.",
+};
+
+// ── chapter-08:scaffold ──
+
+const unusedImport: ZenRule = {
+  id: "py_unused_import",
+  principle: "import what you use, when you use it",
+  isRelevant: (code) => importedNames(code).length > 0,
+  check: (code) => {
+    const body = maskPy(code).split("\n").filter((l) => !/^\s*(import|from)\s/.test(l)).join("\n");
+    return importedNames(code).every((n) => new RegExp(`\\b${n}\\b`).test(body));
+  },
+  bonusXP: 3,
+  jolt: "every import gets used. nothing sits at the top waiting for a step that hasn't come yet. when `asyncio` shows up, it'll be because the code needs it.",
+  suggestion: "there's an import nothing uses yet. bring it in the step that needs it — an unused import is just noise at the top of the file.",
+};
+
+const noSpaceInsideBrackets: ZenRule = {
+  id: "py_no_space_inside_brackets",
+  principle: "no padding inside brackets",
+  isRelevant: (code) => codeTokens(code).some((t) => "([{".includes(t.value)),
+  check: (code) => {
+    const toks = codeTokens(code);
+    return !toks.some((t, i) => {
+      const next = toks[i + 1];
+      const prev = toks[i - 1];
+      const padAfterOpen = "([{".includes(t.value) && t.value.length === 1 && next && next.line === t.line && next.start > t.end;
+      const padBeforeClose = ")]}".includes(t.value) && t.value.length === 1 && prev && prev.line === t.line && t.start > prev.end && prev.value !== ",";
+      return padAfterOpen || padBeforeClose;
+    });
+  },
+  bonusXP: 3,
+  jolt: "`print(\"Hello World\")` — the brackets hug what's inside. pep 8 calls the alternative extraneous whitespace. tight is how python reads.",
+  suggestion: "there's a space just inside a bracket — `print( \"Hello World\" )`. pep 8 keeps brackets tight: `print(\"Hello World\")`.",
+};
+
+// ── chapter-08:goroutine ──
+
+const taskReference: ZenRule = {
+  id: "py_task_reference",
+  principle: "keep a reference to every task",
+  isRelevant: (code) => /\bcreate_task\s*\(/.test(zenFn(code, "cut_async")?.body ?? ""),
+  check: (code) =>
+    zenFn(code, "cut_async")!.body.split("\n")
+      .filter((l) => /\bcreate_task\s*\(/.test(l))
+      .every((l) => /^\s*(return\b|\w+\s*=(?!=))/.test(l)),
+  bonusXP: 10,
+  jolt: "...you returned the task instead of dropping it. the event loop only holds a weak grip on tasks — the asyncio docs say to keep a reference, or one can vanish halfway. now whoever called you can wait on it, check it, or cancel it.",
+  suggestion: "`asyncio.create_task(...)` on a line by itself throws the task away. return it — `return asyncio.create_task(cut(name))` — so the caller can wait on it, and so it can't be lost mid-run.",
+};
+
+const asyncioNamespace: ZenRule = {
+  id: "py_asyncio_namespace",
+  principle: "keep asyncio's names under asyncio",
+  isRelevant: (code) => /^\s*(import\s+asyncio\b|from\s+asyncio\s+import)/m.test(maskPy(code)),
+  check: (code) => !/^\s*from\s+asyncio\s+import\b/m.test(maskPy(code)),
+  bonusXP: 5,
+  jolt: "`asyncio.create_task`, `asyncio.sleep` — every async tool wears its module's name. you can see at a glance which lines touch the event loop.",
+  suggestion: "`from asyncio import create_task` works, but `import asyncio` and `asyncio.create_task(...)` shows which lines touch the event loop. \"namespaces are one honking great idea.\"",
+};
+
+// ── chapter-08:fanout ──
+
+const gatherNotLoop: ZenRule = {
+  id: "py_gather_not_loop",
+  principle: "start them all, then wait once",
+  isRelevant: (code) => zenFn(code, "cut_all") !== null,
+  check: (code) => {
+    const body = zenFn(code, "cut_all")!.body;
+    return /\bgather\s*\(/.test(body) && !zenAwaitsInLoop(body);
+  },
+  bonusXP: 15,
+  jolt: "...`asyncio.gather`. every breaker started before you waited on any of them, and the answers came back in circuit order. no counter of who's still running, no list filled in by hand — the waiting and the results in one call.",
+  suggestion: "awaiting each breaker in a loop waits on one before starting the next. hand them all to `asyncio.gather(*(...))` — they run together and the results come back in order.",
+};
+
+const gatherIsTheList: ZenRule = {
+  id: "py_gather_results",
+  principle: "gather is the results list",
+  isRelevant: (code) => /\bgather\s*\(/.test(zenFn(code, "cut_all")?.body ?? ""),
+  check: (code) => !/\.\s*append\s*\(/.test(zenFn(code, "cut_all")!.body),
+  bonusXP: 5,
+  jolt: "you returned what `gather` gave you. no empty list, no appends — the results already line up with the circuits.",
+  suggestion: "`gather` already hands back a list in the order you passed things in. no need to build one: `return await asyncio.gather(...)`.",
+};
+
+// ── chapter-08:window ──
+
+const asyncSleep: ZenRule = {
+  id: "py_async_sleep",
+  principle: "never block the event loop",
+  isRelevant: (code) => /\basync\s+def\b/.test(maskPy(code)) && /\bsleep\s*\(/.test(maskPy(code)),
+  check: (code) => ASYNC_SLEEP.test(maskPy(code)) && !BLOCKING_SLEEP.test(maskPy(code)),
+  bonusXP: 15,
+  jolt: "...`await asyncio.sleep`. each breaker steps aside while it waits, and the other three get their turn. one `time.sleep` in there and the whole loop would have stood still — four breakers, one at a time, alarm.",
+  suggestion: "`time.sleep` inside async code freezes the whole event loop — nothing else runs while it waits. use `await asyncio.sleep(seconds)`.",
+};
+
+const zipPairs: ZenRule = {
+  id: "py_zip_pairs",
+  principle: "zip lists that go together",
+  isRelevant: (code) => (zenFn(code, "cut_timed")?.params.length ?? 0) === 2,
+  check: (code) => {
+    const f = zenFn(code, "cut_timed")!;
+    const [names, delays] = f.params;
+    return /\bzip\s*\(/.test(f.body) && !/\brange\s*\(\s*len\s*\(/.test(f.body) &&
+      !new RegExp(`\\b(${names}|${delays})\\s*\\[`).test(f.body);
+  },
+  bonusXP: 10,
+  jolt: "`zip(circuits, delays)` — each name walks in with its own delay. no index, no `delays[i]`, nothing to fall out of step.",
+  suggestion: "indexing two lists with `range(len(...))` works, but `zip(circuits, delays)` hands you each pair directly: `for n, d in zip(circuits, delays)`.",
+};
+
+// ── chapter-09:scaffold ──
+
+const noExtraParens: ZenRule = {
+  id: "py_no_extra_parens",
+  principle: "no brackets that only wrap",
+  isRelevant: (code) => code.trim().length > 0,
+  check: (code) => !redundantParens(code),
+  bonusXP: 3,
+  jolt: "no brackets doing nothing. `print(\"Hello World\")`, not `print((\"Hello World\"))`; `if ready:`, not `if (ready):`. python's syntax already marks where things start and stop.",
+  suggestion: "a pair of brackets is only wrapping — `if (x):` or `print((\"x\"))`. python doesn't need them: `if x:` reads cleaner.",
+};
+
+// ── chapter-09:hail ──
+
+const hailPlainDef: ZenRule = {
+  id: "py_hail_plain_def",
+  principle: "only async what awaits",
+  isRelevant: (code) => zenFn(code, "hail") !== null,
+  check: (code) => {
+    const f = zenFn(code, "hail")!;
+    return !f.isAsync && /\bcreate_task\s*\(/.test(zenInner(f).outer);
+  },
+  bonusXP: 10,
+  jolt: "...`hail` is a plain `def`. it never waits, so it isn't async — it starts the call and hands back the task. the waiting lives in `respond`, the only thing that sleeps. one function schedules, one function waits.",
+  suggestion: "`hail` never waits on anything itself, so keep it a plain `def` that returns `asyncio.create_task(respond())`. only `respond`, which sleeps, needs `async def`.",
+};
+
+const msToSeconds: ZenRule = {
+  id: "py_ms_to_seconds",
+  principle: "true division for units",
+  isRelevant: (code) => /\b1000\b/.test(maskPy(code)) && ASYNC_SLEEP.test(maskPy(code)),
+  check: (code) => !/\/\/\s*1000\b/.test(maskPy(code)),
+  bonusXP: 5,
+  jolt: "`delay_ms / 1000` — one slash, so 100 milliseconds stays 0.1 seconds. asyncio counts in seconds, and you converted at the door.",
+  suggestion: "`// 1000` rounds down — `100 // 1000` is 0, and every team answers instantly. `/ 1000` keeps the fraction.",
+};
+
+// ── chapter-09:first ──
+
+const cancelLosers: ZenRule = {
+  id: "py_cancel_losers",
+  principle: "cancel what you stopped waiting for",
+  isRelevant: (code) => /\basyncio\s*\.\s*wait\s*\(/.test(zenFn(code, "first_responder")?.body ?? ""),
+  check: (code) => /\.\s*cancel\s*\(\s*\)/.test(zenFn(code, "first_responder")!.body),
+  bonusXP: 15,
+  jolt: "...you cancelled the teams that lost. a task keeps running until it finishes or someone stops it — alpha and charlie would have kept talking into a dead line. you won the race and cleaned up after it.",
+  suggestion: "alpha and charlie are still running after bravo wins. cancel what's left: `for t in pending: t.cancel()` — a task you've stopped caring about shouldn't keep working.",
+};
+
+const unpackWait: ZenRule = {
+  id: "py_unpack_wait",
+  principle: "name both halves of the wait",
+  isRelevant: (code) => /\basyncio\s*\.\s*wait\s*\(/.test(zenFn(code, "first_responder")?.body ?? ""),
+  check: (code) => /\b\w+\s*,\s*\w+\s*=\s*(\(\s*)?await\s+asyncio\s*\.\s*wait\s*\(/.test(zenFn(code, "first_responder")!.body),
+  bonusXP: 5,
+  jolt: "`done, pending = await asyncio.wait(...)` — two sets, two names, one line. nobody has to remember which half is `[0]`.",
+  suggestion: "`asyncio.wait` hands back two sets. unpack them into names: `done, pending = await asyncio.wait(...)`. clearer than `result[0]`.",
+};
+
+// ── chapter-09:timeout ──
+
+const sweepPlainDef: ZenRule = {
+  id: "py_sweep_plain_def",
+  principle: "a function that never waits isn't async",
+  isRelevant: (code) => zenFn(code, "sweep") !== null,
+  check: (code) => {
+    const f = zenFn(code, "sweep")!;
+    return !f.isAsync && !/\bawait\b/.test(f.body);
+  },
+  bonusXP: 15,
+  jolt: "...`sweep` is a plain `def`. it can't wait even if it wanted to — it looks at `task.done()` and answers. in python, \"doesn't wait\" and \"isn't async\" are the same promise, and you made it.",
+  suggestion: "`sweep` only looks, so make it a plain `def` with `task.done()`. an `async def` can pause — and a quick glance should never be able to.",
+};
+
+const timeoutFromParam: ZenRule = {
+  id: "py_timeout_from_param",
+  principle: "the deadline comes from the caller",
+  isRelevant: (code) => /\btimeout\s*=/.test(zenFn(code, "await_contact")?.body ?? ""),
+  check: (code) => {
+    const f = zenFn(code, "await_contact")!;
+    const t = f.body.match(/\btimeout\s*=\s*([^,)\n]+)/)?.[1] ?? "";
+    return f.params.length === 4 && new RegExp(`\\b${f.params[3]}\\b`).test(t);
+  },
+  bonusXP: 10,
+  jolt: "`timeout=timeout_ms / 1000` — the deadline comes from whoever's asking. a fixed number would be right once and wrong every other call.",
+  suggestion: "the deadline is a number you typed. use the one you were handed: `timeout=timeout_ms / 1000`.",
+};
+
+const emptyIsFalsy: ZenRule = {
+  id: "py_empty_falsy",
+  principle: "an empty set is false",
+  isRelevant: (code) => /^\s*if\b/m.test(zenFn(code, "await_contact")?.body ?? ""),
+  check: (code) => !/\blen\s*\([^)\n]*\)\s*(==|<=|<|!=|>)\s*[01]\b|==\s*set\s*\(\s*\)/.test(zenFn(code, "await_contact")!.body),
+  bonusXP: 5,
+  jolt: "`if not done:` — an empty set is already false. pep 8 asks for exactly that over `len(done) == 0`. it reads like the sentence: if nothing's done.",
+  suggestion: "`len(done) == 0` works, but an empty set is already false: `if not done:`. pep 8 prefers it.",
+};
+
 // ── Registry ──
 
 export const PYTHON_ZEN_RULES: Record<string, ZenRule[]> = {
@@ -718,4 +1136,15 @@ export const PYTHON_ZEN_RULES: Record<string, ZenRule[]> = {
   "chapter-04.2:reverseword": [sliceReverse, noRangeLen],
   "chapter-04.2:encode": [joinWords, splitWhitespace, comprehensionJoin],
   "chapter-04.2:relayheader": [narrowExcept, smallTry, fStringHeader],
+  "chapter-07:scaffold": [spacesNotTabs],
+  "chapter-07:scan": [nonlocalCounter, finallyLog, endswithCheck],
+  "chapter-07:recover": [exceptPerCall, specificRaise, isNone],
+  "chapter-08:scaffold": [unusedImport, noSpaceInsideBrackets],
+  "chapter-08:goroutine": [taskReference, asyncioNamespace],
+  "chapter-08:fanout": [gatherNotLoop, gatherIsTheList],
+  "chapter-08:window": [asyncSleep, zipPairs],
+  "chapter-09:scaffold": [noExtraParens],
+  "chapter-09:hail": [hailPlainDef, msToSeconds],
+  "chapter-09:first": [cancelLosers, unpackWait],
+  "chapter-09:timeout": [sweepPlainDef, timeoutFromParam, emptyIsFalsy],
 };

@@ -2,7 +2,7 @@ import type { CheckReport, CompileModule, LanguageId, MissionCheck } from "@/typ
 import { buildReport, CHECK_LABELS, diffOutput, usesCheck } from "@/lib/game/checks";
 import { getLanguageService } from "@/lib/lang/registry";
 import type { LanguageService } from "@/lib/lang/types";
-import type { StepBank } from "./banks/types";
+import type { CodePattern, ConceptEntry, StepBank } from "./banks/types";
 import { JAVASCRIPT_BANKS } from "./banks/javascript";
 import { PYTHON_BANKS } from "./banks/python";
 
@@ -2077,6 +2077,1401 @@ const ch04_2RelayheaderBank: StepBank = {
   ],
 };
 
+// ══════════════════════════════════════════════════════════════
+//  Act III — FILE TREE · CIRCUIT CUT · CHANNEL OF ESCAPE
+// ══════════════════════════════════════════════════════════════
+// Shape helpers: the classic concurrency mistakes live in WHERE a line sits
+// (inside the goroutine or outside it, inside the deferred func or not), so
+// these read function bodies rather than grepping the whole file.
+
+function stripGoComments(code: string): string {
+  return code.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+/** The text between the brace at `open` and its partner, or null if unbalanced. */
+function braceBody(src: string, open: number): string | null {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return src.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** Body of `func name(...)` (top-level), comments stripped. */
+function goFuncBody(code: string, name: string): string | null {
+  const src = stripGoComments(code);
+  const m = new RegExp(`func\\s+${name}\\s*\\(`).exec(src);
+  if (!m) return null;
+  const open = src.indexOf("{", m.index);
+  return open === -1 ? null : braceBody(src, open);
+}
+
+/** Bodies of every `go func(...) { ... }` literal in `code`. */
+function goroutineBodies(code: string): string[] {
+  const src = stripGoComments(code);
+  const bodies: string[] = [];
+  const re = /\bgo\s+func\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const open = src.indexOf("{", m.index);
+    const body = open === -1 ? null : braceBody(src, open);
+    if (body !== null) bodies.push(body);
+  }
+  return bodies;
+}
+
+/** `body` with its goroutine literals cut out — what the launching code does itself. */
+function outsideGoroutines(body: string): string {
+  let rest = stripGoComments(body);
+  for (const g of goroutineBodies(rest)) rest = rest.replace(g, "");
+  return rest;
+}
+
+/** Bodies of functions that call themselves — `var f func(...)` + `f = func` literals, or named funcs. */
+function recursiveBodies(code: string): string[] {
+  const src = stripGoComments(code);
+  const bodies: string[] = [];
+  const re = /(?:\bfunc\s+(\w+)\s*\(|\b(\w+)\s*:?=\s*func\s*\()/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const name = m[1] ?? m[2];
+    const open = src.indexOf("{", m.index);
+    const body = open === -1 ? null : braceBody(src, open);
+    if (body !== null && new RegExp(`\\b${name}\\s*\\(`).test(body)) bodies.push(body);
+  }
+  return bodies;
+}
+
+/** A `name := func(...)` literal that calls itself — go can't see `name` inside its own initializer. */
+function shortDeclaredRecursion(code: string): boolean {
+  const src = stripGoComments(code);
+  const re = /\b(\w+)\s*:=\s*func\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const open = src.indexOf("{", m.index);
+    const body = open === -1 ? null : braceBody(src, open);
+    if (body !== null && new RegExp(`\\b${m[1]}\\s*\\(`).test(body)) return true;
+  }
+  return false;
+}
+
+/** `defer func() { ... }` with no `()` after the closing brace. */
+function deferLiteralMissingCall(code: string): boolean {
+  const src = stripGoComments(code);
+  const re = /\bdefer\s+func\s*\(\s*\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const open = src.indexOf("{", m.index);
+    const body = open === -1 ? null : braceBody(src, open);
+    if (body === null) continue;
+    if (!src.slice(open + body.length + 2).trimStart().startsWith("(")) return true;
+  }
+  return false;
+}
+
+/** Does every `recover()` sit directly inside a deferred function (a defer literal, or a named func that is deferred)? */
+function recoverOnlyInDefer(code: string): boolean {
+  const src = stripGoComments(code);
+  const total = (src.match(/\brecover\(\)/g) ?? []).length;
+  if (total === 0) return false;
+  let inside = 0;
+  const lit = /\bdefer\s+func\s*\(\s*\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = lit.exec(src))) {
+    const open = src.indexOf("{", m.index);
+    const body = open === -1 ? null : braceBody(src, open);
+    if (body) inside += (body.match(/\brecover\(\)/g) ?? []).length;
+  }
+  const named = /\bdefer\s+(\w+)\s*\(/g;
+  while ((m = named.exec(src))) {
+    if (m[1] === "func") continue;
+    const body = goFuncBody(src, m[1]);
+    if (body) inside += (body.match(/\brecover\(\)/g) ?? []).length;
+  }
+  return inside >= total;
+}
+
+/** Name of the last `int` parameter of `func name(...)` — e.g. awaitContact's timeoutMs. */
+function lastIntParam(code: string, name: string): string | null {
+  const m = new RegExp(`func\\s+${name}\\s*\\(([^)]*)\\)`).exec(stripGoComments(code));
+  if (!m) return null;
+  const p = /(\w+)\s+int\s*$/.exec(m[1].trim());
+  return p ? p[1] : null;
+}
+
+/** The output lines before `marker` — blank ones mean results were read before goroutines wrote them. */
+function blankLinesBefore(output: string, marker: string): boolean {
+  const lines = output.split("\n");
+  const at = lines.findIndex((l) => l.includes(marker));
+  return at > 0 && lines.slice(0, at).some((l) => l.trim() === "");
+}
+
+/** Every Act III chapter opens on the same `Hello World` scaffold; only the room changes. */
+function helloScaffoldBank(opts: {
+  intro: string;
+  correct: string;
+  room: ConceptEntry;
+  extraPatterns?: CodePattern[];
+}): StepBank {
+  return {
+    intro: opts.intro,
+    conceptFAQ: [
+      { keywords: ["package", "package main"], response: "`package main` on the first line. that's what makes the file a program go can run." },
+      { keywords: ["import", "fmt"], response: "`import \"fmt\"` under the package line — fmt is what prints. one import, one plain line." },
+      { keywords: ["func main", "entry", "main"], response: "`func main() { }` is where the program starts. the print goes inside it." },
+      { keywords: ["hello world", "print", "println"], response: "`fmt.Println(\"Hello World\")` inside main. capital H, capital W, no punctuation." },
+      opts.room,
+      {
+        keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+        response: "five lines: `package main`, `import \"fmt\"`, `func main() {`, `fmt.Println(\"Hello World\")`, `}`. transmit it.",
+      },
+    ],
+    codePatterns: [
+      ...(opts.extraPatterns ?? []),
+      { match: (code) => isValidScaffold(code), response: opts.correct },
+      { match: (code) => !minify(code).includes("packagemain"), response: "every go file starts with `package main`. first line." },
+      {
+        match: (code) => {
+          const m = minify(code);
+          return !m.includes('import"fmt"') && !m.includes('import("fmt")');
+        },
+        response: "package is set. add `import \"fmt\"` underneath — printing lives there.",
+      },
+      {
+        match: (code) => !minify(code).includes("funcmain(){"),
+        response: "package and import are in. add `func main() { }` — the entry point.",
+      },
+      {
+        match: (code) => !minify(code).includes("fmt.print"),
+        response: "almost. go won't compile an import you don't use. put `fmt.Println(\"Hello World\")` inside main.",
+      },
+    ],
+    outputPatterns: [
+      {
+        match: (output) => /hello world/i.test(output) && !output.includes("Hello World"),
+        response: "close. the terminal is case-sensitive — exactly `Hello World`, capital H, capital W.",
+      },
+    ],
+    correctResponse: opts.correct,
+    genericWrong: [
+      "the terminal can't parse that. package main, import \"fmt\", func main(), and a print inside.",
+      "not a valid go program yet. it should print exactly `Hello World`.",
+    ],
+    rushDialogue: ["hurry. five lines. print `Hello World`."],
+    stuckResponses: [
+      "in order: `package main`, then `import \"fmt\"`, then `func main() {`, then `fmt.Println(\"Hello World\")`, then `}`.",
+      "same skeleton as every terminal so far. package, import, main, and a println inside main.",
+    ],
+    deflections: ["not yet. wake the terminal first — print `Hello World`.", "focus. the skeleton, then we talk."],
+  };
+}
+
+// Chapter 07: Step 0 — Scaffold
+const ch07ScaffoldBank = helloScaffoldBank({
+  intro:
+    "the archive terminal locks when the server room's night cycle starts. wake it — print `Hello World`. package, import, main, same as always.",
+  correct: "archive terminal's awake. a directory listing is scrolling up the screen. it goes deep.\n\n||COMPLETE||",
+  room: {
+    keywords: ["kira", "who is she", "unregistered"],
+    response: "an unregistered channel, a name i don't know, and she knew which room i'd be in. i'm not answering her until this terminal is awake.",
+  },
+});
+
+// Chapter 07: Step 1 — Scan
+const ch07ScanBank: StepBank = {
+  intro:
+    "my thesis is somewhere in this archive, and the tree goes as deep as it likes. write `scanArchive(archive, root)`: a counter, and an inner `scan` that calls itself on every directory and logs `scanned: <dir>` on its way out. return the count.",
+
+  conceptFAQ: [
+    {
+      keywords: ["undefined: scan", "undefined", "var scan", "declare first", "call itself", "calls itself"],
+      response:
+        "a function literal can't see its own name while it's being built. declare it first, `var scan func(dir string)`, then assign `scan = func(dir string) { ... }`. now the body can call `scan(...)`.",
+    },
+    {
+      keywords: ["recursion", "recursive", "recurse"],
+      response:
+        "a function that calls itself on a smaller piece of the problem. every directory is a smaller tree. it stops by itself when a directory has no subdirectories left to walk.",
+    },
+    {
+      keywords: ["closure", "capture", "captures", "count"],
+      response:
+        "`scan` is a closure — it captures `count` from scanArchive. `count++` inside scan changes the same variable scanArchive returns. declare it once, outside scan.",
+    },
+    {
+      keywords: ["defer"],
+      response:
+        "`defer` schedules a call for when the surrounding function returns. its arguments are evaluated right away, so `defer fmt.Println(\"scanned:\", dir)` remembers this call's dir and prints it on the way out.",
+    },
+    {
+      keywords: ["order", "root last", "why root", "last"],
+      response:
+        "root is the first directory to start and the last to finish. the deferred print runs when each call finishes, so the deepest directories log first and root logs last.",
+    },
+    {
+      keywords: ["slash", "directory", "file", "suffix", "hassuffix"],
+      response:
+        "an entry ending in `/` is a directory. check the last byte, `entry[len(entry)-1] == '/'`, and strip it with `entry[:len(entry)-1]` before you scan it — the archive keys have no slash.",
+    },
+    {
+      keywords: ["map", "archive[", "nil", "missing key"],
+      response:
+        "`archive[dir]` gives that directory's entries as a []string. a key that isn't there gives nil, and ranging over nil just does nothing.",
+    },
+    {
+      keywords: ["kira"],
+      response: "she says information costs. she hasn't named a price yet. that's what worries me. count the files.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "inside scanArchive: `count := 0`, then `var scan func(dir string)`, then `scan = func(dir string) { ... }` — defer the log, range over `archive[dir]`, recurse on directories, `count++` on files. then `scan(root)` and `return count`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => shortDeclaredRecursion(code),
+      response:
+        "go won't let a function literal call itself when it's declared with `:=` — the name doesn't exist yet inside its own body. declare first: `var scan func(dir string)`, then `scan = func(dir string) { ... }`.",
+    },
+    {
+      match: (code) => code.includes("scanned:") && !/\bdefer\b/.test(stripGoComments(code)),
+      response:
+        "you log on the way in, so root prints first. the log belongs on the way out — make it the first line of scan: `defer fmt.Println(\"scanned:\", dir)`.",
+    },
+    {
+      match: (code) => recursiveBodies(code).some((b) => /\bcount\s*:=/.test(b)),
+      response:
+        "`count := 0` sits inside scan, so every call starts its own fresh zero and throws it away. declare it once in scanArchive — the closure captures it, and every call adds to the same counter.",
+    },
+    {
+      match: (code) => {
+        const v = /for\s+\w+\s*,\s*(\w+)\s*:=\s*range/.exec(stripGoComments(code));
+        return !!v && new RegExp(`\\bscan\\(\\s*${v[1]}\\s*\\)`).test(stripGoComments(code));
+      },
+      response:
+        "you're scanning the entry with its slash still on — `logs/`. the archive key is `logs`. strip it first: `scan(entry[:len(entry)-1])`.",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        return (
+          /func\s+scanArchive\s*\(/.test(src) &&
+          /\bdefer\s+fmt\.Print/.test(src) &&
+          src.includes("scanned:") &&
+          recursiveBodies(src).length > 0 &&
+          /\breturn\s+\w+/.test(src)
+        );
+      },
+      response:
+        "nine files. logs, alpha, beta, gamma, servers, root — every directory signed off on its way out. gamma has two thesis files in it. two versions of my work, and one of them i don't remember writing.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !/func\s+scanArchive\s*\(/.test(stripGoComments(code)),
+      response:
+        "write the function the terminal calls: `func scanArchive(archive map[string][]string, root string) int`, above main.",
+    },
+    {
+      match: (code) => recursiveBodies(code).length === 0,
+      response:
+        "scan has to call itself on every directory it finds — that's how it reaches the bottom of the tree. `var scan func(dir string)` first, then inside the body, `scan(entry[:len(entry)-1])` for each directory.",
+    },
+    {
+      match: (code) => !/\bdefer\b/.test(stripGoComments(code)),
+      response:
+        "the terminal needs each directory logged as it finishes. first line of scan: `defer fmt.Println(\"scanned:\", dir)`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => output.trim().startsWith("scanned: root"),
+      response:
+        "root logged first. the print fires on the way in. it has to fire on the way out — `defer fmt.Println(\"scanned:\", dir)` waits until that call returns.",
+    },
+    {
+      match: (output) => output.includes("total files") && !output.includes("scanned:"),
+      response:
+        "the count came through, but no directory logged itself. each scan call needs `defer fmt.Println(\"scanned:\", dir)` as its first line.",
+    },
+    {
+      match: (output) => /total files: 14\b/.test(output),
+      response:
+        "fourteen — you're counting the directories too. an entry ending in `/` is a directory: scan it, don't count it. only the rest are files.",
+    },
+    {
+      match: (output) => /^total files: 0$/m.test(output),
+      response:
+        "zero. the counter never moved where scanArchive can see it. declare `count := 0` in scanArchive, outside scan, and `count++` inside — the closure shares it.",
+    },
+    {
+      match: (output) => /^total files: 1$/m.test(output),
+      response:
+        "one file — root's own. the walk never went into a directory. call scan on each directory entry, without its trailing slash.",
+    },
+  ],
+
+  correctResponse:
+    "nine files. logs, alpha, beta, gamma, servers, root — every directory signed off on its way out. gamma has two thesis files in it. two versions of my work, and one of them i don't remember writing.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "the tree didn't come out right. each directory should log `scanned: <dir>` as it finishes, deepest first, root last, then `total files: 9`.",
+    "not matching. count only the entries without a trailing `/`, recurse into the ones with it, and defer the log so it prints on the way out.",
+  ],
+
+  rushDialogue: ["the night cycle is close. defer the log, recurse, count."],
+
+  stuckResponses: [
+    "inside scanArchive: `count := 0`, `var scan func(dir string)`, then `scan = func(dir string) { defer fmt.Println(\"scanned:\", dir); for _, entry := range archive[dir] { ... } }`. a directory entry ends in `/` — `scan(entry[:len(entry)-1])`, otherwise `count++`. then `scan(root)` and `return count`.",
+    "three ideas, one function. a closure that shares `count`. a recursive call for every directory. a deferred print so each directory logs as it finishes.",
+  ],
+
+  deflections: ["later. the archive first — count the files.", "not now. scan the tree, find the thesis."],
+};
+
+// Chapter 07: Step 2 — Recover
+const ch07RecoverBank: StepBank = {
+  intro:
+    "GHOST booby-trapped part of the archive. one corrupted directory and a plain scan crashes — and trips the alarm. write `safeScan`: panic on a nil directory, catch it inside each scan call with a deferred recover, write the error down, keep walking.",
+
+  conceptFAQ: [
+    {
+      keywords: ["expression in defer", "must be function call", "()", "parentheses"],
+      response:
+        "`defer` needs a call, not a function. the `()` after the closing brace calls the literal: `defer func() { ... }()`. without them go won't compile it.",
+    },
+    {
+      keywords: ["recover"],
+      response:
+        "`recover()` only works inside a deferred function — `defer func() { if r := recover(); r != nil { ... } }()`. called anywhere else it returns nil and catches nothing.",
+    },
+    {
+      keywords: ["panic"],
+      response:
+        "`panic` stops the function on the spot and unwinds back up the calls, running every deferred function on the way. if none of them recovers, the program crashes.",
+    },
+    {
+      keywords: ["order", "lifo", "last in", "which defer"],
+      response:
+        "deferred calls run last-in, first-out. both of scan's defers run before the call returns, panic or not — so vault still logs `scanned: vault`, and the recover still catches the panic.",
+    },
+    {
+      keywords: ["keep going", "keep scanning", "carry on", "continue", "why does it keep"],
+      response:
+        "each scan call guards itself. vault's call panics, vault's deferred recover catches it, and that call returns normally — so root's loop just moves on to the next entry.",
+    },
+    {
+      keywords: ["errs", "errors", "append", "record"],
+      response:
+        "declare `errs := []string{}` in safeScan next to count. the deferred func is a closure too — `errs = append(errs, ...)` inside it adds to the slice safeScan returns.",
+    },
+    {
+      keywords: ["sprintf", "%v", "format", "message"],
+      response:
+        "`fmt.Sprintf(\"%s: %v\", dir, r)` — the directory, a colon, then whatever was passed to panic. `%v` prints any value.",
+    },
+    {
+      keywords: ["try/catch", "try catch", "exception", "catch"],
+      response:
+        "go has no try/catch. errors are values — you've been returning them since `strconv.Atoi`. panic is for when a function can't go on. here we catch it at each directory so one bad sector can't take the scan down.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "copy your scan into `safeScan`. in scan, first a `defer func() { if r := recover(); r != nil { errs = append(errs, ...) } }()`, then the deferred log, then `if archive[dir] == nil { panic(\"corrupted directory\") }`. return count and errs.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => deferLiteralMissingCall(code),
+      response:
+        "your deferred func is missing its `()` after the closing brace. `defer func() { ... }()` — the parentheses call it. without them you're deferring a function value, and go won't compile that.",
+    },
+    {
+      match: (code) => /\brecover\(\)/.test(stripGoComments(code)) && !recoverOnlyInDefer(code),
+      response:
+        "`recover()` is sitting outside a deferred function, where it returns nil and catches nothing. it only works inside one: `defer func() { if r := recover(); r != nil { ... } }()`.",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        const rec = recursiveBodies(src);
+        return /\brecover\(\)/.test(src) && rec.length > 0 && !rec.some((b) => /\brecover\(\)/.test(b));
+      },
+      response:
+        "your recover guards safeScan, not each directory. the first panic unwinds the whole walk before it's caught. move the `defer func() { ... }()` inside scan, so every call catches its own panic and the parent keeps going.",
+    },
+    {
+      match: (code) =>
+        recursiveBodies(code).some((b) => {
+          const p = b.search(/\bpanic\(/);
+          const d = b.search(/\bdefer\s+fmt\.Print/);
+          return p !== -1 && d !== -1 && p < d;
+        }),
+      response:
+        "the panic comes before your deferred log, so for vault the log is never scheduled. defers have to be registered before anything can panic — put `defer fmt.Println(\"scanned:\", dir)` above the nil check.",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        return (
+          /func\s+safeScan\s*\(/.test(src) &&
+          /\bpanic\(/.test(src) &&
+          recoverOnlyInDefer(src) &&
+          recursiveBodies(src).some((b) => /\brecover\(\)/.test(b)) &&
+          /\bappend\(/.test(src)
+        );
+      },
+      response:
+        "vault fell over and the scan didn't. nine files, one corrupted sector logged, alarm still quiet. whatever GHOST kept in that vault, he didn't want it read.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !/func\s+safeScan\s*\(/.test(stripGoComments(code)),
+      response:
+        "write `func safeScan(archive map[string][]string, root string) (int, []string)` — your scan, made to survive. it returns the count and the errors.",
+    },
+    {
+      match: (code) => !/\bpanic\(/.test(stripGoComments(code)),
+      response:
+        "a corrupted directory has no entries. when `archive[dir] == nil`, `panic(\"corrupted directory\")`.",
+    },
+    {
+      match: (code) => !/\brecover\(\)/.test(stripGoComments(code)),
+      response:
+        "the panic needs catching. first line of scan: `defer func() { if r := recover(); r != nil { ... } }()`.",
+    },
+    {
+      match: (code) => !/\bappend\(/.test(stripGoComments(code)),
+      response:
+        "you catch it, but nothing gets written down. inside the recover: `errs = append(errs, fmt.Sprintf(\"%s: %v\", dir, r))`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => /ERROR: corrupted directory/.test(output),
+      response:
+        "the errors are missing the directory name. each one reads `<dir>: <panic>` — `fmt.Sprintf(\"%s: %v\", dir, r)`.",
+    },
+    {
+      match: (output) => output.includes("ERROR: vault") && !output.includes("scanned: vault"),
+      response:
+        "vault was caught but never logged as scanned. the panic fires before your deferred print is scheduled. put `defer fmt.Println(\"scanned:\", dir)` at the top of scan, above the nil check.",
+    },
+    {
+      match: (output) => /ERROR: vault: (?!corrupted directory$)/m.test(output),
+      response:
+        "the panic message has to be exactly `corrupted directory` — `panic(\"corrupted directory\")`.",
+    },
+    {
+      match: (output) => /^total files: 0$/m.test(output),
+      response:
+        "zero files. the first panic took the whole walk down before it was caught. the recover belongs inside scan, so each directory catches its own.",
+    },
+    {
+      match: (output) => output.includes("total files") && !output.includes("ERROR:"),
+      response:
+        "the scan survived, but no errors came back. inside the recover, `errs = append(errs, fmt.Sprintf(\"%s: %v\", dir, r))` — and return errs.",
+    },
+  ],
+
+  correctResponse:
+    "vault fell over and the scan didn't. nine files, one corrupted sector logged, alarm still quiet. whatever GHOST kept in that vault, he didn't want it read.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. every directory still logs `scanned: <dir>`, the count stays 9, and the corrupted one comes back as `ERROR: vault: corrupted directory`.",
+    "the scan has to fall and get back up. panic on nil, a deferred recover in every scan call, record the error, carry on.",
+  ],
+
+  rushDialogue: ["sectors are failing. recover inside scan. now."],
+
+  stuckResponses: [
+    "inside scan, in this order: `defer func() { if r := recover(); r != nil { errs = append(errs, fmt.Sprintf(\"%s: %v\", dir, r)) } }()`, then `defer fmt.Println(\"scanned:\", dir)`, then `if archive[dir] == nil { panic(\"corrupted directory\") }`, then the same loop as before.",
+    "panic stops the call. a deferred recover in that same call catches it. the call returns normally and its parent keeps looping. that's the whole trick.",
+  ],
+
+  deflections: ["not now. the vault is trapped and the scan has to survive it.", "later. get the scan through the corrupted sectors."],
+};
+
+// Chapter 08: Step 0 — Scaffold
+const ch08ScaffoldBank = helloScaffoldBank({
+  intro:
+    "the breaker console is my way to the alarm grid's power. bring it up — print `Hello World`. just fmt for now.",
+  correct: "breaker console online. four circuits on the board — north, south, east, west.\n\n||COMPLETE||",
+  room: {
+    keywords: ["time", "sync", "imports now", "import time"],
+    response: "not yet. go refuses to compile an import you don't use. `time` and `sync` come in when a step needs them.",
+  },
+  extraPatterns: [
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        return (
+          (/"sync"/.test(src) && !/\bsync\./.test(src.replace(/"sync"/g, ""))) ||
+          (/"time"/.test(src) && !/\btime\./.test(src.replace(/"time"/g, "")))
+        );
+      },
+      response:
+        "go won't compile an import you don't use. drop `time` and `sync` for now — just `import \"fmt\"`. they come in when a step needs them.",
+    },
+  ],
+});
+
+// Chapter 08: Step 1 — Goroutine
+const ch08GoroutineBank: StepBank = {
+  intro:
+    "i can only throw one breaker at a time by hand. the program has to throw them for me, without stopping to watch each one. write `cut(name)` that prints `<name> circuit: DOWN`, and `cutAsync(name)` that runs it with `go` and returns straight away. import `time` — the terminal holds main open for 100ms.",
+
+  conceptFAQ: [
+    {
+      keywords: ["goroutine", "go keyword", "go cut", "concurrent", "concurrency"],
+      response:
+        "a goroutine is a function running alongside the rest of the program. put `go` in front of any call and it starts — the caller doesn't wait for it to finish.",
+    },
+    {
+      keywords: ["sleep", "100ms", "main returns", "exit", "why wait"],
+      response:
+        "when main returns, the program ends — every goroutine still running dies mid-flight. the terminal sleeps 100ms so south gets to finish. next step replaces the sleep with the real tool.",
+    },
+    {
+      keywords: ["thread", "threads"],
+      response:
+        "a goroutine isn't an operating-system thread. it starts with a tiny stack, and go's scheduler runs thousands of them on a handful of threads. that's why they're cheap enough to start one per breaker.",
+    },
+    {
+      keywords: ["undefined: time", "import time", "time"],
+      response:
+        "the terminal's main calls `time.Sleep`, so `\"time\"` has to be imported. two imports share one block: `import (` then `\"fmt\"` and `\"time\"` on their own lines, then `)`.",
+    },
+    {
+      keywords: ["return", "cutasync"],
+      response:
+        "cutAsync returns nothing. one line in its body: `go cut(name)`. it launches and leaves.",
+    },
+    {
+      keywords: ["order", "north first", "which prints first"],
+      response:
+        "north is called directly, so it prints before main moves on. south runs in its goroutine while main sleeps, then main prints `power cycle complete`.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "two functions above main. `func cut(name string)` prints `name + \" circuit: DOWN\"`. `func cutAsync(name string)` is one line: `go cut(name)`. and add `\"time\"` to your imports.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutAsync");
+        return body !== null && /\bcut\s*\(/.test(body) && !/\bgo\b/.test(body);
+      },
+      response:
+        "cutAsync calls cut right there, in the caller — so it waits for the breaker. same output, wrong machine. put `go` in front: `go cut(name)`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutAsync");
+        return body !== null && /time\.Sleep|\.Wait\(\)/.test(body);
+      },
+      response:
+        "cutAsync shouldn't wait for anything. it launches the goroutine and returns — the terminal's main does the holding.",
+    },
+    {
+      match: (code) => !/"time"/.test(code),
+      response:
+        "the terminal's main calls `time.Sleep`, so `\"time\"` has to be in your imports. group them: `import (` then `\"fmt\"` and `\"time\"`, then `)`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutAsync");
+        return (
+          goFuncBody(code, "cut") !== null &&
+          body !== null &&
+          /\bgo\s+(cut\s*\(|func\s*\()/.test(body) &&
+          code.includes("circuit: DOWN")
+        );
+      },
+      response:
+        "north by hand, south on its own. and i never stopped to watch it. one breaker thrown while i was already reaching for the next.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => goFuncBody(code, "cut") === null,
+      response: "write `func cut(name string)` — it prints `name + \" circuit: DOWN\"`.",
+    },
+    {
+      match: (code) => goFuncBody(code, "cutAsync") === null,
+      response: "now `func cutAsync(name string)` — one line inside: `go cut(name)`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => /North/.test(output) && !output.includes("North circuit: DOWN"),
+      response: "each breaker line reads exactly `<name> circuit: DOWN` — `North circuit: DOWN`. check the spacing and the capitals.",
+    },
+    {
+      match: (output) => output.includes("North circuit: DOWN") && !output.includes("South circuit: DOWN"),
+      response: "south never reported. cutAsync has to launch `cut(name)` — `go cut(name)` — and the call has to actually happen.",
+    },
+  ],
+
+  correctResponse:
+    "north by hand, south on its own. and i never stopped to watch it. one breaker thrown while i was already reaching for the next.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. the terminal wants `North circuit: DOWN`, `South circuit: DOWN`, then `power cycle complete`.",
+    "cut prints the line. cutAsync starts cut as a goroutine with `go` and returns. that's the whole step.",
+  ],
+
+  rushDialogue: ["the grid's cycling. `go cut(name)`. go."],
+
+  stuckResponses: [
+    "`func cut(name string) { fmt.Println(name + \" circuit: DOWN\") }` and `func cutAsync(name string) { go cut(name) }`. import `\"fmt\"` and `\"time\"` together.",
+    "the whole new idea is one word. `go` in front of a call means run it alongside, don't wait.",
+  ],
+
+  deflections: ["not now. one breaker, one goroutine.", "later. throw the breaker first."],
+};
+
+// Chapter 08: Step 2 — Fan-out
+const ch08FanoutBank: StepBank = {
+  intro:
+    "all four breakers drop together or the grid sees the imbalance — and i can't call it blind until every one confirms. write `cutAll(circuits)`: one goroutine per circuit, a `sync.WaitGroup` to wait for them all, the confirmations back in circuit order.",
+
+  conceptFAQ: [
+    {
+      keywords: ["by value", "copy waitgroup", "pointer", "&wg", "deadlock", "asleep"],
+      response:
+        "a WaitGroup must never be copied. pass it to another function by value and that function calls Done on a copy — the real one never reaches zero and Wait hangs forever. keep it local, or pass `&wg`.",
+    },
+    {
+      keywords: ["add before", "add inside", "why add"],
+      response:
+        "if the goroutine adds itself, `Wait` might run first, see zero, and return before anything started. `wg.Add(1)` goes in the loop, before `go`.",
+    },
+    {
+      keywords: ["waitgroup", "wait group", "sync"],
+      response:
+        "a WaitGroup counts running goroutines. `Add(1)` before each launch, `Done()` when one finishes, `Wait()` blocks until the count is back to zero. import `\"sync\"` and declare `var wg sync.WaitGroup`.",
+    },
+    {
+      keywords: ["defer wg.done", "done", "defer"],
+      response:
+        "`defer wg.Done()` as the first line inside the goroutine. however the goroutine ends, even if it panics halfway, the count still goes down.",
+    },
+    {
+      keywords: ["pass", "arguments", "loop variable", "loop var", "idx"],
+      response:
+        "hand the goroutine its own copy: `go func(idx int, n string) { ... }(i, name)`. since go 1.22 each loop iteration gets fresh variables anyway, but passing them in says exactly what the goroutine owns.",
+    },
+    {
+      keywords: ["println inside", "print inside", "scrambled", "order", "why not print"],
+      response:
+        "goroutines finish in any order, so printing inside them scrambles the lines. each one writes its own slot, `results[idx]`, and the terminal prints them in order after `Wait`.",
+    },
+    {
+      keywords: ["race", "append", "data race"],
+      response:
+        "two goroutines appending to the same slice at once is a data race — one write can swallow the other. pre-size it, `results := make([]string, len(circuits))`, and each goroutine writes only its own index.",
+    },
+    {
+      keywords: ["make", "results", "pre-size", "presize"],
+      response:
+        "`results := make([]string, len(circuits))` — four empty slots, ready before any goroutine starts. goroutine i fills `results[i]`, no two touch the same one.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "make the results slice, declare the WaitGroup, then for each circuit: `wg.Add(1)`, launch `go func(idx int, n string) { defer wg.Done(); results[idx] = n + \" circuit: DOWN\" }(i, name)`. after the loop, `wg.Wait()` and `return results`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => /\w+\s+sync\.WaitGroup\s*[,)]/.test(stripGoComments(code)),
+      response:
+        "you're passing the WaitGroup by value. the function gets a copy, calls Done on the copy, and the real count never reaches zero — Wait hangs. pass `&wg` and take `*sync.WaitGroup`, or keep it all inside cutAll.",
+    },
+    {
+      match: (code) => goroutineBodies(code).some((b) => /\.Add\(/.test(b)),
+      response:
+        "`wg.Add(1)` is inside the goroutine. by the time it runs, `Wait` may already have seen zero and returned. add before you launch — in the loop, right above `go`.",
+    },
+    {
+      match: (code) => goroutineBodies(code).some((b) => /\bfmt\.Print/.test(b)),
+      response:
+        "you're printing from inside the goroutines, so the lines come out in whatever order they finish. write `results[idx] = ...` instead and return the slice — the terminal prints it in order.",
+    },
+    {
+      match: (code) => goroutineBodies(code).some((b) => /\bappend\(/.test(b)),
+      response:
+        "four goroutines appending to one slice at the same time is a data race — writes get lost and the order is luck. pre-size it with `make([]string, len(circuits))` and write `results[idx]`.",
+    },
+    {
+      match: (code) => /\bgo\s+func/.test(code) && !/\.Wait\(\)/.test(stripGoComments(code)),
+      response:
+        "nothing waits for the goroutines, so cutAll returns empty slots before a single breaker reports. `wg.Wait()` after the loop, before `return`.",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        const bodies = goroutineBodies(src);
+        return (
+          /sync\.WaitGroup/.test(src) &&
+          /\.Add\(/.test(outsideGoroutines(src)) &&
+          /\.Wait\(\)/.test(src) &&
+          bodies.length > 0 &&
+          bodies.every((b) => /^\s*defer\s+\w+\.Done\(\)/.test(b) && /\w+\[\w+\]\s*=/.test(b)) &&
+          /\bgo\s+func\s*\(\s*\w+/.test(src)
+        );
+      },
+      response:
+        "four confirmations, in order, one cycle. north, south, east, west — all dark at once. the grid never saw it coming.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        const bodies = goroutineBodies(src);
+        return (
+          /sync\.WaitGroup/.test(src) &&
+          /\.Add\(/.test(outsideGoroutines(src)) &&
+          /\.Wait\(\)/.test(src) &&
+          bodies.length > 0 &&
+          bodies.every((b) => /\.Done\(\)/.test(b) && /\w+\[\w+\]\s*=/.test(b)) &&
+          !bodies.every((b) => /^\s*defer\s+\w+\.Done\(\)/.test(b))
+        );
+      },
+      response:
+        "all four down, in order. it works. one habit for next time — `defer wg.Done()` as the first line of the goroutine, so the count drops however it exits.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => {
+        const src = stripGoComments(code);
+        const bodies = goroutineBodies(src);
+        return (
+          /sync\.WaitGroup/.test(src) &&
+          /\.Add\(/.test(outsideGoroutines(src)) &&
+          /\.Wait\(\)/.test(src) &&
+          bodies.length > 0 &&
+          bodies.every((b) => /\.Done\(\)/.test(b) && /\w+\[\w+\]\s*=/.test(b))
+        );
+      },
+      response:
+        "all four down, in order. it works — since go 1.22 every loop iteration gets its own i and name. still, pass them in, `go func(idx int, n string) { ... }(i, name)`, so the goroutine says what it owns.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => !/sync\.WaitGroup/.test(stripGoComments(code)),
+      response:
+        "you need something that counts the goroutines home. import `\"sync\"` and declare `var wg sync.WaitGroup` in cutAll.",
+    },
+    {
+      match: (code) => !/\bgo\s/.test(stripGoComments(code)),
+      response:
+        "one goroutine per circuit — `go func(idx int, n string) { ... }(i, name)` inside the loop.",
+    },
+    {
+      match: (code) => !/\.Add\(/.test(stripGoComments(code)),
+      response: "the WaitGroup has to know how many to wait for. `wg.Add(1)` in the loop, before each `go`.",
+    },
+    {
+      match: (code) => !/\.Done\(\)/.test(stripGoComments(code)),
+      response: "each goroutine has to check in when it's finished. first line inside: `defer wg.Done()`.",
+    },
+    {
+      match: () => true,
+      response:
+        "pre-size the results, `results := make([]string, len(circuits))`, and have each goroutine write its own slot: `results[idx] = n + \" circuit: DOWN\"`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => blankLinesBefore(output, "ALL CIRCUITS DOWN"),
+      response:
+        "empty lines — cutAll returned before the goroutines wrote anything. `wg.Wait()` after the loop, before `return results`.",
+    },
+    {
+      match: (output) => {
+        const n = output.indexOf("North circuit: DOWN");
+        const w = output.indexOf("West circuit: DOWN");
+        return n !== -1 && w !== -1 && w < n;
+      },
+      response:
+        "the breakers reported out of order — that's goroutines printing as they finish. each one writes `results[idx]`, and the terminal prints the slice in order.",
+    },
+    {
+      match: (output) => /North/.test(output) && !output.includes("North circuit: DOWN"),
+      response: "each confirmation reads exactly `<name> circuit: DOWN`. check the spacing and the capitals.",
+    },
+  ],
+
+  correctResponse:
+    "four confirmations, in order, one cycle. north, south, east, west — all dark at once. the grid never saw it coming.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. four lines in circuit order — `North circuit: DOWN` through `West circuit: DOWN` — then `ALL CIRCUITS DOWN`, then `Aux circuit: DOWN`.",
+    "the ritual: `wg.Add(1)` before each `go`, `defer wg.Done()` first thing inside, `wg.Wait()` once after the loop. results by index.",
+  ],
+
+  rushDialogue: ["the self-check's coming. add, go, done, wait."],
+
+  stuckResponses: [
+    "`results := make([]string, len(circuits))`, `var wg sync.WaitGroup`, then `for i, name := range circuits { wg.Add(1); go func(idx int, n string) { defer wg.Done(); results[idx] = n + \" circuit: DOWN\" }(i, name) }`, then `wg.Wait()` and `return results`.",
+    "a WaitGroup is a counter you can wait on. up by one before each launch, down by one as each finishes, and Wait sits there until it's zero.",
+  ],
+
+  deflections: ["not now. four breakers, one moment.", "later. get all four down together."],
+};
+
+// Chapter 08: Step 3 — One cycle
+const ch08WindowBank: StepBank = {
+  intro:
+    "each breaker takes its own time to trip, and the grid self-checks once a cycle. one at a time costs the sum of the delays — two cycles, alarm. all at once costs only the slowest. write `cutTimed(circuits, delays)`: the same fan-out, but each goroutine sleeps its delay first, then records `<name> circuit: DOWN (<delay>ms)`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["mismatched types", "duration", "milliseconds", "ms", "sleep for"],
+      response:
+        "`time.Sleep` takes a `time.Duration`, not an int. convert, then scale: `time.Sleep(time.Duration(d) * time.Millisecond)`.",
+    },
+    {
+      keywords: ["where does the sleep", "sleep", "where"],
+      response:
+        "inside the goroutine, before it records its line. sleep in the loop and the breakers trip one after another — the sum, not the max.",
+    },
+    {
+      keywords: ["sum", "max", "slowest", "1100", "450"],
+      response:
+        "one after another: 300 + 150 + 450 + 200 = 1100ms, two cycles. all at once: they sleep side by side, so the whole thing takes as long as the slowest — 450ms.",
+    },
+    {
+      keywords: ["timed", "measure", "time.since", "how does it know"],
+      response:
+        "the terminal reads the clock before and after your call with `time.Since`. under 1100ms is one cycle. it can't be faked — the breakers really have to sleep side by side.",
+    },
+    {
+      keywords: ["format", "sprintf", "%d"],
+      response: "`fmt.Sprintf(\"%s circuit: DOWN (%dms)\", n, d)` — name, then the delay in the brackets.",
+    },
+    {
+      keywords: ["pass", "argument", "delays[i]", "delay"],
+      response:
+        "the delay is loop state too. pass it as a third argument: `go func(idx int, n string, d int) { ... }(i, name, delays[i])`.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "copy cutAll into `cutTimed(circuits []string, delays []int) []string`. inside each goroutine, sleep first, then `results[idx] = fmt.Sprintf(\"%s circuit: DOWN (%dms)\", n, d)`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutTimed");
+        return body !== null && /time\.Sleep/.test(outsideGoroutines(body));
+      },
+      response:
+        "the sleep is in the loop, not the goroutine — so each breaker waits for the last one to finish before it even starts. that's the sum, two cycles. move `time.Sleep` inside the goroutine.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutTimed");
+        if (body === null) return false;
+        const rest = outsideGoroutines(body);
+        const at = rest.search(/\bfor\b/);
+        if (at === -1) return false;
+        const open = rest.indexOf("{", at);
+        const loop = open === -1 ? null : braceBody(rest, open);
+        return loop !== null && /\.Wait\(\)/.test(loop);
+      },
+      response:
+        "`wg.Wait()` is inside the loop, so you wait for each breaker before launching the next. one after another — the sum. wait once, after the loop.",
+    },
+    {
+      match: (code) =>
+        /time\.Sleep\(\s*\w+(\[\w+\])?\s*\*\s*time\.Millisecond/.test(stripGoComments(code)) && !/time\.Duration\(/.test(code),
+      response:
+        "go won't multiply an int by a Duration. convert first: `time.Sleep(time.Duration(d) * time.Millisecond)`.",
+    },
+    {
+      match: (code) => goroutineBodies(code).some((b) => /\.Add\(/.test(b)),
+      response: "`wg.Add(1)` belongs before the `go`, not inside the goroutine — otherwise Wait can return before anyone's counted.",
+    },
+    {
+      match: (code) => /\bgo\s+func/.test(code) && !/\.Wait\(\)/.test(stripGoComments(code)),
+      response: "nothing waits for the breakers to trip. `wg.Wait()` after the loop, before `return`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "cutTimed");
+        if (body === null) return false;
+        const bodies = goroutineBodies(body);
+        return (
+          bodies.length > 0 &&
+          bodies.some((b) => /time\.Sleep/.test(b)) &&
+          /\.Wait\(\)/.test(body) &&
+          /DOWN \(|%dms/.test(body)
+        );
+      },
+      response:
+        "four hundred and fifty milliseconds. one cycle. the alarm grid is blind and it doesn't know it yet.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => goFuncBody(code, "cutTimed") === null,
+      response:
+        "write `func cutTimed(circuits []string, delays []int) []string` — your cutAll, with a sleep inside each goroutine.",
+    },
+    {
+      match: (code) => !/time\.Sleep/.test(stripGoComments(code)),
+      response:
+        "each goroutine sleeps its breaker's delay first: `time.Sleep(time.Duration(d) * time.Millisecond)`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => output.includes("MULTI CYCLE"),
+      response:
+        "two cycles — the breakers tripped one after another. the sleep has to happen inside each goroutine, and `wg.Wait()` only once, after the loop.",
+    },
+    {
+      match: (output) => blankLinesBefore(output, "window:"),
+      response: "empty lines — cutTimed returned before the goroutines wrote. `wg.Wait()` before `return results`.",
+    },
+    {
+      match: (output) => /circuit: DOWN\s*$/m.test(output),
+      response: "each line needs its delay: `North circuit: DOWN (300ms)` — `fmt.Sprintf(\"%s circuit: DOWN (%dms)\", n, d)`.",
+    },
+  ],
+
+  correctResponse:
+    "four hundred and fifty milliseconds. one cycle. the alarm grid is blind and it doesn't know it yet.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. four lines like `North circuit: DOWN (300ms)` in circuit order, then `window: SINGLE CYCLE - alarm blind`, then `ALL CIRCUITS DOWN`.",
+    "same fan-out as before. the only new line is the sleep, and it lives inside the goroutine.",
+  ],
+
+  rushDialogue: [
+    "self-check imminent. sleep inside the goroutine, wait once.",
+    "no time. all four sleep together or we get two cycles.",
+  ],
+
+  stuckResponses: [
+    "inside cutTimed's loop: `wg.Add(1)`, then `go func(idx int, n string, d int) { defer wg.Done(); time.Sleep(time.Duration(d) * time.Millisecond); results[idx] = fmt.Sprintf(\"%s circuit: DOWN (%dms)\", n, d) }(i, name, delays[i])`. after the loop, `wg.Wait()`.",
+    "concurrent costs the slowest. sequential costs the sum. the only difference is whether the sleep is inside the goroutine or outside it.",
+  ],
+
+  deflections: ["not now. one cycle, four breakers.", "later. the grid checks itself any second."],
+};
+
+// Chapter 09: Step 0 — Scaffold
+const ch09ScaffoldBank = helloScaffoldBank({
+  intro: "the comms array is how i call for a way out. power it up — print `Hello World`. `time` joins the imports next step.",
+  correct: "comms array is live. three extraction frequencies on the board — alpha, bravo, charlie.\n\n||COMPLETE||",
+  room: {
+    keywords: ["frequencies", "teams", "alpha", "bravo", "charlie"],
+    response: "three teams on three frequencies, all from kira. one of them is slower than it should be. array first.",
+  },
+});
+
+// Chapter 09: Step 1 — Hail
+const ch09HailBank: StepBank = {
+  intro:
+    "i have to call an extraction team and hear back without freezing this terminal while i wait. write `hail(team, delayMs)`: a channel with room for one message, a goroutine that sleeps then sends `<team> responding`, and return the channel straight away.",
+
+  conceptFAQ: [
+    {
+      keywords: ["deadlock", "asleep", "all goroutines"],
+      response:
+        "go stops the program when every goroutine is stuck waiting and nothing can wake them. usually a send with nobody receiving, or a receive with nobody sending.",
+    },
+    {
+      keywords: ["buffer", "buffered", ", 1", "room", "capacity"],
+      response:
+        "`make(chan string, 1)` has room for one message. the team can drop its reply and leave even if nobody's listening yet. unbuffered, the sender is stuck until someone receives.",
+    },
+    {
+      keywords: ["channel", "chan"],
+      response:
+        "a channel is a pipe between goroutines. `ch <- v` sends a value in, `v := <-ch` takes one out — and waits until there is one.",
+    },
+    {
+      keywords: ["send", "receive", "<-", "arrow"],
+      response:
+        "the arrow points the way the data moves. `ch <- msg` pushes into the channel. `<-ch` pulls out of it.",
+    },
+    {
+      keywords: ["return", "why return the channel"],
+      response:
+        "hail returns the channel itself, `chan string`, at once. the goroutine answers into it later. the terminal does the waiting with `<-ch`.",
+    },
+    {
+      keywords: ["waitgroup", "wait group"],
+      response: "no WaitGroup this time. receiving from the channel is the wait — `<-ch` doesn't return until the team has answered.",
+    },
+    {
+      keywords: ["close"],
+      response: "you don't need to close it. one message, one receive. closing is for telling a receiver no more values are coming.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "`ch := make(chan string, 1)`, then `go func() { time.Sleep(time.Duration(delayMs) * time.Millisecond); ch <- team + \" responding\" }()`, then `return ch`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => /func\s+hail\s*\([^)]*\)\s*string\b/.test(stripGoComments(code)),
+      response:
+        "hail hands back the channel itself — `chan string` — not the message. the terminal does the receiving: `func hail(team string, delayMs int) chan string`.",
+    },
+    {
+      match: (code) => /make\(\s*chan\s+string\s*\)/.test(stripGoComments(code)),
+      response:
+        "unbuffered works while someone's listening. next step three teams answer and only one gets heard — the other two would be stuck holding their messages forever. give it room for one: `make(chan string, 1)`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "hail");
+        return body !== null && /time\.Sleep/.test(outsideGoroutines(body));
+      },
+      response:
+        "hail sleeps before it returns, so the terminal freezes until the team answers. the sleep belongs inside the goroutine — hail returns the channel at once.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "hail");
+        return body !== null && /(=|\(|return)\s*<-\s*\w+/.test(outsideGoroutines(body));
+      },
+      response:
+        "hail is receiving its own message. don't — return the channel and let the terminal do `<-ch`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "hail");
+        return body !== null && !/\bgo\s/.test(body);
+      },
+      response:
+        "the send needs its own goroutine, `go func() { ... }()`, so hail can return before the team answers.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "hail");
+        return (
+          body !== null &&
+          /make\(\s*chan\s+string\s*,\s*[1-9]/.test(body) &&
+          goroutineBodies(body).some((b) => /\w+\s*<-/.test(b)) &&
+          /\breturn\s+\w+/.test(outsideGoroutines(body))
+        );
+      },
+      response:
+        "bravo responding. the terminal never froze — it just listened when it was ready to. one message, one channel, and the team could leave the second they spoke.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => goFuncBody(code, "hail") === null,
+      response: "write `func hail(team string, delayMs int) chan string` above main.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => output.includes("Bravo") && !output.includes("Bravo responding"),
+      response: "the reply reads exactly `Bravo responding` — `team + \" responding\"`.",
+    },
+  ],
+
+  correctResponse:
+    "bravo responding. the terminal never froze — it just listened when it was ready to. one message, one channel, and the team could leave the second they spoke.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. the terminal should print `hailing Bravo...`, then `Bravo responding`, then `channel confirmed`.",
+    "make the channel with room for one, answer into it from a goroutine, hand it back straight away.",
+  ],
+
+  rushDialogue: ["hurry. make, go, return."],
+
+  stuckResponses: [
+    "`func hail(team string, delayMs int) chan string { ch := make(chan string, 1); go func() { time.Sleep(time.Duration(delayMs) * time.Millisecond); ch <- team + \" responding\" }(); return ch }`.",
+    "hail doesn't wait. it sets up the pipe, sends a goroutine off to answer into it, and hands the pipe back.",
+  ],
+
+  deflections: ["not now. one team, one channel.", "later. i need a way to hear them first."],
+};
+
+// Chapter 09: Step 2 — First contact
+const ch09FirstBank: StepBank = {
+  intro:
+    "all three teams are hailed at once. i go with whoever answers first and i don't wait on the slow ones. write `firstResponder(alpha, bravo, charlie)` — listen on all three with `select` and return the first message that lands.",
+
+  conceptFAQ: [
+    {
+      keywords: ["tie", "same time", "both ready", "random"],
+      response:
+        "if two cases are ready at the same instant, select picks one at random. no favorites, on purpose — so no channel can starve the others.",
+    },
+    {
+      keywords: ["default"],
+      response:
+        "hold off on default. it makes select stop waiting — if nobody's answered at that exact instant, you get nothing. the next step needs it. this one has to wait.",
+    },
+    {
+      keywords: ["select"],
+      response:
+        "select is a switch for channels. it waits until one of its cases can go, runs that one, and ignores the rest.",
+    },
+    {
+      keywords: ["in turn", "one by one", "sequential", "why not just receive"],
+      response:
+        "`<-alpha` first would wait for alpha even though bravo answered sooner. select listens to all three at once.",
+    },
+    {
+      keywords: ["losers", "other teams", "slow ones", "leak"],
+      response:
+        "they still answer — into their one-message buffers from hail, where the reply just sits. nobody is left stuck sending. that's why the 1 mattered.",
+    },
+    {
+      keywords: ["case", "syntax", "msg :="],
+      response: "one case per team: `case msg := <-alpha: return msg`. the receive happens only for the case that wins.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "`func firstResponder(alpha, bravo, charlie chan string) string { select { case msg := <-alpha: return msg ... } }` — three cases, each returns its message.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "firstResponder");
+        return body !== null && !/\bselect\s*\{/.test(body) && /<-\s*\w+/.test(body);
+      },
+      response:
+        "you're waiting on one team before the others. bravo answered first and you weren't listening to bravo yet. listen to all three at once — `select { case msg := <-alpha: ... }`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "firstResponder");
+        return body !== null && /\bdefault\s*:/.test(body);
+      },
+      response:
+        "default makes select give up at once — nobody has answered at that instant, so you get nothing. drop it. this select has to wait for the first voice.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "firstResponder");
+        return body !== null && /\bselect\s*\{/.test(body) && (body.match(/\bcase\b[^\n]*<-/g) ?? []).length < 3;
+      },
+      response: "one case per team — three cases. a team without a case is a team you can't hear.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "firstResponder");
+        return body !== null && /\bselect\s*\{/.test(body) && (body.match(/\bcase\b[^\n]*<-/g) ?? []).length >= 3 && /\breturn\b/.test(body);
+      },
+      response:
+        "bravo. first voice on the air, and the other two never held us up. dock 4. we have somewhere to run to.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => goFuncBody(code, "firstResponder") === null,
+      response: "write `func firstResponder(alpha, bravo, charlie chan string) string` above main.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => /first contact: (Alpha|Charlie) responding/.test(output),
+      response:
+        "you waited on a slower team. bravo answers at 100ms, but you were still listening to someone else. select listens to all three at once.",
+    },
+    {
+      match: (output) => /first contact:\s*$/m.test(output),
+      response: "empty — select took a default before anyone answered. drop the default so it waits for the first team.",
+    },
+  ],
+
+  correctResponse:
+    "bravo. first voice on the air, and the other two never held us up. dock 4. we have somewhere to run to.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. the terminal wants `hailing all teams...` then `first contact: Bravo responding`.",
+    "one select, three cases, each returns its message. whichever channel has a value first wins.",
+  ],
+
+  rushDialogue: ["frequencies are degrading. one select, three cases.", "now. whoever answers first."],
+
+  stuckResponses: [
+    "`select { case msg := <-alpha: return msg; case msg := <-bravo: return msg; case msg := <-charlie: return msg }` — one case per line.",
+    "a select blocks until any one case can go. it doesn't care about order, only about who's ready.",
+  ],
+
+  deflections: ["not now. three teams, one answer.", "later. who answers first is all that matters."],
+};
+
+// Chapter 09: Step 3 — Timeout
+const ch09TimeoutBank: StepBank = {
+  intro:
+    "if every frequency is jammed i can't stand in a stairwell forever. write `awaitContact` — step 2's select plus a `time.After` case that gives up with `NO CONTACT` — and `sweep`, which glances at one channel and never waits: a `default` case returns `channel silent`.",
+
+  conceptFAQ: [
+    {
+      keywords: ["time.after", "after", "timeout"],
+      response:
+        "`time.After(d)` returns a channel that delivers one value after `d`. as a fourth case, the teams race the clock — whichever fires first wins.",
+    },
+    {
+      keywords: ["duration", "timeoutms", "milliseconds", "mismatched types"],
+      response: "`time.Duration(timeoutMs) * time.Millisecond` — convert the int, then scale it. build it from the parameter, never a fixed number.",
+    },
+    {
+      keywords: ["default"],
+      response:
+        "default runs when no other case is ready right now. with a default, the select never waits — check and keep moving.",
+    },
+    {
+      keywords: ["which one", "timeout or default", "difference"],
+      response:
+        "timeout means wait, but not past the deadline. default means don't wait at all. awaitContact waits. sweep only glances.",
+    },
+    {
+      keywords: ["sleep", "time.sleep"],
+      response:
+        "a sleep always waits the whole time, even if bravo answered in the first second. `time.After` races — the answer wins the moment it lands.",
+    },
+    {
+      keywords: ["deadlock", "asleep", "all goroutines", "hang", "hangs"],
+      response:
+        "sweep without a default blocks on a channel nobody will ever send to — and go stops the program. the default is what makes the glance safe.",
+    },
+    {
+      keywords: ["what do i do", "what should i do", "what now", "where do i start", "start"],
+      response:
+        "awaitContact: your three cases plus `case <-time.After(time.Duration(timeoutMs) * time.Millisecond): return \"NO CONTACT\"`. sweep: `select { case msg := <-ch: return msg; default: return \"channel silent\" }`.",
+    },
+  ],
+
+  codePatterns: [
+    {
+      match: (code) => {
+        const p = lastIntParam(code, "awaitContact");
+        return !!p && new RegExp(`time\\.After\\(\\s*${p}\\s*\\)`).test(stripGoComments(code));
+      },
+      response:
+        "`time.After` wants a Duration, not a bare int. `time.After(time.Duration(timeoutMs) * time.Millisecond)`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "awaitContact");
+        const p = lastIntParam(code, "awaitContact");
+        const after = body ? /time\.After\(([^\n]*)\)/.exec(body) : null;
+        return !!after && !!p && !new RegExp(`\\b${p}\\b`).test(after[1]);
+      },
+      response:
+        "the deadline is fixed in your code, but the terminal passes a different one each time. build it from the parameter: `time.Duration(timeoutMs) * time.Millisecond`.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "awaitContact");
+        return body !== null && /\bdefault\s*:/.test(body);
+      },
+      response:
+        "awaitContact has a default, so it gives up the instant it looks — before any team can answer. drop it. awaitContact waits until the deadline. only sweep glances.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "awaitContact");
+        return body !== null && /time\.Sleep/.test(body);
+      },
+      response:
+        "a sleep waits the full time even when bravo answered early. race the clock instead — a `case <-time.After(...)` inside the select.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "sweep");
+        return body !== null && !/\bdefault\s*:/.test(body);
+      },
+      response:
+        "sweep has no default, so on a silent channel it blocks forever — and go stops the program. add `default: return \"channel silent\"` to its select.",
+    },
+    {
+      match: (code) => {
+        const body = goFuncBody(code, "sweep");
+        return body !== null && /time\.(Sleep|After)/.test(body);
+      },
+      response:
+        "sweep doesn't wait at all — no sleep, no timer. a select with the receive and a `default`, and that's it.",
+    },
+    {
+      match: (code) => {
+        const a = goFuncBody(code, "awaitContact");
+        const s = goFuncBody(code, "sweep");
+        return a !== null && s !== null && /\bselect\b/.test(a) && /time\.After\(/.test(a) && /\bselect\b/.test(s) && /\bdefault\s*:/.test(s);
+      },
+      response:
+        "bravo answers inside the window, the jammed line gives up on time, and the sweep never stops to stare. dock 4, forty minutes. extraction is locked.\n\n||COMPLETE||",
+    },
+    {
+      match: (code) => goFuncBody(code, "awaitContact") === null,
+      response:
+        "write `func awaitContact(alpha, bravo, charlie chan string, timeoutMs int) string` — your select plus a deadline.",
+    },
+    {
+      match: (code) => goFuncBody(code, "sweep") === null,
+      response: "now `func sweep(ch chan string) string` — one receive case and a `default`.",
+    },
+    {
+      match: () => true,
+      response:
+        "awaitContact needs a fourth case: `case <-time.After(time.Duration(timeoutMs) * time.Millisecond): return \"NO CONTACT\"`.",
+    },
+  ],
+
+  outputPatterns: [
+    {
+      match: (output) => output.trim().startsWith("contact: NO CONTACT"),
+      response:
+        "you gave up on bravo before bravo could answer. awaitContact has to wait until the deadline it's given — no default, and the timeout built from timeoutMs.",
+    },
+    {
+      match: (output) => (output.match(/sweep: channel silent/g) ?? []).length >= 2,
+      response:
+        "the first sweep had a message waiting and still came back silent. the receive has to be a case in the same select as default — `case msg := <-ch: return msg`. select only takes default when no case is ready.",
+    },
+    {
+      match: (output) => output.includes("NO CONTACT") === false && output.includes("contact:"),
+      response:
+        "the jammed line never timed out. add `case <-time.After(time.Duration(timeoutMs) * time.Millisecond): return \"NO CONTACT\"`.",
+    },
+  ],
+
+  correctResponse:
+    "bravo answers inside the window, the jammed line gives up on time, and the sweep never stops to stare. dock 4, forty minutes. extraction is locked.\n\n||COMPLETE||",
+
+  genericWrong: [
+    "not matching. a team that answers in time comes back as `contact: <reply>`, a jammed line as `contact: NO CONTACT`, and sweep says `channel silent` only when nothing's waiting.",
+    "two functions. awaitContact waits, but only until the deadline. sweep never waits.",
+  ],
+
+  rushDialogue: ["window's closing. time.After in one, default in the other.", "now. never wait forever."],
+
+  stuckResponses: [
+    "awaitContact: `select { case msg := <-alpha: return msg; case msg := <-bravo: return msg; case msg := <-charlie: return msg; case <-time.After(time.Duration(timeoutMs) * time.Millisecond): return \"NO CONTACT\" }`.",
+    "sweep: `select { case msg := <-ch: return msg; default: return \"channel silent\" }`. default is the don't-wait case.",
+  ],
+
+  deflections: ["not now. the extraction window is closing.", "later. a deadline first, then we talk."],
+};
+
 // ── Registry ──
 
 // Go is the original realization. Other languages author their own banks under
@@ -2100,6 +3495,17 @@ const GO_BANKS: Record<string, StepBank> = {
   "chapter-04.2:relayheader": ch04_2RelayheaderBank,
   "boss-01:scaffold": boss01ScaffoldBank,
   "boss-01:predict": boss01PredictBank,
+  "chapter-07:scaffold": ch07ScaffoldBank,
+  "chapter-07:scan": ch07ScanBank,
+  "chapter-07:recover": ch07RecoverBank,
+  "chapter-08:scaffold": ch08ScaffoldBank,
+  "chapter-08:goroutine": ch08GoroutineBank,
+  "chapter-08:fanout": ch08FanoutBank,
+  "chapter-08:window": ch08WindowBank,
+  "chapter-09:scaffold": ch09ScaffoldBank,
+  "chapter-09:hail": ch09HailBank,
+  "chapter-09:first": ch09FirstBank,
+  "chapter-09:timeout": ch09TimeoutBank,
 };
 
 const BANKS: Record<LanguageId, Record<string, StepBank>> = {

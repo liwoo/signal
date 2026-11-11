@@ -149,6 +149,75 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       ],
     },
   },
+  "chapter-07": {
+    headline: "You walked a tree of any depth — and survived the broken branches.",
+    pattern: "RECURSE → CLEAN UP ON THE WAY OUT → CATCH AT EACH LEVEL",
+    snippet: {
+      go: { start: /^\s*func\s+safeScan\b/ },
+      python: { start: /^\s*def\s+safe_scan\b/ },
+      javascript: { start: /^\s*(function\s+safeScan\b|(const|let|var)\s+safeScan\b)/ },
+    },
+    fallback: {
+      go: 'func safeScan(archive map[string][]string, root string) (int, []string) {\n    count := 0\n    errs := []string{}\n    var scan func(dir string)\n    scan = func(dir string) {\n        defer func() {\n            if r := recover(); r != nil {\n                errs = append(errs, fmt.Sprintf("%s: %v", dir, r))\n            }\n        }()\n        defer fmt.Println("scanned:", dir)\n        if archive[dir] == nil {\n            panic("corrupted directory")\n        }\n        for _, entry := range archive[dir] {\n            if strings.HasSuffix(entry, "/") {\n                scan(strings.TrimSuffix(entry, "/"))\n            } else {\n                count++\n            }\n        }\n    }\n    scan(root)\n    return count, errs\n}',
+      python: 'def safe_scan(archive, root):\n    count = 0\n    errors = []\n\n    def scan(d):\n        nonlocal count\n        try:\n            if archive[d] is None:\n                raise RuntimeError("corrupted directory")\n            for entry in archive[d]:\n                if entry.endswith("/"):\n                    scan(entry[:-1])\n                else:\n                    count += 1\n        except Exception as e:\n            errors.append(f"{d}: {e}")\n        finally:\n            print("scanned:", d)\n\n    scan(root)\n    return count, errors',
+      javascript: 'function safeScan(archive, root) {\n  let count = 0;\n  const errors = [];\n  function scan(dir) {\n    try {\n      if (archive[dir] === null) throw new Error("corrupted directory");\n      for (const entry of archive[dir]) {\n        if (entry.endsWith("/")) scan(entry.slice(0, -1));\n        else count++;\n      }\n    } catch (e) {\n      errors.push(`${dir}: ${e.message}`);\n    } finally {\n      console.log("scanned:", dir);\n    }\n  }\n  scan(root);\n  return { count, errors };\n}',
+    },
+    why: "a function that calls itself handles any depth, and catching trouble at each level keeps one bad branch from sinking the whole walk.",
+    useIt: "folder sizes, nested comments, org charts, menus — anything that contains smaller copies of itself.",
+    transfer: {
+      question: "a second folder, logs, turns out corrupted too. what happens to the scan?",
+      options: [
+        { label: "both errors are logged and the count still finishes", correct: true, reply: "right. every level guards itself, so each broken folder is caught where it breaks and the walk carries on." },
+        { label: "the scan stops at the first broken folder", correct: false, reply: "only if the catch lived at the top. here each call catches its own trouble, so the walk keeps going." },
+      ],
+    },
+  },
+  "chapter-08": {
+    headline: "You ran four jobs at once and waited for all of them.",
+    pattern: "START EVERY JOB → WAIT FOR ALL → READ RESULTS IN ORDER",
+    snippet: {
+      go: { start: /^\s*func\s+cutTimed\b/ },
+      python: { start: /^\s*async\s+def\s+cut_timed\b/ },
+      javascript: { start: /^\s*(async\s+function\s+cutTimed\b|function\s+cutTimed\b|(const|let|var)\s+cutTimed\b)/ },
+    },
+    fallback: {
+      go: 'func cutTimed(circuits []string, delays []int) []string {\n    results := make([]string, len(circuits))\n    var wg sync.WaitGroup\n    for i, name := range circuits {\n        wg.Add(1)\n        go func(idx int, n string, d int) {\n            defer wg.Done()\n            time.Sleep(time.Duration(d) * time.Millisecond)\n            results[idx] = fmt.Sprintf("%s circuit: DOWN (%dms)", n, d)\n        }(i, name, delays[i])\n    }\n    wg.Wait()\n    return results\n}',
+      python: 'async def cut_timed(circuits, delays):\n    async def trip(n, d):\n        await asyncio.sleep(d / 1000)\n        return f"{n} circuit: DOWN ({d}ms)"\n\n    return await asyncio.gather(*(trip(n, d) for n, d in zip(circuits, delays)))',
+      javascript: 'async function cutTimed(circuits, delays) {\n  return Promise.all(\n    circuits.map(async (name, i) => {\n      await sleep(delays[i]);\n      return `${name} circuit: DOWN (${delays[i]}ms)`;\n    }),\n  );\n}',
+    },
+    why: "jobs that wait at the same time cost the slowest wait, not the sum of them all.",
+    useIt: "loading several web requests at once, resizing a batch of images, checking many servers in one go.",
+    transfer: {
+      question: "a fifth breaker takes 900ms. how long is the window now?",
+      options: [
+        { label: "about 900ms", correct: true, reply: "right. they all wait at once, so the window is the slowest breaker." },
+        { label: "about 2000ms", correct: false, reply: "that's the sum — one after another. run together, only the slowest one counts." },
+      ],
+    },
+  },
+  "chapter-09": {
+    headline: "You took the first answer — and refused to wait forever.",
+    pattern: "ASK EVERYONE → TAKE THE FIRST → GIVE UP AT THE DEADLINE",
+    snippet: {
+      go: { start: /^\s*func\s+awaitContact\b/ },
+      python: { start: /^\s*async\s+def\s+await_contact\b/ },
+      javascript: { start: /^\s*(async\s+function\s+awaitContact\b|function\s+awaitContact\b|(const|let|var)\s+awaitContact\b)/ },
+    },
+    fallback: {
+      go: 'func awaitContact(alpha, bravo, charlie chan string, timeoutMs int) string {\n    select {\n    case msg := <-alpha:\n        return msg\n    case msg := <-bravo:\n        return msg\n    case msg := <-charlie:\n        return msg\n    case <-time.After(time.Duration(timeoutMs) * time.Millisecond):\n        return "NO CONTACT"\n    }\n}',
+      python: 'async def await_contact(alpha, bravo, charlie, timeout_ms):\n    done, pending = await asyncio.wait(\n        [alpha, bravo, charlie], timeout=timeout_ms / 1000, return_when=asyncio.FIRST_COMPLETED\n    )\n    for t in pending:\n        t.cancel()\n    if not done:\n        return "NO CONTACT"\n    return done.pop().result()',
+      javascript: 'function awaitContact(alpha, bravo, charlie, timeoutMs) {\n  const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), timeoutMs));\n  return Promise.race([alpha, bravo, charlie, deadline]);\n}',
+    },
+    why: "ask everyone at once, take whoever answers first, and put a deadline on the wait so a silent line can't freeze you.",
+    useIt: "the fastest mirror for a download, a search that stops after two seconds, a page that shows cached data when the network hangs.",
+    transfer: {
+      question: "every team is jammed and the deadline is 300ms. what comes back, and when?",
+      options: [
+        { label: "NO CONTACT, after 300ms", correct: true, reply: "right. nobody answers, so the deadline wins the race." },
+        { label: "nothing — it waits for a team", correct: false, reply: "that's the hang the deadline exists to prevent. after 300ms it gives up and says so." },
+      ],
+    },
+  },
 };
 
 export function takeawayFor(chapterId: string): ChapterTakeaway | undefined {

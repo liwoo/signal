@@ -10,7 +10,7 @@ export interface ChatMsg {
   id: string;
   from: string;
   text: string;
-  type: "maya" | "you" | "sys" | "win" | "err" | "dim" | "zen";
+  type: "maya" | "you" | "sys" | "win" | "err" | "dim" | "zen" | "kira" | "reeves" | "ghost";
   animated: boolean;
 }
 
@@ -44,9 +44,12 @@ const MSG_COLORS: Record<string, string> = {
   err: "var(--color-danger)",
   dim: "var(--color-dim)",
   zen: "var(--color-info)",
+  kira: "var(--color-kira)",
+  reeves: "var(--color-paper)",
+  ghost: "var(--color-danger)",
 };
 
-const MAYA_TYPES = new Set(["maya", "win", "zen"]);
+const MAYA_TYPES = new Set(["maya", "win", "zen", "kira", "reeves", "ghost"]);
 
 /** Fold runs of identical system lines ("energy drain" ×3) into one chip. */
 function collapseSystemNoise(messages: ChatMsg[]): Array<{ msg: ChatMsg; repeats: number }> {

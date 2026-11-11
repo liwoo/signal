@@ -48,4 +48,40 @@ describe("python via pyodide", () => {
   it("caps runaway output", async () => {
     expect((await runPython({ main: `for i in range(10**6):\n    print(i)` })).error).toMatch(/too much output/);
   }, 30000);
+
+  describe("asyncio on a virtual clock", () => {
+    it("runs top-level await in the harness and measures concurrency exactly", async () => {
+      const main = `import asyncio\n\nasync def cut(name, d):\n    await asyncio.sleep(d / 1000)\n    return f"{name} {d}"`;
+      const harness = `loop = asyncio.get_running_loop()\nt0 = loop.time()\nprint(await asyncio.gather(cut("N", 300), cut("E", 450)))\nprint(round((loop.time() - t0) * 1000))`;
+      expect((await runPython({ main, harness })).stdout).toBe("['N 300', 'E 450']\n450\n");
+    }, 30000);
+
+    it("never runs a task nobody waited for, like a goroutine when main returns", async () => {
+      const main = `import asyncio\n\nasync def cut(name):\n    print(name)\n\ndef cut_async(name):\n    return asyncio.create_task(cut(name))`;
+      expect((await runPython({ main, harness: `cut_async("South")\nprint("done")` })).stdout).toBe("done\n");
+      expect((await runPython({ main, harness: `cut_async("South")\nawait asyncio.sleep(0.1)\nprint("done")` })).stdout).toBe("South\ndone\n");
+    }, 30000);
+
+    it("keeps tasks the player's own code started muted under a harness", async () => {
+      const main = `import asyncio\n\nasync def noisy():\n    await asyncio.sleep(0.01)\n    print("leftover")\n\nasyncio.create_task(noisy())\nprint(await asyncio.sleep(0, "awaited"))`;
+      const out = await runPython({ main, harness: `await asyncio.sleep(0.1)\nprint("f")` });
+      expect(out.error).toBe("");
+      expect(out.stdout).toBe("f\n");
+    }, 30000);
+
+    it("lets a blocking time.sleep block everything, as it really would", async () => {
+      const main = `import asyncio, time\n\nasync def nap(d):\n    time.sleep(d)\n\nloop = asyncio.get_running_loop()\nt0 = loop.time()\nawait asyncio.gather(nap(0.3), nap(0.45))\nprint(round((loop.time() - t0) * 1000))`;
+      expect((await runPython({ main })).stdout).toBe("750\n");
+    }, 30000);
+
+    it("reports a deadlock instead of hanging", async () => {
+      const out = await runPython({ main: `import asyncio\nawait asyncio.get_running_loop().create_future()` });
+      expect(out.error).toMatch(/deadlock/);
+    }, 30000);
+
+    it("blames the player's line for an error inside a coroutine", async () => {
+      const out = await runPython({ main: `import asyncio\n\nasync def f():\n    await asyncio.sleep(0.1)\n    return 1 + "x"`, harness: `await f()` });
+      expect(parsePyError(out.error)).toMatchObject({ file: "main.py", line: 5, name: "TypeError" });
+    }, 30000);
+  });
 });

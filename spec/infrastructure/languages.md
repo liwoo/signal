@@ -29,6 +29,13 @@ Consumers resolve a service with `getLanguageService(id)` — never import `lib/
 - Field manual: `data/beginner-notes.<lang>.ts` (`blocks` + `notesBlocks`, no Go diagrams); `bookFor(lang)` re-skins the cover title.
 - Warm-up drills, AI suggestions, guided tour copy, concept tracker (`curriculumFor(lang)`) are language-aware.
 
+## Async programs run on a virtual clock (Act III)
+
+Act III teaches concurrency, and its harnesses *measure* it (Ch 8: concurrent = max of the delays, sequential = sum). The Go Playground already runs on a fake clock; the other sandboxes now do too:
+
+- **Python** (`lib/python/driver.ts`): main and harness compile with top-level `await` allowed; a coroutine result runs on `_SignalLoop`, a `BaseEventLoop` whose `select(timeout)` advances virtual time. `asyncio.sleep` is instant, `loop.time()` exact. Nothing runnable + nothing scheduled = `RuntimeError: deadlock`. Unawaited tasks are cancelled at the end, never finished (like goroutines when main returns). Output muting follows a `ContextVar`, so tasks the player's own top-level code started stay muted when they run during the harness.
+- **JavaScript** (`lib/javascript/runtime.ts`, `executeJs` is now async): main runs inside an async wrapper; `setTimeout`/`setInterval`/`setImmediate`, `Date` and `performance.now` are sandbox-provided on a virtual timer queue. Main runs (muted) until its top-level code settles, then the harness runs as its own phase; timers keep the mute state they were scheduled under. An unsettled top-level await is reported; promises print as `Promise { <pending> }`.
+
 ## Persistence
 
 `settings.language` (default `"go"`) + `settings.languageChosen` (picker shown once on the chapter intro, switchable on any intro). Progress is `ProgressStore { version: 2, byLanguage }`; v1 saves migrate into `byLanguage.go` (`migrateProgress`). XP, hearts, and the zen library are the player's, shared across languages.

@@ -1,6 +1,6 @@
 import type { ZenExample } from "./zen-examples";
 
-// Before → after for every Python zen rule (src/lib/game/zen-python.ts), Acts I and II.
+// Before → after for every Python zen rule (src/lib/game/zen-python.ts), Acts I–III.
 export const PYTHON_ZEN_EXAMPLES: Record<string, ZenExample> = {
   py_no_semicolon: {
     before: 'print("Hello World");',
@@ -186,5 +186,121 @@ export const PYTHON_ZEN_EXAMPLES: Record<string, ZenExample> = {
     before: 'return "F" + str(floor) + "-C" + str(n * 2)',
     after: 'return f"F{floor}-C{n * 2}"',
     change: "an f-string reads like the header it builds",
+  },
+  // ── Act III ──
+  py_spaces_not_tabs: {
+    before: 'def scan(d):\n\tprint("scanned:", d)',
+    after: 'def scan(d):\n    print("scanned:", d)',
+    change: "indent with four spaces, never a tab",
+  },
+  py_nonlocal_counter: {
+    before: "count = [0]\n\ndef scan(d):\n    count[0] += 1",
+    after: "count = 0\n\ndef scan(d):\n    nonlocal count\n    count += 1",
+    change: "say which outer name the closure changes",
+  },
+  py_finally_log: {
+    before: 'def scan(d):\n    for entry in archive[d]:\n        ...\n    print("scanned:", d)',
+    after: 'def scan(d):\n    try:\n        for entry in archive[d]:\n            ...\n    finally:\n        print("scanned:", d)',
+    change: "the log runs on the way out, whatever happens",
+  },
+  py_endswith: {
+    before: 'if entry[-1] == "/":',
+    after: 'if entry.endswith("/"):',
+    change: "ask the string in words",
+  },
+  py_except_per_call: {
+    before: 'try:\n    scan(root)\nexcept Exception as e:\n    errors.append(f"{root}: {e}")',
+    after: 'def scan(d):\n    try:\n        ...\n    except Exception as e:\n        errors.append(f"{d}: {e}")',
+    change: "each directory catches its own error",
+  },
+  py_specific_raise: {
+    before: 'raise Exception("corrupted directory")',
+    after: 'raise RuntimeError("corrupted directory")',
+    change: "name the kind of trouble",
+  },
+  py_is_none: {
+    before: "if archive[d] == None:",
+    after: "if archive[d] is None:",
+    change: "check for None by identity",
+  },
+  py_unused_import: {
+    before: 'import asyncio\n\nprint("Hello World")',
+    after: 'print("Hello World")',
+    change: "import it in the step that uses it",
+  },
+  py_no_space_inside_brackets: {
+    before: 'print( "Hello World" )',
+    after: 'print("Hello World")',
+    change: "no padding just inside the brackets",
+  },
+  py_task_reference: {
+    before: "def cut_async(name):\n    asyncio.create_task(cut(name))",
+    after: "def cut_async(name):\n    return asyncio.create_task(cut(name))",
+    change: "hand the task back instead of dropping it",
+  },
+  py_asyncio_namespace: {
+    before: "from asyncio import create_task\n\ncreate_task(cut(name))",
+    after: "import asyncio\n\nasyncio.create_task(cut(name))",
+    change: "keep the event-loop tools under asyncio",
+  },
+  py_gather_not_loop: {
+    before: "lines = []\nfor n in circuits:\n    lines.append(await trip(n))",
+    after: "lines = await asyncio.gather(*(trip(n) for n in circuits))",
+    change: "start them all, then wait once",
+  },
+  py_gather_results: {
+    before: "lines = []\nfor line in await asyncio.gather(*tasks):\n    lines.append(line)\nreturn lines",
+    after: "return await asyncio.gather(*tasks)",
+    change: "gather already returns the list, in order",
+  },
+  py_async_sleep: {
+    before: "async def trip_timed(n, d):\n    time.sleep(d / 1000)",
+    after: "async def trip_timed(n, d):\n    await asyncio.sleep(d / 1000)",
+    change: "await the sleep so the others get their turn",
+  },
+  py_zip_pairs: {
+    before: "for i in range(len(circuits)):\n    trip_timed(circuits[i], delays[i])",
+    after: "for n, d in zip(circuits, delays):\n    trip_timed(n, d)",
+    change: "walk the two lists side by side",
+  },
+  py_no_extra_parens: {
+    before: 'print(("Hello World"))',
+    after: 'print("Hello World")',
+    change: "drop the brackets that only wrap",
+  },
+  py_hail_plain_def: {
+    before: "async def hail(team, delay_ms):\n    await asyncio.sleep(delay_ms / 1000)\n    return f\"{team} responding\"",
+    after: "def hail(team, delay_ms):\n    async def respond():\n        await asyncio.sleep(delay_ms / 1000)\n        return f\"{team} responding\"\n\n    return asyncio.create_task(respond())",
+    change: "hail schedules, respond waits",
+  },
+  py_ms_to_seconds: {
+    before: "await asyncio.sleep(delay_ms // 1000)",
+    after: "await asyncio.sleep(delay_ms / 1000)",
+    change: "one slash keeps the fraction of a second",
+  },
+  py_cancel_losers: {
+    before: "done, pending = await asyncio.wait(teams, return_when=asyncio.FIRST_COMPLETED)\nreturn done.pop().result()",
+    after: "done, pending = await asyncio.wait(teams, return_when=asyncio.FIRST_COMPLETED)\nfor t in pending:\n    t.cancel()\nreturn done.pop().result()",
+    change: "stop the tasks that lost the race",
+  },
+  py_unpack_wait: {
+    before: "result = await asyncio.wait(teams, return_when=asyncio.FIRST_COMPLETED)\nreturn result[0].pop().result()",
+    after: "done, pending = await asyncio.wait(teams, return_when=asyncio.FIRST_COMPLETED)\nreturn done.pop().result()",
+    change: "name both sets the wait hands back",
+  },
+  py_sweep_plain_def: {
+    before: "async def sweep(task):\n    if task.done():\n        return task.result()\n    return \"channel silent\"",
+    after: "def sweep(task):\n    if task.done():\n        return task.result()\n    return \"channel silent\"",
+    change: "a glance never waits, so it isn't async",
+  },
+  py_timeout_from_param: {
+    before: "await asyncio.wait(teams, timeout=0.2, return_when=asyncio.FIRST_COMPLETED)",
+    after: "await asyncio.wait(teams, timeout=timeout_ms / 1000, return_when=asyncio.FIRST_COMPLETED)",
+    change: "the deadline comes from the caller",
+  },
+  py_empty_falsy: {
+    before: 'if len(done) == 0:\n    return "NO CONTACT"',
+    after: 'if not done:\n    return "NO CONTACT"',
+    change: "an empty set is already false",
   },
 };
