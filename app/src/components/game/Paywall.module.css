@@ -1162,10 +1162,12 @@
     font-size: 9px;
     letter-spacing: 2px;
   }
+  /* Four languages: a 2×2 grid instead of a ragged wrap. */
   .heroLanguages ul {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, auto);
     justify-content: center;
-    gap: 10px 14px;
+    gap: 10px 22px;
   }
   .heroLanguages li {
     font-size: 10px;
