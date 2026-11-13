@@ -9,7 +9,9 @@ describe("registry", () => {
     expect(getLanguageService("python").mainFile).toBe("main.py");
     expect(getLanguageService(undefined).id).toBe("go");
     expect(isLanguageId("python")).toBe(true);
-    expect(isLanguageId("rust")).toBe(false);
+    expect(getLanguageService("rust").mainFile).toBe("main.rs");
+    expect(isLanguageId("rust")).toBe(true);
+    expect(isLanguageId("cobol")).toBe(false);
   });
 });
 

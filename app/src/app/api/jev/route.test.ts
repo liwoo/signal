@@ -71,7 +71,7 @@ describe("/api/jev", () => {
 
   test("rejects steps outside Act I and oversized input", async () => {
     expect((await post({ task: "zen", stepId: "chapter-04:guardmap", language: "go", code: "x" })).status).toBe(400);
-    expect((await post({ task: "zen", stepId: "chapter-02:loop", language: "rust", code: "x" })).status).toBe(400);
+    expect((await post({ task: "zen", stepId: "chapter-02:loop", language: "cobol", code: "x" })).status).toBe(400);
     expect((await post({ task: "zen", stepId: "chapter-02:loop", language: "go", code: "x".repeat(7000) })).status).toBe(413);
     expect(
       (await post({ task: "help", stepId: "chapter-02:loop", language: "go", code: "", message: "y".repeat(600) })).status

@@ -10,15 +10,27 @@ import { ZEN_EXAMPLES } from "@/data/zen-examples";
 import { getBeginnerNotes } from "@/data/beginner-notes";
 import { bookChapterFor, bookFor } from "@/data/book";
 import { usePyodideInNode } from "@/lib/python/node-backend";
-import { HARDCODED, REALIZED_CHAPTERS, SOLUTIONS } from "./fixtures";
+import { installLocalRustc } from "@/lib/rust/node-backend";
+import { chaptersRealizedIn, HARDCODED, NON_GO_LANGUAGES, SOLUTIONS } from "./fixtures";
 import type { ChallengeStep, LanguageId } from "@/types/game";
 
 const GOISMS = /fmt\.|func main|package main|:=|go vet|gofmt|\bgo (program|code|compiler|file)\b|\bgolang\b/i;
-const LANGS = ["javascript", "python"] as const;
-const PREFIX: Record<(typeof LANGS)[number], string> = { javascript: "js_", python: "py_" };
+const LANGS = NON_GO_LANGUAGES;
+const PREFIX: Record<(typeof LANGS)[number], string> = { javascript: "js_", python: "py_", rust: "rs_" };
+
+// Rust compiles with a local rustc in tests (no network); without one, the
+// steps that have to actually run are skipped.
+const HAS_RUSTC = installLocalRustc();
+const cannotRun = (language: LanguageId) => language === "rust" && !HAS_RUSTC;
 
 const STEPS = (language: LanguageId): ChallengeStep[] =>
-  REALIZED_CHAPTERS.flatMap((c) => realizeChallenge(c, language).steps);
+  chaptersRealizedIn(language).flatMap((c) => realizeChallenge(c, language).steps);
+
+const BROKEN: Record<(typeof LANGS)[number], string> = {
+  javascript: `console.log("Hello World";`,
+  python: `print("Hello World"`,
+  rust: `fn main() {\n    println!("Hello World";\n}`,
+};
 
 function stepTest(step: ChallengeStep): StepTestConfig {
   return {
@@ -78,22 +90,21 @@ describe.each(LANGS)("Maya's banks · %s", (language) => {
         expect(chat.isComplete).toBe(false);
       });
 
-      it("completes on the reference solution", async () => {
+      it.skipIf(cannotRun(language))("completes on the reference solution", async () => {
         const res = await callMayaEngineAsync(step.id, SOLUTIONS[language][step.id], true, false, false, 0, stepTest(step), language);
         expect(res.reply).not.toContain("||COMPLETE||");
         expect(res.isComplete, res.reply).toBe(true);
       }, 30000);
 
       it("rejects a broken program with a line number", async () => {
-        const broken = language === "javascript" ? `console.log("Hello World";` : `print("Hello World"`;
-        const res = await callMayaEngineAsync(step.id, broken, true, false, false, 0, stepTest(step), language);
+        const res = await callMayaEngineAsync(step.id, BROKEN[language], true, false, false, 0, stepTest(step), language);
         expect(res.isComplete).toBe(false);
         expect(res.reply).toMatch(/line \d+/);
       }, 30000);
 
       const shortcut = HARDCODED[language][step.id];
       if (shortcut) {
-        it("rejects the hardcoded shortcut", async () => {
+        it.skipIf(cannotRun(language))("rejects the hardcoded shortcut", async () => {
           const res = await callMayaEngineAsync(step.id, shortcut, true, false, false, 0, stepTest(step), language);
           expect(res.isComplete).toBe(false);
         }, 30000);
@@ -145,7 +156,7 @@ describe.each(LANGS)("field manual · %s", (language) => {
     expect(bookChapterFor("chapter-01", language)!.found).toContain(`'${language}: a field manual'`);
   });
 
-  for (const id of [...REALIZED_CHAPTERS.map((c) => c.id), "boss-01"]) {
+  for (const id of [...chaptersRealizedIn(language).map((c) => c.id), "boss-01"]) {
     it(`${id}: has notes with no go in the code`, () => {
       const notes = getBeginnerNotes(id, language);
       expect(notes, "notes missing").not.toBeNull();

@@ -79,8 +79,8 @@ const EXERCISES: Record<ExerciseNum, ExerciseConfig> = {
 };
 
 // The same four drills in each language: print, a variable, text with a value
-// in it, and the thing level 1 builds on — Go's skeleton, or (with no skeleton
-// to build) importing a value from another file.
+// in it, and the thing level 1 builds on — Go's (or Rust's) skeleton, or (with
+// no skeleton to build) importing a value from another file.
 const EXERCISES_BY_LANGUAGE: Record<Exclude<LanguageId, "go">, Record<ExerciseNum, ExerciseConfig>> = {
   javascript: {
     1: { title: "ECHO", maya: "type it exactly. this prints one line to the terminal — how you tell me you're alive.", xp: 10, successLabel: "✓ SIGNAL SENT", placeholder: `console.log("i'm in");`, multiline: false },
@@ -93,6 +93,11 @@ const EXERCISES_BY_LANGUAGE: Record<Exclude<LanguageId, "go">, Record<ExerciseNu
     2: { title: "A VARIABLE", maya: "store a value with =, then print it back.", xp: 15, successLabel: "✓ VARIABLE STORED", placeholder: `cell = "B-09"\nprint(cell)`, multiline: true },
     3: { title: "AN F-STRING", maya: "an f before the quotes, braces where the value goes. {cell} is a blank the value fills in.", xp: 15, successLabel: "✓ SIGNAL FORMATTED", placeholder: `print(f"CELL {cell}")`, multiline: false },
     4: { title: "AN IMPORT", maya: "no skeleton in python — the file is the program. but the facility keeps its data in other files. import one and reach in with a dot.", xp: 25, successLabel: "✓ TERMINAL ONLINE", placeholder: `import cellblock\nprint(cellblock.CELL)`, multiline: true },
+  },  rust: {
+    1: { title: "ECHO", maya: "type it exactly. this prints one line to the terminal — the bang means println is a macro, and the semicolon ends the line.", xp: 10, successLabel: "✓ SIGNAL SENT", placeholder: `println!("i'm in");`, multiline: false },
+    2: { title: "A VARIABLE", maya: "store a value with let, then print it back. {} is the slot the value fills.", xp: 15, successLabel: "✓ VARIABLE STORED", placeholder: `let cell = "B-09";\nprintln!("{}", cell);`, multiline: true },
+    3: { title: "A FORMAT STRING", maya: "text and a slot in one line. the value after the comma drops into the {}.", xp: 15, successLabel: "✓ SIGNAL FORMATTED", placeholder: `println!("CELL {}", cell);`, multiline: false },
+    4: { title: "THE SKELETON", maya: "every rust program starts in main. type the whole thing — you'll build one to unlock the terminal.", xp: 25, successLabel: "✓ TERMINAL ONLINE", placeholder: `fn main() {\n    println!("i'm in");\n}`, multiline: true },
   },
 };
 

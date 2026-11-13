@@ -2,7 +2,6 @@
 // act1/act2 fixtures: code carries forward between steps, and later steps keep
 // earlier top-level output to prove the harness mutes it.
 
-import type { LanguageId } from "@/types/game";
 import type { Solutions } from "./act1.fixtures";
 
 // ── JavaScript ──
@@ -250,10 +249,10 @@ def sweep(task):
     return "channel silent"`,
 };
 
-export const ACT3_SOLUTIONS: Record<Exclude<LanguageId, "go">, Solutions> = { javascript: JS, python: PY };
+export const ACT3_SOLUTIONS: Record<"javascript" | "python", Solutions> = { javascript: JS, python: PY };
 
 /** The classic mistake each step exists to catch — all must fail. */
-export const ACT3_HARDCODED: Record<Exclude<LanguageId, "go">, Partial<Solutions>> = {
+export const ACT3_HARDCODED: Record<"javascript" | "python", Partial<Solutions>> = {
   javascript: {
     // Runs South right now instead of scheduling it.
     "chapter-08:goroutine": `function cut(name) {

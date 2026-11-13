@@ -42,13 +42,13 @@ export function isJevStep(stepId: string): boolean {
   return (JEV_CHAPTERS as readonly string[]).includes(chapter);
 }
 
-export const JEV_LANGUAGES: readonly LanguageId[] = ["go", "python", "javascript"];
+export const JEV_LANGUAGES: readonly LanguageId[] = ["go", "python", "javascript", "rust"];
 
 /** Hard caps on what a request may carry — the route is public. */
 export const JEV_MAX_CODE = 6000;
 export const JEV_MAX_MESSAGE = 500;
 
-const LANGUAGE_NAMES: Record<LanguageId, string> = { go: "Go", python: "Python", javascript: "JavaScript" };
+const LANGUAGE_NAMES: Record<LanguageId, string> = { go: "Go", python: "Python", javascript: "JavaScript", rust: "Rust" };
 
 function clip(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + "…" : text;

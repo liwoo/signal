@@ -84,6 +84,10 @@ const SECTIONS: LegalSection[] = [
           (go.dev), which Google operates under its own terms.
         </p>
         <p>
+          <strong>Rust:</strong> to compile and run Rust, your code is sent through our server to the official Rust
+          Playground (play.rust-lang.org), which the Rust project operates under its own terms.
+        </p>
+        <p>
           <strong>Python and JavaScript:</strong> your code runs entirely in your browser. Python runs on Pyodide, which
           your browser downloads from the jsDelivr CDN; neither Pyodide nor jsDelivr receives your code.
         </p>

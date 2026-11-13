@@ -80,11 +80,11 @@ export function ChapterTakeaway({
   const [screen, setScreen] = useState<"pattern" | "transfer">("pattern");
   const [answer, setAnswer] = useState<number | null>(null);
 
-  const fromSolution = useMemo(
-    () => extractSnippet(code, takeaway.snippet[language], language === "python"),
-    [code, takeaway, language],
-  );
-  const snippet = fromSolution ?? takeaway.fallback[language];
+  const fromSolution = useMemo(() => {
+    const rule = takeaway.snippet[language];
+    return rule ? extractSnippet(code, rule, language === "python") : null;
+  }, [code, takeaway, language]);
+  const snippet = fromSolution ?? takeaway.fallback[language] ?? takeaway.fallback.go;
   const transferred = answer !== null && takeaway.transfer.options[answer]?.correct === true;
 
   const download = () => {

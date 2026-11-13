@@ -10,6 +10,7 @@
 import type { LanguageId } from "@/types/game";
 import { JAVASCRIPT_BEGINNER_NOTES } from "./beginner-notes.javascript";
 import { PYTHON_BEGINNER_NOTES } from "./beginner-notes.python";
+import { RUST_BEGINNER_NOTES } from "./beginner-notes.rust";
 
 export interface Hotspot {
   text: string;     // exact substring in the code to highlight
@@ -2211,6 +2212,7 @@ const NOTES_BY_LANGUAGE: Record<LanguageId, Record<string, BeginnerNotes>> = {
   go: BEGINNER_NOTES,
   javascript: JAVASCRIPT_BEGINNER_NOTES,
   python: PYTHON_BEGINNER_NOTES,
+  rust: RUST_BEGINNER_NOTES,
 };
 
 export function getBeginnerNotes(challengeId: string, language: LanguageId = "go"): BeginnerNotes | null {

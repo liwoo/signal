@@ -205,7 +205,8 @@ else console.log("stream integrity: CORRUPTED - frames mutated after send");`,
 `,
 };
 
-export const ALLEGIANCE: Record<LanguageId, AllegianceRealization> = {
+/** Kira's code per language. Act III isn't realized in Rust yet, so Rust has none (the boss is Go-only there). */
+export const ALLEGIANCE: Record<Exclude<LanguageId, "rust">, AllegianceRealization> & Partial<Record<LanguageId, AllegianceRealization>> = {
   go: GO,
   python: PYTHON,
   javascript: JAVASCRIPT,

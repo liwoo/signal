@@ -8,6 +8,7 @@ import { tokenize, type Token } from "@/lib/go/tokenizer";
 import type { LanguageId } from "@/types/game";
 import { JAVASCRIPT_ZEN_RULES } from "./zen-javascript";
 import { PYTHON_ZEN_RULES } from "./zen-python";
+import { RUST_ZEN_RULES } from "./zen-rust";
 
 // ── Types ──
 
@@ -1449,6 +1450,7 @@ const RULES_BY_LANGUAGE: Record<LanguageId, Record<string, ZenRule[]>> = {
   go: STEP_ZEN_RULES,
   javascript: JAVASCRIPT_ZEN_RULES,
   python: PYTHON_ZEN_RULES,
+  rust: RUST_ZEN_RULES,
 };
 
 /** The zen rules a step checks, in the language being taught. */

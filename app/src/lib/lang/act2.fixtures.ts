@@ -2,7 +2,6 @@
 // act1.fixtures.ts: code carries forward between steps, and later steps keep
 // earlier top-level output to prove the harness mutes it.
 
-import type { LanguageId } from "@/types/game";
 import type { Solutions } from "./act1.fixtures";
 
 const JS_ROSTER = `function buildRoster() {
@@ -119,10 +118,10 @@ def relay_header(floor, code):
 print(relay_header(2, "50"))`,
 };
 
-export const ACT2_SOLUTIONS: Record<Exclude<LanguageId, "go">, Solutions> = { javascript: JS, python: PY };
+export const ACT2_SOLUTIONS: Record<"javascript" | "python", Solutions> = { javascript: JS, python: PY };
 
 /** Hardcoded shortcuts and the classic mistake each step exists to catch — all must fail. */
-export const ACT2_HARDCODED: Record<Exclude<LanguageId, "go">, Partial<Solutions>> = {
+export const ACT2_HARDCODED: Record<"javascript" | "python", Partial<Solutions>> = {
   javascript: {
     "chapter-04:guardmap": `console.log("Floor 2");\nconsole.log("Floor 1");\nconsole.log(5);`,
     "chapter-04.2:relayheader": `${JS_ENCODE}

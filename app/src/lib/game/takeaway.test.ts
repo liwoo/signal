@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { extractSnippet } from "./takeaway";
 import { TAKEAWAYS } from "@/data/takeaways";
+import { isChallengeAvailable } from "@/data/challenges/realizations";
 import { REALIZED_CHAPTERS, SOLUTIONS } from "@/lib/lang/fixtures";
 import type { LanguageId } from "@/types/game";
 
-const LANGS: LanguageId[] = ["go", "python", "javascript"];
+const LANGS: LanguageId[] = ["go", "python", "javascript", "rust"];
 
 describe("extractSnippet", () => {
   it("lifts a multi-line call that reads the package", () => {
@@ -61,7 +62,12 @@ describe("chapter takeaways", () => {
   it("each fallback satisfies its own snippet rule", () => {
     for (const [id, t] of Object.entries(TAKEAWAYS)) {
       for (const lang of LANGS) {
-        expect(extractSnippet(t.fallback[lang], t.snippet[lang], lang === "python"), `${id} ${lang}`).not.toBeNull();
+        const fallback = t.fallback[lang];
+        const rule = t.snippet[lang];
+        // Rust realizes Act I only — its takeaways exist exactly for the chapters it plays.
+        expect(Boolean(fallback) && Boolean(rule), `${id} ${lang}`).toBe(lang !== "rust" || isChallengeAvailable(id, "rust"));
+        if (!fallback || !rule) continue;
+        expect(extractSnippet(fallback, rule, lang === "python"), `${id} ${lang}`).not.toBeNull();
       }
     }
   });
@@ -69,8 +75,9 @@ describe("chapter takeaways", () => {
   it("finds the pattern in every reference solution's final step", () => {
     for (const chapter of REALIZED_CHAPTERS) {
       const last = chapter.steps[chapter.steps.length - 1].id;
-      for (const lang of ["python", "javascript"] as const) {
-        const snippet = extractSnippet(SOLUTIONS[lang][last], TAKEAWAYS[chapter.id].snippet[lang], lang === "python");
+      for (const lang of ["python", "javascript", "rust"] as const) {
+        if (!isChallengeAvailable(chapter.id, lang)) continue;
+        const snippet = extractSnippet(SOLUTIONS[lang][last], TAKEAWAYS[chapter.id].snippet[lang]!, lang === "python");
         expect(snippet, `${last} ${lang}`).not.toBeNull();
       }
     }

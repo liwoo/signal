@@ -43,9 +43,9 @@
 }
 
 /* ── Per-language theming ──
-   One story, three routes. The signal accent reskins to the language you're
+   One story, four routes. The signal accent reskins to the language you're
    learning — Go stays the signature green, Python runs cool blue, JavaScript
-   burns amber-yellow. `data-lang` is set on <html> by the LanguageProvider.
+   burns amber-yellow, Rust glows copper. `data-lang` is set on <html> by the LanguageProvider.
    --signal-rgb feeds every rgba(...) glow so halos shift with --color-signal.
    The world itself (canvas sprites, scenes, Maya) stays green on purpose. */
 :root {
@@ -60,6 +60,11 @@
 [data-lang="javascript"] {
   --color-signal: #f7df1e;
   --signal-rgb: 247, 223, 30;
+}
+
+[data-lang="rust"] {
+  --color-signal: #ffa47a;
+  --signal-rgb: 255, 164, 122;
 }
 
 body {

@@ -5,6 +5,7 @@
 
 import { JAVASCRIPT_ZEN_EXAMPLES } from "./zen-examples.javascript";
 import { PYTHON_ZEN_EXAMPLES } from "./zen-examples.python";
+import { RUST_ZEN_EXAMPLES } from "./zen-examples.rust";
 
 export interface ZenExample {
   before: string;
@@ -13,7 +14,7 @@ export interface ZenExample {
   change: string;
 }
 
-// Rule ids are unique across languages (JS rules are js_*, Python py_*), so one
+// Rule ids are unique across languages (JS rules are js_*, Python py_*, Rust rs_*), so one
 // map serves every language.
 const GO_ZEN_EXAMPLES: Record<string, ZenExample> = {
   import_form: {
@@ -163,4 +164,5 @@ export const ZEN_EXAMPLES: Record<string, ZenExample> = {
   ...GO_ZEN_EXAMPLES,
   ...JAVASCRIPT_ZEN_EXAMPLES,
   ...PYTHON_ZEN_EXAMPLES,
+  ...RUST_ZEN_EXAMPLES,
 };

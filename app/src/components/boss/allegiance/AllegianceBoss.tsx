@@ -68,7 +68,7 @@ function mmss(seconds: number): string {
 }
 
 export function AllegianceBoss({ language, compact = false, soundEnabled, loopsEnabled, vimEnabled, onFinish }: AllegianceBossProps) {
-  const r = ALLEGIANCE[language];
+  const r = ALLEGIANCE[language] ?? ALLEGIANCE.go;
   const lang = getLanguageService(language);
   const audio = useAudio(soundEnabled, loopsEnabled);
 

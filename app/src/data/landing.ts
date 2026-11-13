@@ -64,6 +64,7 @@ export function landingCurriculum(): LandingCurriculum {
       go: classroomChaptersFor("go").length,
       python: classroomChaptersFor("python").length,
       javascript: classroomChaptersFor("javascript").length,
+      rust: classroomChaptersFor("rust").length,
     },
   };
 }

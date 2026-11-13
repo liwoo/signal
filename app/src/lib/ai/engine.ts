@@ -5,6 +5,7 @@ import type { LanguageService } from "@/lib/lang/types";
 import type { CodePattern, ConceptEntry, StepBank } from "./banks/types";
 import { JAVASCRIPT_BANKS } from "./banks/javascript";
 import { PYTHON_BANKS } from "./banks/python";
+import { RUST_BANKS } from "./banks/rust";
 
 export type { StepBank };
 
@@ -3512,6 +3513,7 @@ const BANKS: Record<LanguageId, Record<string, StepBank>> = {
   go: GO_BANKS,
   javascript: JAVASCRIPT_BANKS,
   python: PYTHON_BANKS,
+  rust: RUST_BANKS,
 };
 
 /** Maya's answer bank for one step, in the language being taught. */

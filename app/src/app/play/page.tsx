@@ -487,6 +487,19 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
   }));
 }
 
+/**
+ * Shown when a player clears the last chapter built in their language. A route
+ * that stops after Act I (Rust, for now) says so plainly and points at the
+ * language switch on the chapter intro; the others are waiting on new chapters.
+ */
+function endOfRouteNote(language: LanguageId): string {
+  const name = getLanguageService(language).label.toLowerCase();
+  if (!isChallengeAvailable("chapter-04", language)) {
+    return `that's all of act i in ${name}. act ii in ${name} is on its way — your progress is saved. to keep the escape going now, switch language on the chapter intro.`;
+  }
+  return `that's every chapter built so far. the next ones are on their way — your ${name} progress is saved.`;
+}
+
 /** The id/number pairs progress logic needs. */
 function chapterRefs(chapters: ChapterConfig[]) {
   return chapters.map((c) => ({ id: c.challenge.id, chapter: c.challenge.chapter }));
@@ -1143,6 +1156,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
           setShowBossArena(true);
         }}
         onContinue={() => { window.location.href = "/"; }}
+        note={!hasNextChapter ? endOfRouteNote(language) : undefined}
       />
     );
   }
@@ -1193,9 +1207,7 @@ function GameScreen({ config, hasNextChapter, onNextChapter, initialState, onSav
       actions.retryFromCheckpoint();
     };
     const continueEscape = hasNextChapter ? onNextChapter : () => { window.location.href = "/"; };
-    const endNote = !hasNextChapter
-      ? `that's every chapter built so far. the rest of act ii is on its way — your ${lang.label.toLowerCase()} progress is saved.`
-      : undefined;
+    const endNote = !hasNextChapter ? endOfRouteNote(language) : undefined;
     // The takeaway: the pattern from the player's own solution, then an
     // optional transfer check. Falls back to the summary modal.
     const takeaway = takeawayFor(challenge.id);

@@ -6,6 +6,10 @@
 import type { LanguageId } from "@/types/game";
 import { LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 import { LanguageMascot } from "@/components/ui/LanguageMascot";
+import { isChallengeAvailable } from "@/data/challenges/realizations";
+
+/** A route that stops after Act I (Rust, for now) — Act II opens with Ch 4. */
+const actOneOnly = (id: LanguageId) => !isChallengeAvailable("chapter-04", id);
 
 export function LanguagePicker({ language, highlight, onChange }: {
   language: LanguageId;
@@ -52,12 +56,18 @@ export function LanguagePicker({ language, highlight, onChange }: {
                 <LanguageMascot language={opt.id} size={34} bob={selected} />
               </span>
               {opt.label}
+              {actOneOnly(opt.id) && (
+                <span className="text-[8px] tracking-[1.5px] -mt-1" style={{ opacity: 0.8 }}>
+                  ACT I
+                </span>
+              )}
             </button>
           );
         })}
       </div>
       <div className="mt-1.5 text-[10px] leading-[1.6]" style={{ color: "var(--color-dim)" }}>
         {active.blurb}
+        {actOneOnly(active.id) && " act i is playable now — later acts are on the way."}
       </div>
     </div>
   );

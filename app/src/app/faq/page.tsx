@@ -5,7 +5,7 @@ import { PRICE_SINGLE, SUPPORT_EMAIL, pageMetadata } from "@/lib/site";
 export const metadata = pageMetadata({
   title: "FAQ — SIGNAL",
   description:
-    "Answers about SIGNAL: what's free, what the full Go course costs, how Python and JavaScript work, boss fights, mobile play, and using SIGNAL with a class.",
+    "Answers about SIGNAL: what's free, what the full Go course costs, how Python, JavaScript and Rust work, boss fights, mobile play, and using SIGNAL with a class.",
   path: "/faq",
 });
 
@@ -19,7 +19,7 @@ function faqs(): FAQItem[] {
   return [
     {
       q: "What is SIGNAL?",
-      a: "SIGNAL is a narrative coding game. You write real Go, Python, or JavaScript to help Maya Chen escape a research facility. Every chapter introduces new language concepts through puzzles, timed challenges, and boss fights.",
+      a: "SIGNAL is a narrative coding game. You write real Go, Python, JavaScript, or Rust to help Maya Chen escape a research facility. Every chapter introduces new language concepts through puzzles, timed challenges, and boss fights.",
     },
     {
       q: "Do I need any coding experience?",
@@ -27,11 +27,11 @@ function faqs(): FAQItem[] {
     },
     {
       q: "Is the code I write real?",
-      a: "Yes. Go code is compiled and run on the official Go Playground, so you get real compiler errors and real output. Python and JavaScript run in your browser. Either way, you're learning the real language, not a simplified subset.",
+      a: "Yes. Go and Rust are compiled and run on their official Playgrounds, so you get real compiler errors and real output. Python and JavaScript run in your browser. Either way, you're learning the real language, not a simplified subset.",
     },
     {
       q: "How much is free?",
-      a: "Act I (three chapters and the Lockmaster boss fight) is free in Go, Python, and JavaScript. You sign in with Google so your progress saves and follows you to any device. No credit card required.",
+      a: "Act I (three chapters and the Lockmaster boss fight) is free in Go, Python, JavaScript, and Rust. You sign in with Google so your progress saves and follows you to any device. No credit card required.",
     },
     {
       q: "What does the full game cost?",
@@ -42,8 +42,8 @@ function faqs(): FAQItem[] {
       a: "From your first program to structs, interfaces, error handling, goroutines and channels, HTTP clients and servers, databases, middleware, and a full web app, plus an in-game tutor and a zen library of idiomatic Go patterns.",
     },
     {
-      q: "Do Python and JavaScript go beyond Act I?",
-      a: "Not yet. Act I is free in both, and more is coming.",
+      q: "Do Python, JavaScript and Rust go beyond Act I?",
+      a: "Python and JavaScript already continue into Acts II and III, with more chapters arriving. Rust is our newest route: Act I is playable now, and later acts are on the way. Act I is free in all of them.",
     },
     {
       q: "How long does it take?",

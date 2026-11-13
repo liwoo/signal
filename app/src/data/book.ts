@@ -31,6 +31,7 @@ const BOOK_TITLES: Record<LanguageId, string> = {
   go: "GO",
   python: "PYTHON",
   javascript: "JAVASCRIPT",
+  rust: "RUST",
 };
 
 /** Story text that names the manual ("'go: a field manual'") names the player's language's manual instead. */

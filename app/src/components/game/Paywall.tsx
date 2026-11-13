@@ -75,6 +75,13 @@ const LANGUAGES = [
     detail:
       "Build a foundation in the language of the web, right in your browser.",
   },
+  {
+    id: "rust",
+    name: "Rust",
+    href: "/why-rust",
+    detail:
+      "Learn with a compiler that checks your work and explains every mistake.",
+  },
 ] as const;
 
 // Illustrative class. "Chapters" counts what the real dashboard counts: the
@@ -180,7 +187,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
               </span>
             </p>
             <div className={styles.heroLanguages}>
-              <p>ONE ESCAPE · THREE LANGUAGES</p>
+              <p>ONE ESCAPE · FOUR LANGUAGES</p>
               <div>
                 {LANGUAGES.map((language) => (
                   <Link
@@ -333,7 +340,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                   <span>2</span>
                   <div>
                     <h3>Share a simple join code</h3>
-                    <p>Students join and choose Go, Python, or JavaScript.</p>
+                    <p>Students join and choose Go, Python, JavaScript, or Rust.</p>
                   </div>
                 </li>
                 <li>
@@ -446,7 +453,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
               functions, and debugging.
             </p>
           </div>
-          <div className={styles.threeColumns}>
+          <div className={`${styles.threeColumns} ${styles.languageGrid}`}>
             {LANGUAGES.map((language) => (
               <article className={styles.languageCard} key={language.name}>
                 <span className={styles.languageMark} aria-hidden="true">
@@ -457,7 +464,9 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                 <p className={styles.languageNote}>
                   {language.id === "go"
                     ? `Act I free · Full course: ${curriculum.actCount} acts`
-                    : "Act I free · Act II arriving now"}
+                    : language.id === "rust"
+                      ? "Act I free · New — more acts on the way"
+                      : "Act I free · Acts II & III arriving now"}
                 </p>
                 <Link className={styles.textLink} href={language.href}>
                   Why learn {language.name}?{" "}
@@ -474,7 +483,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
               <p>
                 {curriculum.actCount} acts and {curriculum.chapterCount} chapters,
                 each act ending in a boss fight. Act I is free in Go, Python,
-                and JavaScript. Chapters marked “Coming soon” are still being
+                JavaScript, and Rust. Chapters marked “Coming soon” are still being
                 built.
               </p>
               {curriculum.acts.map((act) => (
@@ -527,11 +536,11 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                 <span className={styles.planLabel}>Try it out</span>
                 <h3>Learn the basics</h3>
                 <div className={styles.price}>Free</div>
-                <p>Get started in Go, Python, or JavaScript.</p>
+                <p>Get started in Go, Python, JavaScript, or Rust.</p>
                 <ul className={styles.checkList}>
                   <li>
                     <Check size={18} aria-hidden="true" /> Act I in Go, Python,
-                    and JavaScript
+                    JavaScript, and Rust
                   </li>
                   <li>
                     <Check size={18} aria-hidden="true" /> Python and
@@ -620,14 +629,14 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             <details>
               <summary>Do I need to install anything?</summary>
               <p>
-                No. SIGNAL runs in your browser. Go code runs on the Go
-                Playground; Python and JavaScript run in the browser.
+                No. SIGNAL runs in your browser. Go and Rust compile on their
+                official Playgrounds; Python and JavaScript run in the browser.
               </p>
             </details>
             <details>
               <summary>What’s included for free?</summary>
               <p>
-                The first act is free in Go, Python, and JavaScript. Sign in
+                The first act is free in Go, Python, JavaScript, and Rust. Sign in
                 with Google to start and save progress across devices. No credit
                 card required.
               </p>
@@ -671,6 +680,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             <Link href="/why-go">Why Go?</Link>
             <Link href="/why-python">Why Python?</Link>
             <Link href="/why-javascript">Why JavaScript?</Link>
+            <Link href="/why-rust">Why Rust?</Link>
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/teach">For teachers</Link>

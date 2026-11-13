@@ -18,9 +18,10 @@ const OTHER_LANGUAGES = [
   { id: "go", name: "Go", href: "/why-go" },
   { id: "python", name: "Python", href: "/why-python" },
   { id: "javascript", name: "JavaScript", href: "/why-javascript" },
+  { id: "rust", name: "Rust", href: "/why-rust" },
 ] as const;
 
-/** Shared layout for /why-go, /why-python and /why-javascript. */
+/** Shared layout for /why-go, /why-python, /why-javascript and /why-rust. */
 export function WhyLanguagePage({
   language,
   name,
@@ -158,14 +159,15 @@ export function WhyLanguagePage({
             Start learning {name}
           </Link>
           <p className="mt-5 text-[13px]" style={{ color: "var(--color-foreground)", opacity: 0.85 }}>
-            Prefer {others[0].name} or {others[1].name}? Act I is free in both.{" "}
-            <Link href={others[0].href} style={{ color: "var(--color-signal)" }}>
-              Why {others[0].name}
-            </Link>
-            {" · "}
-            <Link href={others[1].href} style={{ color: "var(--color-signal)" }}>
-              Why {others[1].name}
-            </Link>
+            Prefer another language? Act I is free in all of them.{" "}
+            {others.map((other, i) => (
+              <span key={other.id}>
+                {i > 0 && " · "}
+                <Link href={other.href} style={{ color: "var(--color-signal)" }}>
+                  Why {other.name}
+                </Link>
+              </span>
+            ))}
           </p>
         </div>
       </main>

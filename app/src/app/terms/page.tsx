@@ -48,7 +48,7 @@ const SECTIONS: LegalSection[] = [
     title: "What's free and what's paid",
     body: (
       <>
-        <p>Act I is free in Go, Python and JavaScript. You only need to sign in.</p>
+        <p>Act I is free in Go, Python, JavaScript and Rust. You only need to sign in.</p>
         <p>
           The full Go license is a one-time payment that unlocks every act of the Go curriculum on your account,
           including acts we release later. SIGNAL is in active development: some acts are still being built, and their

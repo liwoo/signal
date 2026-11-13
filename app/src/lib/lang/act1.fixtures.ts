@@ -117,7 +117,77 @@ s, v = validate_code(1)
 print(s, v)`,
 };
 
-export const SOLUTIONS: Record<Exclude<LanguageId, "go">, Solutions> = { javascript: JS, python: PY };
+const RS: Solutions = {
+  "chapter-01:scaffold": `fn main() {
+    println!("Hello World");
+}`,
+  "chapter-01:location": `mod cellblock;
+
+fn main() {
+    println!("CELL {} - SUBLEVEL {}", cellblock::CELL, cellblock::SUBLEVEL);
+}`,
+  "chapter-02:scaffold": `fn main() {
+    println!("Hello World");
+}`,
+  "chapter-02:loop": `fn main() {
+    for i in 1..=10 {
+        println!("{}", i);
+    }
+}`,
+  "chapter-02:classify": `fn main() {
+    for i in 1..=10 {
+        if i <= 3 {
+            println!("{} DENY", i);
+        } else if i <= 6 {
+            println!("{} WARN", i);
+        } else if i <= 9 {
+            println!("{} GRANT", i);
+        } else {
+            println!("{} OVERRIDE", i);
+        }
+    }
+}`,
+  "chapter-02:rewrite": `fn main() {
+    for i in 1..=10 {
+        let level = match i {
+            1..=3 => "DENY",
+            4..=6 => "WARN",
+            7..=9 => "GRANT",
+            _ => "OVERRIDE",
+        };
+        println!("{} {}", i, level);
+    }
+}`,
+  "chapter-03:scaffold": `fn main() {
+    println!("Hello World");
+}`,
+  "chapter-03:sumfunc": `fn sum_codes(codes: &[i32]) -> i32 {
+    let mut total = 0;
+    for c in codes {
+        total += c;
+    }
+    total
+}
+
+fn main() {
+    println!("Hello World {}", sum_codes(&[1, 2]));
+}`,
+  "chapter-03:validate": `fn sum_codes(codes: &[i32]) -> i32 {
+    codes.iter().sum()
+}
+
+fn validate_code(codes: &[i32]) -> (i32, bool) {
+    let total = sum_codes(codes);
+    (total, total > 100)
+}
+
+fn main() {
+    let (s, v) = validate_code(&[1]);
+    println!("{} {}", s, v);
+}`,
+};
+
+export const SOLUTIONS: Record<Exclude<LanguageId, "go">, Solutions> = { javascript: JS, python: PY, rust: RS };
 
 export const HARDCODED: Record<Exclude<LanguageId, "go">, Partial<Solutions>> = {
   javascript: {
@@ -128,5 +198,16 @@ export const HARDCODED: Record<Exclude<LanguageId, "go">, Partial<Solutions>> = 
     "chapter-01:location": `print("CELL B-09 - SUBLEVEL 3")`,
     "chapter-02:loop": Array.from({ length: 10 }, (_, k) => `print(${k + 1})`).join("\n"),
     "chapter-02:rewrite": PY["chapter-02:classify"],
+  },
+  rust: {
+    "chapter-01:location": `mod cellblock;
+
+fn main() {
+    println!("CELL B-09 - SUBLEVEL 3");
+}`,
+    "chapter-02:loop": `fn main() {
+${Array.from({ length: 10 }, (_, k) => `    println!("${k + 1}");`).join("\n")}
+}`,
+    "chapter-02:rewrite": RS["chapter-02:classify"],
   },
 };

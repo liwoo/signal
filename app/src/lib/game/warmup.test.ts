@@ -65,3 +65,22 @@ describe("warm-up grading · javascript & python", () => {
     expect(ok(checkWarmup("python", 4, `import cellblock\nprint(cellblock.CELL)`))).toBe(true);
   });
 });
+
+describe("warm-up grading · rust", () => {
+  test("the exact targets pass", () => {
+    expect(ok(checkWarmup("rust", 1, `println!("i'm in");`))).toBe(true);
+    expect(ok(checkWarmup("rust", 2, `let cell = "B-09";\nprintln!("{}", cell);`))).toBe(true);
+    expect(ok(checkWarmup("rust", 2, `let cell = "B-09";\nprintln!("{cell}");`))).toBe(true);
+    expect(ok(checkWarmup("rust", 3, `println!("CELL {}", cell);`))).toBe(true);
+    expect(ok(checkWarmup("rust", 4, `fn main() {\n    println!("i'm in");\n}`))).toBe(true);
+  });
+
+  test("the classic slips are rejected with a reason", () => {
+    expect(err(checkWarmup("rust", 1, `println("i'm in");`))).toContain("bang");
+    expect(err(checkWarmup("rust", 1, `println!("i'm in")`))).toContain("semicolon");
+    expect(err(checkWarmup("rust", 1, `Println!("i'm in");`))).toContain("case-sensitive");
+    expect(err(checkWarmup("rust", 2, `cell = "B-09";\nprintln!("{}", cell);`))).toContain("let");
+    expect(err(checkWarmup("rust", 2, `let cell = "B-09";\nprintln!(cell);`))).toContain("format string");
+    expect(err(checkWarmup("rust", 4, `func main() {\n    println!("i'm in");\n}`))).toContain("fn main");
+  });
+});

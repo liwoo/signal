@@ -30,7 +30,7 @@ export function TeacherSignIn({ checking = false }: { checking?: boolean }) {
             <h1 className="sr-only">SIGNAL for teachers</h1>
             <CardTitle className="text-xl">Teacher sign in</CardTitle>
             <CardDescription>
-              Run SIGNAL with your class: students learn Go, Python or JavaScript by playing, and you see who&apos;s
+              Run SIGNAL with your class: students learn Go, Python, JavaScript or Rust by playing, and you see who&apos;s
               progressing and who&apos;s stuck. Use the Google account you teach with.
             </CardDescription>
           </CardHeader>

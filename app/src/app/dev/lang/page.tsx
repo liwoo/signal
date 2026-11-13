@@ -7,7 +7,7 @@ import { LanguageProvider } from "@/components/game/LanguageContext";
 import { getLanguageService, isLanguageId, LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 import { callMayaEngineAsync } from "@/lib/ai/engine";
 import { realizeChallenge } from "@/data/challenges/realizations";
-import { REALIZED_CHAPTERS, SOLUTIONS } from "@/lib/lang/fixtures";
+import { chaptersRealizedIn, SOLUTIONS } from "@/lib/lang/fixtures";
 import type { LanguageId } from "@/types/game";
 
 // Development-only language QA:
@@ -26,6 +26,7 @@ const STARTER: Record<LanguageId, string> = {
   go: `package main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello World")\n}`,
   javascript: `console.log("Hello World");`,
   python: `print("Hello World")`,
+  rust: `fn main() {\n    println!("Hello World");\n}`,
 };
 
 function LangPreview() {
@@ -59,7 +60,7 @@ function LangPreview() {
     if (language === "go") return;
     setBusy(true);
     setRows([]);
-    const steps = REALIZED_CHAPTERS.flatMap((c) => realizeChallenge(c, language).steps);
+    const steps = chaptersRealizedIn(language).flatMap((c) => realizeChallenge(c, language).steps);
     for (const step of steps) {
       const t = performance.now();
       const res = await callMayaEngineAsync(
