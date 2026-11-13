@@ -177,6 +177,15 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 26px;
 }
+/* One card per language — four across on desktop, two on tablets. */
+.threeColumns.languageGrid {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 1100px) {
+  .threeColumns.languageGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 .feature {
   padding-top: 6px;
 }
@@ -911,7 +920,8 @@
   .sectionDescription {
     font-size: 16px;
   }
-  .threeColumns {
+  .threeColumns,
+  .threeColumns.languageGrid {
     grid-template-columns: 1fr;
     gap: 24px;
   }
@@ -1055,6 +1065,7 @@
   --hero-green: #6effa0;
   --hero-python: #4ea6ff;
   --hero-javascript: #f7df1e;
+  --hero-rust: #ffa47a;
   --hero-bg: #020406;
   --hero-text: #b8d4a0;
   --hero-muted: #89ae99;
@@ -1162,6 +1173,9 @@
 }
 .heroLanguage[data-lang="javascript"] span {
   color: var(--hero-javascript);
+}
+.heroLanguage[data-lang="rust"] span {
+  color: var(--hero-rust);
 }
 .heroActions {
   display: flex;

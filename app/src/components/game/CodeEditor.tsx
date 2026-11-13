@@ -146,6 +146,7 @@ const ACCESSORY_OPERATOR: Record<LanguageId, { label: string; insert: string }> 
   go: { label: ":=", insert: " := " },
   javascript: { label: "=>", insert: " => " },
   python: { label: ":", insert: ":" },
+  rust: { label: "::", insert: "::" },
 };
 
 // Stable default so the useCallback deps don't churn when no extra packages exist.
@@ -161,8 +162,8 @@ function detectAutocomplete(code: string, pos: number, extra: ExtraPackage[], la
   // No completions inside string literals
   if (lang.isInsideString(code, pos)) return null;
 
-  // Check for pkg.partial pattern first — only if the package is actually imported
-  const pkgMatch = before.match(/(\w+)\.(\w*)$/);
+  // Check for pkg.partial (or Rust's path::partial) first — only if the package is actually imported
+  const pkgMatch = before.match(/(\w+)(?:\.|::)(\w*)$/);
   if (pkgMatch && lang.getKnownPackages(extra).includes(pkgMatch[1]) && lang.isPackageImported(code, pkgMatch[1], extra)) {
     return { type: "pkg", pkg: pkgMatch[1], partial: pkgMatch[2], start: pos - pkgMatch[2].length };
   }

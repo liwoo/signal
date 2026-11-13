@@ -33,7 +33,7 @@ const caveat = Caveat({
 });
 
 const description =
-  "Learn to code by escaping. SIGNAL is a narrative coding game where you write real Go, Python, or JavaScript to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free in all three languages.";
+  "Learn to code by escaping. SIGNAL is a narrative coding game where you write real Go, Python, JavaScript, or Rust to help Maya Chen break out of a locked-down research facility. Real compiler, AI tutor, boss fights. Act I is free in all four languages.";
 
 // Absolute base for canonical + share URLs. Vercel sets the production host.
 const siteUrl =

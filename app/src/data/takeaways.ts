@@ -16,15 +16,18 @@ export interface TransferOption {
   reply: string;
 }
 
+/** Go, Python and JavaScript realize every built chapter; Rust only Act I. */
+export type PerLanguage<T> = Record<Exclude<LanguageId, "rust">, T> & Partial<Record<"rust", T>>;
+
 export interface ChapterTakeaway {
   /** What the player did, as one plain sentence. */
   headline: string;
   /** The pattern's shape, e.g. "IMPORT → READ → PRINT". */
   pattern: string;
-  /** Where to find the pattern in the player's final code. */
-  snippet: Record<LanguageId, SnippetRule>;
+  /** Where to find the pattern in the player's final code. Rust only for the chapters it realizes (Act I). */
+  snippet: PerLanguage<SnippetRule>;
   /** Shown when the player's code doesn't match the snippet rule. */
-  fallback: Record<LanguageId, string>;
+  fallback: PerLanguage<string>;
   /** Why the pattern is worth keeping, one sentence. */
   why: string;
   /** Where it turns up outside the game. */
@@ -41,11 +44,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /fmt\.Print/, contains: /cellblock\./ },
       python: { start: /print\(/, contains: /cellblock\./ },
       javascript: { start: /console\.log\(/, contains: /\b(cell|sublevel)\b/ },
+      rust: { start: /println!\(/, contains: /cellblock::/ },
     },
     fallback: {
       go: 'fmt.Println("CELL", cellblock.Cell, "- SUBLEVEL", cellblock.Sublevel)',
       python: 'print(f"CELL {cellblock.CELL} - SUBLEVEL {cellblock.SUBLEVEL}")',
       javascript: "console.log(`CELL ${cell} - SUBLEVEL ${sublevel}`);",
+      rust: 'println!("CELL {} - SUBLEVEL {}", cellblock::CELL, cellblock::SUBLEVEL);',
     },
     why: "read values from where they live instead of retyping them. when the source changes, your output follows.",
     useIt: "config files, shared constants, settings — real programs mostly print values they never typed.",
@@ -64,11 +69,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*for\b/ },
       python: { start: /^\s*for\b/ },
       javascript: { start: /^\s*for\b/ },
+      rust: { start: /^\s*for\b/ },
     },
     fallback: {
       go: 'for i := 1; i <= 10; i++ {\n    switch {\n    case i <= 3:\n        fmt.Println(i, "DENY")\n    case i <= 6:\n        fmt.Println(i, "WARN")\n    default:\n        fmt.Println(i, "GRANT")\n    }\n}',
       python: 'for i in range(1, 11):\n    if i <= 3:\n        print(i, "DENY")\n    elif i <= 6:\n        print(i, "WARN")\n    else:\n        print(i, "GRANT")',
       javascript: 'for (let i = 1; i <= 10; i++) {\n  if (i <= 3) console.log(i, "DENY");\n  else if (i <= 6) console.log(i, "WARN");\n  else console.log(i, "GRANT");\n}',
+      rust: 'for i in 1..=10 {\n    let level = match i {\n        1..=3 => "DENY",\n        4..=6 => "WARN",\n        _ => "GRANT",\n    };\n    println!("{} {}", i, level);\n}',
     },
     why: "a loop visits every value; a branch decides what each one means. together they label anything in bulk.",
     useIt: "grading scores, sorting logs by severity, tagging orders — any \"for each thing, decide\" job.",
@@ -87,11 +94,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+validateCode\b/ },
       python: { start: /^\s*def\s+validate_code\b/ },
       javascript: { start: /^\s*(function\s+validateCode\b|(const|let|var)\s+validateCode\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+validate_code\b/ },
     },
     fallback: {
       go: "func validateCode(codes ...int) (int, bool) {\n    total := sumCodes(codes...)\n    return total, total > 100\n}",
       python: "def validate_code(*codes):\n    total = sum_codes(*codes)\n    return total, total > 100",
       javascript: "function validateCode(...codes) {\n  const total = sumCodes(...codes);\n  return [total, total > 100];\n}",
+      rust: "fn validate_code(codes: &[i32]) -> (i32, bool) {\n    let total = sum_codes(codes);\n    (total, total > 100)\n}",
     },
     why: "name a job once and it works for any inputs. returning two values answers \"how much\" and \"is it ok\" together.",
     useIt: "order totals with a limit check, password rules, checksums — compute something, then judge it.",

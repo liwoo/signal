@@ -8,11 +8,13 @@ import type { LanguageService } from "./types";
 import { goService } from "./go";
 import { javascriptService } from "./javascript";
 import { pythonService } from "./python";
+import { rustService } from "./rust";
 
 const SERVICES: Record<LanguageId, LanguageService> = {
   go: goService,
   python: pythonService,
   javascript: javascriptService,
+  rust: rustService,
 };
 
 export function getLanguageService(id: LanguageId | undefined): LanguageService {
@@ -38,4 +40,5 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
   { id: "go", label: "GO", blurb: "compiled, strict, fast. the original route.", accent: "#6effa0", accentRgb: "110, 255, 160" },
   { id: "python", label: "PYTHON", blurb: "readable and everywhere. no braces, just indentation.", accent: "#4ea6ff", accentRgb: "78, 166, 255" },
   { id: "javascript", label: "JAVASCRIPT", blurb: "the language of the web. runs right here in your browser.", accent: "#f7df1e", accentRgb: "247, 223, 30" },
+  { id: "rust", label: "RUST", blurb: "fast and fearless. the compiler checks your work before it runs.", accent: "#ffa47a", accentRgb: "255, 164, 122" },
 ];

@@ -16,9 +16,11 @@ function tourSteps(lang: LanguageService): TourStep[] {
   const name = lang.label;
   const runs = lang.id === "go"
     ? "sends your code to the Go compiler."
-    : lang.id === "python"
-      ? "runs your code on a real python interpreter, right in your browser."
-      : "runs your code right here in your browser.";
+    : lang.id === "rust"
+      ? "sends your code to the real Rust compiler."
+      : lang.id === "python"
+        ? "runs your code on a real python interpreter, right in your browser."
+        : "runs your code right here in your browser.";
   const steps: TourStep[] = [
   {
     target: "chat-panel",

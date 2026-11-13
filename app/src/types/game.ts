@@ -16,9 +16,9 @@ export type StoryBranch = "a" | "b" | null;
 // ── Language ──
 
 /** A language the player can learn in. The story is shared; lessons are realized per language. */
-export type LanguageId = "go" | "python" | "javascript";
+export type LanguageId = "go" | "python" | "javascript" | "rust";
 
-export const LANGUAGE_IDS: readonly LanguageId[] = ["go", "python", "javascript"];
+export const LANGUAGE_IDS: readonly LanguageId[] = ["go", "python", "javascript", "rust"];
 export type KiraVerdict = "trusted" | "rejected" | null;
 
 // ── Challenge ──

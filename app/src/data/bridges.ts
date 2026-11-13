@@ -18,9 +18,10 @@ const PRINT: Record<LanguageId, string> = {
   go: 'fmt.Println("hi")',
   python: 'print("hi")',
   javascript: 'console.log("hi")',
+  rust: 'println!("hi");',
 };
 
-const LABEL: Record<LanguageId, string> = { go: "Go", python: "Python", javascript: "JavaScript" };
+const LABEL: Record<LanguageId, string> = { go: "Go", python: "Python", javascript: "JavaScript", rust: "Rust" };
 
 export function bridgeFor(prior: PriorLanguage, learning: LanguageId): SyntaxBridge {
   if (prior === "none") {
@@ -42,4 +43,5 @@ export const PRIOR_OPTIONS: { id: PriorLanguage; label: string }[] = [
   { id: "python", label: "PYTHON" },
   { id: "javascript", label: "JAVASCRIPT" },
   { id: "go", label: "GO" },
+  { id: "rust", label: "RUST" },
 ];

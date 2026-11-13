@@ -1,9 +1,10 @@
 // ── Language mascots ──
 // One pixel-art mark per language, drawn in the game's own style rather than
 // reusing official logos: a gopher for Go, a snake for Python, the yellow
-// block for JavaScript. Each sprite is a character grid; every letter maps to a
-// palette colour and `.` is transparent. Rendered as crisp SVG rects, so it
-// scales to any size without blurring.
+// block for JavaScript, a copper crab for Rust (our own, not the Ferris art).
+// Each sprite is a character grid; every letter maps to a palette colour and
+// `.` is transparent. Rendered as crisp SVG rects, so it scales to any size
+// without blurring.
 
 import type { CSSProperties } from "react";
 import type { LanguageId } from "@/types/game";
@@ -84,6 +85,29 @@ const SPRITES: Record<LanguageId, Sprite> = {
       "YYYYYYYKKYYKKKKY",
       "YYYYYYYYYYYYYYYY",
       "OOOOOOOOOOOOOOOO",
+    ],
+  },
+  rust: {
+    title: "Rust crab",
+    palette: { D: "#5a2210", B: "#e8743b", L: "#ffa47a", W: "#ffffff", K: "#1a0b06" },
+    rows: [
+      ".DD............DD.",
+      "DBLD..........DLBD",
+      "DB.BD........DB.BD",
+      "DBBBD........DBBBD",
+      ".DBD..D....D..DBD.",
+      "..DD.DWD..DWD.DD..",
+      "...D.DKD..DKD.D...",
+      "...DD.D....D.DD...",
+      "....DDDDDDDDDD....",
+      "...DBLLLBBBBBBD...",
+      "..DBLLBBBBBBBBBD..",
+      "DDDBBBBBBBBBBBBDDD",
+      "..DBBBKBBBBKBBBD..",
+      "DDDBBBBKKKKBBBBDDD",
+      "...DDBBBBBBBBDD...",
+      "..D..DDDDDDDD..D..",
+      ".D..D........D..D.",
     ],
   },
 };

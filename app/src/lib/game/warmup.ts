@@ -136,10 +136,50 @@ function pySlip(v: string): WarmupCheck {
   return fail(GENERIC);
 }
 
+// ── Rust — like Go, there's a skeleton; printing is a macro (the `!` matters) ──
+
+const RUST: Record<WarmupExercise, (input: string) => WarmupCheck> = {
+  1: (v) => {
+    const l = lines(v).map(squash);
+    return l.length === 1 && l[0] === `println!("i'm in");` ? OK : rsSlip(v);
+  },
+  2: (v) => {
+    const l = lines(v).map(squash);
+    const declared = [`letcell="B-09";`, `letcell:&str="B-09";`].includes(l[0] ?? "");
+    const printed = [`println!("{}",cell);`, `println!("{cell}");`].includes(l[1] ?? "");
+    if (l.length === 2 && declared && printed) return OK;
+    if (l[0] && /^cell:?=/.test(l[0])) return fail("rust creates a variable with `let` — `let cell = \"B-09\";`.");
+    if (l[1] === "println!(cell);") return fail("println needs a format string first — `println!(\"{}\", cell);`.");
+    return rsSlip(v);
+  },
+  3: (v) => {
+    const l = lines(v).map(squash);
+    if (l.length === 1 && [`println!("CELL {}",cell);`, `println!("CELL {cell}");`].includes(l[0])) return OK;
+    if (/"CELL\{/.test(v)) return fail("keep the space after CELL — `\"CELL {}\"`.");
+    return rsSlip(v);
+  },
+  4: (v) => {
+    if (squash(v) === `fnmain(){println!("i'm in");}`) return OK;
+    if (/\bfunc\s+main/.test(v)) return fail("that's go — rust spells it `fn main()`.");
+    if (!/\bfn\s+main\s*\(\s*\)/.test(v)) return fail("the program starts in `fn main() {`.");
+    return rsSlip(v);
+  },
+};
+
+function rsSlip(v: string): WarmupCheck {
+  if (/\bprintln\s*\(/.test(v)) return fail("println is a macro in rust — it needs a bang: `println!(...)`.");
+  if (/\bPrintln!/.test(v)) return fail("rust is case-sensitive — it's `println!`, all lowercase.");
+  if (/println!\([^)]*\)\s*$/m.test(v) && !/println!\([^)]*\)\s*;/.test(v)) return fail("end the line with a semicolon `;`.");
+  if (/[“”]/.test(v)) return fail("those are curly quotes — rust needs straight double quotes `\"`.");
+  if (/println!\(\s*'/.test(v)) return fail("text goes in double quotes in rust — single quotes are for one character.");
+  return fail(GENERIC);
+}
+
 const BY_LANGUAGE: Record<LanguageId, Record<WarmupExercise, (input: string) => WarmupCheck>> = {
   go: GO,
   javascript: JAVASCRIPT,
   python: PYTHON,
+  rust: RUST,
 };
 
 /** Grade one warm-up drill. Empty input is always a (gentle) miss. */

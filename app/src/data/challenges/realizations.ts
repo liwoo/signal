@@ -1,9 +1,9 @@
 // ── Per-language realizations ──
 // Go is authored inline in the chapter files (it's the spine's own
 // realization). Other languages realize the same steps here. A chapter is
-// playable in a language only when it has a realization for it — Act I and the
-// built Act II chapters ship in all three; anything newer is Go-only until it's
-// authored (docs/cross-language-act-2-plan.md).
+// playable in a language only when it has a realization for it — Python and
+// JavaScript ship every built chapter; Rust ships Act I (docs/rust-act-1-plan.md).
+// Anything unrealized is Go-only (SOON) in that language until it's authored.
 
 import type { Challenge, ChallengeRealization, LanguageId } from "@/types/game";
 import type { AdventureLevel, BossPhase } from "@/lib/adventure/types";
@@ -11,17 +11,20 @@ import { applyRealization } from "@/lib/lang/realize";
 import { localizeManualMention } from "@/data/book";
 import { JAVASCRIPT_REALIZATIONS, JAVASCRIPT_BOSS_PHASES } from "./javascript";
 import { PYTHON_REALIZATIONS, PYTHON_BOSS_PHASES } from "./python";
+import { RUST_REALIZATIONS, RUST_BOSS_PHASES } from "./rust";
 
 export type BossPhaseRealization = Pick<BossPhase, "starterCode"> & Partial<Pick<BossPhase, "brief" | "hint">>;
 
 const REALIZATIONS: Record<Exclude<LanguageId, "go">, Record<string, ChallengeRealization>> = {
   javascript: JAVASCRIPT_REALIZATIONS,
   python: PYTHON_REALIZATIONS,
+  rust: RUST_REALIZATIONS,
 };
 
 const BOSS_PHASES: Record<Exclude<LanguageId, "go">, Record<string, Record<string, BossPhaseRealization>>> = {
   javascript: JAVASCRIPT_BOSS_PHASES,
   python: PYTHON_BOSS_PHASES,
+  rust: RUST_BOSS_PHASES,
 };
 
 /** Can this chapter be played in this language? */
@@ -65,6 +68,12 @@ const STORY_TERMS: Record<Exclude<LanguageId, "go">, [string, string][]> = {
     ["maps — keys and values", "objects — keys and values"],
     ["strings and runes", "strings and characters"],
     ["strings, runes,", "strings, characters,"],
+  ],
+  rust: [
+    ["room — maps.", "room — hashmaps."],
+    ["maps — keys and values", "hashmaps — keys and values"],
+    ["strings and runes", "strings and chars"],
+    ["strings, runes,", "strings, chars,"],
   ],
 };
 

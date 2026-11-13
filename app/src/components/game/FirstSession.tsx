@@ -87,7 +87,7 @@ export function KnowStep({
         <div className="text-[10px] tracking-[3px] mb-1.5" style={{ color: prior ? "var(--color-dim)" : "var(--color-signal)" }}>
           ▸ I ALREADY CODE IN
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-5 gap-1.5">
           {PRIOR_OPTIONS.map((opt) => {
             const selected = opt.id === prior;
             return (

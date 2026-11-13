@@ -8,14 +8,16 @@ const RUN: Record<LanguageId, string> = {
   go: "go run .",
   python: "python3 main.py",
   javascript: "node main.js",
+  rust: "rustc main.rs && ./main",
 };
 
-const MAIN: Record<LanguageId, string> = { go: "main.go", python: "main.py", javascript: "main.js" };
+const MAIN: Record<LanguageId, string> = { go: "main.go", python: "main.py", javascript: "main.js", rust: "main.rs" };
 
 const INSTALL: Record<LanguageId, string> = {
   go: "Go 1.21+ (https://go.dev/dl)",
   python: "Python 3 (https://www.python.org/downloads)",
   javascript: "Node.js 18+ (https://nodejs.org)",
+  rust: "Rust (https://rustup.rs)",
 };
 
 /** A filesystem-safe folder name, e.g. "signal-chapter-01". */
