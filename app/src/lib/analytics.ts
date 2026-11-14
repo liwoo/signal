@@ -153,6 +153,11 @@ export function trackPaywallView(source: string) {
   track("paywall_view", { source });
 }
 
+/** A landing-page call to action, by which button (`cta`) and where on the page (`location`). */
+export function trackLandingCta(cta: "play" | "teach" | "join", location: string) {
+  track("landing_cta_click", { cta, location });
+}
+
 export function trackPurchaseCtaClick(plan: "single" | "team", price: string) {
   track("purchase_cta_click", { plan, price });
 }

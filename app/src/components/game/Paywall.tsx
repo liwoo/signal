@@ -12,23 +12,29 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
-  Code2,
   GraduationCap,
+  LifeBuoy,
   MessageCircle,
   Play,
   Pause,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Terminal,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
 import {
+  trackLandingCta,
   trackPurchaseCtaClick,
   trackConsentModalView,
   trackConsentAccepted,
   trackConsentDismissed,
   trackPurchaseStart,
 } from "@/lib/analytics";
-import { numberWord, type LandingCurriculum } from "@/data/landing";
+import type { LandingCurriculum, LandingPitch } from "@/data/landing";
+import type { LanguageId } from "@/types/game";
 import { PAYMENT_PROVIDER, PRICE_SINGLE, REFUND_WINDOW_DAYS, SUPPORT_EMAIL } from "@/lib/site";
 import { LanguageMascot } from "@/components/ui/LanguageMascot";
 import styles from "./Paywall.module.css";
@@ -44,8 +50,8 @@ const PromoLoop = dynamic(
 );
 
 interface PaywallProps {
-  /** The game's roadmap, built on the server from src/data/curriculum.ts. */
-  curriculum: LandingCurriculum;
+  /** Curriculum, outcomes, demo mission and price math — built on the server from game data. */
+  pitch: LandingPitch;
   playerXP?: number;
   playerLevel?: number;
 }
@@ -53,36 +59,42 @@ interface PaywallProps {
 // Only the individual license is sold today; team and school plans come later.
 const PLAN = "single";
 
-const LANGUAGES = [
+const LANGUAGES: { id: LanguageId; name: string; href: string }[] = [
+  { id: "go", name: "Go", href: "/why-go" },
+  { id: "python", name: "Python", href: "/why-python" },
+  { id: "javascript", name: "JavaScript", href: "/why-javascript" },
+  { id: "rust", name: "Rust", href: "/why-rust" },
+];
+
+// Why the method works — each one is something the game actually does.
+const PILLARS = [
   {
-    id: "go",
-    name: "Go",
-    href: "/why-go",
-    detail:
-      "Start with the fundamentals, then explore structs, concurrency, and more.",
+    icon: Target,
+    title: "Every line has a reason",
+    text: "Each task opens with what it does for Maya, so you learn why code exists, not just how to type it.",
   },
   {
-    id: "python",
-    name: "Python",
-    href: "/why-python",
-    detail:
-      "Practice readable syntax, loops, and functions in a language used across disciplines.",
+    icon: Terminal,
+    title: "Feedback the moment you run",
+    text: "Test as often as you like. See what your program printed next to what it should have printed.",
   },
   {
-    id: "javascript",
-    name: "JavaScript",
-    href: "/why-javascript",
-    detail:
-      "Build a foundation in the language of the web, right in your browser.",
+    icon: Sparkles,
+    title: "Working code, then good code",
+    text: "Zen notes reward clean, idiomatic code, the way a senior engineer would in a code review.",
   },
   {
-    id: "rust",
-    name: "Rust",
-    href: "/why-rust",
-    detail:
-      "Learn with a compiler that checks your work and explains every mistake.",
+    icon: LifeBuoy,
+    title: "Stuck? Not for long",
+    text: "Tap the question already in your head and get a hint that moves you forward, not the answer.",
   },
-] as const;
+];
+
+const OUTCOME_LABEL = {
+  free: "Free",
+  playable: "Playable now",
+  soon: "Coming soon",
+} as const;
 
 // Illustrative class. "Chapters" counts what the real dashboard counts: the
 // chapters playable today in the student's language.
@@ -105,9 +117,11 @@ function getReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
+export function Paywall({ pitch, playerXP, playerLevel }: PaywallProps) {
+  const { curriculum, outcomes, demo, actsWord, perChapter } = pitch;
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState<boolean | null>(null);
+  const [demoLanguage, setDemoLanguage] = useState<LanguageId>("go");
   const reducedMotion = useSyncExternalStore(
     subscribeToMotionPreference,
     getReducedMotion,
@@ -118,8 +132,9 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
   const [consentChecked, setConsentChecked] = useState(false);
   const consentRef = useRef<HTMLDialogElement>(null);
   const activePrice = PRICE_SINGLE;
-  const actsWord = numberWord(curriculum.actCount);
   const roster = sampleRoster(curriculum.playableByLanguage);
+  const playableToday = curriculum.playableByLanguage.go;
+  const actOneChapters = curriculum.acts[0]?.chapters.filter((c) => !c.isBoss).length ?? 0;
 
   useEffect(() => {
     if (showConsent) consentRef.current?.showModal();
@@ -159,18 +174,21 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             <a className={styles.desktopLink} href="#how-it-works">
               How it works
             </a>
-            <a className={styles.desktopLink} href="#classrooms">
-              For teachers
+            <a className={styles.desktopLink} href="#curriculum">
+              Curriculum
             </a>
             <a className={styles.desktopLink} href="#pricing">
               Pricing
             </a>
-            <Link href="/join">Join a class</Link>
+            <a className={styles.desktopLink} href="#classrooms">
+              For teachers
+            </a>
             <Link
               href="/play"
               className={`${styles.button} ${styles.smallButton}`}
+              onClick={() => trackLandingCta("play", "header")}
             >
-              Start free <ArrowRight size={16} aria-hidden="true" />
+              Play free <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </nav>
         </div>
@@ -179,41 +197,41 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
       <main id="main">
         <section className={styles.hero} aria-labelledby="hero-heading">
           <div className={styles.heroInner}>
-            <h1 id="hero-heading">SIGNAL</h1>
-            <p className={styles.heroTagline}>
-              learn to code by escaping.
-              <span className={styles.heroCursor} aria-hidden="true">
-                _
-              </span>
+            <p className={styles.heroBrand} aria-hidden="true">
+              SIGNAL
             </p>
-            <div className={styles.heroLanguages}>
-              <p>ONE ESCAPE · FOUR LANGUAGES</p>
-              <div>
-                {LANGUAGES.map((language) => (
-                  <Link
-                    key={language.id}
-                    href={language.href}
-                    className={styles.heroLanguage}
-                    data-lang={language.id}
-                  >
-                    <LanguageMascot language={language.id} size={56} />
-                    <span>{language.name.toUpperCase()}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <h1 id="hero-heading">
+              Learn to code by breaking someone out.
+            </h1>
+            <p className={styles.heroPitch}>
+              Maya Chen is trapped in a locked-down research facility, and your
+              code is her only way out. Write real Go, Python, JavaScript, or
+              Rust.
+              Every program that runs opens another door.
+            </p>
             <div className={styles.heroActions}>
-              <Link href="/play" className={styles.heroPrimary}>
-                PLAY FREE <ArrowRight size={18} aria-hidden="true" />
-              </Link>
-              <Link href="/teach" className={styles.heroSecondary}>
-                <GraduationCap size={20} aria-hidden="true" /> TEACHER? SET UP A
-                CLASS
+              <Link
+                href="/play"
+                className={styles.heroPrimary}
+                onClick={() => trackLandingCta("play", "hero")}
+              >
+                START THE ESCAPE · FREE <ArrowRight size={18} aria-hidden="true" />
               </Link>
             </div>
             <p className={styles.heroReassurance}>
-              act I free · google sign-in · no credit card
+              act I free · nothing to install · no credit card
             </p>
+            <div className={styles.heroLanguages}>
+              <p>PLAY IN</p>
+              <ul>
+                {LANGUAGES.map((language) => (
+                  <li key={language.id} data-lang={language.id}>
+                    <LanguageMascot language={language.id} size={32} />
+                    <span>{language.name.toUpperCase()}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className={styles.heroVisual}>
               <div
                 className={styles.preview}
@@ -225,7 +243,7 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                   <div className={styles.previewPaused}>
                     <p>THE ESCAPE IS WAITING.</p>
                     <button onClick={() => setPreviewPlaying(true)}>
-                      <Play size={18} aria-hidden="true" /> PLAY PREVIEW
+                      <Play size={18} aria-hidden="true" /> WATCH THE TRAILER
                     </button>
                   </div>
                 )}
@@ -259,14 +277,41 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
               )}
             </div>
             <div className={styles.heroLinks}>
-              <a href="#classrooms">
-                EXPLORE CLASSROOM TOOLS <span aria-hidden="true">▸</span>
-              </a>
-              <Link href="/join">
+              <Link
+                href="/teach"
+                onClick={() => trackLandingCta("teach", "hero")}
+              >
+                TEACHER? SET UP A CLASS <span aria-hidden="true">▸</span>
+              </Link>
+              <Link
+                href="/join"
+                onClick={() => trackLandingCta("join", "hero")}
+              >
                 HAVE A CLASS CODE? <span aria-hidden="true">▸</span>
               </Link>
             </div>
           </div>
+        </section>
+
+        <section className={styles.proofStrip} aria-label="SIGNAL at a glance">
+          <dl className={`${styles.container} ${styles.proofGrid}`}>
+            <div>
+              <dt>Real code</dt>
+              <dd>Run by a real compiler, not a quiz</dd>
+            </div>
+            <div>
+              <dt>{playableToday} chapters</dt>
+              <dd>Playable today, {curriculum.chapterCount} on the roadmap</dd>
+            </div>
+            <div>
+              <dt>{LANGUAGES.length} languages</dt>
+              <dd>One story in Go, Python, JavaScript, or Rust</dd>
+            </div>
+            <div>
+              <dt>0 installs</dt>
+              <dd>Runs in your browser, saves to your account</dd>
+            </div>
+          </dl>
         </section>
 
         <section
@@ -275,31 +320,17 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
           aria-labelledby="how-heading"
         >
           <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>Learn by doing</p>
-            <h2 id="how-heading">Less watching. More writing code.</h2>
+            <p className={styles.eyebrow}>Why it sticks</p>
+            <h2 id="how-heading">
+              Tutorials let you watch. SIGNAL makes you write.
+            </h2>
             <p>
-              Build understanding through practice, with a clear next step and
-              support along the way.
+              You don’t remember the videos you watched. You remember the
+              problem you solved when something was on the line.
             </p>
           </div>
-          <div className={styles.threeColumns}>
-            {[
-              {
-                icon: Code2,
-                title: "Write code that actually runs",
-                text: "Work with real syntax and see real output. Every challenge gives you a reason to put a new concept into practice.",
-              },
-              {
-                icon: MessageCircle,
-                title: "Get help when you’re stuck",
-                text: "Use step-by-step hints and a built-in tutor to understand mistakes and work toward a solution.",
-              },
-              {
-                icon: Check,
-                title: "Build skills at your pace",
-                text: "Start with the basics, practice as you go, and sign in with Google to save your progress across devices.",
-              },
-            ].map(({ icon: Icon, title, text }) => (
+          <div className={styles.fourColumns}>
+            {PILLARS.map(({ icon: Icon, title, text }) => (
               <article className={styles.feature} key={title}>
                 <span className={styles.featureIcon}>
                   <Icon size={22} aria-hidden="true" />
@@ -312,6 +343,213 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
         </section>
 
         <section
+          className={styles.demoSection}
+          aria-labelledby="demo-heading"
+        >
+          <div className={styles.container}>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>A real mission</p>
+              <h2 id="demo-heading">This is what you’ll actually do.</h2>
+              <p>
+                No slides. A problem, an editor, and Maya on the other end of
+                the line. Here’s one from early in Act I.
+              </p>
+            </div>
+            <div className={styles.demo}>
+              <div className={styles.demoBar}>
+                <span>{demo.chapter.toUpperCase()}</span>
+                <div
+                  className={styles.demoTabs}
+                  role="group"
+                  aria-label="Show the code in"
+                >
+                  {LANGUAGES.map((language) => (
+                    <button
+                      key={language.id}
+                      data-lang={language.id}
+                      aria-pressed={demoLanguage === language.id}
+                      onClick={() => setDemoLanguage(language.id)}
+                    >
+                      {language.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.demoBody}>
+                <div className={styles.demoBrief}>
+                  <p className={styles.demoLabel}>WHY</p>
+                  <p className={styles.demoStake}>{demo.stake}</p>
+                  <p className={styles.demoLabel}>YOUR TASK</p>
+                  <p>{demo.task}</p>
+                </div>
+                <div className={styles.demoCode}>
+                  <p className={styles.demoLabel}>YOUR CODE</p>
+                  <pre>
+                    <code>{demo.code[demoLanguage]}</code>
+                  </pre>
+                </div>
+                <div className={styles.demoResult}>
+                  <p className={styles.demoLabel}>
+                    OUTPUT <span className={styles.demoPass}>✓ MATCHES</span>
+                  </p>
+                  <pre>{demo.output}</pre>
+                  <p className={styles.demoLabel}>MAYA</p>
+                  <p className={styles.demoReply}>{demo.reply}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="curriculum"
+          className={`${styles.section} ${styles.container}`}
+          aria-labelledby="curriculum-heading"
+        >
+          <div className={styles.sectionHeading}>
+            <p className={styles.eyebrow}>What you’ll learn</p>
+            <h2 id="curriculum-heading">
+              From your first line to a full web app.
+            </h2>
+            <p>
+              {curriculum.actCount} acts and {curriculum.chapterCount} chapters,
+              each act ending in a boss fight that tests everything at once.
+              Every chapter you finish leaves you with the pattern you wrote, in
+              your own code.
+            </p>
+          </div>
+          <ol className={styles.outcomes}>
+            {outcomes.map((outcome) => (
+              <li key={outcome.act} data-status={outcome.status}>
+                <span className={styles.outcomeAct}>Act {outcome.act}</span>
+                <div>
+                  <h3>{outcome.name}</h3>
+                  <p>{outcome.concepts.join(" · ")}</p>
+                </div>
+                <span className={styles.outcomeStatus}>
+                  {OUTCOME_LABEL[outcome.status]}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className={styles.languageLinks}>
+            Every chapter built so far plays in Go, Python, and JavaScript;
+            Rust has Act I, with more on the way. Not sure which to pick?{" "}
+            {LANGUAGES.map((language, index) => (
+              <span key={language.id}>
+                {index > 0 && " · "}
+                <Link href={language.href}>Why {language.name}?</Link>
+              </span>
+            ))}
+          </p>
+        </section>
+
+        <section
+          id="pricing"
+          className={styles.pricingSection}
+          aria-labelledby="pricing-heading"
+        >
+          <div className={styles.container}>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>Pricing</p>
+              <h2 id="pricing-heading">
+                Play Act I free. Unlock the rest once.
+              </h2>
+              <p>
+                Full access is ${activePrice}, one time. That’s about $
+                {perChapter} a chapter, with every future act included and no
+                subscription.
+              </p>
+            </div>
+            <div className={styles.pricingGrid}>
+              <article className={styles.freePlan}>
+                <span className={styles.planLabel}>Start here</span>
+                <h3>Act I</h3>
+                <div className={styles.price}>Free</div>
+                <p>Find out if it clicks before you pay a cent.</p>
+                <ul className={styles.checkList}>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> {actOneChapters}{" "}
+                    chapters and a boss fight
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> In Go, Python,
+                    JavaScript, or Rust
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Hints, code feedback,
+                    and Zen notes
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Progress saved with
+                    Google sign-in
+                  </li>
+                </ul>
+                <Link
+                  href="/play"
+                  className={`${styles.button} ${styles.outlineButton}`}
+                  onClick={() => trackLandingCta("play", "pricing")}
+                >
+                  Play Act I free <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+                <span className={styles.planNote}>No credit card required</span>
+              </article>
+              <article className={styles.paidPlan}>
+                <span className={styles.planBadge}>Full access</span>
+                <h3>The whole Go curriculum</h3>
+                <div className={styles.price}>
+                  ${activePrice}
+                  <span>USD · one time</span>
+                </div>
+                <p>
+                  From your first program to concurrency, web servers, and
+                  databases.
+                </p>
+                <ul className={styles.checkList}>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> All {actsWord} acts
+                    and {curriculum.chapterCount} chapters, as each one ships
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> {playableToday}{" "}
+                    chapters playable today
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Every boss fight and
+                    story branch
+                  </li>
+                  <li>
+                    <Check size={18} aria-hidden="true" /> Lifetime access, no
+                    recurring fees
+                  </li>
+                </ul>
+                <button onClick={handlePurchaseClick} className={styles.button}>
+                  Get full access · ${activePrice}{" "}
+                  <ArrowRight size={18} aria-hidden="true" />
+                </button>
+                <span className={styles.planNote}>
+                  Secure checkout by {PAYMENT_PROVIDER}
+                </span>
+              </article>
+            </div>
+            <p className={styles.guarantee}>
+              <ShieldCheck size={22} aria-hidden="true" />
+              <span>
+                <strong>{REFUND_WINDOW_DAYS}-day refund.</strong> If SIGNAL isn’t
+                right for you, email us within {REFUND_WINDOW_DAYS} days of
+                purchase and get your money back.
+              </span>
+            </p>
+            {playerXP != null && playerLevel != null && (
+              <p className={styles.playerStats}>
+                Your progress: {playerXP.toLocaleString()} XP · Level{" "}
+                {playerLevel}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section
           id="classrooms"
           className={styles.teacherSection}
           aria-labelledby="teacher-heading"
@@ -320,13 +558,11 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             <div>
               <p className={styles.eyebrow}>For teachers</p>
               <h2 id="teacher-heading">
-                More time teaching.
-                <br />
-                Less time guessing.
+                Students who want to do the homework.
               </h2>
               <p className={styles.sectionDescription}>
-                Give students a reason to keep practicing. See how everyone is
-                progressing, and know who needs your help.
+                A story gives students a reason to keep going. Your dashboard
+                shows who’s moving and who needs you, before they give up.
               </p>
               <ol className={styles.teacherSteps}>
                 <li>
@@ -354,12 +590,21 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
                   </div>
                 </li>
               </ol>
-              <Link href="/teach" className={styles.button}>
+              <Link
+                href="/teach"
+                className={styles.button}
+                onClick={() => trackLandingCta("teach", "teachers")}
+              >
                 Set up your class <ArrowRight size={18} aria-hidden="true" />
               </Link>
               <p className={styles.teacherFootnote}>
                 Already have a class code?{" "}
-                <Link href="/join">Join your class</Link>
+                <Link
+                  href="/join"
+                  onClick={() => trackLandingCta("join", "teachers")}
+                >
+                  Join your class
+                </Link>
               </p>
             </div>
             <div className={styles.dashboardPreview}>
@@ -439,178 +684,11 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
         </section>
 
         <section
-          id="curriculum"
-          className={`${styles.section} ${styles.container}`}
-          aria-labelledby="curriculum-heading"
-        >
-          <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>What you’ll learn</p>
-            <h2 id="curriculum-heading">
-              Your first line is just the beginning.
-            </h2>
-            <p>
-              Choose a language and practice the fundamentals: variables, loops,
-              functions, and debugging.
-            </p>
-          </div>
-          <div className={`${styles.threeColumns} ${styles.languageGrid}`}>
-            {LANGUAGES.map((language) => (
-              <article className={styles.languageCard} key={language.name}>
-                <span className={styles.languageMark} aria-hidden="true">
-                  <LanguageMascot language={language.id} size={34} />
-                </span>
-                <h3>{language.name}</h3>
-                <p>{language.detail}</p>
-                <p className={styles.languageNote}>
-                  {language.id === "go"
-                    ? `Act I free · Full course: ${curriculum.actCount} acts`
-                    : language.id === "rust"
-                      ? "Act I free · New — more acts on the way"
-                      : "Act I free · Acts II & III arriving now"}
-                </p>
-                <Link className={styles.textLink} href={language.href}>
-                  Why learn {language.name}?{" "}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Link>
-              </article>
-            ))}
-          </div>
-          <details className={styles.curriculum}>
-            <summary>
-              Explore the full Go curriculum <span aria-hidden="true">+</span>
-            </summary>
-            <div className={styles.curriculumContent}>
-              <p>
-                {curriculum.actCount} acts and {curriculum.chapterCount} chapters,
-                each act ending in a boss fight. Act I is free in Go, Python,
-                JavaScript, and Rust. Chapters marked “Coming soon” are still being
-                built.
-              </p>
-              {curriculum.acts.map((act) => (
-                <section key={act.act} className={styles.curriculumAct}>
-                  <h3>
-                    Act {act.act}: {act.name}
-                    {act.act === "I" && <span>Free</span>}
-                  </h3>
-                  <ul>
-                    {act.chapters.map((chapter) => (
-                      <li key={chapter.title}>
-                        <strong>
-                          {chapter.isBoss ? `Boss: ${chapter.title}` : chapter.title}
-                        </strong>
-                        <span>
-                          {chapter.isBoss
-                            ? "Everything from the act, under fire"
-                            : chapter.concepts.join(" · ")}
-                          {!chapter.playable && (
-                            <em className={styles.soon}> · Coming soon</em>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          </details>
-        </section>
-
-        <section
-          id="pricing"
-          className={styles.pricingSection}
-          aria-labelledby="pricing-heading"
-        >
-          <div className={styles.container}>
-            <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>Simple pricing</p>
-              <h2 id="pricing-heading">
-                Start free. Keep going when you’re ready.
-              </h2>
-              <p>
-                Try the first act before you buy. Full access is a one-time
-                payment, with no subscription.
-              </p>
-            </div>
-            <div className={styles.pricingGrid}>
-              <article className={styles.freePlan}>
-                <span className={styles.planLabel}>Try it out</span>
-                <h3>Learn the basics</h3>
-                <div className={styles.price}>Free</div>
-                <p>Get started in Go, Python, JavaScript, or Rust.</p>
-                <ul className={styles.checkList}>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Act I in Go, Python,
-                    JavaScript, and Rust
-                  </li>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Python and
-                    JavaScript: Act I free, Act II arriving now
-                  </li>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Built-in hints and
-                    tutoring
-                  </li>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Save progress with
-                    Google sign-in
-                  </li>
-                </ul>
-                <Link
-                  href="/play"
-                  className={`${styles.button} ${styles.outlineButton}`}
-                >
-                  Start learning free{" "}
-                  <ArrowRight size={18} aria-hidden="true" />
-                </Link>
-                <span className={styles.planNote}>No credit card required</span>
-              </article>
-              <article className={styles.paidPlan}>
-                <span className={styles.planLabel}>Go further</span>
-                <h3>The full Go curriculum</h3>
-                <div className={styles.price}>
-                  ${activePrice}
-                  <span>USD / one-time</span>
-                </div>
-                <p>A complete learning path, from basics to advanced Go.</p>
-                <ul className={styles.checkList}>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> All {actsWord} acts of
-                    the Go curriculum, as each one ships
-                  </li>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Concurrency, web
-                    servers, databases, and more
-                  </li>
-                  <li>
-                    <Check size={18} aria-hidden="true" /> Lifetime access, no
-                    recurring fees
-                  </li>
-                </ul>
-                <button onClick={handlePurchaseClick} className={styles.button}>
-                  Get full access — ${activePrice}{" "}
-                  <ArrowRight size={18} aria-hidden="true" />
-                </button>
-                <span className={styles.planNote}>
-                  Payments by {PAYMENT_PROVIDER} · {REFUND_WINDOW_DAYS}-day
-                  refunds
-                </span>
-              </article>
-            </div>
-            {playerXP != null && playerLevel != null && (
-              <p className={styles.playerStats}>
-                Your progress: {playerXP.toLocaleString()} XP · Level{" "}
-                {playerLevel}
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section
           className={`${styles.section} ${styles.container} ${styles.faqSection}`}
           aria-labelledby="faq-heading"
         >
           <div>
-            <p className={styles.eyebrow}>A few useful answers</p>
+            <p className={styles.eyebrow}>Good questions</p>
             <h2 id="faq-heading">Before you begin.</h2>
             <Link className={styles.textLink} href="/faq">
               More questions? Read the FAQ{" "}
@@ -619,11 +697,28 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
           </div>
           <div className={styles.faqList}>
             <details>
-              <summary>Do I need coding experience?</summary>
+              <summary>Is it a real course, or just a game?</summary>
               <p>
-                No. The introductory challenges start with your first program
-                and build up to loops and functions. Hints and tutoring are
-                available along the way.
+                Both. You write real Go, Python, JavaScript, or Rust, the same
+                languages used at work, and a real compiler or interpreter runs
+                it. The story is there so every program has a reason to exist.
+              </p>
+            </details>
+            <details>
+              <summary>I’ve never coded. Is it for me?</summary>
+              <p>
+                Yes. You start by printing one line and build up to loops and
+                functions. Every task says why it matters before it asks you
+                for code. If you already code, you’ll move fast and pick up a
+                new language’s idioms along the way.
+              </p>
+            </details>
+            <details>
+              <summary>What if I get stuck?</summary>
+              <p>
+                Tap the hint button and pick the question in your head. You get
+                a hint that moves you forward, not a pasted answer. You can test
+                your code as often as you like before sending it.
               </p>
             </details>
             <details>
@@ -634,11 +729,12 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
               </p>
             </details>
             <details>
-              <summary>What’s included for free?</summary>
+              <summary>What if I pay and it’s not for me?</summary>
               <p>
-                The first act is free in Go, Python, JavaScript, and Rust. Sign in
-                with Google to start and save progress across devices. No credit
-                card required.
+                Email{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> within{" "}
+                {REFUND_WINDOW_DAYS} days of purchase for a refund. And since
+                Act I is free, you’ll know whether it clicks before you pay.
               </p>
             </details>
             <details>
@@ -651,19 +747,21 @@ export function Paywall({ curriculum, playerXP, playerLevel }: PaywallProps) {
             </details>
           </div>
         </section>
-        <section className={styles.finalCta}>
+        <section className={styles.finalCta} aria-labelledby="final-heading">
           <div className={styles.container}>
-            <h2>A new skill starts with one line.</h2>
-            <p>Try your first coding challenge today.</p>
+            <p className={styles.finalLine} aria-hidden="true">
+              &gt; is anyone there?<span className={styles.heroCursor}>_</span>
+            </p>
+            <h2 id="final-heading">Maya’s waiting on your first line.</h2>
+            <p>Act I is free. No install, no credit card.</p>
             <div className={styles.finalActions}>
-              <Link href="/play" className={styles.button}>
-                Start learning free <ArrowRight size={18} aria-hidden="true" />
-              </Link>
               <Link
-                href="/teach"
-                className={`${styles.button} ${styles.outlineButton}`}
+                href="/play"
+                className={styles.heroPrimary}
+                onClick={() => trackLandingCta("play", "final")}
               >
-                Set up a class <GraduationCap size={19} aria-hidden="true" />
+                START THE ESCAPE · FREE{" "}
+                <ArrowRight size={18} aria-hidden="true" />
               </Link>
             </div>
           </div>
