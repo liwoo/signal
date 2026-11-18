@@ -489,8 +489,9 @@ function chaptersFor(language: LanguageId): ChapterConfig[] {
 
 /**
  * Shown when a player clears the last chapter built in their language. A route
- * that stops after Act I (Rust, for now) says so plainly and points at the
- * language switch on the chapter intro; the others are waiting on new chapters.
+ * that stops after Act I (none today — kept for the next new language) says so
+ * plainly and points at the language switch on the chapter intro; the others
+ * are waiting on new chapters.
  */
 function endOfRouteNote(language: LanguageId): string {
   const name = getLanguageService(language).label.toLowerCase();

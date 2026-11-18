@@ -34,6 +34,23 @@ async function run(req: RunRequest): Promise<RunResult> {
   return { status: "error", stdout: out.stdout, error: out.stderr.trim() || out.exitDetail || "the program crashed.", warning: "" };
 }
 
+/**
+ * The code `requiredCode` is checked against: comments and `use` lines removed
+ * (strings kept), so an unused `use std::collections::HashSet;` or a `// HashSet`
+ * comment can't stand in for actually using it — same rule as JS/Python imports.
+ */
+export function rustCodeForRequiredCheck(code: string): string {
+  let withoutComments = "";
+  let at = 0;
+  for (const t of tokenize(code)) {
+    if (t.type !== "comment") continue;
+    withoutComments += code.slice(at, t.start) + t.value.replace(/[^\n]/g, "");
+    at = t.end;
+  }
+  withoutComments += code.slice(at);
+  return withoutComments.replace(/^[ \t]*(pub[ \t]+)?use[ \t][^;]*;[ \t]*$/gm, "");
+}
+
 export const rustService: LanguageService = {
   id: "rust",
   label: "Rust",
@@ -52,5 +69,5 @@ export const rustService: LanguageService = {
   explainError: explainRustError,
   explainWarning: (raw, inRush) => `${inRush ? "hurry — " : ""}${raw}`,
   // Like Go, Rust qualifies the name (`cellblock::CELL`), so a hardcoded string can't satisfy it.
-  codeForRequiredCheck: (code) => code,
+  codeForRequiredCheck: rustCodeForRequiredCheck,
 };

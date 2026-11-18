@@ -324,3 +324,273 @@ async def first_responder(alpha, bravo, charlie):
     "chapter-09:timeout": PY["chapter-09:timeout"].replace("timeout=timeout_ms / 1000", "timeout=timeout_ms"),
   },
 };
+
+// ── Rust ──
+
+const RS_HELLO = `fn main() {
+    println!("Hello World");
+}`;
+
+const RS_LOG = `struct Log(String);
+
+impl Drop for Log {
+    fn drop(&mut self) {
+        println!("scanned: {}", self.0);
+    }
+}`;
+
+const RS_SCAN = `use std::collections::HashMap;
+
+${RS_LOG}
+
+fn scan(archive: &HashMap<&str, Vec<&str>>, dir: &str, count: &mut usize) {
+    let _log = Log(dir.to_string());
+    for entry in &archive[dir] {
+        if let Some(sub) = entry.strip_suffix('/') {
+            scan(archive, sub, count);
+        } else {
+            *count += 1;
+        }
+    }
+}
+
+fn scan_archive(archive: &HashMap<&str, Vec<&str>>, root: &str) -> usize {
+    let mut count = 0;
+    scan(archive, root, &mut count);
+    count
+}`;
+
+const RS_CUT = `use std::thread;
+use std::time::Duration;
+
+fn cut(name: &str) {
+    println!("{} circuit: DOWN", name);
+}
+
+fn cut_async(name: &str) {
+    let name = name.to_string();
+    thread::spawn(move || cut(&name));
+}`;
+
+const RS_HAIL = `use std::sync::mpsc::{self, Receiver};
+use std::thread;
+use std::time::Duration;
+
+fn hail(team: &str, delay_ms: u64) -> Receiver<String> {
+    let (tx, rx) = mpsc::channel();
+    let team = team.to_string();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(delay_ms));
+        let _ = tx.send(format!("{} responding", team));
+    });
+    rx
+}`;
+
+const RS_FANIN = `fn fan_in(teams: [Receiver<String>; 3]) -> Receiver<String> {
+    let (tx, rx) = mpsc::channel();
+    for r in teams {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            if let Ok(msg) = r.recv() {
+                let _ = tx.send(msg);
+            }
+        });
+    }
+    rx
+}
+
+fn first_responder(alpha: Receiver<String>, bravo: Receiver<String>, charlie: Receiver<String>) -> String {
+    fan_in([alpha, bravo, charlie]).recv().unwrap()
+}`;
+
+const RS: Solutions = {
+  "chapter-07:scaffold": RS_HELLO,
+  "chapter-07:scan": `${RS_SCAN}
+
+${RS_HELLO}`,
+  "chapter-07:recover": `${RS_SCAN}
+
+fn walk(archive: &HashMap<&str, Option<Vec<&str>>>, dir: &str, count: &mut usize, errors: &mut Vec<String>) -> Result<(), String> {
+    let _log = Log(dir.to_string());
+    let entries = archive[dir].as_ref().ok_or("corrupted directory")?;
+    for entry in entries {
+        if let Some(sub) = entry.strip_suffix('/') {
+            if let Err(e) = walk(archive, sub, count, errors) {
+                errors.push(format!("{}: {}", sub, e));
+            }
+        } else {
+            *count += 1;
+        }
+    }
+    Ok(())
+}
+
+fn safe_scan(archive: &HashMap<&str, Option<Vec<&str>>>, root: &str) -> (usize, Vec<String>) {
+    let mut count = 0;
+    let mut errors = Vec::new();
+    if let Err(e) = walk(archive, root, &mut count, &mut errors) {
+        errors.push(format!("{}: {}", root, e));
+    }
+    (count, errors)
+}
+
+fn main() {
+    println!("{:?}", safe_scan(&HashMap::from([("root", None)]), "root"));
+}`,
+  "chapter-08:scaffold": RS_HELLO,
+  "chapter-08:goroutine": `${RS_CUT}
+
+fn main() {
+    cut_async("East");
+    thread::sleep(Duration::from_millis(10));
+}`,
+  "chapter-08:fanout": `${RS_CUT}
+
+fn cut_all(circuits: &[&str]) -> Vec<String> {
+    let mut handles = Vec::new();
+    for name in circuits {
+        let name = name.to_string();
+        handles.push(thread::spawn(move || format!("{} circuit: DOWN", name)));
+    }
+    handles.into_iter().map(|h| h.join().unwrap()).collect()
+}
+
+fn main() {
+    println!("{:?}", cut_all(&["East"]));
+}`,
+  "chapter-08:window": `${RS_CUT}
+
+fn cut_timed(circuits: &[&str], delays: &[u64]) -> Vec<String> {
+    let mut handles = Vec::new();
+    for (name, &d) in circuits.iter().zip(delays) {
+        let name = name.to_string();
+        handles.push(thread::spawn(move || {
+            thread::sleep(Duration::from_millis(d));
+            format!("{} circuit: DOWN ({}ms)", name, d)
+        }));
+    }
+    handles.into_iter().map(|h| h.join().unwrap()).collect()
+}
+
+fn main() {
+    println!("{:?}", cut_timed(&["East"], &[5]));
+}`,
+  "chapter-09:scaffold": RS_HELLO,
+  "chapter-09:hail": `${RS_HAIL}
+
+fn main() {
+    println!("{}", hail("Delta", 5).recv().unwrap());
+}`,
+  "chapter-09:first": `${RS_HAIL}
+
+${RS_FANIN}
+
+fn main() {
+    println!("{}", first_responder(hail("A", 3), hail("B", 1), hail("C", 2)));
+}`,
+  "chapter-09:timeout": `${RS_HAIL}
+
+${RS_FANIN}
+
+fn await_contact(alpha: Receiver<String>, bravo: Receiver<String>, charlie: Receiver<String>, timeout_ms: u64) -> String {
+    match fan_in([alpha, bravo, charlie]).recv_timeout(Duration::from_millis(timeout_ms)) {
+        Ok(msg) => msg,
+        Err(_) => "NO CONTACT".to_string(),
+    }
+}
+
+fn sweep(ch: &Receiver<String>) -> String {
+    match ch.try_recv() {
+        Ok(msg) => msg,
+        Err(_) => "channel silent".to_string(),
+    }
+}
+
+fn main() {
+    println!("{}", await_contact(hail("A", 3), hail("B", 1), hail("C", 2), 50));
+}`,
+};
+
+export const RS_ACT3 = RS;
+
+/** Shortcuts and the classic mistake each step exists to catch — all must fail. */
+export const RS_ACT3_HARDCODED: Partial<Solutions> = {
+  // Prints after the loop instead of a Drop guard — same output, but no defer.
+  "chapter-07:scan": `use std::collections::HashMap;
+
+fn scan(archive: &HashMap<&str, Vec<&str>>, dir: &str, count: &mut usize) {
+    for entry in &archive[dir] {
+        if let Some(sub) = entry.strip_suffix('/') {
+            scan(archive, sub, count);
+        } else {
+            *count += 1;
+        }
+    }
+    println!("scanned: {}", dir);
+}
+
+fn scan_archive(archive: &HashMap<&str, Vec<&str>>, root: &str) -> usize {
+    let mut count = 0;
+    scan(archive, root, &mut count);
+    count
+}`,
+  // The scan without the guard: the corrupted directory bails before its log line.
+  "chapter-07:recover": `use std::collections::HashMap;
+
+fn walk(archive: &HashMap<&str, Option<Vec<&str>>>, dir: &str, count: &mut usize, errors: &mut Vec<String>) -> Result<(), String> {
+    let entries = archive[dir].as_ref().ok_or("corrupted directory")?;
+    for entry in entries {
+        if let Some(sub) = entry.strip_suffix('/') {
+            if let Err(e) = walk(archive, sub, count, errors) {
+                errors.push(format!("{}: {}", sub, e));
+            }
+        } else {
+            *count += 1;
+        }
+    }
+    println!("scanned: {}", dir);
+    Ok(())
+}
+
+fn safe_scan(archive: &HashMap<&str, Option<Vec<&str>>>, root: &str) -> (usize, Vec<String>) {
+    let mut count = 0;
+    let mut errors = Vec::new();
+    if let Err(e) = walk(archive, root, &mut count, &mut errors) {
+        errors.push(format!("{}: {}", root, e));
+    }
+    (count, errors)
+}`,
+  // Calls cut on the spot — never leaves the main thread.
+  "chapter-08:goroutine": `fn cut(name: &str) {
+    println!("{} circuit: DOWN", name);
+}
+
+fn cut_async(name: &str) {
+    let name = name.to_string();
+    let run = move || cut(&name);
+    run();
+}`,
+  // Spawn-then-join inside the loop: each breaker waits for the last — the sum, not the max.
+  "chapter-08:window": `${RS_CUT}
+
+fn cut_timed(circuits: &[&str], delays: &[u64]) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (name, &d) in circuits.iter().zip(delays) {
+        let name = name.to_string();
+        let h = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(d));
+            format!("{} circuit: DOWN ({}ms)", name, d)
+        });
+        lines.push(h.join().unwrap());
+    }
+    lines
+}`,
+  // Listens to Alpha first — waits on the slow team even though Bravo answered.
+  "chapter-09:first": `${RS_HAIL}
+
+fn first_responder(alpha: Receiver<String>, bravo: Receiver<String>, charlie: Receiver<String>) -> String {
+    let first = alpha.recv().unwrap();
+    let _ = (bravo, charlie);
+    first.clone()
+}`,
+};

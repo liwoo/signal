@@ -8,7 +8,7 @@ import { LANGUAGE_OPTIONS } from "@/lib/lang/registry";
 import { LanguageMascot } from "@/components/ui/LanguageMascot";
 import { isChallengeAvailable } from "@/data/challenges/realizations";
 
-/** A route that stops after Act I (Rust, for now) — Act II opens with Ch 4. */
+/** A route that stops after Act I (none today; kept for the next new language) — Act II opens with Ch 4. */
 const actOneOnly = (id: LanguageId) => !isChallengeAvailable("chapter-04", id);
 
 export function LanguagePicker({ language, highlight, onChange }: {

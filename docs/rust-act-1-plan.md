@@ -55,6 +55,6 @@ A Rust player plays Act I, then the roadmap shows the rest as SOON (`curriculumF
 - `src/lib/rust/rust.test.ts` — tokenizer, lint, harness/module injection, error explanations, real runs on local rustc.
 - `/dev/lang?lang=rust`, `/dev/book?chapter=chapter-01&lang=rust`, `/dev/mascots`.
 
-## 6. Next: Act II in Rust
+## 6. Done since: Acts II–III in Rust (Nov 2026)
 
-Ch 4 GUARD ROSTER → `HashMap<&str, …>` (and `HashSet` where Python/JS use a real set); Ch 4.2 → `chars().rev()` for the rune reversal, `parse::<i32>()` returning a `Result` for bad numbers (closest to Go's `(value, err)`). Add realizations to `data/challenges/rust/act-2.ts`, then banks/zen/notes/fixtures — the tests pick them up automatically once `RUST_REALIZATIONS` lists the chapter.
+Rust now realizes every built chapter — Ch 4 / 4.2 (`data/challenges/rust/act-2.ts`), Ch 7–9 (`act-3.ts`) and the Kira judgment boss (`ALLEGIANCE.rust` in `data/challenges/boss-03.ts`). Banks: `lib/ai/banks/rust-act2.ts`, `rust-act3.ts` (shared readers moved to `rust-read.ts`, so the act files don't import `rust.ts`). The design choices — `HashSet`, `parse` → `Result`, a `Drop` guard for defer, `Result` + `?` for the corrupted directory, real threads on a real clock, `mpsc` first-message-wins in place of `select`, Kira's `Arc::clone` alias — are listed in `spec/infrastructure/languages.md` §Divergences 7–9.

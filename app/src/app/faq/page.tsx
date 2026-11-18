@@ -43,7 +43,7 @@ function faqs(): FAQItem[] {
     },
     {
       q: "Do Python, JavaScript and Rust go beyond Act I?",
-      a: "Python and JavaScript already continue into Acts II and III, with more chapters arriving. Rust is our newest route: Act I is playable now, and later acts are on the way. Act I is free in all of them.",
+      a: "Yes. Every chapter built so far plays in all four languages, through Act III and the Kira boss, with more chapters arriving. Act I is free in all of them.",
     },
     {
       q: "How long does it take?",

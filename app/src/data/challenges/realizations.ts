@@ -1,9 +1,9 @@
 // ── Per-language realizations ──
 // Go is authored inline in the chapter files (it's the spine's own
 // realization). Other languages realize the same steps here. A chapter is
-// playable in a language only when it has a realization for it — Python and
-// JavaScript ship every built chapter; Rust ships Act I (docs/rust-act-1-plan.md).
-// Anything unrealized is Go-only (SOON) in that language until it's authored.
+// playable in a language only when it has a realization for it — Python,
+// JavaScript and Rust ship every built chapter. A chapter added to Go before
+// the others is Go-only (SOON) in those languages until it's authored.
 
 import type { Challenge, ChallengeRealization, LanguageId } from "@/types/game";
 import type { AdventureLevel, BossPhase } from "@/lib/adventure/types";

@@ -205,11 +205,86 @@ else console.log("stream integrity: CORRUPTED - frames mutated after send");`,
 `,
 };
 
-/** Kira's code per language. Act III isn't realized in Rust yet, so Rust has none (the boss is Go-only there). */
-export const ALLEGIANCE: Record<Exclude<LanguageId, "rust">, AllegianceRealization> & Partial<Record<LanguageId, AllegianceRealization>> = {
+// Safe Rust won't compile Go's aliasing bug (a &mut and a & to the same bytes),
+// so Kira says it the way Rust code really leaks shared state: every frame
+// carries an Arc::clone of the one locked buffer — another handle, not a copy —
+// and she keeps writing through the lock after each send.
+const RUST_FRAME = `use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex};
+
+// what goes down the wire: a handle on a buffer, and where this frame starts
+struct Frame {
+    buf: Arc<Mutex<Vec<u8>>>,
+    from: usize,
+}
+
+impl Frame {
+    // what the receiver sees when it finally reads the frame
+    fn read(&self) -> Vec<u8> {
+        self.buf.lock().unwrap()[self.from..].iter().map(|b| *b).collect()
+    }
+}
+`;
+
+const RUST: AllegianceRealization = {
+  kiraCode: [
+    "fn transmit(data: Arc<Mutex<Vec<u8>>>, ch: Sender<Frame>) {",
+    "    let len = data.lock().unwrap().len();",
+    "    for i in 0..len {",
+    "        data.lock().unwrap()[i] ^= 0xFF;",
+    "        ch.send(Frame { buf: Arc::clone(&data), from: i }).unwrap();",
+    "    }",
+    "}",
+  ],
+  suspectLines: [3, 4],
+  acceptableLines: [],
+  syntaxAssist: "`Arc<Mutex<Vec<u8>>>` is one byte buffer behind a lock that several owners can hold. a `Frame` is what the receiver reads later — look at what's inside it.",
+  viewWord: "Arc",
+  fixStarter: `${RUST_FRAME}
+fn transmit_safe(data: Arc<Mutex<Vec<u8>>>, ch: Sender<Frame>) {
+    let len = data.lock().unwrap().len();
+    for i in 0..len {
+        data.lock().unwrap()[i] ^= 0xFF;
+        ch.send(Frame { buf: Arc::clone(&data), from: i }).unwrap();
+    }
+}
+`,
+  fixHarness: `fn main() {
+    let data = Arc::new(Mutex::new(vec![0x10u8, 0x20, 0x30, 0x40]));
+    let (tx, rx) = channel();
+    transmit_safe(Arc::clone(&data), tx);
+    let frames: Vec<Vec<u8>> = rx.iter().map(|f| f.read()).collect();
+    for (i, f) in frames.iter().enumerate() {
+        let hex: Vec<String> = f.iter().map(|b| format!("{:02X}", b)).collect();
+        println!("frame {}: {}", i, hex.join(" "));
+    }
+    if frames[0][1..] == [0x20, 0x30, 0x40] {
+        println!("stream integrity: OK - frames froze at send time");
+    } else {
+        println!("stream integrity: CORRUPTED - frames mutated after send");
+    }
+}`,
+  // The starter's own read() copies with .map(|b| *b) — deliberately not on this list.
+  fixUsesAnyOf: ["to_vec(", "to_owned(", "Vec::from(", "extend_from_slice(", "copy_from_slice(", "clone_from_slice(", ".copied()", ".cloned()"],
+  fixReference: `${RUST_FRAME}
+fn transmit_safe(data: Arc<Mutex<Vec<u8>>>, ch: Sender<Frame>) {
+    let len = data.lock().unwrap().len();
+    for i in 0..len {
+        let mut buf = data.lock().unwrap();
+        buf[i] ^= 0xFF;
+        let frozen = buf[i..].to_vec();
+        ch.send(Frame { buf: Arc::new(Mutex::new(frozen)), from: 0 }).unwrap();
+    }
+}
+`,
+};
+
+/** Kira's code per language. */
+export const ALLEGIANCE: Record<LanguageId, AllegianceRealization> = {
   go: GO,
   python: PYTHON,
   javascript: JAVASCRIPT,
+  rust: RUST,
 };
 
 /** Who speaks on the channel during the encounter, and when. */

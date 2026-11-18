@@ -20,6 +20,7 @@ import { ALLEGIANCE, FIX_EXPECTED_OUTPUT } from "@/data/challenges/boss-03";
 import { getLanguageService } from "@/lib/lang/registry";
 import { usePyodideInNode } from "@/lib/python/node-backend";
 import { replaceMain } from "@/lib/go/harness";
+import { installLocalRustc } from "@/lib/rust/node-backend";
 
 describe("study: marking the suspect lines", () => {
   it("needs both the mutation and the alias, and nothing innocent", () => {
@@ -43,6 +44,10 @@ describe("verdict: grading the explanation", () => {
     "it sends a memoryview, which is a view onto the same bytearray, so when the next iterations flip bytes the earlier frames change too. bytes() would copy it.",
     "subarray doesn't copy — it's a window into the same buffer. she never makes a copy, so every frame she sent gets rewritten by the later xors.",
     "There's no copy made: each frame is an alias of the original data, so they all end up identical to the final state.",
+    // Rust: the frames hold Arc handles on one locked buffer.
+    "Arc::clone doesn't copy the bytes, it just hands out another handle to the same buffer. she keeps xoring through the lock after each send, so frames already sent change.",
+    "every frame holds a clone of the arc, so they all point at the same vec. because the loop keeps flipping bytes after sending, the receiver reads the final state.",
+    "cloning an Arc just bumps the reference count so every frame shares one buffer. send buf[i..].to_vec() instead so each frame gets its own bytes.",
   ];
   for (const text of passes) {
     it(`passes: ${text.slice(0, 50)}…`, () => {
@@ -57,6 +62,8 @@ describe("verdict: grading the explanation", () => {
     "the code is broken and corrupts stuff",
     "it uses xor which is weak encryption, anyone can reverse it so it's not secure.",
     "she's a spy, that's why the frames are bad.",
+    "arc mutex clone to_vec shared",
+    "the mutex is fine, rust is memory safe so there's no bug here.",
   ];
   for (const text of fails) {
     it(`fails: ${text}`, () => {
@@ -69,6 +76,9 @@ describe("verdict: grading the explanation", () => {
     expect(looksLikeCode(code)).toBe(true);
     expect(gradeExplanation(code).passes).toBe(false);
     expect(looksLikeCode("she never copies the frame; it's the same array, so later flips change it.")).toBe(false);
+    const rust = "for i in 0..len {\n    let frozen = buf[i..].to_vec();\n    ch.send(frozen).unwrap();\n}";
+    expect(looksLikeCode(rust)).toBe(true);
+    expect(gradeExplanation(rust).passes).toBe(false);
   });
 });
 
@@ -133,6 +143,9 @@ function runGoLocally(code: string): string {
   }
 }
 
+// Rust compiles with a local rustc in tests; without one its check skips.
+const hasRustc = installLocalRustc();
+
 describe("redemption harness", () => {
   beforeAll(() => {
     usePyodideInNode();
@@ -152,6 +165,22 @@ describe("redemption harness", () => {
       expect(usesCopy(r.fixStarter, r.fixUsesAnyOf)).toBe(false);
     }, 30000);
   }
+
+  it.skipIf(!hasRustc)("rust: Kira's encoder is caught; the copy fix passes", async () => {
+    const r = ALLEGIANCE.rust;
+    const lang = getLanguageService("rust");
+    const kira = await lang.run({ code: r.fixStarter, harness: r.fixHarness });
+    expect(kira.error).toBe("");
+    expect(kira.stdout).toContain("frame 0: EF DF CF BF");
+    expect(kira.stdout).toContain("CORRUPTED");
+    const fixed = await lang.run({ code: r.fixReference, harness: r.fixHarness });
+    expect(fixed.error).toBe("");
+    expect(fixed.stdout.trim()).toBe(FIX_EXPECTED_OUTPUT);
+    // Kira's displayed lines are the starter's encoder, verbatim.
+    expect(r.fixStarter.replace("transmit_safe", "transmit")).toContain(r.kiraCode.join("\n"));
+    expect(usesCopy(lang.codeForRequiredCheck(r.fixReference), r.fixUsesAnyOf)).toBe(true);
+    expect(usesCopy(lang.codeForRequiredCheck(r.fixStarter), r.fixUsesAnyOf)).toBe(false);
+  }, 30000);
 
   it.skipIf(!hasGo)("go: Kira's encoder is caught; the copy fix passes", () => {
     const r = ALLEGIANCE.go;
