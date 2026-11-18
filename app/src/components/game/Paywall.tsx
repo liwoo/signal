@@ -433,8 +433,8 @@ export function Paywall({ pitch, playerXP, playerLevel }: PaywallProps) {
             ))}
           </ol>
           <p className={styles.languageLinks}>
-            Every chapter built so far plays in Go, Python, and JavaScript;
-            Rust has Act I, with more on the way. Not sure which to pick?{" "}
+            Every chapter built so far plays in Go, Python, JavaScript, and
+            Rust. Not sure which to pick?{" "}
             {LANGUAGES.map((language, index) => (
               <span key={language.id}>
                 {index > 0 && " · "}

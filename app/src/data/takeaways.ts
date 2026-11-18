@@ -16,15 +16,15 @@ export interface TransferOption {
   reply: string;
 }
 
-/** Go, Python and JavaScript realize every built chapter; Rust only Act I. */
-export type PerLanguage<T> = Record<Exclude<LanguageId, "rust">, T> & Partial<Record<"rust", T>>;
+/** Every language realizes every built chapter. */
+export type PerLanguage<T> = Record<LanguageId, T>;
 
 export interface ChapterTakeaway {
   /** What the player did, as one plain sentence. */
   headline: string;
   /** The pattern's shape, e.g. "IMPORT → READ → PRINT". */
   pattern: string;
-  /** Where to find the pattern in the player's final code. Rust only for the chapters it realizes (Act I). */
+  /** Where to find the pattern in the player's final code. */
   snippet: PerLanguage<SnippetRule>;
   /** Shown when the player's code doesn't match the snippet rule. */
   fallback: PerLanguage<string>;
@@ -119,11 +119,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+findClearFloor\b/ },
       python: { start: /^\s*def\s+find_clear_floor\b/ },
       javascript: { start: /^\s*(function\s+findClearFloor\b|(const|let|var)\s+findClearFloor\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+find_clear_floor\b/ },
     },
     fallback: {
       go: 'func findClearFloor(guards map[string]string, maxFloor int) string {\n    occupied := map[string]bool{}\n    for _, floor := range guards {\n        occupied[floor] = true\n    }\n    for i := 1; i <= maxFloor; i++ {\n        name := fmt.Sprintf("Floor %d", i)\n        if !occupied[name] {\n            return name\n        }\n    }\n    return ""\n}',
       python: 'def find_clear_floor(guards, max_floor):\n    occupied = set(guards.values())\n    for i in range(1, max_floor + 1):\n        name = f"Floor {i}"\n        if name not in occupied:\n            return name\n    return ""',
       javascript: 'function findClearFloor(guards, maxFloor) {\n  const occupied = new Set(Object.values(guards));\n  for (let i = 1; i <= maxFloor; i++) {\n    const name = `Floor ${i}`;\n    if (!occupied.has(name)) return name;\n  }\n  return "";\n}',
+      rust: "fn find_clear_floor(guards: &HashMap<&str, &str>, max_floor: u32) -> String {\n    let occupied: HashSet<&str> = guards.values().copied().collect();\n    for i in 1..=max_floor {\n        let name = format!(\"Floor {}\", i);\n        if !occupied.contains(name.as_str()) {\n            return name;\n        }\n    }\n    String::new()\n}",
     },
     why: "collect what's taken into a lookup, then walk the options and return the first one that isn't.",
     useIt: "finding a free meeting room, an unused username, the next open port.",
@@ -142,11 +144,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+relayHeader\b/ },
       python: { start: /^\s*def\s+relay_header\b/ },
       javascript: { start: /^\s*(function\s+relayHeader\b|(const|let|var)\s+relayHeader\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+relay_header\b/ },
     },
     fallback: {
       go: 'func relayHeader(floor int, code string) string {\n    n, err := strconv.Atoi(code)\n    if err != nil {\n        return "F" + strconv.Itoa(floor) + "-ERR"\n    }\n    return "F" + strconv.Itoa(floor) + "-C" + strconv.Itoa(n*2)\n}',
       python: 'def relay_header(floor, code):\n    try:\n        n = int(code)\n    except ValueError:\n        return f"F{floor}-ERR"\n    return f"F{floor}-C{n * 2}"',
       javascript: 'function relayHeader(floor, code) {\n  const n = Number(code);\n  if (Number.isNaN(n)) return `F${floor}-ERR`;\n  return `F${floor}-C${n * 2}`;\n}',
+      rust: "fn relay_header(floor: u32, code: &str) -> String {\n    match code.parse::<i32>() {\n        Ok(n) => format!(\"F{}-C{}\", floor, n * 2),\n        Err(_) => format!(\"F{}-ERR\", floor),\n    }\n}",
     },
     why: "input from outside can be wrong. convert it, check whether that worked, and only then use it.",
     useIt: "form fields, query strings, spreadsheet columns — anything a person typed.",
@@ -165,11 +169,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+safeScan\b/ },
       python: { start: /^\s*def\s+safe_scan\b/ },
       javascript: { start: /^\s*(function\s+safeScan\b|(const|let|var)\s+safeScan\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+\w+/, contains: /Result\s*</ },
     },
     fallback: {
       go: 'func safeScan(archive map[string][]string, root string) (int, []string) {\n    count := 0\n    errs := []string{}\n    var scan func(dir string)\n    scan = func(dir string) {\n        defer func() {\n            if r := recover(); r != nil {\n                errs = append(errs, fmt.Sprintf("%s: %v", dir, r))\n            }\n        }()\n        defer fmt.Println("scanned:", dir)\n        if archive[dir] == nil {\n            panic("corrupted directory")\n        }\n        for _, entry := range archive[dir] {\n            if strings.HasSuffix(entry, "/") {\n                scan(strings.TrimSuffix(entry, "/"))\n            } else {\n                count++\n            }\n        }\n    }\n    scan(root)\n    return count, errs\n}',
       python: 'def safe_scan(archive, root):\n    count = 0\n    errors = []\n\n    def scan(d):\n        nonlocal count\n        try:\n            if archive[d] is None:\n                raise RuntimeError("corrupted directory")\n            for entry in archive[d]:\n                if entry.endswith("/"):\n                    scan(entry[:-1])\n                else:\n                    count += 1\n        except Exception as e:\n            errors.append(f"{d}: {e}")\n        finally:\n            print("scanned:", d)\n\n    scan(root)\n    return count, errors',
       javascript: 'function safeScan(archive, root) {\n  let count = 0;\n  const errors = [];\n  function scan(dir) {\n    try {\n      if (archive[dir] === null) throw new Error("corrupted directory");\n      for (const entry of archive[dir]) {\n        if (entry.endsWith("/")) scan(entry.slice(0, -1));\n        else count++;\n      }\n    } catch (e) {\n      errors.push(`${dir}: ${e.message}`);\n    } finally {\n      console.log("scanned:", dir);\n    }\n  }\n  scan(root);\n  return { count, errors };\n}',
+      rust: "fn walk(archive: &HashMap<&str, Option<Vec<&str>>>, dir: &str, count: &mut usize, errors: &mut Vec<String>) -> Result<(), String> {\n    let _log = Log(dir.to_string()); // prints \"scanned:\" when dropped\n    let entries = archive[dir].as_ref().ok_or(\"corrupted directory\")?;\n    for entry in entries {\n        if let Some(sub) = entry.strip_suffix('/') {\n            if let Err(e) = walk(archive, sub, count, errors) {\n                errors.push(format!(\"{}: {}\", sub, e));\n            }\n        } else {\n            *count += 1;\n        }\n    }\n    Ok(())\n}",
     },
     why: "a function that calls itself handles any depth, and catching trouble at each level keeps one bad branch from sinking the whole walk.",
     useIt: "folder sizes, nested comments, org charts, menus — anything that contains smaller copies of itself.",
@@ -188,11 +194,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+cutTimed\b/ },
       python: { start: /^\s*async\s+def\s+cut_timed\b/ },
       javascript: { start: /^\s*(async\s+function\s+cutTimed\b|function\s+cutTimed\b|(const|let|var)\s+cutTimed\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+cut_timed\b/ },
     },
     fallback: {
       go: 'func cutTimed(circuits []string, delays []int) []string {\n    results := make([]string, len(circuits))\n    var wg sync.WaitGroup\n    for i, name := range circuits {\n        wg.Add(1)\n        go func(idx int, n string, d int) {\n            defer wg.Done()\n            time.Sleep(time.Duration(d) * time.Millisecond)\n            results[idx] = fmt.Sprintf("%s circuit: DOWN (%dms)", n, d)\n        }(i, name, delays[i])\n    }\n    wg.Wait()\n    return results\n}',
       python: 'async def cut_timed(circuits, delays):\n    async def trip(n, d):\n        await asyncio.sleep(d / 1000)\n        return f"{n} circuit: DOWN ({d}ms)"\n\n    return await asyncio.gather(*(trip(n, d) for n, d in zip(circuits, delays)))',
       javascript: 'async function cutTimed(circuits, delays) {\n  return Promise.all(\n    circuits.map(async (name, i) => {\n      await sleep(delays[i]);\n      return `${name} circuit: DOWN (${delays[i]}ms)`;\n    }),\n  );\n}',
+      rust: "fn cut_timed(circuits: &[&str], delays: &[u64]) -> Vec<String> {\n    let mut handles = Vec::new();\n    for (name, &d) in circuits.iter().zip(delays) {\n        let name = name.to_string();\n        handles.push(thread::spawn(move || {\n            thread::sleep(Duration::from_millis(d));\n            format!(\"{} circuit: DOWN ({}ms)\", name, d)\n        }));\n    }\n    handles.into_iter().map(|h| h.join().unwrap()).collect()\n}",
     },
     why: "jobs that wait at the same time cost the slowest wait, not the sum of them all.",
     useIt: "loading several web requests at once, resizing a batch of images, checking many servers in one go.",
@@ -211,11 +219,13 @@ export const TAKEAWAYS: Record<string, ChapterTakeaway> = {
       go: { start: /^\s*func\s+awaitContact\b/ },
       python: { start: /^\s*async\s+def\s+await_contact\b/ },
       javascript: { start: /^\s*(async\s+function\s+awaitContact\b|function\s+awaitContact\b|(const|let|var)\s+awaitContact\b)/ },
+      rust: { start: /^\s*(pub\s+)?fn\s+await_contact\b/ },
     },
     fallback: {
       go: 'func awaitContact(alpha, bravo, charlie chan string, timeoutMs int) string {\n    select {\n    case msg := <-alpha:\n        return msg\n    case msg := <-bravo:\n        return msg\n    case msg := <-charlie:\n        return msg\n    case <-time.After(time.Duration(timeoutMs) * time.Millisecond):\n        return "NO CONTACT"\n    }\n}',
       python: 'async def await_contact(alpha, bravo, charlie, timeout_ms):\n    done, pending = await asyncio.wait(\n        [alpha, bravo, charlie], timeout=timeout_ms / 1000, return_when=asyncio.FIRST_COMPLETED\n    )\n    for t in pending:\n        t.cancel()\n    if not done:\n        return "NO CONTACT"\n    return done.pop().result()',
       javascript: 'function awaitContact(alpha, bravo, charlie, timeoutMs) {\n  const deadline = new Promise((resolve) => setTimeout(() => resolve("NO CONTACT"), timeoutMs));\n  return Promise.race([alpha, bravo, charlie, deadline]);\n}',
+      rust: "fn await_contact(alpha: Receiver<String>, bravo: Receiver<String>, charlie: Receiver<String>, timeout_ms: u64) -> String {\n    let (tx, rx) = mpsc::channel();\n    for team in [alpha, bravo, charlie] {\n        let tx = tx.clone();\n        thread::spawn(move || {\n            if let Ok(msg) = team.recv() {\n                let _ = tx.send(msg);\n            }\n        });\n    }\n    match rx.recv_timeout(Duration::from_millis(timeout_ms)) {\n        Ok(msg) => msg,\n        Err(_) => \"NO CONTACT\".to_string(),\n    }\n}",
     },
     why: "ask everyone at once, take whoever answers first, and put a deadline on the wait so a silent line can't freeze you.",
     useIt: "the fastest mirror for a download, a search that stops after two seconds, a page that shows cached data when the network hangs.",

@@ -107,6 +107,13 @@ describe("required-code check ignores import lines", () => {
     expect(py.codeForRequiredCheck(`from cellblock import (\n    CELL,\n)\nprint("x")`)).not.toContain("CELL");
     expect(py.codeForRequiredCheck(`import cellblock\nprint(cellblock.CELL)`)).toContain("cellblock.CELL");
   });
+  it("rust: use lines and comments don't count, code and strings do", () => {
+    const rs = getLanguageService("rust");
+    const vecOnly = `use std::collections::HashSet;\nuse std::sync::{\n    Arc, Mutex,\n};\n// a HashSet would be nicer\nfn main() {\n    /* HashSet */\n    let floors: Vec<&str> = Vec::new();\n}`;
+    expect(rs.codeForRequiredCheck(vecOnly)).not.toMatch(/HashSet|Arc/);
+    expect(rs.codeForRequiredCheck(`use std::collections::HashSet;\nfn main() {\n    let s: HashSet<u8> = HashSet::new();\n}`)).toContain("HashSet::new()");
+    expect(rs.codeForRequiredCheck(`fn main() {\n    println!("// HashSet");\n}`)).toContain("// HashSet");
+  });
 });
 
 describe("completions", () => {

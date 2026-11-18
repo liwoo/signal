@@ -135,6 +135,7 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     byLanguage: {
       python: { title: "Strings & Slices", found: "chapter six. the last one she hid. strings, slices, the cipher." },
       javascript: { title: "Strings & Characters", found: "chapter six. the last one she hid. strings, characters, the cipher." },
+      rust: { title: "Strings & Results", found: "chapter six. the last one she hid. strings, chars, the cipher." },
     },
   },
   // ── Act III: Kira's pages ──
@@ -149,6 +150,9 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     hiddenIn: "clipped inside the archive rack · server room",
     marginNote: "a function that remembers what it saw. useful. so am i. — k.",
     found: "chapter seven. not reeves' handwriting. sharper. someone knew i'd come to this rack. kira.",
+    byLanguage: {
+      rust: { title: "Recursion & Drop", marginNote: "clean up on the way out, whatever happens. so do i. — k." },
+    },
   },
   {
     challengeId: "chapter-08",
@@ -161,6 +165,7 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     byLanguage: {
       python: { title: "Tasks & Gather" },
       javascript: { title: "Promises & the Event Loop" },
+      rust: { title: "Threads & Join" },
     },
   },
   {
@@ -174,6 +179,7 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     byLanguage: {
       python: { title: "Racing Tasks" },
       javascript: { title: "Racing Promises" },
+      rust: { title: "Channels & Timeouts" },
     },
   },
   {
@@ -187,6 +193,7 @@ export const BOOK_CHAPTERS: BookChapter[] = [
     byLanguage: {
       python: { marginNote: "a view is a window, not a copy. ask who else is looking through it. — e.r." },
       javascript: { marginNote: "a subarray is a window, not a copy. ask who else is looking through it. — e.r." },
+      rust: { marginNote: "an Arc is a handle, not a copy. ask who else is holding one. — e.r." },
     },
   },
 ];

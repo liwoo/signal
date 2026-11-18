@@ -64,9 +64,7 @@ describe("chapter takeaways", () => {
       for (const lang of LANGS) {
         const fallback = t.fallback[lang];
         const rule = t.snippet[lang];
-        // Rust realizes Act I only — its takeaways exist exactly for the chapters it plays.
-        expect(Boolean(fallback) && Boolean(rule), `${id} ${lang}`).toBe(lang !== "rust" || isChallengeAvailable(id, "rust"));
-        if (!fallback || !rule) continue;
+        expect(Boolean(fallback) && Boolean(rule), `${id} ${lang}`).toBe(true);
         expect(extractSnippet(fallback, rule, lang === "python"), `${id} ${lang}`).not.toBeNull();
       }
     }

@@ -1,6 +1,6 @@
 import type { ZenExample } from "./zen-examples";
 
-// Before → after for every Rust zen rule (src/lib/game/zen-rust.ts), Act I.
+// Before → after for every Rust zen rule (src/lib/game/zen-rust.ts), Acts I–III.
 export const RUST_ZEN_EXAMPLES: Record<string, ZenExample> = {
   rs_brace_same_line: {
     before: 'fn main()\n{\n    println!("Hello World");\n}',
@@ -116,5 +116,170 @@ export const RUST_ZEN_EXAMPLES: Record<string, ZenExample> = {
     before: "fn validateCode(codes: &[i32]) -> (i32, bool) {",
     after: "fn validate_code(codes: &[i32]) -> (i32, bool) {",
     change: "name functions in snake_case",
+  },
+  rs_line_width: {
+    before: 'fn main() {\n    println!("{} {} {} {} {}", "a very long line", "that keeps going", "past the edge", "of the screen", "and on");\n}',
+    after: 'fn main() {\n    println!(\n        "{} {} {}",\n        "a long line",\n        "broken inside its brackets",\n        "one argument per line",\n    );\n}',
+    change: "keep lines inside 100 columns",
+  },
+  rs_hashmap_from: {
+    before: 'let mut roster = HashMap::new();\nroster.insert("Chen", "Floor 1");\nroster.insert("Alvarez", "Floor 2");\nroster',
+    after: 'HashMap::from([\n    ("Chen", "Floor 1"),\n    ("Alvarez", "Floor 2"),\n])',
+    change: "build the map in one HashMap::from expression",
+  },
+  rs_one_pair_per_line: {
+    before: 'HashMap::from([("Chen", "Floor 1"), ("Alvarez", "Floor 2"),\n    ("Volkov", "Floor 2")])',
+    after: 'HashMap::from([\n    ("Chen", "Floor 1"),\n    ("Alvarez", "Floor 2"),\n    ("Volkov", "Floor 2"),\n])',
+    change: "one pair per line, a comma after each",
+  },
+  rs_map_values: {
+    before: "let occupied: HashSet<&str> = guards.iter().map(|(_, floor)| *floor).collect();",
+    after: "let occupied: HashSet<&str> = guards.values().copied().collect();",
+    change: "ask the map for its values",
+  },
+  rs_collect_set: {
+    before: "let mut occupied = HashSet::new();\nfor floor in guards.values() {\n    occupied.insert(*floor);\n}",
+    after: "let occupied: HashSet<&str> = guards.values().copied().collect();",
+    change: "collect straight into the set",
+  },
+  rs_bool_comparison: {
+    before: "if occupied.contains(name.as_str()) == false {",
+    after: "if !occupied.contains(name.as_str()) {",
+    change: "use the bool directly, no == false",
+  },
+  rs_print_literal: {
+    before: 'println!("{}", "Hello World");',
+    after: 'println!("Hello World");',
+    change: "put the text in the template",
+  },
+  rs_chars_rev: {
+    before: "let bytes: Vec<u8> = s.bytes().rev().collect();\nString::from_utf8(bytes).unwrap()",
+    after: "s.chars().rev().collect()",
+    change: "walk characters, not bytes",
+  },
+  rs_collect_string: {
+    before: "let mut out = String::new();\nfor c in s.chars().rev() {\n    out.push(c);\n}\nout",
+    after: "s.chars().rev().collect()",
+    change: "collect the chain instead of pushing",
+  },
+  rs_split_whitespace: {
+    before: 'msg.split(\' \').map(reverse_word).collect::<Vec<String>>().join(" ")',
+    after: 'msg.split_whitespace().map(reverse_word).collect::<Vec<String>>().join(" ")',
+    change: "split on any run of whitespace",
+  },
+  rs_join_words: {
+    before: 'let mut out = String::new();\nfor w in msg.split_whitespace() {\n    out.push_str(&reverse_word(w));\n    out.push_str(" ");\n}\nout.trim_end().to_string()',
+    after: 'msg.split_whitespace().map(reverse_word).collect::<Vec<String>>().join(" ")',
+    change: "join the words instead of gluing them",
+  },
+  rs_map_by_name: {
+    before: ".map(|w| reverse_word(w))",
+    after: ".map(reverse_word)",
+    change: "pass the function by name",
+  },
+  rs_no_unwrap_parse: {
+    before: 'format!("F{}-C{}", floor, code.parse::<i32>().unwrap() * 2)',
+    after: 'match code.parse::<i32>() {\n    Ok(n) => format!("F{}-C{}", floor, n * 2),\n    Err(_) => format!("F{}-ERR", floor),\n}',
+    change: "match on the Result instead of unwrapping",
+  },
+  rs_format_header: {
+    before: '"F".to_string() + &floor.to_string() + "-C" + &(n * 2).to_string()',
+    after: 'format!("F{}-C{}", floor, n * 2)',
+    change: "build the header with format!",
+  },
+  rs_println_newline: {
+    before: 'print!("Hello World\\n");',
+    after: 'println!("Hello World");',
+    change: "let println! end the line",
+  },
+  rs_named_drop_guard: {
+    before: "let log = Log(dir.to_string());",
+    after: "let _log = Log(dir.to_string());",
+    change: "an underscored name keeps the guard alive, quietly",
+  },
+  rs_strip_suffix: {
+    before: "if entry.ends_with('/') {\n    scan(archive, &entry[..entry.len() - 1], count);\n}",
+    after: "if let Some(sub) = entry.strip_suffix('/') {\n    scan(archive, sub, count);\n}",
+    change: "strip_suffix checks and trims at once",
+  },
+  rs_question_mark: {
+    before: 'let entries = match &archive[dir] {\n    Some(e) => e,\n    None => return Err("corrupted directory".to_string()),\n};',
+    after: 'let entries = archive[dir].as_ref().ok_or("corrupted directory")?;',
+    change: "let ? pass the error up",
+  },
+  rs_errors_not_panics: {
+    before: 'let entries = archive[dir].as_ref().expect("corrupted directory");',
+    after: 'let entries = archive[dir].as_ref().ok_or("corrupted directory")?;',
+    change: "return an Err instead of panicking",
+  },
+  rs_no_unused_use: {
+    before: 'use std::thread;\n\nfn main() {\n    println!("Hello World");\n}',
+    after: 'fn main() {\n    println!("Hello World");\n}',
+    change: "drop the use line nothing needs yet",
+  },
+  rs_reuse_cut: {
+    before: 'thread::spawn(move || println!("{} circuit: DOWN", name));',
+    after: "thread::spawn(move || cut(&name));",
+    change: "run the cut you already wrote",
+  },
+  rs_thread_module_path: {
+    before: "use std::thread::spawn;\n\nspawn(move || cut(&name));",
+    after: "use std::thread;\n\nthread::spawn(move || cut(&name));",
+    change: "call through the thread module",
+  },
+  rs_spawn_all_then_join: {
+    before: 'for name in circuits {\n    let name = name.to_string();\n    let h = thread::spawn(move || format!("{} circuit: DOWN", name));\n    lines.push(h.join().unwrap());\n}',
+    after: 'for name in circuits {\n    let name = name.to_string();\n    handles.push(thread::spawn(move || format!("{} circuit: DOWN", name)));\n}\nhandles.into_iter().map(|h| h.join().unwrap()).collect()',
+    change: "spawn every thread before joining any",
+  },
+  rs_join_collect: {
+    before: "let mut lines = Vec::new();\nfor h in handles {\n    lines.push(h.join().unwrap());\n}\nlines",
+    after: "handles.into_iter().map(|h| h.join().unwrap()).collect()",
+    change: "map the joins and collect them",
+  },
+  rs_sleep_in_thread: {
+    before: "thread::sleep(Duration::from_millis(d));\nhandles.push(thread::spawn(move || format!(\"{} circuit: DOWN ({}ms)\", name, d)));",
+    after: "handles.push(thread::spawn(move || {\n    thread::sleep(Duration::from_millis(d));\n    format!(\"{} circuit: DOWN ({}ms)\", name, d)\n}));",
+    change: "sleep inside the thread, not the loop",
+  },
+  rs_zip_pairs: {
+    before: "for i in 0..circuits.len() {\n    let name = circuits[i].to_string();\n    let d = delays[i];",
+    after: "for (name, &d) in circuits.iter().zip(delays) {\n    let name = name.to_string();",
+    change: "zip the names with their delays",
+  },
+  rs_tight_call: {
+    before: 'fn main () {\n    println! ("Hello World");\n}',
+    after: 'fn main() {\n    println!("Hello World");\n}',
+    change: "no space before the bracket",
+  },
+  rs_from_millis: {
+    before: "thread::sleep(Duration::from_secs(delay_ms / 1000));",
+    after: "thread::sleep(Duration::from_millis(delay_ms));",
+    change: "use from_millis for milliseconds",
+  },
+  rs_mpsc_path: {
+    before: "use std::sync::mpsc::channel;\n\nlet (tx, rx) = channel();",
+    after: "use std::sync::mpsc;\n\nlet (tx, rx) = mpsc::channel();",
+    change: "call channel through mpsc",
+  },
+  rs_loop_the_teams: {
+    before: "let tx_a = tx.clone();\nthread::spawn(move || { /* alpha */ });\nlet tx_b = tx.clone();\nthread::spawn(move || { /* bravo */ });\nthread::spawn(move || { /* charlie */ });",
+    after: "for r in [alpha, bravo, charlie] {\n    let tx = tx.clone();\n    thread::spawn(move || {\n        if let Ok(msg) = r.recv() {\n            let _ = tx.send(msg);\n        }\n    });\n}",
+    change: "one loop over every team",
+  },
+  rs_send_ignore_closed: {
+    before: "tx.send(msg).unwrap();",
+    after: "let _ = tx.send(msg);",
+    change: "let a late send fail quietly",
+  },
+  rs_recv_timeout: {
+    before: "let start = Instant::now();\nloop {\n    if let Ok(msg) = rx.try_recv() {\n        return msg;\n    }\n    if start.elapsed() > deadline {\n        return \"NO CONTACT\".to_string();\n    }\n    thread::sleep(Duration::from_millis(1));\n}",
+    after: "match rx.recv_timeout(Duration::from_millis(timeout_ms)) {\n    Ok(msg) => msg,\n    Err(_) => \"NO CONTACT\".to_string(),\n}",
+    change: "one recv_timeout instead of a polling loop",
+  },
+  rs_sweep_no_wait: {
+    before: "match ch.recv_timeout(Duration::from_millis(10)) {",
+    after: "match ch.try_recv() {",
+    change: "try_recv never waits",
   },
 };

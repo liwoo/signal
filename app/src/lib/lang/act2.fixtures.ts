@@ -139,3 +139,105 @@ def relay_header(floor, code):
     return f"F{floor}-C{int(code) * 2}"`,
   },
 };
+
+// ── Rust ──
+
+const RS_ROSTER = `use std::collections::HashMap;
+
+fn build_roster() -> HashMap<&'static str, &'static str> {
+    HashMap::from([
+        ("Chen", "Floor 1"),
+        ("Alvarez", "Floor 2"),
+        ("Volkov", "Floor 2"),
+        ("Park", "Floor 3"),
+        ("Santos", "Floor 1"),
+    ])
+}`;
+
+const RS_REVERSE = `fn reverse_word(s: &str) -> String {
+    s.chars().rev().collect()
+}`;
+
+const RS_ENCODE = `${RS_REVERSE}
+
+fn encode(msg: &str) -> String {
+    msg.split_whitespace().map(reverse_word).collect::<Vec<String>>().join(" ")
+}`;
+
+const RS_HELLO = `fn main() {
+    println!("Hello World");
+}`;
+
+export const RS_ACT2: Solutions = {
+  "chapter-04:scaffold": RS_HELLO,
+  "chapter-04:guardmap": `${RS_ROSTER}
+
+${RS_HELLO}`,
+  "chapter-04:clearfloors": `use std::collections::HashSet;
+${RS_ROSTER}
+
+fn find_clear_floor(guards: &HashMap<&str, &str>, max_floor: u32) -> String {
+    let occupied: HashSet<&str> = guards.values().copied().collect();
+    for i in 1..=max_floor {
+        let name = format!("Floor {}", i);
+        if !occupied.contains(name.as_str()) {
+            return name;
+        }
+    }
+    String::new()
+}
+
+fn main() {
+    println!("{}", find_clear_floor(&build_roster(), 4));
+}`,
+  "chapter-04.2:scaffold": RS_HELLO,
+  "chapter-04.2:reverseword": `${RS_REVERSE}
+
+fn main() {
+    println!("{}", reverse_word("relay"));
+}`,
+  "chapter-04.2:encode": `${RS_ENCODE}
+
+fn main() {
+    println!("{}", encode("floor is clear"));
+}`,
+  "chapter-04.2:relayheader": `${RS_ENCODE}
+
+fn relay_header(floor: u32, code: &str) -> String {
+    match code.parse::<i32>() {
+        Ok(n) => format!("F{}-C{}", floor, n * 2),
+        Err(_) => format!("F{}-ERR", floor),
+    }
+}
+
+fn main() {
+    println!("{}", relay_header(2, "50"));
+}`,
+};
+
+export const RS_ACT2_HARDCODED: Partial<Solutions> = {
+  "chapter-04:guardmap": `fn main() {
+    println!("Floor 2");
+    println!("Floor 1");
+    println!("5");
+}`,
+  // A Vec instead of a set — right answer, but the step teaches HashSet.
+  "chapter-04:clearfloors": `${RS_ROSTER}
+
+fn find_clear_floor(guards: &HashMap<&str, &str>, max_floor: u32) -> String {
+    let occupied: Vec<&str> = guards.values().copied().collect();
+    for i in 1..=max_floor {
+        let name = format!("Floor {}", i);
+        if !occupied.contains(&name.as_str()) {
+            return name;
+        }
+    }
+    String::new()
+}`,
+  // unwrap() promises the parse can't fail — "abc" panics and the relay goes down.
+  "chapter-04.2:relayheader": `${RS_ENCODE}
+
+fn relay_header(floor: u32, code: &str) -> String {
+    format!("F{}-C{}", floor, code.parse::<i32>().unwrap() * 2)
+}`,
+};

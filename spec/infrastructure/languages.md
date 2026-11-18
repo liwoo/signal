@@ -1,6 +1,6 @@
 # Languages — Go, Python, JavaScript, Rust
 
-**Status:** Acts I–III (built chapters) in Go, Python, JavaScript; Act I in Rust · **Plans:** `docs/cross-language-act-1-plan.md`, `docs/cross-language-act-2-plan.md`, `docs/act-3-plan.md`, `docs/rust-act-1-plan.md`
+**Status:** Acts I–III (every built chapter, incl. both judgment/combat bosses) in Go, Python, JavaScript and Rust · **Plans:** `docs/cross-language-act-1-plan.md`, `docs/cross-language-act-2-plan.md`, `docs/act-3-plan.md`, `docs/rust-act-1-plan.md`
 
 The story is shared. A lesson's *intent* (the step: stake, XP, events, rush, timer) is authored once; its *realization* (brief, hints, quickCheck, starter code, harness, expected output, requiredCode, shipped module) is per language. Go is authored inline in the chapter files and is the spine's own realization.
 
@@ -35,6 +35,7 @@ Consumers resolve a service with `getLanguageService(id)` — never import `lib/
 Act III teaches concurrency, and its harnesses *measure* it (Ch 8: concurrent = max of the delays, sequential = sum). The Go Playground already runs on a fake clock; the other sandboxes now do too:
 
 - **Python** (`lib/python/driver.ts`): main and harness compile with top-level `await` allowed; a coroutine result runs on `_SignalLoop`, a `BaseEventLoop` whose `select(timeout)` advances virtual time. `asyncio.sleep` is instant, `loop.time()` exact. Nothing runnable + nothing scheduled = `RuntimeError: deadlock`. Unawaited tasks are cancelled at the end, never finished (like goroutines when main returns). Output muting follows a `ContextVar`, so tasks the player's own top-level code started stay muted when they run during the harness.
+- **Rust** is the exception: the Playground runs real threads on a real clock, so `thread::sleep` really sleeps. Ch 8/9 harnesses keep delays small (hundreds of ms; tests use single-digit ms) and compare against thresholds with wide margins (Ch 8: 1100ms sequential vs 450ms concurrent). `golden.test.ts` was run 5× in a row to confirm they're not flaky.
 - **JavaScript** (`lib/javascript/runtime.ts`, `executeJs` is now async): main runs inside an async wrapper; `setTimeout`/`setInterval`/`setImmediate`, `Date` and `performance.now` are sandbox-provided on a virtual timer queue. Main runs (muted) until its top-level code settles, then the harness runs as its own phase; timers keep the mute state they were scheduled under. An unsettled top-level await is reported; promises print as `Promise { <pending> }`.
 
 ## Persistence
@@ -47,12 +48,15 @@ Act III teaches concurrency, and its harnesses *measure* it (Ch 8: concurrent = 
 2. Booleans: per-language `expectedOutput` (`Valid: True` in Python).
 3. Scaffold steps print `Hello World` everywhere; in JS/Python they teach "the file is the program".
 4. Boss weapon code is per-language starter code; same spec lines.
-5. Act II (plan §2): Python/JS use a real `set`/`Set` where Go fakes one; string reversal is `s[::-1]` / `[...s]` (JS spread is the []rune twin); bad numbers raise `ValueError` (Python, try/except) or yield `NaN` (JS, `Number.isNaN`) instead of returning an error. JS's roster is a plain object.
+5. Act II (plan §2): Python/JS/Rust use a real `set`/`Set`/`HashSet` where Go fakes one; string reversal is `s[::-1]` / `[...s]` (JS spread is the []rune twin); bad numbers raise `ValueError` (Python, try/except) or yield `NaN` (JS, `Number.isNaN`) instead of returning an error. JS's roster is a plain object.
 6. JS anti-hardcoding: exports are `cell`/`sublevel` (camelCase) so the hardcoded `"CELL B-09 …"` string can't satisfy `requiredCode`. Python requires `cellblock.CELL`/`cellblock.SUBLEVEL`.
+7. Rust Act II: `HashMap::from([...])`, `.get()` → `Option`; reversal is `chars().rev().collect()`; bad numbers are `parse::<i32>()`'s `Err`, handled with `match`.
+8. Rust Act III: Ch 7's recursion is a fn taking `&mut usize`; a struct whose `Drop` prints stands in for `defer`, and the corrupted directory is `Result` + `?` (no panics/recover). Ch 8 is `thread::spawn(move ..)`, fan-out keeps the `JoinHandle`s and joins in order. Ch 9 is `std::sync::mpsc` — no `select`, so every team feeds one channel and the first message wins; `recv_timeout` is the deadline and `try_recv` is `default:`.
+9. Kira in Rust: safe Rust won't compile Go's aliasing bug, so each `Frame` carries an `Arc::clone` of one `Arc<Mutex<Vec<u8>>>` plus an offset — another handle, not a copy — and Kira keeps XORing through the lock after each send. The fix sends `buf[i..].to_vec()` in a fresh `Arc`. The explanation grader knows the Rust words (Arc handle / refcount, `to_vec`).
 
-## Partial languages (Rust)
+## Partial languages
 
-A language may realize only some chapters. `isChallengeAvailable` gates play, the roadmap (`curriculumFor`) shows the rest as SOON, and tests iterate `chaptersRealizedIn(language)` (`lib/lang/fixtures.ts`). Per-language tables that cover every chapter use `PerLanguage<T>` (Rust optional) — `TAKEAWAYS`, `ALLEGIANCE` (falls back to Go). Rust tests compile with a local `rustc` (`installLocalRustc()`), never the Playground; without a toolchain the run-dependent tests skip.
+A language may realize only some chapters (Rust did, Act I only, until Nov 2026; today every language realizes every built chapter). `isChallengeAvailable` gates play, the roadmap (`curriculumFor`) shows the rest as SOON, the language picker tags an Act-I-only route and the end-of-route note points at the language switch, and tests iterate `chaptersRealizedIn(language)` (`lib/lang/fixtures.ts`). `TAKEAWAYS` and `ALLEGIANCE` are `Record<LanguageId, …>` — a new language must fill them. Rust tests compile with a local `rustc` (`installLocalRustc()`), never the Playground; without a toolchain the run-dependent tests skip.
 
 ## QA
 

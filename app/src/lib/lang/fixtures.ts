@@ -13,8 +13,8 @@ import { chapter09 } from "@/data/challenges/chapter-09";
 import { isChallengeAvailable } from "@/data/challenges/realizations";
 import type { Challenge, LanguageId } from "@/types/game";
 import { HARDCODED as ACT1_HARDCODED, SOLUTIONS as ACT1_SOLUTIONS, type Solutions } from "./act1.fixtures";
-import { ACT2_HARDCODED, ACT2_SOLUTIONS } from "./act2.fixtures";
-import { ACT3_HARDCODED, ACT3_SOLUTIONS } from "./act3.fixtures";
+import { ACT2_HARDCODED, ACT2_SOLUTIONS, RS_ACT2, RS_ACT2_HARDCODED } from "./act2.fixtures";
+import { ACT3_HARDCODED, ACT3_SOLUTIONS, RS_ACT3, RS_ACT3_HARDCODED } from "./act3.fixtures";
 
 type NonGo = Exclude<LanguageId, "go">;
 
@@ -24,7 +24,7 @@ export const NON_GO_LANGUAGES: NonGo[] = ["javascript", "python", "rust"];
 /** Regular (non-boss) chapters realized in at least one language beyond Go, in play order. */
 export const REALIZED_CHAPTERS: Challenge[] = [chapter01, chapter02, chapter03, chapter04, chapter04_2, chapter07, chapter08, chapter09];
 
-/** The regular chapters playable in `language` (Rust ships Act I only). */
+/** The regular chapters playable in `language`. */
 export function chaptersRealizedIn(language: LanguageId): Challenge[] {
   return REALIZED_CHAPTERS.filter((c) => isChallengeAvailable(c.id, language));
 }
@@ -32,11 +32,11 @@ export function chaptersRealizedIn(language: LanguageId): Challenge[] {
 export const SOLUTIONS: Record<NonGo, Solutions> = {
   javascript: { ...ACT1_SOLUTIONS.javascript, ...ACT2_SOLUTIONS.javascript, ...ACT3_SOLUTIONS.javascript },
   python: { ...ACT1_SOLUTIONS.python, ...ACT2_SOLUTIONS.python, ...ACT3_SOLUTIONS.python },
-  rust: { ...ACT1_SOLUTIONS.rust },
+  rust: { ...ACT1_SOLUTIONS.rust, ...RS_ACT2, ...RS_ACT3 },
 };
 
 export const HARDCODED: Record<NonGo, Partial<Solutions>> = {
   javascript: { ...ACT1_HARDCODED.javascript, ...ACT2_HARDCODED.javascript, ...ACT3_HARDCODED.javascript },
   python: { ...ACT1_HARDCODED.python, ...ACT2_HARDCODED.python, ...ACT3_HARDCODED.python },
-  rust: { ...ACT1_HARDCODED.rust },
+  rust: { ...ACT1_HARDCODED.rust, ...RS_ACT2_HARDCODED, ...RS_ACT3_HARDCODED },
 };

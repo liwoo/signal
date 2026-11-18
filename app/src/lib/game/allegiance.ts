@@ -39,6 +39,8 @@ export function studyXP(wrongAttempts: number): number {
 // The rubric (spec): (1) shared backing memory / the slice is a view, not a
 // copy, (2) the data is mutated AFTER frames were sent, so sent frames change,
 // (3) no copy is made / copy before sending is the fix. ≥2 of 3 passes.
+// Each language's own words count (Go slices, Python memoryview, JS subarray,
+// Rust's Arc handles and to_vec).
 // Plain-language equivalents count; keyword salad with no causal chain doesn't.
 
 export type Marker = "shared" | "mutation" | "copy";
@@ -62,6 +64,9 @@ const SHARED = [
   /\b(memoryview|subarray|sub-?array|view)\b[^.!?\n]{0,40}\b(same|share|original|underlying|not a copy|no copy|doesn'?t copy|does not copy)\b/,
   /\bby reference\b|\breference(s)? to\b/,
   /\bnot (a |its own |their own )?(cop(y|ies)|separate)\b/,
+  // Rust: an Arc / Rc clone is another handle on the same buffer, not new bytes.
+  /\b(arc|rc)\b[^.!?\n]{0,40}\b(handles?|pointers?|reference count|refcount|same|shar\w*|not a copy|no copy)\b/,
+  /\bhandles?\b[^.!?\n]{0,30}\b(same|shared?|one|original)\b/,
 ];
 
 const MUTATE = /\b(mutat\w*|modif\w*|chang\w*|flip\w*|overwr\w*|rewr\w*|xor\w*|alter\w*|corrupt\w*|edit\w*|writ(e|es|ing)|updat\w*|scrambl\w*|garbl\w*)\b|\^=/;
@@ -73,7 +78,9 @@ const COPY = [
   /\b(should|needs? to|need to|has to|must|fix|would)\b[^.!?\n]{0,40}\bcop(y|ies|ying)\b/,
   /\bmake\b[^.!?\n]{0,30}\bcopy\b|\bcopy\(/,
   /\b(slice\(|\.slice|bytes\(|tobytes|clone|duplicat\w*|snapshot\w*)\b[^.!?\n]{0,40}\b(instead|before|each|frame|fix|freeze|new)\b/,
-  /\b(instead of)\b[^.!?\n]{0,30}\b(subarray|memoryview|view|slice)\b/,
+  /\b(instead of)\b[^.!?\n]{0,30}\b(subarray|memoryview|view|slice|arc::clone|handle)\b/,
+  // Rust's copies: to_vec / to_owned, or a fresh Arc around new bytes.
+  /\b(to_vec|to_owned)\b|\barc::new\b[^.!?\n]{0,40}\b(cop\w*|new|fresh|own|frame)\b/,
 ];
 
 const CAUSAL = /\b(because|so|since|which|that means|therefore|meaning|means|thus|as a result|causing|causes|caused|hence|then|when|while|by the time|so that)\b|->|→/;
